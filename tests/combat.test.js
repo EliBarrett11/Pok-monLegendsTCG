@@ -1,0 +1,271 @@
+// Checks Alert, the "Command an Alert Pokémon" Action, defeat, the Released
+// Pile, the win and the draw, then plays full AI-vs-AI matches to the end.
+// Run with: node tests/combat.test.js
+import assert from 'node:assert/strict';
+import {
+  createGame, applyAction, legalActions, isAlert, alertPokemon, legalTargets, PLAYERS, opponentOf,
+} from '../src/engine/game.js';
+import { cardDefinition } from '../src/engine/cards.js';
+import { chooseAction } from '../src/ai/opponent.js';
+
+// --- Helpers ----------------------------------------------------------------
+
+// Round 1 Battle with the player to act and an empty arena.
+function battle(seed = 1) {
+  let s = createGame(seed);
+  for (const who of PLAYERS) s = applyAction(s, chooseAction(s, who));
+  s = applyAction(s, { type: 'flipCoin' });
+  for (const who of PLAYERS) s = applyAction(s, { type: 'mulligan', who, cardUids: [] });
+  s.turn = 'player';
+  return s;
+}
+
+let nextUid = 0;
+// Puts a Pokémon straight into the arena. Active unless spent: true.
+function place(s, who, zone, space, id, { spent = false, strength } = {}) {
+  const def = cardDefinition(id);
+  const card = { ...def, uid: `test-${nextUid++}`, currentStrength: strength ?? def.strengthValue, spent };
+  s.players[who].zones[zone].pokemon[space] = card;
+  return card;
+}
+const at = (s, who, zone, space) => s.players[who].zones[zone].pokemon[space];
+const command = (s, who, from, target) => applyAction(s, { type: 'command', who, from, target });
+const pk = (zone, space) => ({ kind: 'pokemon', zone, space });
+const tr = (zone) => ({ kind: 'trainer', zone });
+const key = (t) => (t.kind === 'trainer' ? `T${t.zone}` : `P${t.zone}${t.space}`);
+const targetKeys = (s, who, from) => legalTargets(s, who, from).map(key).sort();
+
+// --- Alert ------------------------------------------------------------------
+
+// Swift beats Steady across both sides; once the Swift ones are Spent, Steady is Alert.
+{
+  const s = battle();
+  const mine = place(s, 'player', 0, 0, 'emberkit');        // Swift
+  const theirs = place(s, 'ai', 0, 0, 'brawlix');           // Steady
+  const slow = place(s, 'ai', 0, 1, 'pebblet');             // Slow
+  assert.ok(isAlert(s, mine));
+  assert.ok(!isAlert(s, theirs), 'Steady is not Alert while a Swift Pokémon is Active');
+  assert.deepEqual(alertPokemon(s, 'ai'), []);
+  mine.spent = true;
+  assert.ok(!isAlert(s, mine), 'Spent Pokémon are never Alert');
+  assert.ok(isAlert(s, theirs), 'with the Swift one Spent, Steady becomes Alert');
+  assert.ok(!isAlert(s, slow));
+  theirs.spent = true;
+  assert.ok(isAlert(s, slow), 'and then Slow');
+}
+
+// Alert is recalculated after an Action: attacking makes the attacker Spent.
+{
+  let s = battle();
+  place(s, 'player', 0, 0, 'emberkit');                     // Swift
+  place(s, 'ai', 1, 1, 'brawlix');                           // Steady
+  s = command(s, 'player', { zone: 0, space: 0 }, pk(1, 1));
+  assert.equal(at(s, 'player', 0, 0).spent, true);
+  assert.equal(alertPokemon(s, 'ai').length, 1, 'Brawlix is Alert after the Swift attacker is Spent');
+  assert.ok(legalActions(s, 'ai').includes('command'));
+}
+
+// --- Targeting --------------------------------------------------------------
+
+{
+  const s = battle();
+  place(s, 'player', 0, 0, 'emberkit');                     // Physical
+  place(s, 'player', 0, 1, 'zappip');                       // Special
+  place(s, 'ai', 0, 0, 'pebblet');                          // Defence
+  place(s, 'ai', 1, 0, 'puddlop');                          // Hitpoints
+  place(s, 'ai', 2, 2, 'mothdust', { spent: true });       // Special Defence, Spent
+  assert.deepEqual(targetKeys(s, 'player', { zone: 0, space: 0 }), ['P00'], 'Physical must hit the Defence Pokémon');
+  assert.deepEqual(targetKeys(s, 'player', { zone: 0, space: 1 }), ['P22'], 'Special must hit the Special Defence one, even when Spent');
+  assert.throws(() => command(s, 'player', { zone: 0, space: 0 }, pk(1, 0)), /legal target/);
+  assert.throws(() => command(s, 'player', { zone: 0, space: 0 }, tr(0)), /legal target/);
+}
+
+// No guards: any enemy Pokémon or any Trainer above 0 Strength.
+{
+  const s = battle();
+  place(s, 'player', 0, 0, 'emberkit');
+  place(s, 'ai', 1, 0, 'puddlop');                           // Hitpoints
+  place(s, 'ai', 2, 0, 'zappip');                            // Special Defence: no effect on a Physical attacker
+  assert.deepEqual(targetKeys(s, 'player', { zone: 0, space: 0 }), ['P10', 'P20', 'T0', 'T1', 'T2']);
+  s.players.ai.zones[1].trainer.strength = 0;
+  assert.deepEqual(targetKeys(s, 'player', { zone: 0, space: 0 }), ['P10', 'P20', 'T0', 'T2'], 'a Trainer at 0 cannot be targeted');
+}
+
+// Only your own Alert Pokémon can be Commanded, only on your turn, for no Energy.
+{
+  const s = battle();
+  place(s, 'player', 0, 0, 'emberkit');                     // Swift
+  place(s, 'player', 0, 1, 'brawlix');                       // Steady: Active but not Alert
+  place(s, 'player', 0, 2, 'gustling', { spent: true });     // Swift but Spent
+  place(s, 'ai', 0, 0, 'puddlop');
+  assert.throws(() => command(s, 'player', { zone: 0, space: 1 }, tr(0)), /Alert/);
+  assert.throws(() => command(s, 'player', { zone: 0, space: 2 }, tr(0)), /Alert/);
+  assert.throws(() => command(s, 'ai', { zone: 0, space: 0 }, tr(0)), /cannot/);
+  const after = command(s, 'player', { zone: 0, space: 0 }, tr(0));
+  assert.equal(after.players.player.baseEnergy, s.players.player.baseEnergy, 'no Energy spent');
+  assert.equal(after.players.player.exhaust.length, 0);
+  assert.equal(after.turn, 'ai', 'the Command used the turn');
+  assert.equal(after.passesInARow, 0);
+}
+
+// --- Damage -----------------------------------------------------------------
+
+// Alert vs Alert: both deal damage at once, both become Spent; excess is lost.
+{
+  let s = battle();
+  place(s, 'player', 0, 0, 'duskfang');                      // Swift, Physical 5, HP 7
+  place(s, 'ai', 1, 2, 'gustling');                          // Swift, Physical 3, HP 3
+  s = command(s, 'player', { zone: 0, space: 0 }, pk(1, 2));
+  assert.equal(at(s, 'player', 0, 0).currentStrength, 4, 'took 3 back');
+  assert.equal(at(s, 'player', 0, 0).spent, true);
+  assert.equal(at(s, 'ai', 1, 2), null, 'Gustling defeated');
+  assert.equal(s.players.ai.released.length, 1);
+  assert.equal(s.players.ai.released[0].name, 'Gustling');
+  assert.ok(!s.players.ai.discard.some((c) => c.name === 'Gustling'), 'not the Discard Pile');
+  assert.ok(s.log.some((l) => l.includes('Gustling was Alert and hit back for 3')));
+  assert.ok(s.log.some((l) => l.includes('Gustling was defeated')));
+}
+
+// Non-Alert target (Active but slower, or Spent): no damage back; it stays as it was.
+{
+  let s = battle();
+  place(s, 'player', 0, 0, 'emberkit');                      // Swift, Physical 2
+  place(s, 'ai', 0, 0, 'brawlix');                           // Steady: Active, not Alert
+  place(s, 'ai', 0, 1, 'duskfang', { spent: true });         // Swift but Spent
+  s = command(s, 'player', { zone: 0, space: 0 }, pk(0, 0));
+  assert.equal(at(s, 'ai', 0, 0).currentStrength, 3);
+  assert.equal(at(s, 'ai', 0, 0).spent, false, 'only the attacker becomes Spent');
+  assert.equal(at(s, 'player', 0, 0).currentStrength, 3, 'no damage back');
+
+  let t = battle();
+  place(t, 'player', 0, 0, 'emberkit');
+  place(t, 'ai', 0, 1, 'duskfang', { spent: true });
+  t = command(t, 'player', { zone: 0, space: 0 }, pk(0, 1));
+  assert.equal(at(t, 'ai', 0, 1).currentStrength, 5);
+  assert.equal(at(t, 'player', 0, 0).currentStrength, 3, 'a Spent target never hits back');
+}
+
+// Double defeat in one trade.
+{
+  let s = battle();
+  place(s, 'player', 2, 1, 'emberkit', { strength: 2 });   // Swift, Physical 2
+  place(s, 'ai', 0, 0, 'emberkit', { strength: 1 });
+  s = command(s, 'player', { zone: 2, space: 1 }, pk(0, 0));
+  assert.equal(at(s, 'player', 2, 1), null);
+  assert.equal(at(s, 'ai', 0, 0), null);
+  assert.equal(s.players.player.released.length, 1);
+  assert.equal(s.players.ai.released.length, 1);
+}
+
+// Damage stays between Rounds.
+{
+  let s = battle();
+  place(s, 'player', 0, 0, 'emberkit');
+  place(s, 'ai', 0, 0, 'ironhorn');                          // Defence 8, Slow
+  s = command(s, 'player', { zone: 0, space: 0 }, pk(0, 0));
+  s = applyAction(s, { type: 'pass', who: 'ai' });
+  s = applyAction(s, { type: 'pass', who: 'player' });
+  s = applyAction(s, { type: 'pass', who: s.turn });
+  assert.equal(s.round, 2);
+  assert.equal(at(s, 'ai', 0, 0).currentStrength, 6);
+}
+
+// The Released Pile is never shuffled back into the Draw Pile.
+{
+  let s = battle();
+  place(s, 'player', 0, 0, 'emberkit', { strength: 1 });
+  place(s, 'ai', 0, 0, 'duskfang');
+  s = command(s, 'player', { zone: 0, space: 0 }, pk(0, 0));  // Emberkit is defeated in the trade
+  const p = s.players.player;
+  assert.equal(p.released.length, 1);
+  p.discard.push(...p.drawPile.splice(0), ...p.hand.splice(0));  // force a reshuffle at Breakfast
+  s = applyAction(s, { type: 'pass', who: 'ai' });
+  s = applyAction(s, { type: 'pass', who: 'player' });
+  assert.equal(s.round, 2);
+  const q = s.players.player;
+  assert.ok(s.log.some((l) => l.startsWith('You shuffled your Discard Pile')));
+  assert.equal(q.released.length, 1);
+  const releasedUid = q.released[0].uid;
+  assert.ok(![...q.hand, ...q.drawPile, ...q.discard].some((c) => c.uid === releasedUid));
+}
+
+// --- Win and draw -----------------------------------------------------------
+
+// Trainer Strength stops at 0; the win triggers on the third Trainer reaching 0.
+{
+  let s = battle();
+  place(s, 'player', 0, 0, 'brawlix');                       // Physical 4
+  const enemyTrainers = s.players.ai.zones.map((z) => z.trainer);
+  enemyTrainers[0].strength = 0;
+  enemyTrainers[1].strength = 3;
+  enemyTrainers[2].strength = 0;
+  s = command(s, 'player', { zone: 0, space: 0 }, tr(1));
+  assert.equal(s.players.ai.zones[1].trainer.strength, 0, 'not below 0');
+  assert.equal(s.phase, 'gameOver');
+  assert.equal(s.winner, 'player');
+  assert.equal(s.turn, null);
+  assert.deepEqual(legalActions(s, 'ai'), []);
+  assert.ok(s.log.at(-1).startsWith('You win!'));
+}
+{
+  let s = battle();
+  place(s, 'player', 0, 0, 'brawlix');
+  s.players.ai.zones[0].trainer.strength = 0;
+  s = command(s, 'player', { zone: 0, space: 0 }, tr(1));
+  assert.equal(s.players.ai.zones[1].trainer.strength, 11);
+  assert.equal(s.phase, 'battle', 'two Trainers still standing');
+}
+
+// Draw: no Pokémon left anywhere for either player.
+{
+  let s = battle();
+  for (const who of PLAYERS) {
+    const p = s.players[who];
+    for (const pile of ['hand', 'drawPile', 'discard']) p[pile] = p[pile].filter((c) => c.cardType !== 'Pokémon');
+  }
+  place(s, 'player', 0, 0, 'emberkit', { strength: 2 });
+  place(s, 'ai', 0, 0, 'emberkit', { strength: 2 });
+  s = command(s, 'player', { zone: 0, space: 0 }, pk(0, 0));
+  assert.equal(s.phase, 'gameOver');
+  assert.equal(s.winner, null);
+  assert.ok(s.log.at(-1).startsWith('Draw!'));
+}
+
+// --- AI ---------------------------------------------------------------------
+
+// An Alert Pokémon attacks a random legal target, ahead of playing a Pokémon.
+{
+  const s = battle();
+  s.turn = 'ai';
+  place(s, 'ai', 0, 0, 'emberkit');
+  place(s, 'player', 1, 1, 'pebblet');                       // Defence: the only legal target
+  const action = chooseAction(s, 'ai');
+  assert.equal(action.type, 'command');
+  assert.deepEqual(action.target, pk(1, 1));
+  applyAction(s, action);
+}
+
+// Full AI-vs-AI matches always finish.
+{
+  const results = { player: 0, ai: 0, draw: 0 };
+  let longest = 0;
+  for (let seed = 1; seed <= 200; seed++) {
+    let s = createGame(seed);
+    for (let steps = 0; s.phase !== 'gameOver'; steps++) {
+      assert.ok(steps < 20000 && s.round <= 200, `seed ${seed} did not finish`);
+      const who = PLAYERS.find((w) => legalActions(s, w).length) ?? 'player';
+      s = applyAction(s, chooseAction(s, who) ?? { type: 'flipCoin' });
+      for (const w of PLAYERS) {
+        const p = s.players[w];
+        const inArena = p.zones.flatMap((z) => z.pokemon).filter(Boolean).length;
+        assert.equal(p.hand.length + p.drawPile.length + p.discard.length + p.released.length + inArena, 40, 'no cards lost');
+      }
+    }
+    results[s.winner ?? 'draw'] += 1;
+    longest = Math.max(longest, s.round);
+  }
+  assert.ok(results.player > 0 && results.ai > 0, 'both sides can win');
+  console.log(`200 AI-vs-AI matches finished: ${results.player} / ${results.ai} wins, ${results.draw} draws, longest ${longest} Rounds.`);
+}
+
+console.log('All combat tests passed.');

@@ -7,7 +7,7 @@ The rules as settled while building the game, in match order. The code follows t
 - **Deck:** 40 cards.
 - **Card types:** Pokémon, Strategy, Item, Location, Supporter.
 - **Trainers:** each player has 3 Trainers, kept outside the 40-card deck. Each Trainer has its own **Trainer Strength**.
-- **Piles:** each player has a Draw Pile, a hand and a Discard Pile. The Draw Pile is shuffled before the match.
+- **Piles:** each player has a Draw Pile, a hand, a Discard Pile and a **Released Pile**. The Draw Pile is shuffled before the match. Defeated Pokémon go to the Released Pile, which is never shuffled back into the Draw Pile.
 
 ### 1.1 Pokémon cards
 
@@ -28,8 +28,11 @@ The rules as settled while building the game, in match order. The code follows t
 | Innate Power Keyword | optional |
 | Weather Token | optional |
 
-- A Pokémon in play tracks its **current Strength** separately from its printed Strength Value. It starts equal to the Strength Value.
-- A Pokémon in play is either **Active** or **Spent**. A Spent Pokémon can't be Commanded.
+- A Pokémon in play tracks its **current Strength** separately from its printed Strength Value. It starts equal to the Strength Value. Damage stays between Rounds.
+- A Pokémon in play is either **Active** or **Spent**. Newly played Pokémon arrive Spent; at Breakfast all Spent Pokémon become Active.
+- **Alert:** an Active Pokémon is Alert if its Speed-Tier equals the highest Speed-Tier among *all* Active Pokémon in the arena, both sides combined. Order: **Swift > Steady > Slow**. Alert is recalculated after every Action. Example: my Swift and the opponent's Steady Pokémon are both Active → only mine is Alert; once all Swift Pokémon are Spent, Steady Pokémon become Alert.
+- Only Alert Pokémon can be Commanded.
+- Pokémon Types have no combat effect. Strength-Types matter only for targeting (section 4.2).
 
 Card definitions live in `src/engine/cardData.js`, so real cards can replace the placeholders without code changes.
 
@@ -76,8 +79,21 @@ Every Round, each player:
 - Each turn is exactly **1 Action**. The Actions so far:
   - **Pass.**
   - **Play a Pokémon Card:** play a Pokémon from your hand into any empty Pokémon Space on your side of the arena, paying its Energy Cost (section 5). You can't play it if you can't afford it. It arrives **Spent** and can't be Commanded this Round.
+  - **Command an Alert Pokémon:** choose one of your Alert Pokémon and a legal target. A Command is always an Attack, and costs no Energy. See 4.2.1.
 - Passing doesn't lock a player out: if one player passes and the other takes an Action, the first player gets another turn.
 - The Battle Phase ends when **both players Pass consecutively**.
+
+#### 4.2.1 Attacks
+
+- **Targets:** any opponent Pokémon (Active or Spent) or any opponent Trainer, with these restrictions:
+  - If the opponent has any Pokémon with **Defence** Strength-Type (Active or Spent), a **Physical** attacker must target one of those.
+  - If the opponent has any Pokémon with **Special Defence** Strength-Type (Active or Spent), a **Special** attacker must target one of those.
+  - A Trainer at 0 Strength can't be targeted.
+- **Damage:** the attacker deals its Attack Value to the target's current Strength. Extra damage beyond what the target has left is lost.
+- **Trading damage:** if the target is an **Alert** Pokémon, it deals its Attack Value back to the attacker at the same time, and both become Spent.
+- If the target is a Spent or non-Alert Pokémon, or a Trainer, it takes the damage without hitting back. Only the attacker becomes Spent.
+- **Defeat:** a Pokémon at 0 Strength or less is defeated and goes to its owner's Released Pile. Both Pokémon can be defeated in the same trade.
+- Trainer Strength can't go below 0.
 
 ### 4.3 Supper Phase
 
@@ -102,19 +118,21 @@ Every Round, each player:
   - Spend 1 in Round 1 → position 1 → recovers Round 3.
   - Spend 2 in Round 2 → positions 1 and 2 → recover Rounds 4 and 5. Then spend 1 in Round 3 → position 3 → recovers Round 7. Then spend 1 in Round 4 (position 1 was freed at Round 4 Breakfast) → position 1 → recovers Round 6.
 
-No Action costs Energy yet; this logic is built and tested ahead of time.
+Playing a Pokémon is the only Action that costs Energy so far.
 
-## 6. Winning
+## 6. End of the match
 
-- A player wins immediately when all 3 enemy Trainers are at 0 Strength. (Nothing can reduce Strength yet.)
+- **Win:** a player wins immediately when all 3 opponent Trainers are at 0 Strength.
+- **Draw:** if neither player has a Pokémon left in their arena, hand, Draw Pile or Discard Pile, nobody can deal damage again, so the match ends in a draw.
 
 ## Open questions
 
-- What other Battle Actions are there (for example Commanding a Pokémon), and what do they cost?
-- What do Attack-Type, Strength-Type and Speed-Tier do in combat?
+- What do Strategy, Item, Location and Supporter cards do, and how are they played?
+- Can a Command be anything other than an Attack?
+- Do Trainers do anything besides take damage (abilities, zone effects)?
 - What do Effects, Innate Powers and Weather Tokens do?
+- Can Pokémon heal?
 - Does Rarity limit how many copies go in a deck?
-- How is Trainer Strength reduced?
 - Is there a hand size limit, or any limit on Rounds?
 
 ## Placeholders in the current build
@@ -125,4 +143,4 @@ No Action costs Energy yet; this logic is built and tested ahead of time.
 - Strategy, Item, Location and Supporter cards have only a name and Card-Type.
 - Trainers are named Trainer A, B and C and have no abilities yet.
 - Every Trainer has Strength 15.
-- The AI plays a random Pokémon it can afford with Base Energy alone (it never uses Exert) into a random empty space; otherwise it passes.
+- The AI's turn: if it has an Alert Pokémon, it Commands one at random to attack a random legal target. Otherwise it plays a random Pokémon it can afford with Base Energy alone (it never uses Exert) into a random empty space. Otherwise it passes.

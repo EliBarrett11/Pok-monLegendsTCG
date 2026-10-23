@@ -1,11 +1,11 @@
 // Draws the current game state and turns clicks into actions.
 // Reads state only; all rule changes go through the engine.
 
-import { ZONES, playablePokemon, costPreview } from '../engine/game.js';
+import { ZONES, playablePokemon, costPreview, isAlert, legalTargets } from '../engine/game.js';
 
 // Choices the player is still making before they lock in. Reset whenever the
 // game state changes (the engine returns a new state object for every action).
-const ui = { state: null, placing: null, selectedTrainer: null, mulligan: new Set(), selectedPokemon: null };
+const ui = { state: null, placing: null, selectedTrainer: null, mulligan: new Set(), selectedPokemon: null, attacker: null };
 
 function resetUiFor(state) {
   if (ui.state === state) return;
@@ -14,6 +14,14 @@ function resetUiFor(state) {
   ui.selectedTrainer = null;
   ui.mulligan = new Set();
   ui.selectedPokemon = null;
+  ui.attacker = null;   // { zone, space } of the player's chosen Alert Pokémon
+}
+
+// Legal targets for the chosen attacker, as a Set of 'P<zone><space>' / 'T<zone>' keys.
+function targetKeys(state) {
+  if (!ui.attacker) return new Set();
+  return new Set(legalTargets(state, 'player', ui.attacker)
+    .map((t) => (t.kind === 'trainer' ? `T${t.zone}` : `P${t.zone}${t.space}`)));
 }
 
 const isMyBattleTurn = (state) => state.phase === 'battle' && state.turn === 'player';
@@ -65,6 +73,7 @@ export function render(root, state, actions) {
       ${state.log.map((line) => `<p>${line}</p>`).join('')}
       <button data-action="new-game" class="secondary">New match</button>
     </aside>
+    ${gameOverScreen(state)}
   `;
 
   const logEl = root.querySelector('.log');
@@ -81,6 +90,7 @@ function pileBar(p, hideHand) {
       <span>Draw Pile: ${p.drawPile.length}</span>
       <span>Discard Pile: ${p.discard.length}</span>
       ${hideHand ? `<span>Hand: ${p.hand.length}</span>` : ''}
+      <span>Released Pile: ${p.released.length}</span>
     </div>`;
 }
 
@@ -102,6 +112,8 @@ function trainerRow(state, who) {
     let cls = 'trainer-space';
     if (zone.trainer) {
       content = card(zone.trainer);
+      if (zone.trainer.strength <= 0) cls += ' down';
+      if (who === 'ai' && targetKeys(state).has(`T${i}`)) cls += ' attack-target';
     } else if (who === 'player' && state.phase === 'trainers') {
       const placed = ui.placing[i] && p.trainers.find((t) => t.uid === ui.placing[i]);
       content = placed ? card(placed) : '<span class="empty">Click to place</span>';
@@ -117,14 +129,35 @@ function trainerRow(state, who) {
 function pokemonRow(state, who) {
   const p = state.players[who];
   const placing = who === 'player' && ui.selectedPokemon;
+  const targets = who === 'ai' ? targetKeys(state) : new Set();
+  const myTurn = isMyBattleTurn(state);
   return `<div class="pokemon-row">${p.zones.map((zone, z) => `
     <div class="zone">
       <div class="zone-label">Zone ${z + 1}</div>
       <div class="spaces">${zone.pokemon.map((c, s) => {
-        const target = placing && !c;
-        return `<div class="pokemon-space${target ? ' target' : ''}" data-zone="${z}" data-space="${s}">${c ? boardPokemon(c) : ''}</div>`;
+        let cls = 'pokemon-space';
+        if (placing && !c) cls += ' target';
+        if (targets.has(`P${z}${s}`)) cls += ' attack-target';
+        const alert = c && isAlert(state, c);
+        const opts = {
+          alert,
+          selectable: alert && who === 'player' && myTurn,
+          selected: who === 'player' && ui.attacker?.zone === z && ui.attacker?.space === s,
+        };
+        return `<div class="${cls}" data-zone="${z}" data-space="${s}">${c ? boardPokemon(c, opts) : ''}</div>`;
       }).join('')}</div>
     </div>`).join('')}</div>`;
+}
+
+function gameOverScreen(state) {
+  if (state.phase !== 'gameOver') return '';
+  const [title, text] = state.winner === 'player' ? ['Victory!', 'All 3 enemy Trainers are at 0 Strength.']
+    : state.winner === 'ai' ? ['Defeat', 'All 3 of your Trainers are at 0 Strength.']
+    : ['Draw', 'Neither player has a Pokémon left, so nobody can win.'];
+  return `<div class="game-over"><div class="game-over-box ${state.winner ?? 'draw'}">
+    <h2>${title}</h2><p>${text}</p><p class="hint">Round ${state.round}</p>
+    <button data-action="new-game">New match</button>
+  </div></div>`;
 }
 
 function handCards(state) {
@@ -193,15 +226,17 @@ function pokemonCard(c, opts) {
 }
 
 // Compact Pokémon in a Pokémon Space; all fields are in the tooltip.
-function boardPokemon(c) {
-  return `<div class="card pokemon board rarity-${slug(c.rarity)}${c.spent ? ' spent' : ''}" title="${tooltip(c)}">
+function boardPokemon(c, { alert, ...opts } = {}) {
+  return `<div class="card pokemon board rarity-${slug(c.rarity)}${c.spent ? ' spent' : ''}${alert ? ' alert' : ''}${stateClasses(opts)}" title="${tooltip(c)}">
     <div class="card-head"><span class="card-name">${c.name}</span><span class="cost">${c.energyCost}</span></div>
     <div class="card-type">${c.pokemonType}</div>
     <div class="stats">
       <span title="${c.attackType}">${c.attackType === 'Physical' ? 'Phys' : 'Spec'} <b>${c.attackValue}</b></span>
       <span title="Current / printed ${c.strengthType}">Str <b>${c.currentStrength}/${c.strengthValue}</b></span>
     </div>
+    <div class="card-line">${c.speedTier}</div>
     ${c.spent ? '<div class="spent-badge">Spent</div>' : ''}
+    ${alert ? '<div class="alert-badge">Alert</div>' : ''}
   </div>`;
 }
 
@@ -240,9 +275,11 @@ function controls(state) {
       if (state.turn !== 'player') return '<span>Waiting for opponent…</span>';
       return `<span class="hint">${ui.selectedPokemon
         ? 'Click a highlighted empty space to play it, or click the card again to cancel.'
-        : 'Click a Pokémon in your hand to play it, or Pass.'}</span><button data-action="pass">Pass</button>`;
+        : ui.attacker
+          ? 'Click a highlighted enemy Pokémon or Trainer to attack, or click your Pokémon again to cancel.'
+          : 'Click a Pokémon in your hand to play it, click one of your Alert Pokémon to attack, or Pass.'}</span><button data-action="pass">Pass</button>`;
     case 'gameOver':
-      return `<span>${state.players[state.winner].name} ${state.winner === 'player' ? 'win' : 'wins'}!</span>`;
+      return `<span>${state.winner ? `${state.players[state.winner].name} ${state.winner === 'player' ? 'win' : 'wins'}!` : 'Draw.'}</span>`;
     default:
       return '';
   }
@@ -253,7 +290,7 @@ function controls(state) {
 function wire(root, state, { dispatch, newGame }) {
   const redraw = () => render(root, state, { dispatch, newGame });
 
-  root.querySelector('[data-action="new-game"]').onclick = newGame;
+  root.querySelectorAll('[data-action="new-game"]').forEach((el) => { el.onclick = newGame; });
 
   root.querySelector('[data-action="flip"]')?.addEventListener('click', () =>
     dispatch({ type: 'flipCoin' }));
@@ -295,8 +332,30 @@ function wire(root, state, { dispatch, newGame }) {
         ui.mulligan.has(uid) ? ui.mulligan.delete(uid) : ui.mulligan.add(uid);
       } else {
         ui.selectedPokemon = ui.selectedPokemon === uid ? null : uid;
+        ui.attacker = null;
       }
       redraw();
+    };
+  });
+
+  // Command: pick one of your Alert Pokémon, then a highlighted target.
+  root.querySelectorAll('.player .pokemon-space .card.selectable').forEach((el) => {
+    el.onclick = () => {
+      const space = el.closest('.pokemon-space');
+      const from = { zone: Number(space.dataset.zone), space: Number(space.dataset.space) };
+      const same = ui.attacker?.zone === from.zone && ui.attacker?.space === from.space;
+      ui.attacker = same ? null : from;
+      ui.selectedPokemon = null;
+      redraw();
+    };
+  });
+  root.querySelectorAll('.opponent .attack-target').forEach((el) => {
+    el.onclick = () => {
+      const zone = Number(el.dataset.zone);
+      const target = el.classList.contains('trainer-space')
+        ? { kind: 'trainer', zone }
+        : { kind: 'pokemon', zone, space: Number(el.dataset.space) };
+      dispatch({ type: 'command', who: 'player', from: ui.attacker, target });
     };
   });
 

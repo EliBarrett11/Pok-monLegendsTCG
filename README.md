@@ -26,6 +26,7 @@ No build step: plain HTML, CSS and JavaScript modules. Working rules for each se
 - **Step 1** — match setup: Battle Arena, secret Trainer placement, coin flip for initiative, Round 1 Breakfast draw and mulligan. Stops at the start of the Battle Phase.
 - **Step 2** — Round loop: Rounds run continuously from Breakfast to Battle to Supper. Breakfast sets Base Energy and Exert and draws 7 (reshuffling the Discard Pile when needed). Battle turns are Pass-only; Supper discards hands. Exert/Exhaust payment logic and Trainer Strength (placeholder 15) are in, tested ahead of use.
 - **Step 3** — Pokémon cards and "Play a Pokémon Card": card definitions as data (`src/engine/cardData.js`) with 16 placeholder Pokémon. On your turn, click a Pokémon then an empty space to play it, paying Base Energy first and Exert (after a confirm) for any shortfall. Played Pokémon arrive Spent and become Active at the next Breakfast. The AI plays affordable Pokémon using Base Energy only.
+- **Step 4** — Combat: Command an Alert Pokémon to attack an enemy Pokémon or Trainer, with Defence / Special Defence targeting restrictions and damage traded between two Alert Pokémon. Defeated Pokémon go to the Released Pile. Matches end in a win (all 3 enemy Trainers at 0) or a draw (no Pokémon left on either side), with a victory/defeat screen. A full match is now playable to the end.
 
 Add `?seed=123` to the URL to replay the same shuffle and coin flip.
 

@@ -1,12 +1,18 @@
 // The AI opponent. It reads only what it is allowed to see (its own cards
 // and public information) and returns an action for the engine to apply.
 
-import { legalActions, playablePokemon, emptySpaces } from '../engine/game.js';
+import { legalActions, playablePokemon, emptySpaces, alertPokemon, legalTargets } from '../engine/game.js';
 
 export function chooseAction(state, who = 'ai') {
   const legal = legalActions(state, who);
   if (legal.includes('assignTrainers')) return assignTrainers(state, who);
   if (legal.includes('mulligan')) return mulligan(state, who);
+  // Battle priority: attack with an Alert Pokémon, else play a Pokémon, else pass.
+  if (legal.includes('command')) {
+    const attackers = alertPokemon(state, who).filter((a) => legalTargets(state, who, a).length);
+    const { zone, space } = pick(attackers);
+    return { type: 'command', who, from: { zone, space }, target: pick(legalTargets(state, who, { zone, space })) };
+  }
   if (legal.includes('playPokemon')) {
     const play = playPokemon(state, who);
     if (play) return play;

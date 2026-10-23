@@ -119,7 +119,7 @@ const pass = (s) => applyAction(s, { type: 'pass', who: s.turn });
   const s = toRound1Battle(5);
   const me = s.turn;
   setHand(s, me, ['emberkit']);
-  s.players[me].zones.forEach((z) => { z.pokemon = z.pokemon.map(() => ({ name: 'Blocker' })); });
+  s.players[me].zones.forEach((z) => { z.pokemon = z.pokemon.map(() => ({ name: 'Blocker', spent: true })); });
   assert.equal(emptySpaces(s, me).length, 0);
   assert.deepEqual(legalActions(s, me), ['pass']);
 }
