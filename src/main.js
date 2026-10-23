@@ -4,7 +4,7 @@ import { createGame, applyAction } from './engine/game.js';
 import { chooseAction } from './ai/opponent.js';
 import { render } from './ui/render.js';
 
-export const BUILD = 'Step 1 — match setup';
+export const BUILD = 'Step 2 — Round loop';
 
 document.getElementById('build-tag').textContent = BUILD;
 
@@ -19,10 +19,14 @@ function dispatch(action) {
     alert(err.message);
     return;
   }
-  // In simultaneous steps the AI chooses in secret right away; the engine
-  // only reveals both choices once both players have locked in.
-  const aiAction = chooseAction(state, 'ai');
-  if (aiAction) state = applyAction(state, aiAction);
+  // The AI acts until it's the player's move. In simultaneous steps it
+  // chooses in secret; the engine only reveals both choices once both have
+  // locked in. In Battle it takes each turn that is its own.
+  for (let guard = 0; guard < 100; guard++) {
+    const aiAction = chooseAction(state, 'ai');
+    if (!aiAction) break;
+    state = applyAction(state, aiAction);
+  }
   draw();
 }
 

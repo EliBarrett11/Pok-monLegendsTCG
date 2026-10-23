@@ -28,10 +28,14 @@ export function placeholderDeck(owner) {
   return cards;
 }
 
+// Placeholder until real Trainer cards arrive.
+export const PLACEHOLDER_TRAINER_STRENGTH = 15;
+
 export function placeholderTrainers(owner) {
   return ['A', 'B', 'C'].map((letter) => ({
     uid: `${owner}-trainer-${letter}`,
     name: `Trainer ${letter}`,
     type: 'Trainer',
+    strength: PLACEHOLDER_TRAINER_STRENGTH,
   }));
 }

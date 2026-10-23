@@ -47,7 +47,7 @@ header h1 { margin: 0; font-size: 1.25rem; color: var(--accent); }
   #app { grid-template-columns: 1fr; }
 }
 
-.board { display: grid; gap: 0.75rem; min-width: 0; }
+.board { display: grid; gap: 0.75rem; min-width: 0; align-content: start; }
 .side { display: grid; gap: 0.5rem; }
 
 .piles {
@@ -58,6 +58,9 @@ header h1 { margin: 0; font-size: 1.25rem; color: var(--accent); }
   color: var(--muted);
 }
 .piles strong { color: var(--text); }
+.energy { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; font-size: 0.85rem; color: var(--muted); }
+.energy strong { color: var(--text); }
+.exhaust { margin-right: 0.35rem; padding: 0.05rem 0.4rem; border-radius: 4px; background: var(--panel-2); color: var(--text); }
 
 /* Arena */
 .pokemon-row, .trainer-row {
@@ -105,6 +108,7 @@ header h1 { margin: 0; font-size: 1.25rem; color: var(--accent); }
   border-radius: 8px;
 }
 .phase { font-weight: 600; color: var(--accent); }
+.turn { margin-left: 0.75rem; padding: 0.1rem 0.5rem; border-radius: 4px; background: var(--accent); color: #1a1a1a; font-size: 0.85rem; }
 .initiative { margin-left: 0.75rem; font-weight: 400; color: var(--text); font-size: 0.85rem; }
 .controls { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
 .hint { font-size: 0.8rem; color: var(--muted); }
@@ -138,6 +142,7 @@ button.secondary { background: var(--panel-2); color: var(--text); margin-top: 0
 }
 .card-type { color: var(--muted); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.03em; }
 .card-name { font-weight: 600; }
+.card-stat { margin-top: auto; color: var(--accent); font-weight: 600; }
 .card.selectable { cursor: pointer; }
 .card.selectable:hover { transform: translateY(-3px); }
 .card.selected { outline: 2px solid var(--select); transform: translateY(-6px); }

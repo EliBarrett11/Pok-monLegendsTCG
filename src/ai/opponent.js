@@ -7,6 +7,8 @@ export function chooseAction(state, who = 'ai') {
   const legal = legalActions(state, who);
   if (legal.includes('assignTrainers')) return assignTrainers(state, who);
   if (legal.includes('mulligan')) return mulligan(state, who);
+  // Pass is the only Battle Action so far.
+  if (legal.includes('pass')) return { type: 'pass', who };
   return null;
 }
 

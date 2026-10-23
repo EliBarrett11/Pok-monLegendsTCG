@@ -20,6 +20,7 @@ const PHASE_NAMES = {
   breakfast: 'Breakfast Phase',
   battle: 'Battle Phase',
   supper: 'Supper Phase',
+  gameOver: 'Match over',
 };
 
 export function render(root, state, actions) {
@@ -31,6 +32,7 @@ export function render(root, state, actions) {
     <div class="board">
       <section class="side opponent">
         ${pileBar(them, true)}
+        ${energyBar(them)}
         ${trainerRow(state, 'ai')}
         ${pokemonRow(them)}
       </section>
@@ -38,6 +40,7 @@ export function render(root, state, actions) {
       <section class="status">
         <div class="phase">
           ${state.round ? `Round ${state.round} · ` : ''}${PHASE_NAMES[state.phase]}
+          ${state.turn ? `<span class="turn">${state.turn === 'player' ? 'Your turn' : "AI Opponent's turn"}</span>` : ''}
           ${state.initiative ? `<span class="initiative">Initiative: ${state.players[state.initiative].name}</span>` : ''}
         </div>
         <div class="controls">${controls(state)}</div>
@@ -47,9 +50,10 @@ export function render(root, state, actions) {
         ${pokemonRow(me)}
         ${trainerRow(state, 'player')}
         ${pileBar(me, false)}
+        ${energyBar(me)}
         ${trainerTray(state)}
         <div class="hand">${me.hand.map((c) => card(c, {
-          selectable: state.phase === 'breakfast' && !me.pending,
+          selectable: state.phase === 'breakfast' && state.round === 1 && !me.pending,
           selected: ui.mulligan.has(c.uid),
         })).join('')}</div>
       </section>
@@ -76,6 +80,17 @@ function pileBar(p, hideHand) {
       <span>Draw Pile: ${p.drawPile.length}</span>
       <span>Discard Pile: ${p.discard.length}</span>
       ${hideHand ? `<span>Hand: ${p.hand.length}</span>` : ''}
+    </div>`;
+}
+
+function energyBar(p) {
+  const exhaust = [...p.exhaust].sort((a, b) => a.position - b.position)
+    .map((x) => `<span class="exhaust">P${x.position} → Round ${x.recoversRound}</span>`).join('');
+  return `
+    <div class="energy">
+      <span>Base Energy: <strong>${p.baseEnergy}</strong></span>
+      <span>Exert: <strong>${p.exertMax - p.exhaust.length}/${p.exertMax}</strong></span>
+      <span>Exhaust: ${exhaust || '<strong>0</strong>'}</span>
     </div>`;
 }
 
@@ -120,6 +135,7 @@ function card(c, { selectable = false, selected = false } = {}) {
   return `<div class="card ${typeClass}${selectable ? ' selectable' : ''}${selected ? ' selected' : ''}" data-uid="${c.uid}">
     <div class="card-type">${c.type}</div>
     <div class="card-name">${c.name}</div>
+    ${c.strength !== undefined ? `<div class="card-stat">Strength ${c.strength}</div>` : ''}
   </div>`;
 }
 
@@ -140,7 +156,10 @@ function controls(state) {
         <button data-action="mulligan">${n ? `Mulligan ${n} card${n === 1 ? '' : 's'}` : 'Keep hand'}</button>`;
     }
     case 'battle':
-      return '<span class="hint">Battle Phase turns arrive in the next build.</span>';
+      if (state.turn !== 'player') return '<span>Waiting for opponent…</span>';
+      return '<span class="hint">Pass is the only Action so far.</span><button data-action="pass">Pass</button>';
+    case 'gameOver':
+      return `<span>${state.players[state.winner].name} ${state.winner === 'player' ? 'win' : 'wins'}!</span>`;
     default:
       return '';
   }
@@ -158,6 +177,9 @@ function wire(root, state, { dispatch, newGame }) {
 
   root.querySelector('[data-action="lock-trainers"]')?.addEventListener('click', () =>
     dispatch({ type: 'assignTrainers', who: 'player', order: [...ui.placing] }));
+
+  root.querySelector('[data-action="pass"]')?.addEventListener('click', () =>
+    dispatch({ type: 'pass', who: 'player' }));
 
   root.querySelector('[data-action="mulligan"]')?.addEventListener('click', () =>
     dispatch({ type: 'mulligan', who: 'player', cardUids: [...ui.mulligan] }));

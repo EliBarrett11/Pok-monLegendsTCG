@@ -6,6 +6,7 @@
 
 import { shuffle, nextRandom } from './random.js';
 import { placeholderDeck, placeholderTrainers } from './cards.js';
+import { newEnergy, refreshEnergy } from './energy.js';
 
 export const PLAYERS = ['player', 'ai'];
 export const ZONES = 3;
@@ -15,9 +16,10 @@ export const HAND_SIZE = 7;
 // Phases, in match order.
 //   trainers   - before Round 1: secretly place Trainers, then reveal together
 //   initiative - before Round 1: coin flip for who has initiative
-//   breakfast  - simultaneous: draw, and in Round 1 a mulligan
-//   battle     - alternating turns (next step)
-//   supper     - simultaneous (later step)
+//   breakfast  - simultaneous: Energy, draw 7, and in Round 1 a mulligan
+//   battle     - alternating turns of 1 Action each, until both pass in a row
+//   supper     - simultaneous: discard hands, then the next Round begins
+//   gameOver   - a player has won
 
 export function opponentOf(who) {
   return who === 'player' ? 'ai' : 'player';
@@ -37,6 +39,7 @@ function newPlayer(name, owner, state) {
     })),
     // Choices made in secret during a simultaneous step, revealed together.
     pending: null,
+    ...newEnergy(),
   };
 }
 
@@ -47,6 +50,9 @@ export function createGame(seed = Date.now()) {
     round: 0,
     phase: 'trainers',
     initiative: null,
+    turn: null,          // whose Battle turn it is
+    passesInARow: 0,     // Battle ends at 2
+    winner: null,
     log: [],
   };
   state.players = {
@@ -62,11 +68,28 @@ function log(state, message) {
   state.log.push(message);
 }
 
+// Draws one card at a time. An empty Draw Pile is replaced by the shuffled
+// Discard Pile; if both are empty, drawing stops.
 function draw(state, who, count) {
   const p = state.players[who];
-  const drawn = p.drawPile.splice(0, count);
-  p.hand.push(...drawn);
-  return drawn.length;
+  let drawn = 0;
+  for (let i = 0; i < count; i++) {
+    if (!p.drawPile.length) {
+      if (!p.discard.length) break;
+      p.drawPile = shuffle(state, p.discard);
+      p.discard = [];
+      log(state, `${p.name} shuffled ${who === 'player' ? 'your' : 'their'} Discard Pile to form a new Draw Pile.`);
+    }
+    p.hand.push(p.drawPile.shift());
+    drawn++;
+  }
+  return drawn;
+}
+
+// A player wins immediately when all 3 enemy Trainers are at 0 Strength.
+export function winner(state) {
+  return PLAYERS.find((who) =>
+    state.players[opponentOf(who)].trainers.every((t) => t.strength <= 0)) ?? null;
 }
 
 // --- Actions -------------------------------------------------------------
@@ -79,7 +102,9 @@ export function legalActions(state, who) {
     case 'initiative':
       return ['flipCoin'];
     case 'breakfast':
-      return p.pending ? [] : ['mulligan'];
+      return state.round === 1 && !p.pending ? ['mulligan'] : [];
+    case 'battle':
+      return state.turn === who ? ['pass'] : [];
     default:
       return [];
   }
@@ -93,6 +118,12 @@ export function applyAction(prev, action) {
     throw new Error(`${action.who} cannot ${action.type} during ${state.phase}`);
   }
   handler(state, action);
+  const won = state.phase !== 'gameOver' && winner(state);
+  if (won) {
+    state.phase = 'gameOver';
+    state.winner = won;
+    log(state, `${state.players[won].name} ${won === 'player' ? 'win' : 'wins'}! All 3 enemy Trainers are at 0 Strength.`);
+  }
   return state;
 }
 
@@ -123,6 +154,19 @@ const HANDLERS = {
     p.pending = [...new Set(cardUids)];
     if (PLAYERS.every((w) => state.players[w].pending)) resolveMulligans(state);
   },
+
+  // A Battle turn's Action. The Phase ends when both players pass in a row;
+  // any other Action would reset the count.
+  pass(state, { who }) {
+    log(state, `${state.players[who].name} passed.`);
+    state.passesInARow += 1;
+    if (state.passesInARow >= 2) {
+      log(state, 'Both players passed in a row. Battle Phase ends.');
+      startSupper(state);
+    } else {
+      state.turn = opponentOf(who);
+    }
+  },
 };
 
 function revealTrainers(state) {
@@ -150,10 +194,25 @@ function startBreakfast(state) {
   state.phase = 'breakfast';
   log(state, 'Breakfast Phase.');
   for (const who of PLAYERS) {
+    const p = state.players[who];
+    const recovered = refreshEnergy(p, state.round);
+    if (recovered.length) {
+      log(state, `${p.name} recovered ${recovered.length} Exhaust point${recovered.length === 1 ? '' : 's'} into Exert.`);
+    }
+    log(state, `${p.name}: ${p.baseEnergy} Base Energy, Exert ${p.exertMax - p.exhaust.length}/${p.exertMax}.`);
     const n = draw(state, who, HAND_SIZE);
-    log(state, `${state.players[who].name} drew ${n} cards.`);
+    log(state, `${p.name} drew ${n} card${n === 1 ? '' : 's'}.`);
   }
-  if (state.round === 1) log(state, 'Mulligan: choose any cards to discard and redraw, or keep your hand.');
+  if (state.round === 1) {
+    log(state, 'Mulligan: choose any cards to discard and redraw, or keep your hand.');
+  } else {
+    endBreakfast(state);
+  }
+}
+
+function endBreakfast(state) {
+  log(state, 'Breakfast Phase ends.');
+  startBattle(state);
 }
 
 function resolveMulligans(state) {
@@ -168,10 +227,27 @@ function resolveMulligans(state) {
       ? `${p.name} mulliganed ${chosen.length} card${chosen.length === 1 ? '' : 's'}.`
       : `${p.name} kept ${who === 'player' ? 'your' : 'their'} hand.`);
   }
-  startBattle(state);
+  endBreakfast(state);
 }
 
 function startBattle(state) {
   state.phase = 'battle';
+  state.turn = state.initiative;
+  state.passesInARow = 0;
   log(state, `Battle Phase. ${state.players[state.initiative].name} ${state.initiative === 'player' ? 'act' : 'acts'} first.`);
+}
+
+function startSupper(state) {
+  state.phase = 'supper';
+  state.turn = null;
+  log(state, 'Supper Phase.');
+  for (const who of PLAYERS) {
+    const p = state.players[who];
+    const n = p.hand.length;
+    p.discard.push(...p.hand);
+    p.hand = [];
+    log(state, `${p.name} discarded ${n} card${n === 1 ? '' : 's'} from ${who === 'player' ? 'your' : 'their'} hand.`);
+  }
+  log(state, 'Supper Phase ends.');
+  startRound(state, state.round + 1);
 }

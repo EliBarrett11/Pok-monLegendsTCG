@@ -23,9 +23,12 @@ No build step: plain HTML, CSS and JavaScript modules. Working rules for each se
 
 - **Step 0** — project shell: empty board, turn indicator, game log.
 - **Step 1** — match setup: Battle Arena, secret Trainer placement, coin flip for initiative, Round 1 Breakfast draw and mulligan. Stops at the start of the Battle Phase.
+- **Step 2** — Round loop: Rounds run continuously from Breakfast to Battle to Supper. Breakfast sets Base Energy and Exert and draws 7 (reshuffling the Discard Pile when needed). Battle turns are Pass-only; Supper discards hands. Exert/Exhaust payment logic and Trainer Strength (placeholder 15) are in, tested ahead of use.
 
 Add `?seed=123` to the URL to replay the same shuffle and coin flip.
 
 ## Tests
 
-`node tests/setup.test.js`
+```
+for t in tests/*.test.js; do node $t; done
+```
