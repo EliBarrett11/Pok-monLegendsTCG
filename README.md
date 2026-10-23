@@ -14,7 +14,7 @@ A browser version of Elliott's custom card game, played against an AI opponent. 
 | `src/engine/` | Game rules only. No DOM, so the AI and tests use the same rules. |
 | `src/ai/` | The AI opponent's decision-making. |
 | `src/ui/` | Drawing the board and handling clicks. |
-| `docs/` | The game's rules. |
+| `docs/rules.md` | The game's rules, written as they're settled. |
 | `assets/` | Card art and other images. |
 
 No build step: plain HTML, CSS and JavaScript modules.
@@ -22,3 +22,10 @@ No build step: plain HTML, CSS and JavaScript modules.
 ## Build log
 
 - **Step 0** — project shell: empty board, turn indicator, game log.
+- **Step 1** — match setup: Battle Arena, secret Trainer placement, coin flip for initiative, Round 1 Breakfast draw and mulligan. Stops at the start of the Battle Phase.
+
+Add `?seed=123` to the URL to replay the same shuffle and coin flip.
+
+## Tests
+
+`node tests/setup.test.js`
