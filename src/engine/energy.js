@@ -40,12 +40,17 @@ export function refreshEnergy(p, round) {
   return recovered;
 }
 
-// Pays with Base Energy first; Exert covers only the shortfall. Each Exert
-// point spent becomes an Exhaust point in the fastest free Recovery Position.
+// How a cost would be paid: Base Energy first, Exert only for the shortfall.
+export function splitCost(p, cost) {
+  const fromBase = Math.min(cost, p.baseEnergy);
+  return { fromBase, fromExert: cost - fromBase };
+}
+
+// Pays the cost. Each Exert point spent becomes an Exhaust point in the
+// fastest free Recovery Position.
 export function payCost(p, cost, round) {
   if (!canPay(p, cost)) throw new Error(`Not enough Energy: cost ${cost}`);
-  const fromBase = Math.min(cost, p.baseEnergy);
-  const fromExert = cost - fromBase;
+  const { fromBase, fromExert } = splitCost(p, cost);
   p.baseEnergy -= fromBase;
   for (let i = 0; i < fromExert; i++) {
     const taken = p.exhaust.map((x) => x.position);

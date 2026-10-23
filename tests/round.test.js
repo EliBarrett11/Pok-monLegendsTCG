@@ -70,13 +70,6 @@ for (let seed = 1; seed <= 20; seed++) {
   assert.ok(s.log.includes('Both players passed in a row. Battle Phase ends.'));
 }
 
-// The AI passes on its turn.
-{
-  const s = toRound1Battle(3);
-  assert.deepEqual(chooseAction(s, s.turn), { type: 'pass', who: s.turn });
-  assert.equal(chooseAction(s, opponentOf(s.turn)), null);
-}
-
 // Drawing stops if both Draw Pile and Discard Pile are empty.
 {
   let s = toRound1Battle(6);

@@ -1,13 +1,16 @@
 // The AI opponent. It reads only what it is allowed to see (its own cards
 // and public information) and returns an action for the engine to apply.
 
-import { legalActions } from '../engine/game.js';
+import { legalActions, playablePokemon, emptySpaces } from '../engine/game.js';
 
 export function chooseAction(state, who = 'ai') {
   const legal = legalActions(state, who);
   if (legal.includes('assignTrainers')) return assignTrainers(state, who);
   if (legal.includes('mulligan')) return mulligan(state, who);
-  // Pass is the only Battle Action so far.
+  if (legal.includes('playPokemon')) {
+    const play = playPokemon(state, who);
+    if (play) return play;
+  }
   if (legal.includes('pass')) return { type: 'pass', who };
   return null;
 }
@@ -22,18 +25,33 @@ function assignTrainers(state, who) {
   return { type: 'assignTrainers', who, order };
 }
 
+// Plays a random Pokémon it can afford with Base Energy alone (never Exert)
+// into a random empty space.
+function playPokemon(state, who) {
+  const p = state.players[who];
+  const options = playablePokemon(state, who).filter((c) => c.energyCost <= p.baseEnergy);
+  if (!options.length) return null;
+  const card = pick(options);
+  const { zone, space } = pick(emptySpaces(state, who));
+  return { type: 'playPokemon', who, uid: card.uid, zone, space };
+}
+
+function pick(list) {
+  return list[Math.floor(Math.random() * list.length)];
+}
+
 // Placeholder judgement: wants at least 3 Pokémon in hand. If short, it
 // throws back extra copies of non-Pokémon types, keeping one of each.
 function mulligan(state, who) {
   const hand = state.players[who].hand;
-  const pokemon = hand.filter((c) => c.type === 'Pokémon').length;
+  const pokemon = hand.filter((c) => c.cardType === 'Pokémon').length;
   if (pokemon >= 3) return { type: 'mulligan', who, cardUids: [] };
   const seen = new Set();
   const toss = [];
   for (const card of hand) {
-    if (card.type === 'Pokémon') continue;
-    if (seen.has(card.type)) toss.push(card.uid);
-    else seen.add(card.type);
+    if (card.cardType === 'Pokémon') continue;
+    if (seen.has(card.cardType)) toss.push(card.uid);
+    else seen.add(card.cardType);
   }
   return { type: 'mulligan', who, cardUids: toss };
 }

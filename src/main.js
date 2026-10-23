@@ -4,7 +4,7 @@ import { createGame, applyAction } from './engine/game.js';
 import { chooseAction } from './ai/opponent.js';
 import { render } from './ui/render.js';
 
-export const BUILD = 'Step 2 — Round loop';
+export const BUILD = 'Step 3 — Play a Pokémon';
 
 document.getElementById('build-tag').textContent = BUILD;
 

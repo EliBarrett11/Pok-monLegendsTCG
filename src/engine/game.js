@@ -5,8 +5,8 @@
 // state and never edits the old one.
 
 import { shuffle, nextRandom } from './random.js';
-import { placeholderDeck, placeholderTrainers } from './cards.js';
-import { newEnergy, refreshEnergy } from './energy.js';
+import { buildDeck, placeholderTrainers } from './cards.js';
+import { newEnergy, refreshEnergy, canPay, payCost, splitCost } from './energy.js';
 
 export const PLAYERS = ['player', 'ai'];
 export const ZONES = 3;
@@ -28,7 +28,7 @@ export function opponentOf(who) {
 function newPlayer(name, owner, state) {
   return {
     name,
-    drawPile: shuffle(state, placeholderDeck(owner)),
+    drawPile: shuffle(state, buildDeck(owner)),
     hand: [],
     discard: [],
     trainers: placeholderTrainers(owner),
@@ -92,6 +92,38 @@ export function winner(state) {
     state.players[opponentOf(who)].trainers.every((t) => t.strength <= 0)) ?? null;
 }
 
+// --- Questions the UI and AI ask ------------------------------------------
+
+// Empty Pokémon Spaces on this player's side, as { zone, space }.
+export function emptySpaces(state, who) {
+  const spaces = [];
+  state.players[who].zones.forEach((z, zone) => z.pokemon.forEach((c, space) => {
+    if (!c) spaces.push({ zone, space });
+  }));
+  return spaces;
+}
+
+// Pokémon in hand this player could play right now (affordable, with room).
+export function playablePokemon(state, who) {
+  const p = state.players[who];
+  if (!emptySpaces(state, who).length) return [];
+  return p.hand.filter((c) => c.cardType === 'Pokémon' && canPay(p, c.energyCost));
+}
+
+// How playing this card would be paid: { fromBase, fromExert }.
+export function costPreview(state, who, uid) {
+  const p = state.players[who];
+  const c = p.hand.find((h) => h.uid === uid);
+  return splitCost(p, c.energyCost);
+}
+
+function describePayment({ fromBase, fromExert }) {
+  const parts = [];
+  if (fromBase || !fromExert) parts.push(`${fromBase} Base Energy`);
+  if (fromExert) parts.push(`${fromExert} Exert`);
+  return parts.join(' + ');
+}
+
 // --- Actions -------------------------------------------------------------
 
 export function legalActions(state, who) {
@@ -104,7 +136,8 @@ export function legalActions(state, who) {
     case 'breakfast':
       return state.round === 1 && !p.pending ? ['mulligan'] : [];
     case 'battle':
-      return state.turn === who ? ['pass'] : [];
+      if (state.turn !== who) return [];
+      return playablePokemon(state, who).length ? ['pass', 'playPokemon'] : ['pass'];
     default:
       return [];
   }
@@ -155,19 +188,37 @@ const HANDLERS = {
     if (PLAYERS.every((w) => state.players[w].pending)) resolveMulligans(state);
   },
 
-  // A Battle turn's Action. The Phase ends when both players pass in a row;
-  // any other Action would reset the count.
+  // Battle Action: play a Pokémon from hand into an empty Pokémon Space on
+  // your side, paying its Energy Cost. It arrives Spent.
+  playPokemon(state, { who, uid, zone, space }) {
+    const p = state.players[who];
+    const c = p.hand.find((h) => h.uid === uid);
+    if (!c || c.cardType !== 'Pokémon') throw new Error('Choose a Pokémon from your hand');
+    if (p.zones[zone]?.pokemon[space] !== null) throw new Error('Choose an empty Pokémon Space');
+    if (!canPay(p, c.energyCost)) throw new Error(`Not enough Energy to play ${c.name}`);
+    const paid = payCost(p, c.energyCost, state.round);
+    p.hand = p.hand.filter((h) => h !== c);
+    p.zones[zone].pokemon[space] = { ...c, currentStrength: c.strengthValue, spent: true };
+    log(state, `${p.name} played ${c.name} into Zone ${zone + 1}, Space ${space + 1}, paying ${describePayment(paid)}.`);
+    endTurn(state, who, false);
+  },
+
+  // A Battle turn's Action. The Phase ends when both players pass in a row.
   pass(state, { who }) {
     log(state, `${state.players[who].name} passed.`);
-    state.passesInARow += 1;
-    if (state.passesInARow >= 2) {
-      log(state, 'Both players passed in a row. Battle Phase ends.');
-      startSupper(state);
-    } else {
-      state.turn = opponentOf(who);
-    }
+    endTurn(state, who, true);
   },
 };
+
+function endTurn(state, who, passed) {
+  state.passesInARow = passed ? state.passesInARow + 1 : 0;
+  if (state.passesInARow >= 2) {
+    log(state, 'Both players passed in a row. Battle Phase ends.');
+    startSupper(state);
+  } else {
+    state.turn = opponentOf(who);
+  }
+}
 
 function revealTrainers(state) {
   for (const who of PLAYERS) {
@@ -200,6 +251,9 @@ function startBreakfast(state) {
       log(state, `${p.name} recovered ${recovered.length} Exhaust point${recovered.length === 1 ? '' : 's'} into Exert.`);
     }
     log(state, `${p.name}: ${p.baseEnergy} Base Energy, Exert ${p.exertMax - p.exhaust.length}/${p.exertMax}.`);
+    const readied = p.zones.flatMap((z) => z.pokemon).filter((c) => c?.spent);
+    readied.forEach((c) => { c.spent = false; });
+    if (readied.length) log(state, `${who === 'player' ? 'Your' : `${p.name}'s`} Spent Pokémon became Active: ${readied.map((c) => c.name).join(', ')}.`);
     const n = draw(state, who, HAND_SIZE);
     log(state, `${p.name} drew ${n} card${n === 1 ? '' : 's'}.`);
   }

@@ -9,6 +9,30 @@ The rules as settled while building the game, in match order. The code follows t
 - **Trainers:** each player has 3 Trainers, kept outside the 40-card deck. Each Trainer has its own **Trainer Strength**.
 - **Piles:** each player has a Draw Pile, a hand and a Discard Pile. The Draw Pile is shuffled before the match.
 
+### 1.1 Pokémon cards
+
+| Field | Values |
+|---|---|
+| Name | |
+| Card-Type | Pokémon |
+| Energy Cost | number |
+| Pokémon Type | one of the 18 standard types: Normal, Fire, Water, Grass, Electric, Ice, Fighting, Poison, Ground, Flying, Psychic, Bug, Rock, Ghost, Dragon, Dark, Steel, Fairy |
+| Image | card art |
+| Attack-Type | Physical or Special |
+| Attack Value | number |
+| Strength-Type | Hitpoints, Defence or Special Defence |
+| Strength Value | number: the Pokémon's health |
+| Speed-Tier | Slow, Steady or Swift |
+| Effect Trigger Word + Effect Text | optional |
+| Rarity-Tier | Common (grey), Uncommon (green), Rare (blue), Epic (purple), Legendary (orange) |
+| Innate Power Keyword | optional |
+| Weather Token | optional |
+
+- A Pokémon in play tracks its **current Strength** separately from its printed Strength Value. It starts equal to the Strength Value.
+- A Pokémon in play is either **Active** or **Spent**. A Spent Pokémon can't be Commanded.
+
+Card definitions live in `src/engine/cardData.js`, so real cards can replace the placeholders without code changes.
+
 ## 2. The Battle Arena
 
 - Each player has a horizontal row of **9 Pokémon Spaces**.
@@ -39,16 +63,19 @@ Initiative switches to the other player at the start of each new Round.
 Every Round, each player:
 
 1. **Recovers Exhaust** that is due this Round (see section 5).
-2. **Base Energy** is set to the Round number, with a maximum of 10. Unspent Base Energy does not carry over.
-3. **Exert maximum** goes up by 1 each Round, to a limit of 3 (Round 1 = 1, Round 2 = 2, Round 3 onward = 3). Unspent Exert carries over.
-4. **Draws 7 cards**, one at a time. If the Draw Pile is empty when a card needs drawing, shuffle the Discard Pile to form a new Draw Pile, then keep drawing. If both piles are empty, drawing stops and the player keeps a smaller hand.
+2. **Spent Pokémon become Active** again.
+3. **Base Energy** is set to the Round number, with a maximum of 10. Unspent Base Energy does not carry over.
+4. **Exert maximum** goes up by 1 each Round, to a limit of 3 (Round 1 = 1, Round 2 = 2, Round 3 onward = 3). Unspent Exert carries over.
+5. **Draws 7 cards**, one at a time. If the Draw Pile is empty when a card needs drawing, shuffle the Discard Pile to form a new Draw Pile, then keep drawing. If both piles are empty, drawing stops and the player keeps a smaller hand.
 
 **Mulligan (Round 1 only):** each player may put any number of cards from their hand into their Discard Pile, then draw the same number from their Draw Pile. Both players choose in secret and reveal together.
 
 ### 4.2 Battle Phase
 
 - Players alternate turns, starting with the player who has initiative.
-- Each turn is exactly **1 Action**. For now the only Action is **Pass**.
+- Each turn is exactly **1 Action**. The Actions so far:
+  - **Pass.**
+  - **Play a Pokémon Card:** play a Pokémon from your hand into any empty Pokémon Space on your side of the arena, paying its Energy Cost (section 5). You can't play it if you can't afford it. It arrives **Spent** and can't be Commanded this Round.
 - Passing doesn't lock a player out: if one player passes and the other takes an Action, the first player gets another turn.
 - The Battle Phase ends when **both players Pass consecutively**.
 
@@ -83,13 +110,19 @@ No Action costs Energy yet; this logic is built and tested ahead of time.
 
 ## Open questions
 
-- What Actions besides Pass can a player take on a Battle turn, and what do they cost?
+- What other Battle Actions are there (for example Commanding a Pokémon), and what do they cost?
+- What do Attack-Type, Strength-Type and Speed-Tier do in combat?
+- What do Effects, Innate Powers and Weather Tokens do?
+- Does Rarity limit how many copies go in a deck?
 - How is Trainer Strength reduced?
 - Is there a hand size limit, or any limit on Rounds?
 
 ## Placeholders in the current build
 
 - Decks are 16 Pokémon, 8 Strategy, 8 Item, 4 Location and 4 Supporter cards. This mix is a stand-in, not a rule.
+- The 16 Pokémon are invented placeholders, one of each per deck, with the same list for both players. Stats: Energy Cost 1–6, Attack 1–6, Strength 2–10.
+- Placeholder art is a box tinted by Pokémon Type. Effect, Innate Power and Weather text on placeholders is sample text and does nothing.
+- Strategy, Item, Location and Supporter cards have only a name and Card-Type.
 - Trainers are named Trainer A, B and C and have no abilities yet.
 - Every Trainer has Strength 15.
-- The AI passes on every Battle turn.
+- The AI plays a random Pokémon it can afford with Base Energy alone (it never uses Exert) into a random empty space; otherwise it passes.
