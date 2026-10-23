@@ -17,7 +17,7 @@ A browser version of Elliott's custom card game, played against an AI opponent. 
 | `docs/rules.md` | The game's rules, written as they're settled. |
 | `assets/` | Card art and other images. |
 
-No build step: plain HTML, CSS and JavaScript modules.
+No build step: plain HTML, CSS and JavaScript modules. Working rules for each session are in `CLAUDE.md`.
 
 ## Build log
 
