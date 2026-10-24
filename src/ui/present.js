@@ -196,9 +196,12 @@ async function reveal(root, prev, e, t) {
     el = box.firstElementChild;
     el.style.left = '0';
     cardElements().set(e.uid, el);
-    const hand = pile(root, `${e.who}-hand`) ?? pile(root, `${e.who}-draw`);
+    // The opponent's card rises from the top card of its fan of card backs.
+    const back = e.who === 'ai' && root.querySelector('.opp-hand .back:last-of-type');
+    const hand = back || pile(root, `${e.who}-hand`) || pile(root, `${e.who}-draw`);
     from = hand ? rectOf(hand) : { x: REVEAL.cx, y: 0, w: 40, h: 56 };
-    from = { x: from.x, y: from.y, w: 40, h: 56 };
+    if (!back) from = { x: from.x, y: from.y, w: 40, h: 56 };
+    if (back) back.style.visibility = 'hidden';
   }
   el.classList.remove('selected', 'selectable', 'unavailable');
   fxEl().append(el);

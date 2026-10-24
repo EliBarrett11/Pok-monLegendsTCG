@@ -9,11 +9,12 @@ import {
   ZONES, playablePokemon, costPreview, isAlert, legalTargets, canUsePower, powerTargets,
   summonSpaces, isFallen, attackOf, maxStrengthOf, playableStrategies, strategyTargets,
   playableSupporters, supporterTargets, giftMet, playableLocations, locationSpaces, weatherState,
-  openBagOptions, itemTargets, BAG_SIZE, passEndsPhase, PASS_ENERGY,
+  openBagOptions, itemTargets, BAG_SIZE, passEndsPhase, PASS_ENERGY, applyAction,
 } from '../engine/game.js';
-import { heldBonus, weatherTotal, speedOf } from '../engine/board.js';
+import { heldBonus, weatherTotal, speedOf, cardAt } from '../engine/board.js';
 import { INNATE_POWERS, WEATHER, SPEED_TIERS } from '../engine/cardData.js';
 import { SPEEDS, getSpeed, setSpeed } from './settings.js';
+import { wireInteractions } from './interact.js';
 import { icon, statIcon, speedIcon, weatherIcon } from './icons.js';
 
 export const STAGE = { width: 1920, height: 1080 };
@@ -236,7 +237,6 @@ function infoBar(state, who) {
     <div class="info-bar ${who}">
       <div class="info-text">
         <div class="info-line"><strong class="pname">${p.name}</strong>
-          ${who === 'ai' ? `<span data-pile="ai-hand"><i class="back-stack"></i>Hand <b>${p.hand.length}</b></span>` : ''}
           <span data-pile="${who}-draw"><i class="back-stack"></i>Draw <b>${p.drawPile.length}</b></span>
           <span data-pile="${who}-discard">Discard <b>${p.discard.length}</b></span>
           <span data-pile="${who}-released">Released <b>${p.released.length}</b></span></div>
@@ -247,8 +247,19 @@ function infoBar(state, who) {
         <div class="info-line"><span class="dollars">${icon('dollar')} PokéDollars <b>$${p.dollars}</b></span>
           <span>Exhaust ${exhaust || '<b>0</b>'}</span></div>
       </div>
+      ${who === 'ai' ? opponentHand(p.hand.length) : ''}
       ${bagRow(state, who)}
     </div>`;
+}
+
+// The opponent's hand: one card back per card, in a small fan, so the count reads at a glance.
+function opponentHand(n) {
+  const step = n > 1 ? Math.min(22, 200 / (n - 1)) : 0;
+  const backs = Array.from({ length: n }, (_, i) => {
+    const off = (i - (n - 1) / 2);
+    return `<i class="back" style="left:${Math.round(120 + off * step - 17)}px;--rot:${(off * 4).toFixed(1)}deg;top:${Math.round(Math.abs(off) * Math.abs(off) * 0.6)}px"></i>`;
+  }).join('');
+  return `<div class="opp-hand" data-pile="ai-hand" title="Opponent's hand: ${n} card${n === 1 ? '' : 's'}">${backs}<span class="opp-hand-count">Hand <b>${n}</b></span></div>`;
 }
 
 function weatherText(tokens) {
@@ -267,13 +278,21 @@ function centreStrip(state) {
       return `<span class="weather-type ${slug(type)}" title="${attr(`${type} ${w.count}: ${effects}`)}"><b>${weatherIcon(type)} ${type} ${w.count}</b>${all}<span class="weather-effects">${effects}</span></span>`;
     }).join('') : '<span class="weather-chip">No Weather</span>';
   }
+  // Brass tabs above the bar, one centred on each zone column; a fallen zone says which side.
+  const tabs = [0, 1, 2].map((z) => {
+    const sides = ['ai', 'player'].filter((w) => isFallen(state, w, z));
+    const fallen = sides.length === 2 ? 'both sides' : sides[0] === 'player' ? 'your side' : sides[0] ? "opponent's side" : '';
+    return `<span class="zone-tab z${z + 1}${fallen ? ' fallen' : ''}"${fallen ? ` title="Fallen on ${fallen}: no new Pokémon can be played there"` : ''}>Zone ${z + 1}${fallen ? ` · Fallen (${fallen === 'both sides' ? 'both' : fallen === 'your side' ? 'you' : 'opp.'})` : ''}</span>`;
+  }).join('');
   return `
     <section class="status">
-      <span class="phase">${state.round ? `Round ${state.round} · ` : ''}${PHASE_NAMES[state.phase]}</span>
-      ${state.turn ? `<span class="turn ${state.turn}">${state.turn === 'player' ? 'Your turn' : "AI Opponent's turn"}</span>` : ''}
-      ${state.initiative ? `<span class="initiative">Initiative: ${state.players[state.initiative].name}</span>` : ''}
-      <span class="caption-slot"><span class="caption" title="${attr(caption)}"${caption ? '' : ' hidden'}>${attr(caption)}</span></span>
-      <span class="weather">${weather}</span>
+      <div class="zone-tabs">${tabs}</div>
+      <div class="strip-bar">
+        <span class="strip-side left">${state.turn ? `<span class="turn ${state.turn}">${state.turn === 'player' ? 'Your turn' : "Opponent's turn"}</span>` : ''}</span>
+        <span class="phase">${state.round ? `Round ${state.round} · ` : ''}${PHASE_NAMES[state.phase]}</span>
+        <span class="strip-side right">${state.initiative ? `<span class="initiative">Initiative: ${state.initiative === 'player' ? 'You' : 'Opponent'}</span>` : ''}<span class="weather">${weather}</span></span>
+      </div>
+      <div class="caption-slot"><span class="caption" title="${attr(caption)}"${caption ? '' : ' hidden'}>${attr(caption)}</span></div>
     </section>`;
 }
 
@@ -318,7 +337,6 @@ function lanes(state, who) {
         <div class="back">
           ${trainerSpace(state, who, z, targets)}
           ${locationSpace(state, who, z)}
-          <div class="zone-tag${fallen ? ' fallen' : ''}"${fallen ? ' title="Fallen: no new Pokémon can be played here"' : ''}>Zone ${z + 1}${fallen ? '<br>Fallen' : ''}</div>
         </div>
         ${pokemonZone(state, who, z, targets, fallen)}
       </div>`;
@@ -378,21 +396,44 @@ function pokemonZone(state, who, z, targets, fallen) {
 
 // --- Hand -----------------------------------------------------------------------
 
-// Hand cards fan out across the hand area, overlapping more as the hand grows,
-// and peek up from the bottom edge (a hovered card rises fully into view).
-export const HAND_AREA = 810;
+// My hand is a fanned arc along the bottom edge, rotating around a point far
+// below the screen. At rest every card shows at least its top half (name,
+// cost, art); the fan tightens as the hand grows, so it never leaves its area.
+// interact.js uses arcLayout again to lift a hovered card and spread its
+// neighbours apart.
+export const HAND_AREA = 810;      // width of the hand area (stage px)
+export const HAND_AREA_H = 142;    // its height: from its top down to the bottom edge of the stage
 export const HAND_CARD = 170;
+export const HAND_CARD_H = 238;
+const ARC_RADIUS = 2200;
+const MAX_STEP = 118;
+// A hovered card: unrotated, scaled up from its bottom edge, whole card on screen.
+export const LIFT = { top: HAND_AREA_H - HAND_CARD_H - 4, scale: 1.22 };
 
-// Left edge of each of n hand cards: side by side while they fit, then overlapping.
-export function fanPositions(n) {
-  const step = n > 1 ? Math.min(HAND_CARD + 10, (HAND_AREA - HAND_CARD) / (n - 1)) : 0;
-  const start = (HAND_AREA - (HAND_CARD + step * (n - 1))) / 2;
-  return Array.from({ length: n }, (_, i) => Math.round(start + step * i));
+// Left, top (relative to the hand area) and rotation of each of n cards.
+// With hover = i, card i lifts and the cards beside it move apart.
+export function arcLayout(n, hover = -1) {
+  const step = n > 1 ? Math.min(MAX_STEP, (HAND_AREA - HAND_CARD - 24) / (n - 1)) : 0;
+  const drop = (x) => ARC_RADIUS * (1 - Math.cos(Math.asin(Math.max(-1, Math.min(1, x / ARC_RADIUS)))));
+  // The outermost cards drop the most; the whole arc sits high enough that they still show their top half.
+  const top0 = HAND_AREA_H - HAND_CARD_H / 2 - drop(((n - 1) / 2) * step) - 4;
+  return Array.from({ length: n }, (_, i) => {
+    let x = (i - (n - 1) / 2) * step;
+    if (hover >= 0 && i !== hover) x += Math.sign(i - hover) * Math.max(8, 40 - 12 * (Math.abs(i - hover) - 1));
+    const left = Math.min(Math.max(HAND_AREA / 2 + x - HAND_CARD / 2, 0), HAND_AREA - HAND_CARD);
+    const angle = Math.asin(Math.max(-1, Math.min(1, x / ARC_RADIUS)));
+    if (i === hover) return { left: Math.round(left), top: LIFT.top, rot: 0, lifted: true };
+    return { left: Math.round(left), top: Math.round(top0 + drop(x)), rot: +((angle * 180) / Math.PI).toFixed(2) };
+  });
+}
+
+export function arcStyle({ left, top, rot }, i) {
+  return `left:${left}px;top:${top}px;--rot:${rot}deg;z-index:${i + 1}`;
 }
 
 function fan(cards) {
-  const left = fanPositions(cards.length);
-  return cards.map((html, i) => html.replace('<div class="card ', `<div style="left:${left[i]}px;z-index:${i + 1}" class="card `)).join('');
+  const spots = arcLayout(cards.length);
+  return cards.map((html, i) => html.replace('<div class="card ', `<div style="${arcStyle(spots[i], i)}" data-i="${i}" class="card `)).join('');
 }
 
 function handCards(state) {
@@ -403,14 +444,17 @@ function handCards(state) {
   const playable = myTurn
     ? [...playablePokemon(state, 'player'), ...playableStrategies(state, 'player'), ...playableSupporters(state, 'player'),
       ...playableLocations(state, 'player')].map((c) => c.uid) : [];
-  const hand = (c, opts) => card(c, 'hand', opts);
+  // A cost in hand turns red when it can't be paid now (Energy, or PokéDollars for Items).
+  const energy = me.baseEnergy + me.exertMax - me.exhaust.length;
+  const short = (c) => (c.cardType === 'Item' ? c.cost > me.dollars : (c.energyCost ?? 0) > energy);
+  const hand = (c, opts = {}) => card(c, 'hand', { ...opts, cantAfford: short(c) });
   return fan(me.hand.map((c) => {
     if (mulligan) return hand(c, { selectable: true, selected: ui.mulligan.has(c.uid) });
     if (xpStep) {
       if (c.cardType !== 'Pokémon') return hand(c);
       return hand(c, { selectable: true, selected: ui.xpPick === c.uid, plan: plannedXp(c.uid) });
     }
-    if (state.pending?.uid === c.uid) return hand(c, { selected: true });
+    if (state.pending?.uid === c.uid) return hand(c, { selected: true, playable: true });
     if (ui.supporter) {
       // Paying for a Supporter: every other card can be marked Discard or Release.
       if (c.uid === ui.supporter.uid) return hand(c, { selectable: true, selected: true });
@@ -424,11 +468,11 @@ function handCards(state) {
     }
     if (myTurn && c.cardType === 'Item') {
       const buyable = openBagOptions(state, 'player').some((o) => o.mode === 'buyHand' && o.uid === c.uid);
-      return hand(c, { selectable: buyable, unavailable: !buyable, selected: ui.bag?.uid === c.uid });
+      return hand(c, { selectable: buyable, playable: buyable, unavailable: !buyable, selected: ui.bag?.uid === c.uid });
     }
     if (myTurn && ['Pokémon', 'Strategy', 'Supporter', 'Location'].includes(c.cardType)) {
       return playable.includes(c.uid)
-        ? hand(c, { selectable: true, selected: [ui.selectedPokemon, ui.strategy, ui.location].includes(c.uid) })
+        ? hand(c, { selectable: true, playable: true, selected: [ui.selectedPokemon, ui.strategy, ui.location].includes(c.uid) })
         : hand(c, { unavailable: true });
     }
     return hand(c);
@@ -476,8 +520,9 @@ function attr(text) {
   return String(text).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 }
 
-function stateClasses({ selectable, selected, unavailable, pay }) {
-  return `${selectable ? ' selectable' : ''}${selected ? ' selected' : ''}${unavailable ? ' unavailable' : ''}${pay ? ` pay-${pay}` : ''}`;
+function stateClasses({ selectable, selected, unavailable, pay, playable, cantAfford }) {
+  return `${selectable ? ' selectable' : ''}${selected ? ' selected' : ''}${unavailable ? ' unavailable' : ''}${pay ? ` pay-${pay}` : ''}`
+    + `${playable ? ' playable' : ''}${cantAfford ? ' cant-afford' : ''}`;
 }
 
 // Marks a hand card chosen to pay a Supporter's Card-Cost.
@@ -881,9 +926,10 @@ function wire(root, state, actions) {
   const redraw = () => render(root, state, actions);
   const on = (selector, fn) => root.querySelectorAll(selector).forEach((el) => { el.onclick = () => fn(el); });
 
-  // Hover preview for every card on screen.
+  // Hover preview for every card on screen except my hand (a hovered hand card lifts instead).
   const box = root.querySelector('.preview');
   root.querySelectorAll('[data-pv]').forEach((el) => {
+    if (el.closest('.hand, .tray')) return;
     el.onmouseenter = () => showPreview(root, el);
     el.onmouseleave = () => { box.hidden = true; };
   });
@@ -1101,4 +1147,243 @@ function wire(root, state, actions) {
     if (!confirmExert(costPreview(state, 'player', uid).fromExert)) return;
     dispatch({ type: 'playPokemon', who: 'player', uid, zone, space });
   });
+
+  // Drag to play, targeting arrows and inspection (interact.js) work through
+  // the same choices and click handlers as above.
+  wireInteractions(root, {
+    dragPlan: (el) => dragPlan(state, el, { redraw, dispatch, dispatchBag, usePower }),
+    arrowSource: () => arrowSource(state),
+    outcome: (el) => outcome(state, el),
+    inspect: (el) => inspectView(previews[Number(el.dataset.pv)]),
+    selecting: () => Boolean(ui.attacker || ui.power !== null || ui.strategy || ui.location || ui.selectedPokemon
+      || ui.bag || ui.supporter || ui.selectedTrainer),
+    cancel: () => { clearSelection(); ui.selectedTrainer = null; redraw(); },
+  });
+}
+
+// --- Drag to play ------------------------------------------------------------------
+//
+// What dragging a card does, as a plan for interact.js:
+//   kind     'card' (the card follows the cursor) or 'arrow' (a targeting arrow from it)
+//   prepare  makes the same choice a click would, so valid destinations glow
+//   arena    for untargeted plays: what releasing over the arena does
+//   bag      for Items: what releasing over my Bag does
+//   source   the element a targeting arrow starts from
+// Releasing over a glowing destination clicks it, so every confirmation
+// (Exert, Supporter payment, replacing a Location) still appears.
+function dragPlan(state, el, { redraw, dispatch, dispatchBag, usePower }) {
+  const uid = el.dataset.uid;
+  const me = state.players.player;
+  const pick = (fn) => () => { clearSelection(); ui.selectedTrainer = null; fn(); redraw(); };
+  const source = () => cardEls.get(uid);
+  if (state.phase === 'gameOver') return null;
+  if (el.closest('.tray')) return { kind: 'card', prepare: () => { ui.selectedTrainer = uid; redraw(); } };
+
+  if (el.closest('.hand')) {
+    if (state.pending?.who === 'player' && state.pending.kind === 'freeSummon' && state.pending.uid === uid) return { kind: 'card' };
+    if (!isMyBattleTurn(state) || ui.supporter || !el.classList.contains('selectable')) return null;
+    const c = me.hand.find((h) => h.uid === uid);
+    if (c.cardType === 'Pokémon') return { kind: 'card', prepare: pick(() => { ui.selectedPokemon = uid; }) };
+    if (c.cardType === 'Location') return { kind: 'card', prepare: pick(() => { ui.location = uid; }) };
+    if (c.cardType === 'Strategy') {
+      if (strategyTargets(state, 'player', uid).length) return { kind: 'arrow', source, prepare: pick(() => { ui.strategy = uid; }) };
+      return {
+        kind: 'card',
+        arena: () => {
+          if (confirmExert(costPreview(state, 'player', uid).fromExert)) dispatch({ type: 'playStrategy', who: 'player', uid });
+        },
+      };
+    }
+    if (c.cardType === 'Supporter') {
+      return { kind: 'card', arena: pick(() => { ui.supporter = { uid, discard: [], release: [], picking: false }; }) };
+    }
+    if (c.cardType === 'Item') {
+      const options = openBagOptions(state, 'player').filter((o) => o.mode === 'buyHand' && o.uid === uid);
+      const canUse = options.some((o) => o.then === 'use');
+      const targeted = c.effects.some((e) => e.target?.mode === 'targeted');
+      return {
+        kind: 'card',
+        prepare: pick(() => { ui.bag = { mode: 'buyHand', uid, then: 'use', picking: canUse && targeted }; }),
+        bag: options.some((o) => o.then === 'store') ? () => { ui.bag = { mode: 'buyHand', uid, then: 'store' }; dispatchBag(undefined); } : null,
+        arena: canUse && !targeted ? () => { ui.bag = { mode: 'buyHand', uid, then: 'use' }; dispatchBag(undefined); } : null,
+      };
+    }
+    return null;
+  }
+
+  if (el.closest('.player .bag-slot.usable')) {
+    const item = me.bag.find((i) => i.uid === uid);
+    const targeted = item.effects.some((e) => e.target?.mode === 'targeted');
+    return {
+      kind: targeted ? 'arrow' : 'card',
+      source,
+      prepare: pick(() => { ui.bag = { mode: 'useBag', uid, picking: targeted }; }),
+      arena: targeted ? null : () => dispatchBag(undefined),
+    };
+  }
+  const mart = el.closest('.mart-item.buyable');
+  if (mart) return { kind: 'card', bag: () => dispatch({ type: 'openBag', who: 'player', mode: 'buyMart', slot: Number(mart.dataset.slot) }) };
+
+  if (!el.classList.contains('selectable')) return null;
+  const space = el.closest('.player .pokemon-space');
+  if (space) {
+    const from = { zone: Number(space.dataset.zone), space: Number(space.dataset.space) };
+    return { kind: 'arrow', source, prepare: pick(() => { ui.attacker = from; }) };
+  }
+  const trainer = el.closest('.player .trainer-space');
+  if (trainer) {
+    const zone = Number(trainer.dataset.zone);
+    const targeted = powerTargets(state, 'player', zone).length > 0;
+    return {
+      kind: 'arrow',
+      source,
+      prepare: pick(() => { ui.power = zone; }),
+      arena: targeted ? null : () => usePower(undefined),
+    };
+  }
+  return null;
+}
+
+// The card a targeting arrow starts from while a target is being chosen (by click or drag).
+function arrowSource(state) {
+  const uid = ui.attacker ? state.players.player.zones[ui.attacker.zone].pokemon[ui.attacker.space]?.uid
+    : ui.power !== null ? state.players.player.zones[ui.power].trainer.uid
+      : ui.strategy ?? (ui.bag?.picking ? ui.bag.uid : null) ?? (ui.supporter?.picking ? ui.supporter.uid : null);
+  if (ui.power !== null && !powerTargets(state, 'player', ui.power).length) return null;
+  const el = uid && cardEls.get(uid);
+  return el?.isConnected ? el : null;
+}
+
+// The place a target element stands for, as a ref.
+function refOf(el) {
+  const { owner } = el.dataset;
+  const zone = Number(el.dataset.zone);
+  if (el.classList.contains('trainer-space')) return { kind: 'trainer', owner, zone };
+  if (el.classList.contains('pokemon-space')) return { kind: 'pokemon', owner, zone, space: Number(el.dataset.space) };
+  if (el.closest('.hand') && el.dataset.uid) return { kind: 'hand', owner: 'player', uid: el.dataset.uid };
+  return null;
+}
+
+// What would happen if the current choice went to this target: tried on a
+// copy of the game (the engine is pure), so the arrow can show "−5 · Defeated".
+function outcome(state, el) {
+  const ref = refOf(el);
+  if (!ref) return null;
+  const me = 'player';
+  let action = null;
+  let from = null;
+  if (state.pending?.who === me && state.pending.kind === 'target') action = { type: 'resolveChoice', who: me, target: ref };
+  else if (ui.attacker) {
+    from = { kind: 'pokemon', owner: me, ...ui.attacker };
+    action = { type: 'command', who: me, from: ui.attacker, target: ref.kind === 'trainer' ? { kind: 'trainer', zone: ref.zone } : { kind: 'pokemon', zone: ref.zone, space: ref.space } };
+  } else if (ui.power !== null) action = { type: 'usePower', who: me, zone: ui.power, target: ref };
+  else if (ui.strategy) action = { type: 'playStrategy', who: me, uid: ui.strategy, target: ref };
+  else if (ui.bag?.picking) action = { type: 'openBag', who: me, mode: ui.bag.mode, uid: ui.bag.uid, then: ui.bag.then ?? 'use', target: ref };
+  else if (ui.supporter?.picking) {
+    const { uid, discard, release } = ui.supporter;
+    action = { type: 'playSupporter', who: me, uid, discard: [...discard], release: [...release], target: ref };
+  }
+  if (!action) return null;
+  let after;
+  try {
+    after = applyAction(state, action);
+  } catch {
+    return null;
+  }
+  const change = (r) => {
+    const before = cardAt(state, r);
+    if (!before) return null;
+    const now = findByUid(after, before.uid);
+    if (before.cardType === 'Trainer') {
+      const d = now.strength - before.strength;
+      if (now.strength <= 0 && before.strength > 0) return { text: `${before.name} −${-d} · Removed`, bad: true };
+      return d ? { text: `${before.name} ${d > 0 ? '+' : '−'}${Math.abs(d)}`, bad: d < 0 } : null;
+    }
+    if (!now) return { text: `${before.name} · Defeated`, bad: true };
+    const d = (now.currentStrength ?? 0) - (before.currentStrength ?? 0);
+    const a = (now.currentStrength !== undefined ? attackOf(now) : now.attackValue) - (before.currentStrength !== undefined ? attackOf(before) : before.attackValue);
+    const parts = [d && `${d > 0 ? '+' : '−'}${Math.abs(d)}`, a && `${a > 0 ? '+' : '−'}${Math.abs(a)} ATK`, now.heldItem?.uid !== before.heldItem?.uid && now.heldItem && `holds ${now.heldItem.name}`].filter(Boolean);
+    return parts.length ? { text: `${before.name} ${parts.join(' ')}`, bad: d < 0 } : null;
+  };
+  return { target: change(ref), source: from ? change(from) : null };
+}
+
+// A card anywhere in the arena or a hand, by uid.
+function findByUid(state, uid) {
+  for (const p of Object.values(state.players)) {
+    for (const z of p.zones) {
+      if (z.trainer?.uid === uid) return z.trainer;
+      const c = z.pokemon.find((x) => x?.uid === uid);
+      if (c) return c;
+    }
+    const h = p.hand.find((x) => x.uid === uid);
+    if (h) return h;
+  }
+  return null;
+}
+
+// --- Inspect: the full card, with every keyword and buff explained ---------------------
+
+const TRIGGER_HELP = {
+  'On Summon': 'when this Pokémon enters the arena, whether played or summoned by an effect.',
+  'On Attack': 'after its attack deals damage, if it is still in the arena.',
+  'On Defend': 'after it is attacked by a Command and takes damage, if it is still in the arena.',
+  'On Defeated': 'when it is defeated by any cause, as it goes to the Released Pile.',
+  'On Breakfast': 'each Breakfast, after cards are drawn and Energy is gained.',
+  'On Supper': 'each Supper, before hands are discarded.',
+};
+const STRENGTH_HELP = {
+  Hitpoints: 'Hitpoints: no targeting restriction.',
+  Defence: 'Defence: while you have one, an opponent\'s Physical attackers must target a Defence Pokémon.',
+  'Special Defence': 'Special Defence: while you have one, an opponent\'s Special attackers must target a Special Defence Pokémon.',
+};
+
+function inspectView(entry) {
+  if (!entry) return '';
+  const { c, opts } = entry;
+  const item = (title, text) => `<div class="explain"><h4>${title}</h4><p>${text}</p></div>`;
+  const lines = [];
+  if (c.cardType === 'Pokémon') {
+    const inPlay = c.currentStrength !== undefined;
+    lines.push(item('Energy Cost', `Pay ${c.energyCost} Energy to play it: Base Energy first, Exert only for a shortfall.`));
+    lines.push(item(`${c.attackType} Attack`, `Deals its Attack Value to its target when Commanded. ${c.attackType === 'Physical' ? 'Must target a Defence Pokémon if the opponent has one.' : 'Must target a Special Defence Pokémon if the opponent has one.'}`));
+    lines.push(item(`${c.strengthType} Strength`, `${STRENGTH_HELP[c.strengthType]} At 0 Strength the Pokémon is defeated and goes to the Released Pile.`));
+    lines.push(item(`Speed-Tier: ${SPEED_TIERS[speedOf(c)]}`, 'An Active Pokémon is Alert, and can be Commanded, if its Speed-Tier equals the highest among all Active Pokémon in the arena. Swift > Steady > Slow.'));
+    if (c.innatePower) lines.push(item(c.innatePower, INNATE_POWERS[c.innatePower] ?? ''));
+    if (c.effectTrigger) lines.push(item(c.effectTrigger, `Its ability triggers ${TRIGGER_HELP[c.effectTrigger] ?? ''} ${c.effectText}`));
+    if (inPlay) {
+      const buffs = [sources(c, 'attack') && `Attack ${attackOf(c)}${sources(c, 'attack')}`, sources(c, 'strength') && `Strength ${c.currentStrength}/${maxStrengthOf(c)}${sources(c, 'strength')}`].filter(Boolean);
+      const auras = Object.values(c.aura ?? {}).map((b) => `${b.name}'s Passive: +${b.attack} Attack, +${b.strength} Strength`);
+      const weather = Object.entries(c.weather ?? {}).map(([k, m]) => `Weather ${k}: ${m.attack ? `${m.attack > 0 ? '+' : ''}${m.attack} Attack ` : ''}${m.strength ? `${m.strength > 0 ? '+' : ''}${m.strength} Strength` : ''}`);
+      lines.push(item('Current buffs', [...buffs, ...auras, ...weather].join('<br>') || 'None: printed stats.'));
+      lines.push(item('Status', c.spent ? 'Spent: it becomes Active again at the next Breakfast.' : opts.alert ? 'Alert: it can be Commanded now.' : 'Active, but not Alert (a faster Pokémon is Active).'));
+    } else if (c.xp) {
+      lines.push(item('XP buffs', `+${c.xp.attack} Attack, +${c.xp.strength} Strength, permanent once played; lost if it leaves your hand any other way.`));
+    }
+    if (c.weatherTokens) lines.push(item('Weather Tokens', `${weatherText(c.weatherTokens)}: counted while it is in the arena.`));
+  } else if (c.cardType === 'Trainer') {
+    lines.push(item('Strength', `${c.strength}/${c.maxStrength}. At 0 the Trainer is removed and its zone has fallen: no new Pokémon can be played there. All 3 enemy Trainers at 0 wins the match.`));
+    lines.push(item(`Power (${c.power.cost})`, `${c.power.text} A Battle Action, once per Round, paid like any cost; not usable without a legal target.`));
+    lines.push(item('Passive', `${c.passive.text} Always on, but only in this Trainer's zone.`));
+  } else if (c.cardType === 'Location') {
+    lines.push(item('Quest', `${c.quest.text}${c.progress !== undefined ? ` Progress: ${c.progress}/${c.quest.count}.` : ''}`));
+    lines.push(item('Reward', `${c.xp} XP, then: ${c.effectText} The Location then goes to the Released Pile.`));
+    lines.push(item('Playing it', 'No Energy. Into one of your Location spaces outside a fallen zone, replacing any Location there.'));
+    if (c.weatherTokens) lines.push(item('Weather Tokens', `${weatherText(c.weatherTokens)}: counted while it is in play.`));
+  } else if (c.cardType === 'Item') {
+    lines.push(item(`${c.itemType} Item · $${c.cost}`, c.itemType === 'Held'
+      ? 'Attaches to a friendly Pokémon (in the arena or in your hand) and stays with that card until it is Released. One per Pokémon.'
+      : 'Its effect resolves immediately, then it goes to the PokéMart.'));
+    lines.push(item('Effect', c.effectText));
+    if (c.inDelivery) lines.push(item('In Delivery', 'Bought from the PokéMart: usable from the next Breakfast.'));
+  } else if (c.cardType === 'Strategy') {
+    lines.push(item(`Energy Cost ${c.energyCost}`, 'A Battle Action. Its effect resolves immediately, then it goes to your Discard Pile. It needs a legal target.'));
+    lines.push(item('Effect', c.effectText));
+  } else if (c.cardType === 'Supporter') {
+    lines.push(item(`Card-Cost: ${costText(c.cardCost)}`, 'Paid with other cards from your hand, exactly. Discarded cards go to your Discard Pile; Released cards are gone for the match. Once per Round.'));
+    lines.push(item('Effect', c.effectText));
+    lines.push(item('Gift Bonus', `If a paid card meets the challenge (${c.gift.challengeText}): ${c.gift.bonusText}`));
+  }
+  if (c.heldItem) lines.push(item(`Held Item: ${c.heldItem.name}`, `${c.heldItem.effectText} It stays with this card until the card is Released.`));
+  return `<div class="inspect-card">${detail(entry)}</div><div class="inspect-side"><h3>${c.name}</h3>${lines.join('')}<p class="inspect-close">Click anywhere or press Escape to close.</p></div>`;
 }
