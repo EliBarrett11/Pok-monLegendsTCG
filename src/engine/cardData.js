@@ -45,10 +45,15 @@ const QUICK_ATTACK = { innatePower: 'Quick Attack' };
 const AGILITY = { innatePower: 'Agility' };
 const ONE_SUN = { weatherTokens: { Sun: 1 } };
 
-// Innate Powers: keywords the rules check directly (see effects.js).
+// Innate Powers: keywords the rules check directly (see keywords.js). A card
+// can have several, e.g. innatePower: 'Overrun, Scorch 2'. X is the keyword's number.
 export const INNATE_POWERS = {
   'Quick Attack': 'This Pokémon is summoned Active instead of Spent.',
   Agility: "This Pokémon can't be chosen as a target by Strategy Cards. Area effects still affect it.",
+  Scorch: "When this Pokémon's attack deals damage, it also applies Burn X to the target (if it's still in play). Works on Trainers too.",
+  Overrun: "When this Pokémon's attack defeats an enemy Pokémon, the damage left over is dealt to the enemy Trainer in that Zone (lost if that Trainer has been removed).",
+  Regenerate: 'At each Breakfast, this Pokémon heals X.',
+  Shell: 'Every instance of damage this Pokémon takes is reduced by X, to a minimum of 1. Includes Burn.',
 };
 
 // Effect Trigger Words → the event a Pokémon ability listens for (effects.js).
@@ -58,12 +63,22 @@ export const TRIGGER_WORDS = {
   'On Defend': 'defend',       // after it is attacked by a Command and takes damage, if still in the arena
   'On Defeated': 'defeated',   // when defeated by any cause, as it goes to the Released Pile
   'On Breakfast': 'breakfast', // each Breakfast, after cards are drawn and Energy is gained
-  'On Supper': 'supper',       // each Supper, before hands are discarded
+  'On Supper': 'supper',       // each Supper, after Burn, before "this Round" effects expire
+  'On Knockout': 'knockout',   // damage dealt by this Pokémon (attack, trade, its own ability) defeats an enemy Pokémon
+  'On Trainer Strike': 'trainerStrike', // this Pokémon damages an enemy Trainer (attack or Overrun)
+  Rally: 'summon',             // another friendly Pokémon is summoned into this Pokémon's Zone (same side)
+  'On Heal': 'heal',           // this Pokémon is healed by at least 1
+};
+
+// Which card of the event a Trigger Word listens for: this Pokémon itself,
+// except Rally (another friendly Pokémon in its Zone).
+export const TRIGGER_MATCH = {
+  Rally: { side: 'friendly', zone: 'source', notSelf: true, kind: 'pokemon' },
 };
 
 // A Pokémon ability: Trigger Word + Effect Text (shown) + effects (data).
-function ability(word, effectText, effects, match = {}) {
-  return { effectTrigger: word, effectText, ability: { on: TRIGGER_WORDS[word], match: { self: true, ...match }, effects } };
+export function ability(word, effectText, effects, match = {}) {
+  return { effectTrigger: word, effectText, ability: { on: TRIGGER_WORDS[word], match: { ...(TRIGGER_MATCH[word] ?? { self: true }), ...match }, effects } };
 }
 
 // PLACEHOLDER abilities, each on 2–3 placeholder Pokémon.

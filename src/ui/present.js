@@ -197,8 +197,13 @@ function impact(root, el, hit, t, { style = null, trainer = false, big = false, 
   const c = centre(r);
   const dmg = hit?.amount ?? 1;
   const scale = clamp(dmg / 4, 0.5, 2.2) * (trainer || big ? 1.4 : 1);
-  flash(r, dmg * (trainer ? 1.5 : 1), t(320), undefined, kind || (style?.special ? 'hit-special' : 'hit-physical'));
-  if (style?.special) {
+  const fire = hit?.cause === 'burn';
+  flash(r, dmg * (trainer ? 1.5 : 1), t(320), fire ? '255,170,70' : undefined, kind || (style?.special ? 'hit-special' : 'hit-physical'));
+  if (fire) {
+    // Burn: an orange flame burst and rising embers.
+    burst(c.x, c.y + r.h * 0.15, { kind: 'energy', colors: ['#ff7a1a', '#ffb347', '#ffe08a'], count: 18 * scale, speed: 220, up: 160, life: t(700), size: 8, area: r.w * 0.6 });
+    burst(c.x, c.y, { kind: 'spark', colors: ['#ffd36b', '#ff9a3a', '#ffffff'], count: 14 * scale, speed: 260, up: 220, life: t(800), size: 2.5 });
+  } else if (style?.special) {
     // An energy burst in the attacker's Type colour: a bright core, orbs and streaks.
     const core = spawn('fx-energy', { x: c.x - 70, y: c.y - 70, w: 140, h: 140 });
     core.style.background = `radial-gradient(circle, #ffffff 0, ${style.colors[1]} 22%, ${style.colors[0]} 45%, transparent 70%)`;
@@ -213,7 +218,9 @@ function impact(root, el, hit, t, { style = null, trainer = false, big = false, 
     el.animate([0, 1, 2, 3, 4, 5, 6].map((i) => ({ translate: i === 6 ? '0 0' : `${(i % 2 ? -1 : 1) * 6 * (1 - i / 6)}px 0` })), { duration: t(380) });
   }
   if (hit) {
-    floatNumber(r, `−${hit.amount}`, 'damage', t(1200));
+    // Shell: the reduced number, with what it would have been.
+    const text = hit.shell ? `<span class="shell-raw">−${hit.raw}</span>−${hit.amount}<span class="shell-tag">Shell −${hit.shell}</span>` : `−${hit.amount}`;
+    floatNumber(r, text, 'damage', t(1200));
     countBadge(el, hit.before, hit.after, t(450), 'damage');
   }
 }
@@ -389,6 +396,55 @@ async function waveBeat(root, group, t) {
   })));
   shake(root, 2, t(260));
   await wait(t(380));
+}
+
+// Burn at Supper: every burned card flares at the same moment.
+async function burnBeat(root, group, t) {
+  for (const h of group) {
+    const el = shown(h.target.uid);
+    impact(root, el, h, t, { trainer: h.target.kind === 'trainer' });
+    el?.querySelector('.burn-token')?.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.6)' }, { transform: 'scale(1)' }], { duration: t(500) });
+  }
+  if (group.length) shake(root, 1.5, t(240));
+  await wait(t(560));
+}
+
+// Burn applied (Scorch, a card, an ability): flames lick up and the token pops in.
+async function burnApplied(e, t) {
+  const el = shown(e.target.uid);
+  const r = rectOf(el);
+  burst(r.x + r.w / 2, r.y + r.h * 0.6, { kind: 'energy', colors: ['#ff7a1a', '#ffb347', '#ffe08a'], count: 10 + 3 * e.amount, speed: 120, up: 200, life: t(700), size: 7, area: r.w * 0.7 });
+  floatNumber(r, `Burn +${e.amount}`, 'burn', t(1100));
+  await wait(t(380));
+}
+
+// Douse: a puff of steam puts the flames out.
+async function douseBeat(e, t) {
+  const el = shown(e.target.uid);
+  const r = rectOf(el);
+  burst(r.x + r.w / 2, r.y + r.h * 0.5, { kind: 'sparkle', colors: ['#e8f6ff', '#bfe6ff', '#ffffff'], count: 22, speed: 110, up: 140, life: t(900), size: 9, area: r.w * 0.8 });
+  el.querySelector('.burn-token')?.animate([{ opacity: 1, filter: 'none' }, { opacity: 0, filter: 'grayscale(1) blur(2px)' }], { duration: t(450), fill: 'forwards' });
+  floatNumber(r, 'Doused', 'douse', t(1100));
+  await wait(t(420));
+}
+
+// Overrun: the leftover damage travels from where the defeated Pokémon stood
+// to its Trainer (whose hit follows as the next beat).
+async function overrunBeat(root, e, from, t) {
+  const to = shown(e.target.uid);
+  if (!to) return;
+  const b = centre(rectOf(to));
+  const a = from ? centre(from) : { x: b.x, y: b.y + (e.target.owner === 'ai' ? 300 : -300) };
+  const orb = spawn('fx-overrun', null);
+  orb.style.left = `${a.x}px`;
+  orb.style.top = `${a.y}px`;
+  const path = curve(a, b);
+  const frames = Array.from({ length: 11 }, (_, i) => {
+    const p = path.at(i / 10);
+    return { transform: `translate(${p.x - a.x}px, ${p.y - a.y}px) scale(${1 + 0.4 * Math.sin((i / 10) * Math.PI)})` };
+  });
+  floatNumber({ x: a.x - 60, y: a.y - 40, w: 120, h: 80 }, `Overrun ${e.amount}`, 'burn', t(1000));
+  await play(orb, frames, t(520), { easing: 'ease-in' });
 }
 
 async function healBeat(e, t) {
@@ -620,14 +676,18 @@ async function walk(root, events, t, late) {
       case 'powerUsed': await powerBeat(e, t); break;
       case 'damage': {
         const group = [e];
-        for (let j = i + 1; j < ev.length && ev[j].type === 'damage' && !used.has(ev[j]); j++) group.push(ev[j]);
+        for (let j = i + 1; j < ev.length && ev[j].type === 'damage' && !used.has(ev[j]) && ev[j].cause === e.cause; j++) group.push(ev[j]);
         group.forEach((g) => used.add(g));
         const visible = group.filter((g) => shown(g.target.uid));
         late.push(...group.filter((g) => !shown(g.target.uid)));
-        if (visible.length >= 2) await waveBeat(root, visible, t);
+        if (e.cause === 'burn') await burnBeat(root, visible, t);
+        else if (visible.length >= 2) await waveBeat(root, visible, t);
         else if (visible.length) await hitBeat(root, visible[0], t);
         break;
       }
+      case 'statusApplied': if (shown(e.target.uid)) await burnApplied(e, t); else late.push(e); break;
+      case 'statusCleared': if (shown(e.target.uid)) await douseBeat(e, t); break;
+      case 'overrun': await overrunBeat(root, e, lastDefeated, t); break;
       case 'heal': if (shown(e.target.uid)) await healBeat(e, t); else late.push(e); break;
       case 'buff': if (shown(e.target.uid)) await buffBeat(e, t); else late.push(e); break;
       case 'defeated': {
@@ -821,6 +881,7 @@ async function after(root, snap, next, actor, t, late) {
     if (e.type === 'heal') await healBeat(e, t);
     else if (e.type === 'buff') await buffBeat(e, t);
     else if (e.type === 'damage' && shown(e.target.uid)) await hitBeat(root, e, t);
+    else if (e.type === 'statusApplied' && shown(e.target.uid)) await burnApplied(e, t);
   }
   // Base Energy gained by passing floats up from that player's Energy counter.
   for (const e of ev.filter((x) => x.type === 'energyGained' && x.source === 'Pass')) {
@@ -910,14 +971,32 @@ export function captionFor(state, actor) {
       : main.summon ? `${S} ${verb(actor, 'summon')} ${main.name} for free into Zone ${main.zone + 1}`
         : `${S} ${verb(actor, 'keep')} ${main.name} in hand`;
   }
+  if (main?.type === 'attack') {
+    const hit = ev.find((e) => e.type === 'damage' && e.target.uid === main.target.uid && e.shell);
+    if (hit) text = text.replace(`— ${main.amount} damage`, `— ${hit.amount} damage (Shell −${hit.shell})`);
+  }
+  // Regenerate heals: the heal right after its tag.
+  const regen = [];
+  ev.forEach((e, i) => {
+    if (e.type !== 'abilityTriggered' || !e.word?.startsWith('Regenerate')) return;
+    const h = ev.slice(i + 1).find((x) => x.type === 'heal');
+    if (h?.amount) regen.push(`${named(h.target)} regenerates ${h.amount}`);
+  });
+  const burned = all('damage').filter((e) => e.cause === 'burn');
   const extra = [
-    ...all('defeated').map((e) => `${named(e.target)} defeated`),
+    burned.length ? `Burn: ${burned.map((e) => `${named(e.target)} −${e.amount}`).join(', ')}` : '',
+    ...all('overrun').map((e) => `Overrun: ${e.amount} through to ${named(e.target)}`),
+    ...all('statusApplied').map((e) => `${named(e.target)} Burned ${e.amount}${e.after !== e.amount ? ` (now ${e.after})` : ''}`),
+    ...all('statusCleared').map((e) => `${named(e.target)} Doused`),
+    ...regen,
+    ...all('defeated').map((e) => `${named(e.target)} defeated${e.cause === 'burn' ? ' by Burn' : ''}`),
     ...all('trainerRemoved').map((e) => `${named(e.target)} removed`),
     ...all('questComplete').map((e) => `${owned(e.owner, true)} ${e.name} quest complete`),
   ];
   const over = find('matchOver');
   if (over) extra.push(over.winner ? `${subject(over.winner)} ${verb(over.winner, 'win')}!` : 'Match drawn');
-  return [text, ...extra].filter(Boolean).join(' · ');
+  const caption = [text, ...extra].filter(Boolean).join(' · ');
+  return caption.charAt(0).toUpperCase() + caption.slice(1);
 }
 
 // --- The history strip --------------------------------------------------------------------

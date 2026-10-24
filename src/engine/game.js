@@ -10,7 +10,10 @@ import { newEnergy, refreshEnergy, canPay, payCost, splitCost } from './energy.j
 import {
   PLAYERS, opponentOf, log, whose, draw, arenaPokemon, cardAt, emptySpaces, summonSpaces, isFallen,
   attackOf, damage, describeRef, sameRef, dropXp, weatherCounts, speedOf, release as releaseCards, earnDollars, toMart, emit, info,
+  maxStrengthOf,
 } from './board.js';
+import { hasKeyword, keywordAmount } from './keywords.js';
+import { applyStatus, resolveSupperStatuses } from './status.js';
 import {
   summon, candidates, canResolve, targetedEffect, queueEffects, queueStep, run, refreshAuras, settle, fireTriggers,
   matchesCard, questEvent, queueWeather, weatherState,
@@ -89,9 +92,16 @@ export function createGame(seed = Date.now()) {
 }
 
 // A player wins immediately when all 3 enemy Trainers are at 0 Strength.
+// If both players' last Trainers reach 0 at the same moment (Burn at
+// Supper), nobody wins: see bothBeaten.
 export function winner(state) {
+  if (bothBeaten(state)) return null;
   return PLAYERS.find((who) =>
     state.players[opponentOf(who)].trainers.every((t) => t.strength <= 0)) ?? null;
+}
+
+export function bothBeaten(state) {
+  return PLAYERS.every((who) => state.players[who].trainers.every((t) => t.strength <= 0));
 }
 
 // Draw: neither player has a Pokémon left in their arena, hand, Draw Pile or
@@ -413,6 +423,11 @@ export function applyAction(prev, action) {
 // Checked between every effect: a win ends the match immediately.
 function matchOver(state) {
   if (state.phase === 'gameOver') return true;
+  if (bothBeaten(state)) {
+    endMatch(state, null);
+    log(state, "Draw! Both players' last Trainers reached 0 at the same moment.");
+    return true;
+  }
   const won = winner(state);
   if (!won) return false;
   endMatch(state, won);
@@ -447,14 +462,79 @@ const STEPS = {
     emit(state, 'cardMoved', { uid: card.uid, name: card.name, owner: who, to: 'discard' });
   },
 
-  // After an attack's damage and any defeats: On Attack for the attacker and
-  // On Defend for a Pokémon it hit, if each is still in the arena.
-  afterAttack(state, { attacker, target }) {
-    const still = (ref) => cardAt(state, ref)?.uid === ref.uid;
+  // After an attack's damage and any defeats (and their On Defeated), in order:
+  // Overrun's leftover damage to the Trainer, Scorch's Burn on the target if
+  // it's still in play, then On Attack, On Defend, On Knockout and On Trainer
+  // Strike for each Pokémon still in the arena (in the usual order).
+  afterAttack(state, job) {
+    const { attacker, target } = job;
+    const still = (ref) => {
+      const c = cardAt(state, ref);
+      return c?.uid === ref.uid && (ref.kind === 'trainer' ? c.strength > 0 : c.currentStrength > 0);
+    };
+    const strikes = [...(job.strikes ?? [])];
+    if (job.overrun) {
+      const { amount, zone, owner } = job.overrun;
+      const ref = { kind: 'trainer', owner, zone };
+      const trainer = cardAt(state, ref);
+      if (trainer && trainer.strength > 0) {
+        const tref = { ...ref, uid: trainer.uid };
+        emit(state, 'overrun', { who: attacker.owner, attacker: info(state, attacker), target: info(state, tref), amount });
+        const [before, after] = damage(state, tref, amount, { by: attacker.owner });
+        log(state, `Overrun: ${amount} leftover damage goes through to ${describeRef(state, tref)}. Strength ${before} → ${after}.`);
+        strikes.push(tref);
+        settle(state);   // a removed Trainer's Passive stops
+      } else {
+        log(state, `Overrun: the leftover ${amount} damage is lost (no Trainer in Zone ${zone + 1} on that side).`);
+      }
+    }
+    if (job.scorch && still(job.scorch.target)) {
+      emit(state, 'scorch', { who: attacker.owner, attacker: info(state, attacker), target: info(state, job.scorch.target), amount: job.scorch.amount });
+      applyStatus(state, job.scorch.target, 'burn', job.scorch.amount, attacker.owner);
+    }
     const events = [];
     if (still(attacker)) events.push({ type: 'attack', ref: attacker, card: cardAt(state, attacker), target });
     if (target.kind === 'pokemon' && still(target)) events.push({ type: 'defend', ref: target, card: cardAt(state, target), attacker });
+    for (const k of job.knockouts ?? []) {
+      if (still(k.ref)) events.push({ type: 'knockout', ref: k.ref, card: cardAt(state, k.ref), victim: k.victim });
+    }
+    if (still(attacker)) {
+      for (const t of strikes) events.push({ type: 'trainerStrike', ref: attacker, card: cardAt(state, attacker), target: t });
+    }
     fireTriggers(state, events);
+  },
+
+  // Supper, in order: Weather (queued on top) → Burn → On Supper → "this Round"
+  // effects expire → hands are discarded. Each step works out who is in play
+  // when it starts, so a Pokémon Burn just defeated doesn't fire On Supper.
+  burn(state) {
+    resolveSupperStatuses(state);
+    settle(state);
+  },
+
+  supperAbilities(state) {
+    fireTriggers(state, everyPokemon(state, 'supper'));
+  },
+
+  breakfastAbilities(state) {
+    fireTriggers(state, everyPokemon(state, 'breakfast'));
+  },
+
+  // "This Round" buffs and keywords end. Losing a Strength buff follows the
+  // Passive rule: maximum drops, current only if above it; it never defeats.
+  expireRound(state) {
+    const ended = [];
+    for (const { ref, card } of arenaPokemon(state)) {
+      const buffs = card.roundBuffs ?? [];
+      const grants = (card.granted ?? []).filter((k) => k.thisRound);
+      if (!buffs.length && !grants.length) continue;
+      delete card.roundBuffs;
+      card.granted = (card.granted ?? []).filter((k) => !k.thisRound);
+      card.currentStrength = Math.min(card.currentStrength, maxStrengthOf(card));
+      emit(state, 'buffLost', { target: info(state, ref), source: 'this Round' });
+      ended.push(card.name);
+    }
+    if (ended.length) log(state, `"This Round" effects end: ${ended.join(', ')}.`);
   },
 
   afterBreakfast(state) {
@@ -543,8 +623,9 @@ const HANDLERS = {
     const attackerRef = { kind: 'pokemon', owner: who, zone: from.zone, space: from.space, uid: attacker.uid };
     const targetRef = { ...target, owner: foe, uid: cardAt(state, { ...target, owner: foe }).uid };
     queueStep(state, 'endTurn', { who, passed: false });
-    queueStep(state, 'afterAttack', { attacker: attackerRef, target: targetRef });
+    const after = queueStep(state, 'afterAttack', { attacker: attackerRef, target: targetRef, knockouts: [], strikes: [] });
     questEvent(state, who, { type: 'attack', card: attacker, zone: from.zone });
+    const scorch = keywordAmount(attacker, 'Scorch');
     const name = `${whose(state, who)} ${attacker.name}`;
     const power = attackOf(attacker);
     const hitsBack = target.kind === 'pokemon' && isAlert(state, cardAt(state, targetRef));
@@ -559,19 +640,30 @@ const HANDLERS = {
     if (target.kind === 'trainer') {
       const before = cardAt(state, targetRef).strength;
       log(state, `${name} attacked ${describeRef(state, targetRef)} for ${power}. Strength ${before} → ${Math.max(0, before - power)}.`);
-      damage(state, targetRef, power);
+      damage(state, targetRef, power, { by: who });
       attacker.spent = true;
+      if (power > 0) {
+        after.strikes.push(targetRef);
+        if (scorch) after.scorch = { amount: scorch, target: targetRef };
+      }
     } else {
       const defender = cardAt(state, targetRef);
       const what = describeRef(state, targetRef);
       const trades = isAlert(state, defender);   // decided before anyone becomes Spent
       const back = attackOf(defender);
-      damage(state, targetRef, power);
-      if (trades) damage(state, attackerRef, back);
+      const [hpBefore, hpAfter] = damage(state, targetRef, power, { by: who });
+      const [atkBefore, atkAfter] = trades ? damage(state, attackerRef, back, { by: foe }) : [0, 0];
       attacker.spent = true;
       if (trades) defender.spent = true;
-      log(state, `${name} attacked ${what} for ${power}`
-        + (trades ? `; ${defender.name} was Alert and hit back for ${back}.` : '.'));
+      const dealt = hpBefore - hpAfter;
+      log(state, `${name} attacked ${what} for ${dealt}${dealt !== power ? ` (Shell: ${power} → ${dealt})` : ''}`
+        + (trades ? `; ${defender.name} was Alert and hit back for ${atkBefore - atkAfter}${atkBefore - atkAfter !== back ? ` (Shell: ${back} → ${atkBefore - atkAfter})` : ''}.` : '.'));
+      if (dealt > 0 && scorch) after.scorch = { amount: scorch, target: targetRef };
+      // Overrun: damage beyond the defender's remaining Strength goes on to its Trainer.
+      if (hpAfter < 0 && hasKeyword(attacker, 'Overrun')) after.overrun = { amount: -hpAfter, zone: target.zone, owner: foe };
+      // On Knockout: the attacker's hit, or the defender's hit back in a trade, defeated the other.
+      if (hpAfter <= 0) after.knockouts.push({ ref: attackerRef, victim: info(state, targetRef) });
+      if (trades && attacker.currentStrength <= 0) after.knockouts.push({ ref: { ...targetRef }, victim: info(state, attackerRef) });
       // Amulet Coin: the holder dealt the combat damage that defeated an opponent Pokémon.
       const coins = [];
       if (defender.currentStrength <= 0) coins.push([who, attacker]);
@@ -858,10 +950,14 @@ function restockMart(state) {
   log(state, `PokéMart restocked: ${shown.length ? shown.join(', ') : 'nothing left to sell'}.`);
 }
 
+export const BREAKFAST_DOLLARS = 1;
+
 function startBreakfast(state) {
   state.phase = 'breakfast';
   emit(state, 'phaseChanged', { phase: 'breakfast', round: state.round });
   log(state, 'Breakfast Phase.');
+  // +1 PokéDollar for each player, every Breakfast (Round 1 included).
+  for (const who of PLAYERS) earnDollars(state, who, BREAKFAST_DOLLARS, 'at Breakfast');
   restockMart(state);
   for (const who of PLAYERS) {
     const arrived = state.players[who].bag.filter((i) => i.inDelivery);
@@ -882,9 +978,9 @@ function startBreakfast(state) {
     const n = draw(state, who, HAND_SIZE).length;
     log(state, `${p.name} drew ${n} card${n === 1 ? '' : 's'}.`);
   }
-  // On Breakfast: after cards are drawn and Energy is gained.
+  // On Breakfast (and Regenerate): after cards are drawn and Energy is gained.
   queueStep(state, 'afterBreakfast');
-  fireTriggers(state, everyPokemon(state, 'breakfast'));
+  queueStep(state, 'breakfastAbilities');
   queueWeather(state, 'breakfast');   // on top: Weather first
 }
 
@@ -963,8 +1059,10 @@ function startSupper(state) {
   state.turn = null;
   emit(state, 'phaseChanged', { phase: 'supper', round: state.round });
   log(state, 'Supper Phase.');
-  // On Supper: before hands are discarded.
+  // Weather → Burn → On Supper → "this Round" effects expire → hands discarded.
   queueStep(state, 'supperDiscard');
-  fireTriggers(state, everyPokemon(state, 'supper'));
+  queueStep(state, 'expireRound');
+  queueStep(state, 'supperAbilities');
+  queueStep(state, 'burn');
   queueWeather(state, 'supper');      // on top: Weather first
 }

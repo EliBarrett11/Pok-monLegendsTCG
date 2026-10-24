@@ -12,6 +12,8 @@ import {
   openBagOptions, itemTargets, BAG_SIZE, passEndsPhase, PASS_ENERGY, applyAction, passSpends,
 } from '../engine/game.js';
 import { EXERT_LIMIT } from '../engine/energy.js';
+import { keywordSummary, keywordLabel } from '../engine/keywords.js';
+import { statusCount } from '../engine/status.js';
 import { energySlots, exertSlots, pileDepth } from './resources.js';
 import { heldBonus, weatherTotal, speedOf, cardAt } from '../engine/board.js';
 import { INNATE_POWERS, WEATHER, SPEED_TIERS } from '../engine/cardData.js';
@@ -862,6 +864,27 @@ function frameBadges(c) {
   return [...weather, ...held];
 }
 
+// A keyword's explanation with its number filled in ("Burn X" → "Burn 2").
+function keywordHelp(k) {
+  const text = INNATE_POWERS[k.key] ?? '';
+  return k.amount === undefined ? text : text.replace(/\bX\b/g, k.amount);
+}
+const keywordTags = (c) => keywordSummary(c).map((k) => `<b class="keyword" title="${attr(`${keywordLabel(k)}: ${keywordHelp(k)}`)}">${keywordLabel(k)}</b>`).join(', ');
+
+// Keywords as chips over a board card's art (its text box is hidden at that size).
+function keywordChips(c) {
+  if (c.cardType !== 'Pokémon') return '';
+  const chips = keywordSummary(c).map((k) => `<span class="kw-chip" title="${attr(`${keywordLabel(k)}: ${keywordHelp(k)}`)}">${keywordLabel(k)}</span>`).join('');
+  return chips ? `<div class="kw-chips">${chips}</div>` : '';
+}
+
+// Burn: a flame token with its number, on Pokémon and Trainers.
+function burnToken(c) {
+  const n = statusCount(c, 'burn');
+  if (!n) return '';
+  return `<div class="burn-token" title="${attr(`Burn ${n}: takes ${n} damage at Supper, then Burn goes down by 1. Douse removes it; healing doesn't.`)}">${icon('flame')}<b>${n}</b></div>`;
+}
+
 const trend = (now, printed) => (now > printed ? 'buffed' : now < printed ? 'nerfed' : '');
 const chip = (cls, text) => `<span class="chip ${cls}">${text}</span>`;
 const statBadge = (cls, iconHtml, value, title) => `<span class="stat ${cls}" title="${attr(title)}">${iconHtml}${value}</span>`;
@@ -896,7 +919,7 @@ function face(c, opts) {
         kind: 'pokemon',
         cost: `<span class="gem-cost" title="Energy Cost">${c.energyCost}</span>`,
         type: `Pokémon · ${c.pokemonType}`,
-        text: [c.innatePower && `<b class="keyword">${c.innatePower}</b>`, c.effectText && `<b>${c.effectTrigger}:</b> ${c.effectText}`].filter(Boolean).join(' '),
+        text: [keywordTags(c), c.effectText && `<b>${c.effectTrigger}:</b> ${c.effectText}`].filter(Boolean).join(' '),
         left,
         right,
         badges: frameBadges(c),
@@ -986,7 +1009,7 @@ function card(c, size, opts = {}) {
   const status = (f.status ?? []).filter(Boolean).join('');
   return `<div ${head}>
     ${payBadge(opts)}${plate(c, f)}
-    ${art(c, f, `${badges ? `<div class="frame-badges">${badges}</div>` : ''}${status ? `<div class="status-chips">${status}</div>` : ''}`)}
+    ${art(c, f, `${badges ? `<div class="frame-badges">${badges}</div>` : ''}${size === 'board' ? keywordChips(c) : ''}${burnToken(c)}${status ? `<div class="status-chips">${status}</div>` : ''}`)}
     <div class="type-banner">${f.type}</div>
     <div class="text-box">${f.text}</div>
     ${statRow(c, f)}
@@ -1021,7 +1044,8 @@ function detailLines(c, opts) {
         row('Strength', inPlay ? `${statIcon(c.strengthType)} ${c.strengthType} <b>${c.currentStrength}</b> / ${maxStrengthOf(c)}${sources(c, 'strength')}`
           : `${statIcon(c.strengthType)} ${c.strengthType} <b>${c.strengthValue + xpStr}</b>${xpStr ? ` <span class="xp-tag">(+${xpStr} XP)</span>` : ''}`),
         row('Speed-Tier', `${speedIcon(speed)} ${speed === c.speedTier ? speed : `${speed} <span class="muted">(printed ${c.speedTier}, raised by Held Item)</span>`}`),
-        c.innatePower && row('Innate Power', `<b class="keyword">${c.innatePower}</b> ${INNATE_POWERS[c.innatePower] ?? ''}`),
+        ...keywordSummary(c).map((k, i) => row(i ? '' : 'Innate Power', `<b class="keyword">${keywordLabel(k)}</b> ${keywordHelp(k)}`)),
+        statusCount(c, 'burn') && row('Burn', `${icon('flame')} <b>${statusCount(c, 'burn')}</b>: takes that much damage at Supper, then Burn goes down by 1.`),
         c.effectText && row(c.effectTrigger, c.effectText),
         c.weatherTokens && row('Weather', weatherText(c.weatherTokens)),
         c.heldItem && row('Held Item', `${icon('held')} <b>${c.heldItem.name}</b> ${c.heldItem.effectText}`),
@@ -1034,6 +1058,7 @@ function detailLines(c, opts) {
         row('Strength', c.strength <= 0 ? 'Removed (0 Strength)' : `<b>${c.strength}</b> / ${c.maxStrength}`),
         row(`Power (${c.power.cost})`, `${c.power.text}${used ? ' <i class="used">Used this Round</i>' : ''}`),
         row('Passive', c.passive.text),
+        statusCount(c, 'burn') && row('Burn', `${icon('flame')} <b>${statusCount(c, 'burn')}</b>: takes that much damage at Supper, then Burn goes down by 1.`),
       ];
     }
     case 'Location':
@@ -1808,7 +1833,11 @@ const TRIGGER_HELP = {
   'On Defend': 'after it is attacked by a Command and takes damage, if it is still in the arena.',
   'On Defeated': 'when it is defeated by any cause, as it goes to the Released Pile.',
   'On Breakfast': 'each Breakfast, after cards are drawn and Energy is gained.',
-  'On Supper': 'each Supper, before hands are discarded.',
+  'On Supper': 'each Supper, after Burn, before hands are discarded.',
+  'On Knockout': 'when damage dealt by this Pokémon (its attack, a trade, or its own ability) defeats an enemy Pokémon, if it is still in the arena.',
+  'On Trainer Strike': 'when this Pokémon damages an enemy Trainer (its attack, or Overrun), if it is still in the arena.',
+  Rally: 'when another friendly Pokémon is summoned into this Pokémon\'s Zone (same side).',
+  'On Heal': 'when this Pokémon is healed by at least 1.',
 };
 const STRENGTH_HELP = {
   Hitpoints: 'Hitpoints: no targeting restriction.',
@@ -1827,7 +1856,8 @@ function inspectView(entry) {
     lines.push(item(`${c.attackType} Attack`, `Deals its Attack Value to its target when Commanded. ${c.attackType === 'Physical' ? 'Must target a Defence Pokémon if the opponent has one.' : 'Must target a Special Defence Pokémon if the opponent has one.'}`));
     lines.push(item(`${c.strengthType} Strength`, `${STRENGTH_HELP[c.strengthType]} At 0 Strength the Pokémon is defeated and goes to the Released Pile.`));
     lines.push(item(`Speed-Tier: ${SPEED_TIERS[speedOf(c)]}`, 'An Active Pokémon is Alert, and can be Commanded, if its Speed-Tier equals the highest among all Active Pokémon in the arena. Swift > Steady > Slow.'));
-    if (c.innatePower) lines.push(item(c.innatePower, INNATE_POWERS[c.innatePower] ?? ''));
+    for (const k of keywordSummary(c)) lines.push(item(keywordLabel(k), keywordHelp(k)));
+    if (statusCount(c, 'burn')) lines.push(item(`Burn ${statusCount(c, 'burn')}`, 'At Supper it takes damage equal to its Burn, then Burn goes down by 1. Burn damage is effect damage (no On Defend). Douse removes it; healing doesn\'t.'));
     if (c.effectTrigger) lines.push(item(c.effectTrigger, `Its ability triggers ${TRIGGER_HELP[c.effectTrigger] ?? ''} ${c.effectText}`));
     if (inPlay) {
       const buffs = [sources(c, 'attack') && `Attack ${attackOf(c)}${sources(c, 'attack')}`, sources(c, 'strength') && `Strength ${c.currentStrength}/${maxStrengthOf(c)}${sources(c, 'strength')}`].filter(Boolean);

@@ -26,6 +26,7 @@ function match({ seed = 51 } = {}) {
     const p = s.players[who];
     p.drawPile.push(...p.hand.splice(0));
     p.baseEnergy = 10;
+    p.dollars = 0;   // not the Breakfast PokéDollar: these tests count what defeats earn
     p.trainers.forEach((t) => { t.passive = { text: '' }; });
     for (const c of p.drawPile) c.ability = null;
   }
@@ -129,7 +130,7 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
   refreshAuras(u);
   u = nextRound(u);
   assert.equal(u.players.player.zones[2].pokemon[0], null, 'my Horsea defeated by Weather');
-  assert.equal(u.players.ai.dollars, 1, 'the opponent earns');
+  assert.equal(u.players.ai.dollars, 1 + 1, 'the opponent earns (1 for Horsea, 1 at Breakfast)');
 }
 
 // --- Items in hand ----------------------------------------------------------------

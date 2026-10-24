@@ -9,6 +9,7 @@
 
 import { shuffle } from './random.js';
 import { SPEED_TIERS } from './cardData.js';
+import { afterShell } from './keywords.js';
 
 export const PLAYERS = ['player', 'ai'];
 
@@ -136,10 +137,16 @@ export function summonSpaces(state, who) {
 //   attackBonus, strengthBonus  permanent buffs
 //   aura                        Passive bonuses by source uid: { [uid]: { attack, strength } }
 //   weather                     Weather modifiers by bracket: { ['Rain 4']: { attack, strength } }
+//   roundBuffs                  "this Round" buffs, expiring at Supper: [{ attack, strength, source }]
 //   currentStrength
 
 function auraTotal(c, stat) {
   return Object.values(c.aura ?? {}).reduce((sum, b) => sum + b[stat], 0);
+}
+
+// The part of a stat that comes from "this Round" buffs.
+export function roundTotal(c, stat) {
+  return (c.roundBuffs ?? []).reduce((sum, b) => sum + (b[stat] ?? 0), 0);
 }
 
 // The part of a stat that comes from Weather (shown separately on cards).
@@ -154,12 +161,12 @@ export function heldBonus(c, stat) {
 
 // Attack can't go below 0.
 export function attackOf(c) {
-  return Math.max(0, c.attackValue + (c.attackBonus ?? 0) + auraTotal(c, 'attack') + weatherTotal(c, 'attack') + heldBonus(c, 'attack'));
+  return Math.max(0, c.attackValue + (c.attackBonus ?? 0) + auraTotal(c, 'attack') + weatherTotal(c, 'attack') + heldBonus(c, 'attack') + roundTotal(c, 'attack'));
 }
 
 export function maxStrengthOf(c) {
   if (c.cardType === 'Trainer') return c.maxStrength;
-  return c.strengthValue + (c.strengthBonus ?? 0) + auraTotal(c, 'strength') + weatherTotal(c, 'strength') + heldBonus(c, 'strength');
+  return c.strengthValue + (c.strengthBonus ?? 0) + auraTotal(c, 'strength') + weatherTotal(c, 'strength') + heldBonus(c, 'strength') + roundTotal(c, 'strength');
 }
 
 // Speed-Tier as an index into SPEED_TIERS, raised by a Held Item (never past Swift).
@@ -209,23 +216,31 @@ export function weatherCounts(state) {
 
 // --- Damage, healing, defeat ------------------------------------------------------
 
-// Trainer Strength stops at 0; a Trainer at 0 is removed. Pokémon at 0 or
-// less are released by releaseDefeated(). Returns [before, after].
-export function damage(state, ref, amount) {
+// One instance of damage. A Pokémon's Shell reduces it (to a minimum of 1).
+// Trainer Strength stops at 0; a Trainer at 0 is removed and keeps no
+// statuses. Pokémon at 0 or less are released by releaseDefeated().
+// opts: { cause: 'burn' | …, by: the player whose card or effect dealt it }.
+// Returns [before, after].
+export function damage(state, ref, amount, opts = {}) {
   const card = cardAt(state, ref);
+  const dealt = afterShell(card, amount);
+  const extra = { ...(dealt !== amount ? { raw: amount, shell: amount - dealt } : {}), ...(opts.cause ? { cause: opts.cause } : {}) };
   if (ref.kind === 'trainer') {
     const before = card.strength;
-    card.strength = Math.max(0, before - amount);
-    emit(state, 'damage', { target: info(state, ref), amount, before, after: card.strength });
+    card.strength = Math.max(0, before - dealt);
+    emit(state, 'damage', { target: info(state, ref), amount: dealt, before, after: card.strength, ...extra });
     if (before > 0 && card.strength === 0) {
+      delete card.status;
       emit(state, 'trainerRemoved', { target: info(state, ref) });
       log(state, `${whose(state, ref.owner)} ${card.name} was removed. Zone ${ref.zone + 1} has fallen on ${ref.owner === 'player' ? 'your' : `${state.players[ref.owner].name}'s`} side.`);
     }
     return [before, card.strength];
   }
   const before = card.currentStrength;
-  card.currentStrength -= amount;
-  emit(state, 'damage', { target: info(state, ref), amount, before, after: card.currentStrength });
+  card.currentStrength -= dealt;
+  // What last hit it, so a defeat can say what caused it.
+  card.lastHit = { cause: opts.cause ?? 'damage', by: opts.by ?? null };
+  emit(state, 'damage', { target: info(state, ref), amount: dealt, before, after: card.currentStrength, ...extra });
   return [before, card.currentStrength];
 }
 
@@ -247,13 +262,23 @@ export function releaseDefeated(state) {
   const defeated = arenaPokemon(state).filter(({ card }) => card.currentStrength <= 0);
   for (const { ref, card } of defeated) {
     const p = state.players[ref.owner];
-    emit(state, 'defeated', { target: info(state, ref) });
+    emit(state, 'defeated', { target: info(state, ref), cause: card.lastHit?.cause ?? 'damage', by: card.lastHit?.by ?? null });
+    leaveArena(card);
     p.zones[ref.zone].pokemon[ref.space] = null;
     log(state, `${whose(state, ref.owner)} ${card.name} was defeated and goes to the Released Pile.`);
     earnDollars(state, opponentOf(ref.owner), card.energyCost, `for defeating ${card.name}`);
     release(state, ref.owner, [card]);
   }
   return defeated;
+}
+
+// A card leaving the arena keeps nothing that only lasts while it is in play:
+// statuses, "this Round" buffs and keywords, what last hit it.
+export function leaveArena(card) {
+  delete card.status;
+  delete card.roundBuffs;
+  delete card.lastHit;
+  if (card.granted) card.granted = card.granted.filter((k) => !k.thisRound);
 }
 
 // --- PokéDollars, Held Items and the PokéMart ----------------------------------

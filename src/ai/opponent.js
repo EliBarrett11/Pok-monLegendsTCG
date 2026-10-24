@@ -13,6 +13,8 @@ import {
   playableSupporters, supporterTargets, giftMet, playableLocations, locationSpaces,
   openBagOptions, itemTargets, passEndsPhase, PASS_ENERGY, passSpends,
 } from '../engine/game.js';
+import { keywordAmount, afterShell } from '../engine/keywords.js';
+import { statusCount } from '../engine/status.js';
 
 // Where the AI's random choices come from. Tests pass a seeded generator
 // so AI-vs-AI matches replay exactly.
@@ -212,6 +214,26 @@ function passBackRisk(state, who) {
   return 0.9;
 }
 
+// Damage Burn will still deal over the coming Suppers (Burn 3: 3 + 2 + 1),
+// each hit reduced by Shell, up to what the card has left.
+function burnAhead(card) {
+  let total = 0;
+  for (let b = statusCount(card, 'burn'); b > 0; b--) total += afterShell(card, b);
+  const left = card.cardType === 'Trainer' ? card.strength : card.currentStrength;
+  return Math.min(total, Math.max(0, left));
+}
+
+// Burn pressure on a side: future Burn damage, Trainers counting 3× (it goes
+// straight towards winning), Pokémon 1×.
+function burnPressure(s, side) {
+  let sum = 0;
+  for (const z of s.players[side].zones) {
+    if (z.trainer?.strength > 0) sum += 3 * burnAhead(z.trainer);
+    for (const c of z.pokemon) if (c) sum += burnAhead(c);
+  }
+  return sum;
+}
+
 const value = (cards) => cards.reduce((sum, c) => sum + (c.energyCost ?? 0) + (c.attackValue ?? 0), 0);
 // Pokémon newly in the Released Pile (defeated), not other Released cards.
 const newlyReleased = (before, after, who) => after.players[who].released.slice(before.players[who].released.length)
@@ -241,6 +263,13 @@ function scoreMove(state, who, move) {
   const enemyLost = newlyReleased(state, after, foe);
   const ownLost = newlyReleased(state, after, who);
   let score = 100 * removed + 5 * (after.players[who].xp - state.players[who].xp);   // quests completed
+  // Burn: future damage on the enemy is worth having (on Trainers most), on its own cards worth removing.
+  score += (burnPressure(after, foe) - burnPressure(state, foe)) - (burnPressure(after, who) - burnPressure(state, who));
+  // Enemy Trainer Strength lost other than by attacking the Trainer directly (Overrun, effects).
+  if (move.target?.kind !== 'trainer' || move.type !== 'command') {
+    const total = (s) => s.players[foe].zones.reduce((sum, z) => sum + Math.max(0, z.trainer.strength), 0);
+    score += 3 * (total(state) - total(after));
+  }
 
   if (move.type === 'command') {
     if (move.target.kind === 'trainer') {
@@ -250,9 +279,12 @@ function scoreMove(state, who, move) {
     if (enemyLost.length && !ownLost.length) return score + 60 + value(enemyLost);
     if (ownLost.length && !enemyLost.length) return score - 20;
     if (enemyLost.length) return score + 10 + value(enemyLost) - value(ownLost);
+    // Chip damage: worth less on a target that will Regenerate it back (Shell is
+    // already in the damage the try dealt).
     const hit = state.players[foe].zones[move.target.zone].pokemon[move.target.space];
     const left = after.players[foe].zones[move.target.zone].pokemon[move.target.space];
-    return score + 5 + (hit.currentStrength - left.currentStrength);
+    const dealt = hit.currentStrength - left.currentStrength;
+    return score + 5 + dealt - Math.min(dealt, keywordAmount(hit, 'Regenerate'));
   }
 
   if (move.type === 'playPokemon') return score + summonScore(state, after, who, move);
@@ -277,7 +309,7 @@ function scoreMove(state, who, move) {
 
   // Powers.
   if (enemyLost.length) return score + 60 + value(enemyLost);
-  if (trainer.id === 'brock') {
+  if (trainer?.id === 'brock') {
     const target = state.players[who].zones[move.target.zone].pokemon[move.target.space];
     return score + 15 + maxStrengthOf(target);
   }

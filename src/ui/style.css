@@ -1180,3 +1180,40 @@ button.primary {
 
 /* The reshuffle: card backs flying from the Discard Pile to the Draw Pile. */
 .fx-shuffle-card { position: absolute; border-radius: 4px; background: url('../../assets/ui/card-back.jpg') center / cover; box-shadow: 2px 4px 8px rgba(0, 0, 0, 0.6); }
+
+/* --- Status Effects and Innate keywords ---------------------------------------------- */
+
+/* Burn: a flame token with its number, at the bottom right of the art (Alert / Spent chips are bottom left). */
+.burn-token {
+  position: absolute; right: 3px; bottom: 3px; z-index: 2;
+  display: flex; align-items: center; gap: 1px; padding: 1px 7px 1px 3px; border-radius: 13px;
+  background: radial-gradient(circle at 30% 30%, #ffe08a, #f4801c 55%, #a8300a); border: 1.5px solid #5a1404;
+  color: #fff; font-size: 17px; font-weight: 800; line-height: 20px; text-shadow: 0 1px 2px rgba(60, 10, 0, 0.9);
+  box-shadow: 0 0 10px 2px rgba(255, 130, 30, 0.75), 0 2px 3px rgba(0, 0, 0, 0.6);
+  animation: burn-flicker 1.3s ease-in-out infinite alternate;
+}
+.burn-token .icon { width: 16px; height: 16px; color: #fff3c4; --icon-cut: #f4801c; }
+.card.hand .burn-token { font-size: 13px; line-height: 16px; }
+.card.full .burn-token { font-size: 22px; line-height: 26px; padding: 2px 10px 2px 5px; }
+.card.full .burn-token .icon { width: 22px; height: 22px; }
+@keyframes burn-flicker { from { box-shadow: 0 0 8px 1px rgba(255, 130, 30, 0.6), 0 2px 3px rgba(0, 0, 0, 0.6); } to { box-shadow: 0 0 14px 4px rgba(255, 150, 40, 0.9), 0 2px 3px rgba(0, 0, 0, 0.6); } }
+.pv-lines .icon { color: #e8641a; }
+
+/* Innate keywords as chips over a board card's art (hover for what they do). */
+.kw-chips { position: absolute; left: 2px; top: 2px; z-index: 2; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.kw-chip {
+  padding: 0 4px; border-radius: 4px; white-space: nowrap; cursor: help;
+  font-size: 10.5px; font-weight: 800; line-height: 14px; letter-spacing: 0.01em;
+  background: rgba(22, 58, 38, 0.9); color: #d6ffe4; border: 1px solid #6bd49a; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.text-box .keyword[title] { cursor: help; text-decoration: underline dotted rgba(30, 77, 52, 0.5); }
+
+/* Effects: Burn and Douse. */
+.fx-num.burn span { color: #ffb347; -webkit-text-stroke: 1.5px #5a1404; }
+.fx-num.douse span { color: #bfe6ff; -webkit-text-stroke: 1.5px #0e3550; font-size: 26px; }
+.fx-num .shell-raw { text-decoration: line-through; opacity: 0.7; font-size: 0.6em; margin-right: 4px; }
+.fx-num .shell-tag { display: block; font-size: 0.42em; color: #d6ffe4; -webkit-text-stroke: 0; text-shadow: 0 1px 2px #000; }
+.fx-overrun {
+  position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, #fff, #ffd36b 30%, #ff7a1a 60%, transparent 72%); box-shadow: 0 0 24px 10px rgba(255, 120, 30, 0.6);
+}

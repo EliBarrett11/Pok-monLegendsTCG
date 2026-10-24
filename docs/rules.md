@@ -9,7 +9,7 @@ The rules as settled while building the game, in match order. The code follows t
 - **Trainers:** each player has 3 Trainers, kept outside the 40-card deck. Each Trainer has its own **Trainer Strength**, a **Power** and a **Passive** (section 7).
 - **Piles:** each player has a Draw Pile, a hand, a Discard Pile and a **Released Pile**. The Draw Pile is shuffled before the match. Defeated Pokémon, Released cards and completed Locations go to the Released Pile, which is never shuffled back into the Draw Pile.
 - **XP:** each player has an XP pool, starting at 0. XP can be stored indefinitely (section 4.1.1).
-- **PokéDollars:** each player has a PokéDollar pool, starting at 0, which carries over between Rounds. Whenever an opponent's Pokémon is defeated by any cause (your attack, damage traded back by your Pokémon, effects, Weather), you earn PokéDollars equal to that Pokémon's printed Energy Cost.
+- **PokéDollars:** each player has a PokéDollar pool, starting at 0, which carries over between Rounds. Each player gains **+1 PokéDollar at each Breakfast**, including Round 1. Whenever an opponent's Pokémon is defeated by any cause (your attack, damage traded back by your Pokémon, effects, Weather, Burn), you earn PokéDollars equal to that Pokémon's printed Energy Cost.
 - **Bag:** each player has a Bag with 6 spaces (section 1.7). **PokéMart:** one shared by both players (section 1.7).
 
 ### 1.1 Pokémon cards
@@ -58,10 +58,15 @@ Card definitions live in `src/engine/cardData.js`, so real cards can replace the
 
 ### 1.3 Innate Powers
 
-Keyword abilities on Pokémon that always apply.
+Keyword abilities on Pokémon that always apply. A Pokémon can have more than one (e.g. "Overrun, Scorch 2"). X is the keyword's number.
 
 - **Quick Attack:** this Pokémon is summoned Active instead of Spent, so it can be Alert and Commanded the Round it arrives (by the normal Alert rules).
 - **Agility:** this Pokémon can't be chosen as a target by Strategy Cards. Area effects (e.g. Hypervoice) still affect it. Trainer Powers and attacks can still target it.
+- **Scorch X:** when this Pokémon's attack (a Command) deals damage, apply Burn X to the target, if it is still in play. Works on Trainers too. Only its own attack: hitting back in a trade doesn't Scorch, and Scorch never burns the Trainer that Overrun damage reaches. An attack that deals no damage (Attack 0) doesn't Scorch.
+- **Overrun:** when this Pokémon's attack defeats an enemy Pokémon, the damage left over is dealt to the Trainer in that Zone on the defender's side. Leftover = damage actually dealt (after the defender's Shell) − the defender's remaining Strength. Example: Attack 6 into Shell 1 with 3 Strength left → 5 dealt → 2 to the Trainer. Lost if that Trainer has been removed. Only its own attack (not hitting back in a trade); it still happens if the attacker is also defeated in the trade. Overrun damage counts as damage from this Pokémon (it triggers On Trainer Strike).
+- **Regenerate X:** at each Breakfast, with the On Breakfast abilities (after the Breakfast Weather), this Pokémon heals X, before its own On Breakfast ability. At full Strength nothing happens.
+- **Shell X:** every instance of damage this Pokémon takes is reduced by X, to a minimum of 1: attacks, effects, Weather and Burn. No damage stays no damage (Attack 0 deals 0).
+- **Having one twice:** numbered keywords add up (Scorch 1 + Scorch 1 = Scorch 2; Shell and Regenerate the same). Keywords without a number (Overrun, Quick Attack, Agility) don't stack: having one twice is the same as having it once. Effects can grant keywords, permanently or "this Round".
 
 ### 1.4 Supporter Cards
 
@@ -169,6 +174,19 @@ Weather types are data (`WEATHER` in `src/engine/cardData.js`), so real Weather 
 | **Rose Incense** | Consumed | 3 | A friendly Spent Pokémon in the arena becomes Active. |
 | **Miracle Seed** | Consumed | 4 | Gain 2 Base Energy this Round (can go above 10; doesn't carry over). |
 
+### 1.8 Status Effects
+
+A Status Effect is a counter on a Pokémon or a Trainer, shown as a numbered token on the card. Statuses are data (`STATUSES` in `src/engine/status.js`), so new ones (Poison, Paralysis, Sleep…) can be added there. Only Burn exists for now.
+
+**Burn** (a flame token)
+- "Burn X" adds X Burn counters to the target. Pokémon **and Trainers** can be burned. Burn stacks: applying more adds to the counters.
+- **At Supper**, every burned card takes damage equal to its Burn, then loses 1 Burn (Burn 3 deals 3, then 2, then 1 over three Suppers). All burned cards, on both sides, take their Burn damage **at the same moment**.
+- Burn damage is **effect damage**: it doesn't trigger On Defend. Shell reduces it (to a minimum of 1). It can defeat Pokémon (Released Pile, PokéDollars as normal, On Defeated fires) and reduce Trainers to 0 (removed as normal); Trainer Strength stops at 0.
+- Burn damage has **no source Pokémon**: it never triggers On Knockout, On Trainer Strike or Amulet Coin, even if a Scorch Pokémon applied it. But Burn remembers **which player applied it**, so its damage and defeats count for that player's quests (e.g. a Pokémon defeated by Burn I applied counts towards my "Defeat N enemy Pokémon").
+- Healing doesn't remove Burn. A card that leaves play keeps no Burn, and a removed Trainer's Burn is cleared.
+- **Douse:** an effect that removes all Burn from a card.
+- If Burn takes **both** players' last Trainers to 0 at the same Supper, the match is a **draw**.
+
 ## 2. The Battle Arena
 
 - Each player has a horizontal row of **9 Pokémon Spaces**.
@@ -200,13 +218,14 @@ Initiative switches to the other player at the start of each new Round.
 
 Every Round, each player:
 
+0. **Gains +1 PokéDollar.**
 1. **The PokéMart restocks**, and Items In Delivery arrive in their Bags (section 1.7).
 2. **Recovers Exhaust** that is due this Round (see section 5).
 3. **Spent Pokémon become Active** again.
 4. **Base Energy** is set to the Round number, with a maximum of 10. Unspent Base Energy does not carry over.
 5. **Exert maximum** goes up by 1 each Round, to a limit of 3 (Round 1 = 1, Round 2 = 2, Round 3 onward = 3). Unspent Exert carries over.
 6. **Draws 7 cards**, one at a time. If the Draw Pile is empty when a card needs drawing, shuffle the Discard Pile to form a new Draw Pile, then keep drawing. If both piles are empty, drawing stops and the player keeps a smaller hand.
-7. **Timed Weather** effects (section 1.6), then **On Breakfast** abilities fire (section 8).
+7. **Timed Weather** effects (section 1.6), then **On Breakfast** abilities and **Regenerate** (section 1.3) fire (section 8).
 8. **XP step** (after the mulligan in Round 1): see 4.1.1.
 
 **Mulligan (Round 1 only):** each player may put any number of cards from their hand into their Discard Pile, then draw the same number from their Draw Pile. Both players choose in secret and reveal together.
@@ -249,17 +268,28 @@ Every Round, each player:
   - If the opponent has any Pokémon with **Defence** Strength-Type (Active or Spent), a **Physical** attacker must target one of those.
   - If the opponent has any Pokémon with **Special Defence** Strength-Type (Active or Spent), a **Special** attacker must target one of those.
   - A Trainer at 0 Strength can't be targeted.
-- **Damage:** the attacker deals its Attack Value (including buffs and Passive bonuses) to the target's current Strength. Extra damage beyond what the target has left is lost.
+- **Damage:** the attacker deals its Attack Value (including buffs and Passive bonuses) to the target's current Strength, reduced by the target's Shell (section 1.3). Extra damage beyond what the target has left is lost, unless the attacker has Overrun.
 - **Trading damage:** if the target is an **Alert** Pokémon, it deals its Attack Value back to the attacker at the same time, and both become Spent.
 - If the target is a Spent or non-Alert Pokémon, or a Trainer, it takes the damage without hitting back. Only the attacker becomes Spent.
 - **Defeat:** a Pokémon at 0 Strength or less is defeated and goes to its owner's Released Pile. Both Pokémon can be defeated in the same trade.
 - Trainer Strength can't go below 0.
+- **Order inside an attack:**
+  1. Damage lands (both sides of a trade at once, each reduced by Shell).
+  2. Defeated Pokémon fire On Defeated and go to the Released Pile.
+  3. Overrun damage hits the Trainer.
+  4. Scorch burns the target, if it's still in play.
+  5. On Attack, On Defend, On Knockout and On Trainer Strike fire, in the usual order (section 8). Like On Attack, On Knockout and On Trainer Strike only fire if that Pokémon is still in the arena: a Pokémon defeated in the same trade that knocked out its opponent gets no On Knockout.
 
 ### 4.3 Supper Phase
 
-- **Timed Weather** effects (section 1.6), then **On Supper** abilities fire (section 8).
-- Each player puts all cards left in their hand into their Discard Pile.
-- Then the next Round begins.
+In this order:
+1. **Timed Weather** effects (section 1.6).
+2. **Burn** (section 1.8): every burned card takes its Burn damage at once, then loses 1 Burn. Defeats and removals follow, with any On Defeated.
+3. **On Supper** abilities fire (section 8), for Pokémon still in the arena.
+4. **"This Round" effects expire** (section 7.1).
+5. Each player puts all cards left in their hand into their Discard Pile.
+
+Then the next Round begins.
 
 ## 5. Energy: Base Energy, Exert and Exhaust
 
@@ -285,6 +315,7 @@ Playing a Pokémon and using a Trainer Power cost Energy so far.
 
 - **Win:** a player wins immediately when all 3 opponent Trainers are at 0 Strength.
 - **Draw:** if neither player has a Pokémon left in their arena, hand, Draw Pile or Discard Pile, nobody can deal damage again, so the match ends in a draw.
+- **Draw:** if both players' last Trainers reach 0 at the same moment (Burn at Supper, section 1.8), the match ends in a draw.
 
 ## 7. Trainers and effects
 
@@ -293,6 +324,7 @@ Playing a Pokémon and using a Trainer Power cost Energy so far.
 - "+A/+S" means +A Attack Value and +S Strength.
 - "+X Hitpoints / +X Defence / +X Special Defence" means +X Strength, but only for a Pokémon with that Strength-Type. Others can't be chosen as targets, and area versions skip them.
 - Buffs are permanent unless a card says otherwise. Buffed stats are shown in green.
+- **"This Round"** effects (buffs, granted keywords) expire at Supper, after Burn and On Supper (section 4.3). Everything else is permanent unless stated. Losing a "this Round" Strength buff follows the rule for losing a Passive (section 7.2): maximum Strength drops, and current Strength only drops if it's above the new maximum, so it never defeats a Pokémon. "This Round" effects are also gone if their card leaves the arena.
 - A Strength buff raises both current and maximum Strength.
 - Healing can't go above maximum Strength (for Trainers: their starting Strength). Healing can target Trainers.
 - Effect damage uses the same defeat rules as combat: Pokémon at 0 or less go to the Released Pile; Trainer Strength stops at 0.
@@ -331,7 +363,11 @@ A Pokémon ability is an **Effect Trigger Word** plus **Effect Text**. It fires 
 | **On Defend** | after this Pokémon is attacked (by a Command) and takes damage, if it's still in the arena. Effect damage never triggers it. |
 | **On Defeated** | when this Pokémon is defeated by any cause, as it goes to the Released Pile. |
 | **On Breakfast** | at each Breakfast while it's in the arena, after cards are drawn and Energy is gained. |
-| **On Supper** | at each Supper while it's in the arena, before hands are discarded. |
+| **On Supper** | at each Supper while it's in the arena, after Burn, before "this Round" effects expire and hands are discarded. |
+| **On Knockout** | when damage dealt by this Pokémon (its attack, its hit back in a trade, or its own ability) defeats an enemy Pokémon, if it's still in the arena. Once per Pokémon defeated. Burn and Overrun never cause it (Overrun only damages Trainers). |
+| **On Trainer Strike** | when this Pokémon damages an enemy Trainer with its attack or its Overrun, if it's still in the arena. |
+| **Rally** | when another friendly Pokémon is summoned into this Pokémon's Zone (same side). It happens at the same moment as the new Pokémon's On Summon, so the order rule below applies. |
+| **On Heal** | when this Pokémon is healed by at least 1 (healing at full Strength isn't a heal). Regenerate counts. |
 
 - **Choosing targets:** if an ability says to choose a target, its owner must pick one when it resolves (they can't decline). With no legal target, nothing happens.
 - **Order:** when several abilities or Passives trigger at the same moment, the player with initiative resolves theirs first, then the other player. Within each player, in zone order 1 → 2 → 3, then left to right. (In the build, a Trainer's Passive comes after the Pokémon in its zone.)
@@ -353,6 +389,8 @@ A Pokémon ability is an **Effect Trigger Word** plus **Effect Text**. It fires 
 - Is there a hand size limit?
 
 ## Placeholders in the current build
+
+- **New mechanics without cards yet (Step 16):** Status Effects (Burn, Douse), Scorch, Overrun, Regenerate, Shell, On Knockout, On Trainer Strike, Rally, On Heal and "this Round" effects are built and tested with test-only cards (`tests/status.test.js`, `tests/innate.test.js`), but no card in the current placeholder decks uses them. They arrive with the Fire and Water decks (`docs/decks.md`).
 
 - Decks are 16 Pokémon, 8 Strategy (3 Quickdraw, 3 Hypervoice, 2 Recover), 8 Item (2 Black Belt, 2 Rocky Helmet, 1 Oran Berry, 1 Amulet Coin, 1 Potion, 1 Miracle Seed; Rose Incense is PokéMart only), 4 Location (2 Cerulean Cape, 1 Floaroma Meadow, 1 Shalour City) and 4 Supporter (2 Tracey, 1 Professor Oak, 1 Mallow) cards. This mix is a stand-in, not a rule.
 - The 16 Pokémon are invented placeholders, one of each per deck, with the same list for both players. Stats: Energy Cost 1–6, Attack 2–7, Strength 4–12.
@@ -397,4 +435,4 @@ A Pokémon ability is an **Effect Trigger Word** plus **Effect Text**. It fires 
 - The 7 Items (section 1.7) are placeholders, including their rarities.
 - Both players use the same three Trainers: Ash, Misty and Brock (section 7.4), each with Strength 15.
 - To give every Trainer something to work with, three placeholder Pokémon are Water (Horsea, Goldeen, Quagsire), four cost 1, and five have Defence Strength-Type.
-- **The AI** places Trainers at random and only spends Base Energy (never Exert). On a Battle turn it scores every legal move and Pass, and picks the best (ties at random). A Pass that gains +1 Base Energy scores a little for the Energy, minus the best attack each Pokémon it would make Spent (unmatched speed) could have made instead, plus the score of the best move that one more Base Energy would make affordable, weighed by the chance the opponent passes straight back and ends the phase (low if the opponent has an Alert Pokémon, higher if it only has cards and Energy, high otherwise). The Pass that would end the phase is only a last resort, when nothing else is legal. From the top: winning the match; bringing an enemy Trainer to 0; defeating an enemy Pokémon (by attack or Misty) without losing its own; attacking the weakest enemy Trainer; playing its most expensive affordable Pokémon, preferring zones where its own Passives boost it and avoiding the opponent's Brock zone; Brock's buff on its strongest Defence Pokémon, Ash's draw, Misty chip damage; other attacks; and last, trades that lose the attacker for nothing. It always takes Ash's free summon when there is room. Strategy Cards: Hypervoice only when you have Pokémon (scored by damage dealt and Pokémon defeated), Recover only on its own damaged Pokémon or Trainers (more when a Trainer is low), Quickdraw about as highly as Ash's draw. Supporters: it pays with random cards from its hand, but puts a card that meets the Gift Challenge in when it has one; it scores them by what they gain (Tracey like a draw, Professor Oak by stats gained, Mallow by Strength healed) minus the cards paid, a Released card counting double. Locations: it only plays into empty Location spaces and never replaces one. XP: it spends all of it on the cheapest Pokémon in hand it can afford this Round with Base Energy, splitting points between Attack and Strength at random; with no affordable Pokémon it keeps the XP. Open Bag: an Item bought from hand is used straight away if it has a legal target, otherwise stored; it sometimes buys from the PokéMart when its Bag has room; Held Items go on a random Pokémon of its own in the arena, preferring one without an Item. When one of its abilities needs a target, it picks a random legal one. It tries moves on a copy of the game to score them (abilities included), except draws (Ash, Quickdraw), so it never sees its own Draw Pile.
+- **The AI** places Trainers at random and only spends Base Energy (never Exert). On a Battle turn it scores every legal move and Pass, and picks the best (ties at random). A Pass that gains +1 Base Energy scores a little for the Energy, minus the best attack each Pokémon it would make Spent (unmatched speed) could have made instead, plus the score of the best move that one more Base Energy would make affordable, weighed by the chance the opponent passes straight back and ends the phase (low if the opponent has an Alert Pokémon, higher if it only has cards and Energy, high otherwise). The Pass that would end the phase is only a last resort, when nothing else is legal. From the top: winning the match; bringing an enemy Trainer to 0; defeating an enemy Pokémon (by attack or Misty) without losing its own; attacking the weakest enemy Trainer; playing its most expensive affordable Pokémon, preferring zones where its own Passives boost it and avoiding the opponent's Brock zone; Brock's buff on its strongest Defence Pokémon, Ash's draw, Misty chip damage; other attacks; and last, trades that lose the attacker for nothing. It always takes Ash's free summon when there is room. Strategy Cards: Hypervoice only when you have Pokémon (scored by damage dealt and Pokémon defeated), Recover only on its own damaged Pokémon or Trainers (more when a Trainer is low), Quickdraw about as highly as Ash's draw. Supporters: it pays with random cards from its hand, but puts a card that meets the Gift Challenge in when it has one; it scores them by what they gain (Tracey like a draw, Professor Oak by stats gained, Mallow by Strength healed) minus the cards paid, a Released card counting double. Locations: it only plays into empty Location spaces and never replaces one. XP: it spends all of it on the cheapest Pokémon in hand it can afford this Round with Base Energy, splitting points between Attack and Strength at random; with no affordable Pokémon it keeps the XP. Open Bag: an Item bought from hand is used straight away if it has a legal target, otherwise stored; it sometimes buys from the PokéMart when its Bag has room; Held Items go on a random Pokémon of its own in the arena, preferring one without an Item. When one of its abilities needs a target, it picks a random legal one. It tries moves on a copy of the game to score them (abilities included), except draws (Ash, Quickdraw), so it never sees its own Draw Pile. New mechanics: Burn counts as the damage it will still deal over the coming Suppers (after Shell, up to what the card has left), three times as much on a Trainer as on a Pokémon, and removing Burn from its own cards counts the same way; enemy Trainer Strength lost through Overrun (or any effect) adds to a move's score, so a defeat with Overrun is worth more; chip damage on a Pokémon with Regenerate counts for less, as it will heal back (Shell is already in the damage its try deals).

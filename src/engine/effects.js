@@ -15,6 +15,11 @@
 //   attachHeld   { target }                        attach the Item being used (ctx.item) as a
 //                                                  Held Item; one per Pokémon, the old one goes to the PokéMart
 //   ready        { target }                        a Spent Pokémon becomes Active
+//   burn         { amount, target }                Burn X: adds X Burn counters (Pokémon or Trainer)
+//   applyStatus  { status, amount, target }        the same for any status in STATUSES (status.js)
+//   douse        { target }                        removes all Burn
+//   grant        { keyword, amount?, thisRound?, target }  the card gains an Innate keyword
+//   buff and grant with thisRound: true expire at Supper (after Burn and On Supper)
 //
 // SELECTOR     { mode, side, kinds, zone, filter }
 //   mode    'targeted' (the player chooses one) | 'area' (all that match) |
@@ -33,8 +38,10 @@
 //   aura      { attack, strength, target: selector } continuous stat bonus,
 //             recalculated whenever the board changes
 //   triggers  [{ on, match, effects }]
-//             on: 'summon' | 'attack' | 'defend' | 'defeated' | 'breakfast' | 'supper'
-//             match: { side?, zone?: 'source', self?: true, targetKind? } for the event's card
+//             on: 'summon' | 'attack' | 'defend' | 'defeated' | 'breakfast' | 'supper' |
+//                 'knockout' | 'trainerStrike' | 'heal'
+//             match: { side?, zone?: 'source', self?: true, notSelf?: true, kind?, targetKind? }
+//             for the event's card (Rally: on 'summon', another friendly Pokémon in its Zone)
 //
 // POKÉMON ABILITY  card.ability = { on, match: { self: true, ... }, effects }, shown
 //   as its Effect Trigger Word + Effect Text (On Summon → 'summon', and so on).
@@ -51,19 +58,18 @@
 //   label, text?, target?, event?, drawn? }. All plain data, so it can be stored in
 //   state while a choice is pending.
 //
-// INNATE POWERS are keywords the rules check directly:
-//   'Quick Attack'  summoned Active instead of Spent
-//   'Agility'       can't be chosen as a target by a Strategy Card (area effects still hit)
+// INNATE POWERS are keywords the rules check directly (keywords.js).
+// STATUS EFFECTS (Burn) are counters on cards (status.js).
 
 import { WEATHER } from './cardData.js';
 import {
   PLAYERS, opponentOf, log, whose, draw, canDraw, arenaPokemon, activeTrainers, cardAt, sameRef, weatherCounts, weatherTotal,
   describeRef, summonSpaces, damage, heal, releaseDefeated, maxStrengthOf, strengthOf, inPlay, heldBonus, toMart, emit, info,
 } from './board.js';
+import { hasKeyword, keywordAmount, afterShell } from './keywords.js';
+import { applyStatus, clearStatus, STATUSES } from './status.js';
 
-export function hasKeyword(card, keyword) {
-  return card.innatePower === keyword;
-}
+export { hasKeyword };
 
 // --- Selectors -----------------------------------------------------------------
 
@@ -170,17 +176,48 @@ const OPS = {
   damage(state, ctx, e, refs) {
     for (const ref of refs) {
       const what = describeRef(state, ref);
-      const [before, after] = damage(state, ref, e.amount);
-      log(state, `${ctx.label}: ${e.amount} damage to ${what}. Strength ${before} → ${Math.max(after, 0)}.`);
+      const dealt = afterShell(cardAt(state, ref), e.amount);
+      const [before, after] = damage(state, ref, e.amount, { by: ctx.who });
+      log(state, `${ctx.label}: ${dealt} damage to ${what}${dealt !== e.amount ? ` (Shell: ${e.amount} → ${dealt})` : ''}. Strength ${before} → ${Math.max(after, 0)}.`);
     }
+    // On Knockout: a Pokémon's own ability damage defeated enemy Pokémon. Queued
+    // under the On Defeated triggers settle() adds, so those resolve first.
+    knockouts(state, ctx, refs);
     settle(state);
   },
 
+  // Healing: On Heal fires for each card actually healed by at least 1.
   heal(state, ctx, e, refs) {
+    const healed = [];
     for (const ref of refs) {
       const what = describeRef(state, ref);
       const [before, after] = heal(state, ref, e.amount);
       log(state, `${ctx.label}: healed ${what}. Strength ${before} → ${after}.`);
+      if (after > before) healed.push({ type: 'heal', ref: { ...ref, uid: cardAt(state, ref).uid }, card: cardAt(state, ref), amount: after - before });
+    }
+    if (healed.length) fireTriggers(state, healed);
+  },
+
+  burn(state, ctx, e, refs) {
+    for (const ref of refs) applyStatus(state, ref, 'burn', e.amount, ctx.who);
+  },
+
+  applyStatus(state, ctx, e, refs) {
+    if (!STATUSES[e.status]) throw new Error(`Unknown status: ${e.status}`);
+    for (const ref of refs) applyStatus(state, ref, e.status, e.amount, ctx.who);
+  },
+
+  douse(state, ctx, e, refs) {
+    for (const ref of refs) clearStatus(state, ref, 'burn', `${ctx.label}: Douse`);
+  },
+
+  grant(state, ctx, e, refs) {
+    for (const ref of refs) {
+      const card = cardAt(state, ref);
+      const entry = { key: e.keyword, ...(e.amount ? { amount: e.amount } : {}), ...(e.thisRound ? { thisRound: true } : {}) };
+      (card.granted ??= []).push(entry);
+      emit(state, 'keywordGranted', { target: info(state, ref), keyword: e.keyword, amount: e.amount, thisRound: Boolean(e.thisRound), source: ctx.label });
+      log(state, `${ctx.label}: ${describeRef(state, ref)} gains ${e.keyword}${e.amount ? ` ${e.amount}` : ''}${e.thisRound ? ' this Round' : ''}.`);
     }
   },
 
@@ -189,13 +226,17 @@ const OPS = {
       const card = cardAt(state, ref);
       const attack = e.attack ?? 0;
       const strength = e.strength ?? 0;
-      card.attackBonus = (card.attackBonus ?? 0) + attack;
-      card.strengthBonus = (card.strengthBonus ?? 0) + strength;
+      if (e.thisRound && ref.kind === 'pokemon') {
+        (card.roundBuffs ??= []).push({ attack, strength, source: ctx.label });
+      } else {
+        card.attackBonus = (card.attackBonus ?? 0) + attack;
+        card.strengthBonus = (card.strengthBonus ?? 0) + strength;
+      }
       card.currentStrength += strength;
-      emit(state, 'buff', { target: info(state, ref), attack, strength, source: ctx.label });
+      emit(state, 'buff', { target: info(state, ref), attack, strength, source: ctx.label, thisRound: Boolean(e.thisRound) });
       const what = e.strengthType && !attack ? `${signed(strength)} ${e.strengthType}`
         : !strength ? `${signed(attack)} Attack` : `${signed(attack)}/${signed(strength)}`;
-      log(state, `${ctx.label}: ${describeRef(state, ref)} gains ${what}.`);
+      log(state, `${ctx.label}: ${describeRef(state, ref)} gains ${what}${e.thisRound ? ' this Round' : ''}.`);
     }
   },
 
@@ -273,12 +314,17 @@ const OPS = {
 
 // --- The stack ------------------------------------------------------------------
 
-export function queueEffects(state, ctx, effects) {
-  (state.stack ??= []).push({ kind: 'effects', ctx, effects, i: 0 });
+// extra: { onlyIfHurt: true } skips the job (silently) if the event's card is
+// at full Strength or gone by the time it would resolve (Regenerate).
+export function queueEffects(state, ctx, effects, extra = {}) {
+  (state.stack ??= []).push({ kind: 'effects', ctx, effects, i: 0, ...extra });
 }
 
+// Returns the queued step, so an Action can add what it learns later (afterAttack).
 export function queueStep(state, step, data = {}) {
-  (state.stack ??= []).push({ kind: 'step', step, ...data });
+  const job = { kind: 'step', step, ...data };
+  (state.stack ??= []).push(job);
+  return job;
 }
 
 // One effect of a job. Returns 'pause' when a choice is needed.
@@ -325,6 +371,14 @@ export function run(state, steps = {}, isOver = () => false) {
     if (job.i >= job.effects.length) {
       state.stack.pop();
       continue;
+    }
+    if (job.onlyIfHurt && job.i === 0) {
+      const ref = job.ctx.event.ref;
+      const card = cardAt(state, ref);
+      if (card?.uid !== ref.uid || card.currentStrength >= maxStrengthOf(card)) {
+        state.stack.pop();
+        continue;
+      }
     }
     // A triggered ability or Passive says so once, as it starts to resolve.
     if (job.ctx.event && !job.announced) {
@@ -423,6 +477,8 @@ function sourceCtx(state, ref, card) {
 
 function eventMatches(state, match = {}, ctx, event) {
   if (match.self && event.card.uid !== ctx.source.uid) return false;
+  if (match.notSelf && event.card.uid === ctx.source.uid) return false;
+  if (match.kind && event.ref.kind !== match.kind) return false;
   if (match.side && !sidesFor(ctx, match.side).includes(event.ref.owner)) return false;
   if (match.zone === 'source' && event.ref.zone !== ctx.source.zone) return false;
   if (match.targetKind && event.target?.kind !== match.targetKind) return false;
@@ -445,6 +501,18 @@ export function fireTriggers(state, events) {
   }
   const fired = [];
   for (const event of events) {
+    // Regenerate X heals at Breakfast with the On Breakfast abilities, ahead of the Pokémon's own.
+    const regen = event.type === 'breakfast' && event.ref.kind === 'pokemon' ? keywordAmount(event.card, 'Regenerate') : 0;
+    if (regen) {
+      const ctx = {
+        ...sourceCtx(state, event.ref, event.card),
+        event,
+        label: `${whose(state, event.ref.owner)} ${event.card.name}'s Regenerate ${regen}`,
+        word: `Regenerate ${regen}`,
+        text: `Heals ${regen} at Breakfast.`,
+      };
+      fired.push({ ctx, effects: [{ op: 'heal', amount: regen, target: { mode: 'event' } }], key: orderKey(state, event.ref), extra: { onlyIfHurt: true } });
+    }
     for (const { ref, card, triggers } of list) {
       for (const trigger of triggers) {
         if (trigger.on !== event.type) continue;
@@ -454,7 +522,19 @@ export function fireTriggers(state, events) {
     }
   }
   fired.sort((a, b) => a.key[0] - b.key[0] || a.key[1] - b.key[1] || a.key[2] - b.key[2]);
-  for (const { ctx, effects } of fired.reverse()) queueEffects(state, ctx, effects);
+  for (const { ctx, effects, extra } of fired.reverse()) queueEffects(state, ctx, effects, extra);
+}
+
+// On Knockout for a Pokémon whose own ability's damage left enemy Pokémon at
+// 0 or less (one trigger per Pokémon defeated), if it is still in the arena.
+function knockouts(state, ctx, refs) {
+  if (ctx.source.kind !== 'pokemon') return;
+  const src = { kind: 'pokemon', owner: ctx.source.owner, zone: ctx.source.zone, space: ctx.source.space, uid: ctx.source.uid };
+  const me = cardAt(state, src);
+  if (me?.uid !== src.uid || me.currentStrength <= 0) return;
+  const events = refs.filter((r) => r.kind === 'pokemon' && r.owner !== ctx.who && (cardAt(state, r)?.currentStrength ?? 1) <= 0)
+    .map((r) => ({ type: 'knockout', ref: src, card: me, victim: info(state, r) }));
+  if (events.length) fireTriggers(state, events);
 }
 
 // Recalculates every Passive stat bonus. Gaining a Strength bonus raises

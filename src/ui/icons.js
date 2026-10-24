@@ -29,6 +29,7 @@ const ICONS = {
   release: svg('<rect x="5" y="2.5" width="11" height="15" rx="1.8" fill="currentColor"/><path d="M16 15l5 5m0-5l-5 5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>'),
   quest: svg('<path d="M6 3v18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M7 4h11l-2.5 4L18 12H7z" fill="currentColor"/>'),
   power: svg('<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 5v7l4 3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>'),
+  flame: svg('<path d="M12 2.5c.6 3.2 4.5 5.6 4.5 10a4.5 4.5 0 0 1-9 0c0-1.9.9-3.3 2-4.4.1 1.6.8 2.6 1.8 3 .1-3.2.2-5.9.7-8.6z" fill="currentColor"/><path d="M12 21.5a3 3 0 0 1-3-3c0-1.5 1-2.6 2-3.4.2 1.2.8 1.8 1.6 2 .2-.9.3-1.6.4-2.4 1 1 2 2.2 2 3.8a3 3 0 0 1-3 3z" fill="var(--icon-cut, #fff3c4)"/>'),
   lock: svg('<rect x="4.5" y="10.5" width="15" height="11" rx="2.2" fill="currentColor"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2.4"/><circle cx="12" cy="15.5" r="1.6" fill="var(--icon-cut, #2a1a0c)"/>'),
   delivery: svg('<path d="M2 6h11v9H2zM13 9h4l3 3v3h-7z" fill="currentColor"/><circle cx="6" cy="17.5" r="2" fill="currentColor"/><circle cx="16.5" cy="17.5" r="2" fill="currentColor"/>'),
 };
