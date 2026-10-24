@@ -255,6 +255,18 @@ const targetKeys = (s, who, from) => legalTargets(s, who, from).map(key).sort();
 // match still going at Round 100 is stopped and counted as stalled.
 // (Each AI turn tries its moves on a copy of the game: the slow part of the run.)
 const MATCHES = 60;
+// Every card in the match: both players' cards (Items move to Bags, onto
+// Pokémon as Held Items, and to the PokéMart) plus the PokéMart's own 7.
+function cardsInGame(s) {
+  let n = s.mart.deck.length + s.mart.onSale.filter(Boolean).length;
+  for (const w of PLAYERS) {
+    const p = s.players[w];
+    const cards = [...p.hand, ...p.drawPile, ...p.discard, ...p.released, ...p.bag,
+      ...p.zones.flatMap((z) => [...z.pokemon, z.location]).filter(Boolean)];
+    n += cards.length + cards.filter((c) => c.heldItem).length;
+  }
+  return n;
+}
 const STALL_ROUND = 100;
 function seededRandom(seed) {
   const box = { rng: seed * 7919 };
@@ -274,11 +286,7 @@ function seededRandom(seed) {
       assert.ok(stepsThisRound < 500, `seed ${seed}: a Round never ended`);
       const who = PLAYERS.find((w) => legalActions(s, w).length) ?? 'player';
       s = applyAction(s, chooseAction(s, who, { rng }) ?? { type: 'flipCoin' });
-      for (const w of PLAYERS) {
-        const p = s.players[w];
-        const inArena = p.zones.flatMap((z) => [...z.pokemon, z.location]).filter(Boolean).length;
-        assert.equal(p.hand.length + p.drawPile.length + p.discard.length + p.released.length + inArena, 40, 'no cards lost');
-      }
+      assert.equal(cardsInGame(s), 2 * 40 + 7, 'no cards lost');
     }
     if (s.phase === 'gameOver') {
       results[s.winner ?? 'draw'] += 1;

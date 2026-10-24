@@ -106,7 +106,7 @@ assert.equal(PLACEHOLDER_DECKLIST['field-medic'], 1);
 {
   const s = match();
   const medic = give(s, 'player', 'field-medic');
-  const [a, b, c] = ['item-1', 'item-2', 'item-3'].map((id) => give(s, 'player', id));
+  const [a, b, c] = ['power-band', 'potion', 'energy-drink'].map((id) => give(s, 'player', id));
   trainer(s, 'player', 0).strength = 10;
   const target = tref('player', 0);
   assert.throws(() => support(s, 'player', medic, { discard: [a], target }), /exactly/);
@@ -124,15 +124,15 @@ assert.equal(PLACEHOLDER_DECKLIST['field-medic'], 1);
 {
   let s = match();
   const medic = give(s, 'player', 'field-medic');
-  const a = give(s, 'player', 'item-1');
-  const b = give(s, 'player', 'item-2');
+  const a = give(s, 'player', 'power-band');
+  const b = give(s, 'player', 'potion');
   trainer(s, 'player', 0).strength = 10;
   s = support(s, 'player', medic, { discard: [a], release: [b], target: tref('player', 0) });
   const p = s.players.player;
   assert.deepEqual(uids(p.discard), [a, medic], 'paid card first, the Supporter after its effect');
   assert.deepEqual(uids(p.released), [b]);
   assert.equal(p.hand.length, 0);
-  assert.ok(s.log.some((l) => l.includes('played Field Medic (Heal a friendly Trainer 4 Strength.), discarding Item 1 and releasing Item 2. Gift Challenge (a Water Pokémon) not met.')));
+  assert.ok(s.log.some((l) => l.includes('played Field Medic (Heal a friendly Trainer 4 Strength.), discarding Power Band and releasing Potion. Gift Challenge (a Water Pokémon) not met.')));
 
   // Later reshuffles never bring the Released card back.
   p.discard.push(...p.drawPile.splice(0));
@@ -148,9 +148,9 @@ assert.equal(PLACEHOLDER_DECKLIST['field-medic'], 1);
   const s = match();
   const medic = give(s, 'player', 'field-medic');
   trainer(s, 'player', 0).strength = 10;
-  give(s, 'player', 'item-1');
+  give(s, 'player', 'power-band');
   assert.ok(!playableSupporters(s, 'player').some((c) => c.uid === medic), 'Medic needs 2 other cards');
-  give(s, 'player', 'item-2');
+  give(s, 'player', 'potion');
   assert.ok(playableSupporters(s, 'player').some((c) => c.uid === medic));
 
   const t = match();
@@ -164,8 +164,8 @@ assert.equal(PLACEHOLDER_DECKLIST['field-medic'], 1);
   let s = match();
   const first = give(s, 'player', 'field-researcher');
   const second = give(s, 'player', 'field-researcher');
-  const item = give(s, 'player', 'item-1');
-  give(s, 'player', 'item-2');
+  const item = give(s, 'player', 'power-band');
+  give(s, 'player', 'potion');
   s = support(s, 'player', first, { discard: [item] });
   s = applyAction(s, { type: 'pass', who: 'ai' });
   assert.ok(!playableSupporters(s, 'player').some((c) => c.uid === second), 'already played one this Round');
@@ -173,7 +173,7 @@ assert.equal(PLACEHOLDER_DECKLIST['field-medic'], 1);
   assert.equal(s.round, 2);
   s.turn = 'player';
   give(s, 'player', 'field-researcher');
-  give(s, 'player', 'item-3');
+  give(s, 'player', 'energy-drink');
   assert.ok(playableSupporters(s, 'player').length, 'a new Round');
 }
 
@@ -183,7 +183,7 @@ assert.equal(PLACEHOLDER_DECKLIST['field-medic'], 1);
 {
   const medic = cardDefinition('field-medic');
   const water = cardDefinition('puddlop');
-  const item = cardDefinition('item-1');
+  const item = cardDefinition('power-band');
   assert.ok(giftMet(medic, [water, item]));
   assert.ok(giftMet(medic, [item, water]));
   assert.ok(!giftMet(medic, [item, cardDefinition('emberkit')]));
@@ -194,7 +194,7 @@ assert.equal(PLACEHOLDER_DECKLIST['field-medic'], 1);
 {
   let s = match();
   const r = give(s, 'player', 'field-researcher');
-  const item = give(s, 'player', 'item-1');
+  const item = give(s, 'player', 'power-band');
   s = support(s, 'player', r, { discard: [item] });
   assert.equal(s.players.player.hand.length, 2, 'draw 2');
   assert.ok(s.log.some((l) => l.includes('Gift Challenge (a Strategy Card) not met.')));
@@ -212,7 +212,7 @@ assert.equal(PLACEHOLDER_DECKLIST['field-medic'], 1);
 {
   let s = match();
   const r = give(s, 'player', 'field-researcher');
-  const item = give(s, 'player', 'item-1');
+  const item = give(s, 'player', 'power-band');
   s.players.player.drawPile = [];
   s.players.player.discard = [];
   assert.ok(playableSupporters(s, 'player').some((c) => c.uid === r));
@@ -230,7 +230,7 @@ assert.equal(PLACEHOLDER_DECKLIST['field-medic'], 1);
   s = play(s, 'player', 'puddlop', 2, 0);            // another zone
   s = play(s, 'ai', 'zappip', 0, 1);                 // enemy, same zone
   const coach = give(s, 'player', 'veteran-coach');
-  const item = give(s, 'player', 'item-1');
+  const item = give(s, 'player', 'power-band');
   assert.deepEqual(supporterTargets(s, 'player', coach), [zoneRef(0), zoneRef(2)], 'only zones with a friendly Pokémon');
   assert.throws(() => support(s, 'player', coach, { release: [item], target: zoneRef(1) }), /legal target/);
   s = support(s, 'player', coach, { release: [item], target: zoneRef(0) });
@@ -267,7 +267,7 @@ assert.equal(PLACEHOLDER_DECKLIST['field-medic'], 1);
   s = play(s, 'player', 'emberkit', 1, 0);
   trainer(s, 'player', 1).strength = 0;
   const coach = give(s, 'player', 'veteran-coach');
-  give(s, 'player', 'item-1');
+  give(s, 'player', 'power-band');
   assert.deepEqual(supporterTargets(s, 'player', coach), [zoneRef(1)]);
 }
 
@@ -282,7 +282,7 @@ assert.equal(PLACEHOLDER_DECKLIST['field-medic'], 1);
   trainer(s, 'player', 1).strength = 13;
   trainer(s, 'ai', 0).strength = 5;
   const medic = give(s, 'player', 'field-medic');
-  const [a, b] = ['item-1', 'item-2'].map((id) => give(s, 'player', id));
+  const [a, b] = ['power-band', 'potion'].map((id) => give(s, 'player', id));
   assert.deepEqual(supporterTargets(s, 'player', medic), [tref('player', 1)], 'damaged friendly Trainers only');
   s = support(s, 'player', medic, { discard: [a], release: [b], target: tref('player', 1) });
   assert.equal(trainer(s, 'player', 1).strength, 15, 'healed 4, capped at 15');
@@ -303,7 +303,7 @@ assert.equal(PLACEHOLDER_DECKLIST['field-medic'], 1);
   trainer(s, 'player', 1).strength = 6;
   const medic = give(s, 'player', 'field-medic');
   const water = give(s, 'player', 'toxifin');
-  const item = give(s, 'player', 'item-1');
+  const item = give(s, 'player', 'power-band');
   s = support(s, 'player', medic, { discard: [item], release: [water], target: tref('player', 1) });
   assert.equal(trainer(s, 'player', 1).strength, 10);
   assert.equal(at(s, 'player', 1, 0).currentStrength, 5);
@@ -321,7 +321,7 @@ assert.equal(PLACEHOLDER_DECKLIST['field-medic'], 1);
   trainer(s, 'ai', 1).strength = 3;                  // enemy Trainer: not friendly
   const medic = give(s, 'player', 'field-medic');
   give(s, 'player', 'puddlop');
-  give(s, 'player', 'item-1');
+  give(s, 'player', 'power-band');
   assert.ok(!playableSupporters(s, 'player').some((c) => c.uid === medic));
 }
 
@@ -333,7 +333,7 @@ assert.equal(PLACEHOLDER_DECKLIST['field-medic'], 1);
     const s = match();
     s.turn = 'ai';
     const r = give(s, 'ai', 'field-researcher');
-    ['item-1', 'item-2', 'quickdraw', 'item-3'].forEach((id) => give(s, 'ai', id));
+    ['power-band', 'potion', 'quickdraw', 'energy-drink'].forEach((id) => give(s, 'ai', id));
     s.players.ai.baseEnergy = 0;                     // nothing else affordable
     const move = chooseAction(s, 'ai');
     assert.equal(move.type, 'playSupporter');
@@ -349,7 +349,7 @@ assert.equal(PLACEHOLDER_DECKLIST['field-medic'], 1);
   s.players.ai.baseEnergy = 0;
   trainer(s, 'ai', 2).strength = 4;
   const medic = give(s, 'ai', 'field-medic');
-  ['item-1', 'puddlop', 'item-2'].forEach((id) => give(s, 'ai', id));
+  ['power-band', 'puddlop', 'potion'].forEach((id) => give(s, 'ai', id));
   const move = chooseAction(s, 'ai');
   assert.equal(move.uid, medic);
   assert.deepEqual(move.target, tref('ai', 2));

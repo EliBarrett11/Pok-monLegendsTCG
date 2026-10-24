@@ -318,3 +318,26 @@ button.secondary { background: var(--panel-2); color: var(--text); margin-top: 0
 .weather-chip { padding: 0 0.3rem; border-radius: 3px; background: var(--panel-2); font-size: 0.75em; white-space: nowrap; }
 .xp-pool strong { color: #a58cff; }
 .xp-tag { color: #a58cff; font-size: 0.6rem; }
+
+/* PokéDollars, Bag and PokéMart */
+.dollars strong { color: #f2c14e; }
+.price { flex: none; padding: 0 0.3rem; border-radius: 3px; background: #f2c14e; color: #1a1a1a; font-size: 0.64rem; font-weight: 700; }
+.bag, .mart { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0.35rem; font-size: 0.72rem; }
+.mart { flex-basis: 100%; }
+.bag-label, .mart-label { align-self: center; color: var(--muted); font-weight: 600; min-width: 4.5rem; }
+.bag-slot {
+  width: 92px; min-height: 34px; padding: 0.2rem 0.3rem; border-radius: 5px;
+  background: var(--panel); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 0.1rem;
+}
+.bag-slot.empty { border-style: dashed; background: transparent; }
+.bag-slot.delivery { opacity: 0.6; border-style: dashed; border-color: var(--accent); }
+.delivery-badge { font-size: 0.55rem; color: var(--accent); text-transform: uppercase; font-weight: 700; }
+.bag-slot.usable { cursor: pointer; border-color: var(--select); }
+.bag-slot.selected { outline: 2px solid var(--select); }
+.mart-item { width: 170px; padding: 0.25rem 0.35rem; border-radius: 5px; background: var(--panel-2); border: 1px solid var(--line); }
+.mart-item.buyable { cursor: pointer; border-color: var(--accent); }
+.mart-item.buyable:hover { background: #2c3550; }
+.mart-item.sold { display: grid; place-items: center; color: var(--muted); border-style: dashed; background: transparent; }
+.card.item { width: 132px; border-width: 2px; border-style: solid; padding: 0.35rem; gap: 0.25rem; }
+.item-art { background: repeating-linear-gradient(45deg, #6a2c5a, #6a2c5a 6px, #7a3468 6px, #7a3468 12px); }
+.card-line.held { color: #f0a7e0; font-weight: 600; }

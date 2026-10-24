@@ -12,12 +12,16 @@
 //   mayPlayFree  { filter }                        the card just drawn may be summoned for free
 //   gainEnergy   { amount }                        extra Base Energy this Round (may pass 10)
 //   releaseLocation {}                             the source Location goes to the Released Pile
+//   attachHeld   { target }                        attach the Item being used (ctx.item) as a
+//                                                  Held Item; one per Pokémon, the old one goes to the PokéMart
+//   ready        { target }                        a Spent Pokémon becomes Active
 //
 // SELECTOR     { mode, side, kinds, zone, filter }
 //   mode    'targeted' (the player chooses one) | 'area' (all that match) |
 //           'event' (a card from the triggering event; role: 'ref' (default) or 'attacker')
 //   side    'friendly' | 'opponent' | 'any'       relative to whoever owns the effect
 //   kinds   ['pokemon'] (default) | ['pokemon', 'trainer'] | ['trainer']
+//           'hand': Pokémon cards in hand (refs { kind: 'hand', owner, uid })
 //   zone    'source': only the source's Zone, both sides of the arena
 //           'target': only the Zone of the target chosen for this card
 //   pick    'zone' (with mode 'targeted'): the player chooses a Zone that has
@@ -54,7 +58,7 @@
 import { WEATHER } from './cardData.js';
 import {
   PLAYERS, opponentOf, log, whose, draw, canDraw, arenaPokemon, activeTrainers, cardAt, sameRef, weatherCounts, weatherTotal,
-  describeRef, summonSpaces, damage, heal, releaseDefeated, maxStrengthOf, strengthOf, inPlay,
+  describeRef, summonSpaces, damage, heal, releaseDefeated, maxStrengthOf, strengthOf, inPlay, heldBonus, toMart,
 } from './board.js';
 
 export function hasKeyword(card, keyword) {
@@ -115,6 +119,13 @@ export function candidates(state, ctx, selector, op = {}) {
       if (!sides.includes(ref.owner) || !inZone(ref) || !passesFilter(card, filter) || !hurt(card)) continue;
       if (selector.mode === 'targeted' && ctx.source.kind === 'strategy' && hasKeyword(card, 'Agility')) continue;
       out.push(ref);
+    }
+  }
+  if (kinds.includes('hand') && selector.zone === undefined) {
+    for (const owner of sides) {
+      for (const card of state.players[owner].hand) {
+        if (card.cardType === 'Pokémon' && passesFilter(card, filter)) out.push({ kind: 'hand', owner, uid: card.uid });
+      }
     }
   }
   if (kinds.includes('trainer') && !Object.keys(filter).length) {
@@ -184,6 +195,32 @@ const OPS = {
       const what = e.strengthType && !attack ? `${signed(strength)} ${e.strengthType}`
         : !strength ? `${signed(attack)} Attack` : `${signed(attack)}/${signed(strength)}`;
       log(state, `${ctx.label}: ${describeRef(state, ref)} gains ${what}.`);
+    }
+  },
+
+  // Attaches the Item being used as a Held Item. A Strength bonus raises current
+  // Strength in the arena; replacing one that gave more follows the Passive-loss rule.
+  attachHeld(state, ctx, e, refs) {
+    const { inDelivery, ...item } = ctx.item;
+    for (const ref of refs) {
+      const card = cardAt(state, ref);
+      const what = describeRef(state, ref);
+      const old = card.heldItem;
+      const before = heldBonus(card, 'strength');
+      card.heldItem = item;
+      if (old) toMart(state, old, `was replaced on ${what}`);
+      log(state, `${ctx.label}: ${item.name} is now held by ${what}.`);
+      if (ref.kind !== 'pokemon') continue;
+      const delta = heldBonus(card, 'strength') - before;
+      if (delta > 0) card.currentStrength += delta;
+      else if (delta < 0) card.currentStrength = Math.min(card.currentStrength, maxStrengthOf(card));
+    }
+  },
+
+  ready(state, ctx, e, refs) {
+    for (const ref of refs) {
+      cardAt(state, ref).spent = false;
+      log(state, `${ctx.label}: ${describeRef(state, ref)} becomes Active.`);
     }
   },
 

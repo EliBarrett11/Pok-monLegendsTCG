@@ -76,7 +76,7 @@ const pass = (s) => applyAction(s, { type: 'pass', who: s.turn });
 {
   let s = toRound1Battle(2);
   const me = s.turn;
-  const [ember] = setHand(s, me, ['emberkit', 'item-1']);
+  const [ember] = setHand(s, me, ['emberkit', 'power-band']);
   assert.deepEqual(legalActions(s, me), ['pass', 'playPokemon']);
   assert.deepEqual(costPreview(s, me, ember), { fromBase: 1, fromExert: 0 });
   s = play(s, me, ember, 1, 2);
@@ -109,7 +109,7 @@ const pass = (s) => applyAction(s, { type: 'pass', who: s.turn });
 {
   let s = toRound1Battle(4);
   const me = s.turn;
-  const [frostail, emberkit, item] = setHand(s, me, ['frostail', 'emberkit', 'item-2']);
+  const [frostail, emberkit, item] = setHand(s, me, ['frostail', 'emberkit', 'potion']);
   assert.ok(!playablePokemon(s, me).some((c) => c.uid === frostail), 'cost 3 > 1 Base + 1 Exert');
   assert.throws(() => play(s, me, frostail, 0, 0), /Not enough Energy/);
   assert.throws(() => play(s, me, item, 0, 0), /Pokémon/);
@@ -158,7 +158,7 @@ const pass = (s) => applyAction(s, { type: 'pass', who: s.turn });
 for (let seed = 1; seed <= 20; seed++) {
   let s = toRound1Battle(seed);
   s.turn = 'ai';
-  setHand(s, 'ai', ['emberkit', 'puddlop', 'pebblet', 'item-1']);
+  setHand(s, 'ai', ['emberkit', 'puddlop', 'pebblet', 'power-band']);
   const action = chooseAction(s, 'ai');
   assert.equal(action.type, 'playPokemon');
   s = applyAction(s, action);
@@ -172,10 +172,10 @@ for (let seed = 1; seed <= 20; seed++) {
 {
   const s = toRound1Battle(7);
   s.turn = 'ai';
-  setHand(s, 'ai', ['pebblet', 'item-1']);
+  setHand(s, 'ai', ['pebblet', 'power-band']);
   assert.ok(playablePokemon(s, 'ai').length, 'Pebblet is affordable with Exert...');
   assert.deepEqual(chooseAction(s, 'ai'), { type: 'pass', who: 'ai' }, '...but the AI will not use Exert');
-  setHand(s, 'ai', ['item-1']);
+  setHand(s, 'ai', ['power-band']);
   assert.deepEqual(chooseAction(s, 'ai'), { type: 'pass', who: 'ai' });
   assert.equal(chooseAction(s, 'player'), null, 'nothing to do off-turn');
 }

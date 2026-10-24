@@ -2,11 +2,13 @@
 // cards in the arena, effective stats, damage, healing and defeat.
 // No DOM access; game.js and effects.js both build on this.
 //
-// A reference to a card in the arena ("ref") is one of:
-//   { kind: 'pokemon', owner, zone, space }
+// A reference to a card ("ref") is one of:
+//   { kind: 'pokemon', owner, zone, space }   in the arena
 //   { kind: 'trainer', owner, zone }
+//   { kind: 'hand', owner, uid }               a Pokémon card in hand (Held Items)
 
 import { shuffle } from './random.js';
+import { SPEED_TIERS } from './cardData.js';
 
 export const PLAYERS = ['player', 'ai'];
 
@@ -73,16 +75,19 @@ export function activeTrainers(state) {
 }
 
 export function cardAt(state, ref) {
+  if (ref.kind === 'hand') return state.players[ref.owner]?.hand.find((c) => c.uid === ref.uid) ?? null;
   const zone = state.players[ref.owner]?.zones[ref.zone];
   if (!zone) return null;
   return ref.kind === 'trainer' ? zone.trainer : zone.pokemon[ref.space] ?? null;
 }
 
 export function sameRef(a, b) {
+  if (a.kind === 'hand' || b.kind === 'hand') return a.kind === b.kind && a.owner === b.owner && a.uid === b.uid;
   return a.kind === b.kind && a.owner === b.owner && a.zone === b.zone && (a.kind === 'trainer' || a.space === b.space);
 }
 
 export function describeRef(state, ref) {
+  if (ref.kind === 'hand') return `${whose(state, ref.owner, false)} ${cardAt(state, ref).name} (in hand)`;
   const where = ref.kind === 'trainer' ? `Zone ${ref.zone + 1}` : `Zone ${ref.zone + 1}, Space ${ref.space + 1}`;
   return `${whose(state, ref.owner, false)} ${cardAt(state, ref).name} (${where})`;
 }
@@ -126,14 +131,24 @@ export function weatherTotal(c, stat) {
   return Object.values(c.weather ?? {}).reduce((sum, b) => sum + (b[stat] ?? 0), 0);
 }
 
+// What a Held Item gives its holder (counted while it is in the arena).
+export function heldBonus(c, stat) {
+  return c.heldItem?.held?.[stat] ?? 0;
+}
+
 // Attack can't go below 0.
 export function attackOf(c) {
-  return Math.max(0, c.attackValue + (c.attackBonus ?? 0) + auraTotal(c, 'attack') + weatherTotal(c, 'attack'));
+  return Math.max(0, c.attackValue + (c.attackBonus ?? 0) + auraTotal(c, 'attack') + weatherTotal(c, 'attack') + heldBonus(c, 'attack'));
 }
 
 export function maxStrengthOf(c) {
   if (c.cardType === 'Trainer') return c.maxStrength;
-  return c.strengthValue + (c.strengthBonus ?? 0) + auraTotal(c, 'strength') + weatherTotal(c, 'strength');
+  return c.strengthValue + (c.strengthBonus ?? 0) + auraTotal(c, 'strength') + weatherTotal(c, 'strength') + heldBonus(c, 'strength');
+}
+
+// Speed-Tier as an index into SPEED_TIERS, raised by a Held Item (never past Swift).
+export function speedOf(c) {
+  return Math.min(SPEED_TIERS.length - 1, SPEED_TIERS.indexOf(c.speedTier) + heldBonus(c, 'speedUp'));
 }
 
 export function strengthOf(c) {
@@ -146,7 +161,7 @@ export function inPlay(card, { spent }) {
   const { xp = { attack: 0, strength: 0 }, ...rest } = card;
   return {
     ...rest,
-    currentStrength: card.strengthValue + xp.strength,
+    currentStrength: card.strengthValue + xp.strength + heldBonus(card, 'strength'),
     spent,
     attackBonus: xp.attack,
     strengthBonus: xp.strength,
@@ -206,13 +221,47 @@ export function heal(state, ref, amount) {
 
 // Pokémon at 0 Strength or less go to their owner's Released Pile.
 // Returns the defeated, as { ref, card }.
+// The opponent earns PokéDollars equal to its printed Energy Cost, and a
+// Held Item on it is lost to the PokéMart.
 export function releaseDefeated(state) {
   const defeated = arenaPokemon(state).filter(({ card }) => card.currentStrength <= 0);
   for (const { ref, card } of defeated) {
     const p = state.players[ref.owner];
     p.zones[ref.zone].pokemon[ref.space] = null;
-    p.released.push(card);
     log(state, `${whose(state, ref.owner)} ${card.name} was defeated and goes to the Released Pile.`);
+    earnDollars(state, opponentOf(ref.owner), card.energyCost, `for defeating ${card.name}`);
+    release(state, ref.owner, [card]);
   }
   return defeated;
+}
+
+// --- PokéDollars, Held Items and the PokéMart ----------------------------------
+
+export function earnDollars(state, who, amount, why) {
+  if (!amount) return;
+  const p = state.players[who];
+  p.dollars = (p.dollars ?? 0) + amount;
+  log(state, `${p.name} ${who === 'player' ? 'earn' : 'earns'} ${amount} PokéDollars ${why} (now ${p.dollars}).`);
+}
+
+// An Item goes into the PokéMart deck, which is shuffled. It never returns
+// to a player's deck.
+export function toMart(state, item, why) {
+  const { inDelivery, ...plain } = item;
+  state.mart.deck.push(plain);
+  shuffle(state, state.mart.deck);
+  log(state, `${plain.name} ${why}, and goes to the PokéMart.`);
+}
+
+// Cards going to their owner's Released Pile: a Held Item on one is lost.
+export function release(state, who, cards) {
+  const p = state.players[who];
+  for (const card of cards) {
+    if (card.heldItem) {
+      const lost = card.heldItem;
+      delete card.heldItem;
+      toMart(state, lost, `was held by ${whose(state, who, false)} ${card.name}, which was Released: it is lost`);
+    }
+    p.released.push(card);
+  }
 }

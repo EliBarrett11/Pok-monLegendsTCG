@@ -5,12 +5,11 @@
 // state and never edits the old one.
 
 import { shuffle, nextRandom } from './random.js';
-import { buildDeck, buildTrainers } from './cards.js';
-import { SPEED_TIERS } from './cardData.js';
+import { buildDeck, buildTrainers, buildMartStock } from './cards.js';
 import { newEnergy, refreshEnergy, canPay, payCost, splitCost } from './energy.js';
 import {
   PLAYERS, opponentOf, log, whose, draw, arenaPokemon, cardAt, emptySpaces, summonSpaces, isFallen,
-  attackOf, damage, describeRef, sameRef, dropXp, weatherCounts,
+  attackOf, damage, describeRef, sameRef, dropXp, weatherCounts, speedOf, release as releaseCards, earnDollars, toMart,
 } from './board.js';
 import {
   summon, candidates, canResolve, targetedEffect, queueEffects, queueStep, run, refreshAuras, settle, fireTriggers,
@@ -47,6 +46,8 @@ function newPlayer(name, owner, state) {
     supporterRound: null, // the Round this player last played a Supporter (1 per Round)
     xp: 0,               // stored indefinitely; spent at Breakfast on Pokémon in hand
     xpChoice: null,      // the XP step: this player's locked-in spending, revealed together
+    dollars: 0,          // PokéDollars: earned for defeating Pokémon, spent on Items; kept between Rounds
+    bag: [],             // up to BAG_SIZE Items; { ...item, inDelivery } until the next Breakfast
     trainers: buildTrainers(owner),
     // The Battle Arena row: 3 zones, each with 1 Trainer Space and 3 Pokémon Spaces.
     // Each zone also has 1 Location space on each side.
@@ -79,6 +80,8 @@ export function createGame(seed = Date.now()) {
     player: newPlayer('You', 'player', state),
     ai: newPlayer('AI Opponent', 'ai', state),
   };
+  // One PokéMart shared by both players: a deck and 3 Items on sale.
+  state.mart = { deck: shuffle(state, buildMartStock()), onSale: [null, null, null] };
   log(state, 'The Battle Arena is laid out: 3 zones per side, each with a Trainer Space and 3 Pokémon Spaces.');
   log(state, 'Both players choose which Trainer takes each zone.');
   return state;
@@ -131,13 +134,14 @@ function describePayment({ fromBase, fromExert }) {
 function alertTier(state) {
   return Math.max(-1, ...arenaPokemon(state)
     .filter(({ card }) => !card.spent)
-    .map(({ card }) => SPEED_TIERS.indexOf(card.speedTier)));
+    .map(({ card }) => speedOf(card)));
 }
 
-// Alert: Active, and of the highest Speed-Tier among all Active Pokémon.
-// Worked out fresh each time, so it is always current after every Action.
+// Alert: Active, and of the highest Speed-Tier among all Active Pokémon
+// (a Held Item can raise it). Worked out fresh each time, so it is always
+// current after every Action.
 export function isAlert(state, card) {
-  return !card.spent && SPEED_TIERS.indexOf(card.speedTier) === alertTier(state);
+  return !card.spent && speedOf(card) === alertTier(state);
 }
 
 // This player's Alert Pokémon, as { zone, space, card }.
@@ -225,6 +229,68 @@ export function playableStrategies(state, who) {
     && canResolve(state, strategyCtx(state, who, c), c.effects));
 }
 
+// --- Items, the Bag and the PokéMart ---
+
+export const BAG_SIZE = 6;
+
+function itemCtx(state, who, item, target) {
+  return {
+    who,
+    source: { kind: 'item', owner: who, uid: item.uid, name: item.name },
+    label: `${whose(state, who)} ${item.name}`,
+    target,
+    item,
+  };
+}
+
+// Whether this Item has a legal target (or needs none) right now.
+export function canUseItem(state, who, item) {
+  return canResolve(state, itemCtx(state, who, item), item.effects);
+}
+
+// Legal targets for an Item, as refs (Held Items can also go on a Pokémon in hand).
+export function itemTargets(state, who, item) {
+  const e = targetedEffect(item.effects);
+  return e ? candidates(state, itemCtx(state, who, item), e.target, e) : [];
+}
+
+function checkItemTarget(state, who, item, target) {
+  if (!canUseItem(state, who, item)) throw new Error(`${item.name} has no legal target`);
+  const e = targetedEffect(item.effects);
+  if (e && !itemTargets(state, who, item).some((r) => sameRef(r, target ?? {}))) throw new Error('That is not a legal target');
+}
+
+// Using an Item: its effects resolve; a Consumed Item then goes to the PokéMart.
+function useItem(state, who, item, target) {
+  const { inDelivery, ...plain } = item;
+  log(state, `${state.players[who].name} used ${plain.name} (${plain.effectText})`);
+  queueStep(state, 'endTurn', { who, passed: false });
+  if (plain.itemType === 'Consumed') queueStep(state, 'toMart', { item: plain });
+  queueEffects(state, itemCtx(state, who, plain, target), plain.effects);
+}
+
+// Every Open Bag move this player could make now, as partial actions
+// ({ mode, uid | slot, then? }); targets are chosen separately.
+export function openBagOptions(state, who) {
+  const p = state.players[who];
+  const room = p.bag.length < BAG_SIZE;
+  const options = [];
+  for (const item of p.hand) {
+    if (item.cardType !== 'Item' || item.cost > p.dollars) continue;
+    if (canUseItem(state, who, item)) options.push({ mode: 'buyHand', uid: item.uid, then: 'use' });
+    if (room) options.push({ mode: 'buyHand', uid: item.uid, then: 'store' });
+  }
+  if (room) {
+    state.mart.onSale.forEach((item, slot) => {
+      if (item && item.cost <= p.dollars) options.push({ mode: 'buyMart', slot });
+    });
+  }
+  for (const item of p.bag) {
+    if (!item.inDelivery && canUseItem(state, who, item)) options.push({ mode: 'useBag', uid: item.uid });
+  }
+  return options;
+}
+
 // --- Location Cards ---
 
 // The zones whose Location space this player may play into: not fallen.
@@ -304,6 +370,7 @@ export function legalActions(state, who) {
         ...(playableStrategies(state, who).length ? ['playStrategy'] : []),
         ...(playableSupporters(state, who).length ? ['playSupporter'] : []),
         ...(playableLocations(state, who).length ? ['playLocation'] : []),
+        ...(openBagOptions(state, who).length ? ['openBag'] : []),
       ];
     default:
       return [];
@@ -351,6 +418,11 @@ function endMatch(state, won) {
 const STEPS = {
   endTurn(state, { who, passed }) {
     endTurn(state, who, passed);
+  },
+
+  // A used Consumed Item goes to the PokéMart once its effect is done.
+  toMart(state, { item }) {
+    toMart(state, item, 'was used up');
   },
 
   // A played Strategy Card reaches the Discard Pile once its effect is done.
@@ -469,6 +541,16 @@ const HANDLERS = {
       if (trades) defender.spent = true;
       log(state, `${name} attacked ${what} for ${power}`
         + (trades ? `; ${defender.name} was Alert and hit back for ${back}.` : '.'));
+      // Lucky Coin: the holder dealt the combat damage that defeated an opponent Pokémon.
+      const coins = [];
+      if (defender.currentStrength <= 0) coins.push([who, attacker]);
+      if (trades && attacker.currentStrength <= 0) coins.push([foe, defender]);
+      settle(state);   // defeats (and On Defeated) resolve before afterAttack
+      for (const [owner, holder] of coins) {
+        const bonus = holder.heldItem?.held?.luckyCoin;
+        if (bonus) earnDollars(state, owner, bonus, `from ${holder.name}'s Lucky Coin`);
+      }
+      return;
     }
     settle(state);   // defeats (and On Defeated) resolve before afterAttack
   },
@@ -538,7 +620,7 @@ const HANDLERS = {
     p.hand = p.hand.filter((c) => c !== card && !paid.includes(c.uid));
     dropXp([...discarded, ...released]);
     p.discard.push(...discarded);
-    p.released.push(...released);
+    releaseCards(state, who, released);
     p.supporterRound = state.round;
     const names = (cards) => cards.map((c) => c.name).join(', ');
     const payment = [discarded.length && `discarding ${names(discarded)}`, released.length && `releasing ${names(released)}`]
@@ -582,6 +664,52 @@ const HANDLERS = {
     }
     p.xpChoice = spend;
     if (PLAYERS.every((w) => state.players[w].xpChoice)) resolveXp(state);
+  },
+
+  // Battle Action: Open Bag. Does exactly one of:
+  //   { mode: 'buyHand', uid, then: 'use' | 'store', target? }  buy an Item from hand
+  //   { mode: 'buyMart', slot }                                buy from the PokéMart (In Delivery)
+  //   { mode: 'useBag', uid, target? }                         use an Item from the Bag
+  openBag(state, { who, mode, uid, slot, then, target }) {
+    const p = state.players[who];
+    if (mode === 'buyMart') {
+      const item = state.mart.onSale[slot];
+      if (!item) throw new Error('Nothing on sale there');
+      if (p.dollars < item.cost) throw new Error(`${item.name} costs ${item.cost} PokéDollars`);
+      if (p.bag.length >= BAG_SIZE) throw new Error('Your Bag is full');
+      p.dollars -= item.cost;
+      state.mart.onSale[slot] = null;
+      p.bag.push({ ...item, inDelivery: true });
+      log(state, `${p.name} bought ${item.name} from the PokéMart for ${item.cost} PokéDollars (now ${p.dollars}). It is In Delivery until the next Breakfast.`);
+    } else if (mode === 'buyHand') {
+      const item = p.hand.find((c) => c.uid === uid);
+      if (!item || item.cardType !== 'Item') throw new Error('Choose an Item Card from your hand');
+      if (p.dollars < item.cost) throw new Error(`${item.name} costs ${item.cost} PokéDollars`);
+      if (then === 'store' && p.bag.length >= BAG_SIZE) throw new Error('Your Bag is full');
+      if (then === 'use') checkItemTarget(state, who, item, target);
+      else if (then !== 'store') throw new Error('Use the Item now or store it in your Bag');
+      p.dollars -= item.cost;
+      p.hand = p.hand.filter((c) => c !== item);
+      log(state, `${p.name} bought ${item.name} from ${who === 'player' ? 'your' : 'their'} hand for ${item.cost} PokéDollars (now ${p.dollars}).`);
+      if (then === 'store') {
+        p.bag.push({ ...item, inDelivery: false });
+        log(state, `${p.name} stored ${item.name} in ${who === 'player' ? 'your' : 'their'} Bag.`);
+      } else {
+        useItem(state, who, item, target);
+        return;
+      }
+    } else if (mode === 'useBag') {
+      const item = p.bag.find((i) => i.uid === uid);
+      if (!item) throw new Error('Choose an Item in your Bag');
+      if (item.inDelivery) throw new Error(`${item.name} is still In Delivery`);
+      checkItemTarget(state, who, item, target);
+      p.bag = p.bag.filter((i) => i !== item);
+      useItem(state, who, item, target);
+      return;
+    } else {
+      throw new Error('Open Bag: buy from hand, buy from the PokéMart, or use from the Bag');
+    }
+    queueStep(state, 'endTurn', { who, passed: false });
   },
 
   // Answers state.pending, then resolving carries on.
@@ -637,9 +765,26 @@ function startRound(state, round) {
   startBreakfast(state);
 }
 
+// Each Breakfast: unsold stock goes back into the PokéMart deck, which is
+// shuffled, and up to 3 new Items go on sale.
+function restockMart(state) {
+  const mart = state.mart;
+  mart.deck.push(...mart.onSale.filter(Boolean));
+  shuffle(state, mart.deck);
+  mart.onSale = [0, 1, 2].map(() => mart.deck.shift() ?? null);
+  const shown = mart.onSale.filter(Boolean).map((i) => `${i.name} ($${i.cost})`);
+  log(state, `PokéMart restocked: ${shown.length ? shown.join(', ') : 'nothing left to sell'}.`);
+}
+
 function startBreakfast(state) {
   state.phase = 'breakfast';
   log(state, 'Breakfast Phase.');
+  restockMart(state);
+  for (const who of PLAYERS) {
+    const arrived = state.players[who].bag.filter((i) => i.inDelivery);
+    arrived.forEach((i) => { i.inDelivery = false; });
+    if (arrived.length) log(state, `${state.players[who].name}: ${arrived.map((i) => i.name).join(', ')} arrived in the Bag.`);
+  }
   for (const who of PLAYERS) {
     const p = state.players[who];
     const recovered = refreshEnergy(p, state.round);

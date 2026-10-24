@@ -9,6 +9,8 @@ The rules as settled while building the game, in match order. The code follows t
 - **Trainers:** each player has 3 Trainers, kept outside the 40-card deck. Each Trainer has its own **Trainer Strength**, a **Power** and a **Passive** (section 7).
 - **Piles:** each player has a Draw Pile, a hand, a Discard Pile and a **Released Pile**. The Draw Pile is shuffled before the match. Defeated Pokémon, Released cards and completed Locations go to the Released Pile, which is never shuffled back into the Draw Pile.
 - **XP:** each player has an XP pool, starting at 0. XP can be stored indefinitely (section 4.1.1).
+- **PokéDollars:** each player has a PokéDollar pool, starting at 0, which carries over between Rounds. Whenever an opponent's Pokémon is defeated by any cause (your attack, damage traded back by your Pokémon, effects, Weather), you earn PokéDollars equal to that Pokémon's printed Energy Cost.
+- **Bag:** each player has a Bag with 6 spaces (section 1.7). **PokéMart:** one shared by both players (section 1.7).
 
 ### 1.1 Pokémon cards
 
@@ -31,7 +33,7 @@ The rules as settled while building the game, in match order. The code follows t
 
 - A Pokémon in play tracks its **current Strength** separately from its printed Strength Value. It starts equal to the Strength Value. Damage stays between Rounds.
 - A Pokémon in play is either **Active** or **Spent**. Newly played Pokémon arrive Spent; at Breakfast all Spent Pokémon become Active.
-- **Alert:** an Active Pokémon is Alert if its Speed-Tier equals the highest Speed-Tier among *all* Active Pokémon in the arena, both sides combined. Order: **Swift > Steady > Slow**. Alert is recalculated after every Action. Example: my Swift and the opponent's Steady Pokémon are both Active → only mine is Alert; once all Swift Pokémon are Spent, Steady Pokémon become Alert.
+- **Alert:** an Active Pokémon is Alert if its Speed-Tier equals the highest Speed-Tier among *all* Active Pokémon in the arena, both sides combined. Order: **Swift > Steady > Slow**. A Held Item (Swift Feather) can raise a Pokémon's Speed-Tier. Alert is recalculated after every Action. Example: my Swift and the opponent's Steady Pokémon are both Active → only mine is Alert; once all Swift Pokémon are Spent, Steady Pokémon become Alert.
 - Only Alert Pokémon can be Commanded.
 - Pokémon Types have no combat effect. Strength-Types matter only for attack targeting (section 4.2) and Strength-Type buffs (section 7.1).
 
@@ -133,6 +135,40 @@ Keyword abilities on Pokémon that always apply.
 
 Weather types are data (`WEATHER` in `src/engine/cardData.js`), so real Weather types can be added there.
 
+### 1.7 Items, the Bag and the PokéMart
+
+| Field | Values |
+|---|---|
+| Name | |
+| Card-Type | Item |
+| Item-Type | Held or Consumed |
+| PokéDollar Cost | number |
+| Effect Text | what it does |
+| Rarity-Tier | as for Pokémon |
+| Image | card art |
+
+- **Buying:** an Item in your hand can't be used until it's purchased with PokéDollars. Unpurchased Items are discarded at Supper like any other card (to your Discard Pile).
+- **Open Bag** (Battle Phase Action) does exactly one of:
+  1. **Buy from hand:** pay an Item's cost from your hand, then either use it now or store it in your Bag.
+  2. **Buy from the PokéMart:** pay an Item's cost from the PokéMart stock. It goes into your Bag marked **In Delivery** and can't be used until the next Round's Breakfast.
+  3. **Use an Item from your Bag** (not one In Delivery).
+- **The Bag** has 6 spaces; Items In Delivery count. If it's full you can't store an Item or buy from the PokéMart, but you can still buy from your hand and use it straight away. Bag contents carry over between Rounds and are never discarded at Supper.
+- **The PokéMart** is shared. Its deck starts with one copy of every Item in the game. 3 Items are on sale at a time. At each Breakfast (including Round 1), unsold stock is shuffled back into the PokéMart deck and 3 new Items are revealed (fewer if the deck runs short). A slot that's bought stays empty until the next Breakfast.
+- Used Consumed Items and lost Held Items (from either player) are shuffled into the PokéMart deck. They never return to a player's deck.
+- **Held Items:** using one attaches it to a friendly Pokémon, in the arena or in your hand. One Held Item per Pokémon: attaching a new one sends the old one to the PokéMart (if the old one gave Strength, the rule for losing a Passive applies). The Held Item stays with that Pokémon card wherever it goes: hand, Discard Pile, reshuffled into the Draw Pile, and back into your hand in a later Round. Its effect applies while the Pokémon is in the arena. It is only lost when its Pokémon is Released (defeated, or used as a Released Supporter payment), and then goes to the PokéMart. (XP buffs are different: they're lost if the Pokémon is discarded before being played.)
+- **Consumed Items:** the effect resolves immediately, then the Item goes to the PokéMart.
+- An Item with no legal target can't be used, but it can still be bought and stored.
+
+| Item | Type | Cost | Effect |
+|---|---|---|---|
+| **Power Band** | Held | 3 | Holder gains +2 Attack. |
+| **Iron Shell** | Held | 3 | Holder gains +3 Strength. |
+| **Swift Feather** | Held | 4 | Holder's Speed-Tier is one higher (Slow → Steady → Swift; no effect on Swift). |
+| **Lucky Coin** | Held | 2 | When the holder deals the combat damage that defeats an opponent Pokémon (its attack, or damage it trades back), gain 2 extra PokéDollars. |
+| **Potion** | Consumed | 2 | Heal a damaged friendly Pokémon in the arena 4 Strength (capped at maximum). |
+| **Wake-Up Tonic** | Consumed | 3 | A friendly Spent Pokémon in the arena becomes Active. |
+| **Energy Drink** | Consumed | 4 | Gain 2 Base Energy this Round (can go above 10; doesn't carry over). |
+
 ## 2. The Battle Arena
 
 - Each player has a horizontal row of **9 Pokémon Spaces**.
@@ -164,13 +200,14 @@ Initiative switches to the other player at the start of each new Round.
 
 Every Round, each player:
 
-1. **Recovers Exhaust** that is due this Round (see section 5).
-2. **Spent Pokémon become Active** again.
-3. **Base Energy** is set to the Round number, with a maximum of 10. Unspent Base Energy does not carry over.
-4. **Exert maximum** goes up by 1 each Round, to a limit of 3 (Round 1 = 1, Round 2 = 2, Round 3 onward = 3). Unspent Exert carries over.
-5. **Draws 7 cards**, one at a time. If the Draw Pile is empty when a card needs drawing, shuffle the Discard Pile to form a new Draw Pile, then keep drawing. If both piles are empty, drawing stops and the player keeps a smaller hand.
-6. **Timed Weather** effects (section 1.6), then **On Breakfast** abilities fire (section 8).
-7. **XP step** (after the mulligan in Round 1): see 4.1.1.
+1. **The PokéMart restocks**, and Items In Delivery arrive in their Bags (section 1.7).
+2. **Recovers Exhaust** that is due this Round (see section 5).
+3. **Spent Pokémon become Active** again.
+4. **Base Energy** is set to the Round number, with a maximum of 10. Unspent Base Energy does not carry over.
+5. **Exert maximum** goes up by 1 each Round, to a limit of 3 (Round 1 = 1, Round 2 = 2, Round 3 onward = 3). Unspent Exert carries over.
+6. **Draws 7 cards**, one at a time. If the Draw Pile is empty when a card needs drawing, shuffle the Discard Pile to form a new Draw Pile, then keep drawing. If both piles are empty, drawing stops and the player keeps a smaller hand.
+7. **Timed Weather** effects (section 1.6), then **On Breakfast** abilities fire (section 8).
+8. **XP step** (after the mulligan in Round 1): see 4.1.1.
 
 **Mulligan (Round 1 only):** each player may put any number of cards from their hand into their Discard Pile, then draw the same number from their Draw Pile. Both players choose in secret and reveal together.
 
@@ -192,6 +229,7 @@ Every Round, each player:
   - **Play a Strategy Card:** on any of your turns, pay its Energy Cost (section 5). Its effect resolves immediately, then the card goes to your Discard Pile. A Strategy Card can't be played if it has no legal target (or, for an area card, nothing to affect). Cards drawn during Battle go into your hand and can be played this Round; they're discarded at Supper with the rest of your hand.
   - **Play a Supporter Card:** on any of your turns, once per Round, pay its Card-Cost in cards (section 1.4). Its effect, with any Gift Bonus, resolves immediately, then the card goes to your Discard Pile.
   - **Play a Location Card:** no Energy; into one of your Location spaces outside a fallen zone, replacing any Location there (section 1.5).
+  - **Open Bag:** buy an Item from your hand (then use or store it), buy one from the PokéMart, or use one from your Bag (section 1.7).
 - Passing doesn't lock a player out: if one player passes and the other takes an Action, the first player gets another turn.
 - The Battle Phase ends when **both players Pass consecutively**.
 
@@ -296,7 +334,6 @@ A Pokémon ability is an **Effect Trigger Word** plus **Effect Text**. It fires 
 
 - **Stalled matches:** healing (Recover) can keep up with the only damage left, so a match can go on forever while a Pokémon is still in play (about 1 in 30 AI-vs-AI matches before Supporters; none in the latest 60, as Released cards now thin decks out). Should there be a Round limit or a "no progress" draw? (For now the AI-vs-AI test stops matches at Round 100 and reports them as stalled.)
 - **Quick Attack and Ash:** Ash's Power says the free summon "arrives Spent". The build lets Quick Attack win (the Pokémon arrives Active), because every summon follows the same rules. Is that right?
-- What do Item cards do, and how are they played?
 - **Quest timing:** when a quest completes during an Action that also sets off abilities (e.g. a summon that triggers Brock), the build resolves the quest's effect first. Is that right?
 - Can a Command be anything other than an Attack?
 - **Timed Weather order:** if two Weather types have timed effects at the same moment, the build resolves them in Weather order (Rain, then Sun). Is that right?
@@ -307,7 +344,7 @@ A Pokémon ability is an **Effect Trigger Word** plus **Effect Text**. It fires 
 
 ## Placeholders in the current build
 
-- Decks are 16 Pokémon, 8 Strategy (3 Quickdraw, 3 Hypervoice, 2 Recover), 8 Item, 4 Location (2 Tidal Cove, 1 Sunbaked Plateau, 1 Old Training Hall) and 4 Supporter (2 Field Researcher, 1 Veteran Coach, 1 Field Medic) cards. This mix is a stand-in, not a rule.
+- Decks are 16 Pokémon, 8 Strategy (3 Quickdraw, 3 Hypervoice, 2 Recover), 8 Item (2 Power Band, 2 Iron Shell, 1 Swift Feather, 1 Lucky Coin, 1 Potion, 1 Energy Drink; Wake-Up Tonic is PokéMart only), 4 Location (2 Tidal Cove, 1 Sunbaked Plateau, 1 Old Training Hall) and 4 Supporter (2 Field Researcher, 1 Veteran Coach, 1 Field Medic) cards. This mix is a stand-in, not a rule.
 - The 16 Pokémon are invented placeholders, one of each per deck, with the same list for both players. Stats: Energy Cost 1–6, Attack 1–6, Strength 2–10.
 - Placeholder art is a box tinted by Pokémon Type (striped for Strategy, Supporter and Location Cards).
 - Fire Pokémon: Emberkit, plus Brawlix and Quakemaw (retyped from Fighting and Ground). Glimmeria carries a Weather Token of 1 Sun; no other placeholder Pokémon has one.
@@ -326,7 +363,7 @@ A Pokémon ability is an **Effect Trigger Word** plus **Effect Text**. It fires 
   Zappip, Brawlix and Mindrake have no ability.
 - Innate Powers on placeholder Pokémon: **Quick Attack** on Zappip, Brawlix and Duskfang; **Agility** on Gustling, Shadepup and Glimmeria.
 - Strategy Card rarities are placeholders: Quickdraw Common, Hypervoice Uncommon, Recover Rare. So are the Supporters': Field Researcher Common, Veteran Coach Uncommon, Field Medic Rare.
-- Item cards have only a name and Card-Type.
+- The 7 Items (section 1.7) are placeholders, including their rarities.
 - Both players use the same three Trainers: Ash, Misty and Brock (section 7.4), each with Strength 15.
 - To give every Trainer something to work with, three placeholder Pokémon are Water (Puddlop, Frostail, Toxifin), four cost 1, and five have Defence Strength-Type.
-- **The AI** places Trainers at random and only spends Base Energy (never Exert). On a Battle turn it scores every legal move and picks the best (ties at random), passing only when nothing else is legal. From the top: winning the match; bringing an enemy Trainer to 0; defeating an enemy Pokémon (by attack or Misty) without losing its own; attacking the weakest enemy Trainer; playing its most expensive affordable Pokémon, preferring zones where its own Passives boost it and avoiding the opponent's Brock zone; Brock's buff on its strongest Defence Pokémon, Ash's draw, Misty chip damage; other attacks; and last, trades that lose the attacker for nothing. It always takes Ash's free summon when there is room. Strategy Cards: Hypervoice only when you have Pokémon (scored by damage dealt and Pokémon defeated), Recover only on its own damaged Pokémon or Trainers (more when a Trainer is low), Quickdraw about as highly as Ash's draw. Supporters: it pays with random cards from its hand, but puts a card that meets the Gift Challenge in when it has one; it scores them by what they gain (Field Researcher like a draw, Veteran Coach by stats gained, Field Medic by Strength healed) minus the cards paid, a Released card counting double. Locations: it only plays into empty Location spaces and never replaces one. XP: it spends all of it on the cheapest Pokémon in hand it can afford this Round with Base Energy, splitting points between Attack and Strength at random; with no affordable Pokémon it keeps the XP. When one of its abilities needs a target, it picks a random legal one. It tries moves on a copy of the game to score them (abilities included), except draws (Ash, Quickdraw), so it never sees its own Draw Pile.
+- **The AI** places Trainers at random and only spends Base Energy (never Exert). On a Battle turn it scores every legal move and picks the best (ties at random), passing only when nothing else is legal. From the top: winning the match; bringing an enemy Trainer to 0; defeating an enemy Pokémon (by attack or Misty) without losing its own; attacking the weakest enemy Trainer; playing its most expensive affordable Pokémon, preferring zones where its own Passives boost it and avoiding the opponent's Brock zone; Brock's buff on its strongest Defence Pokémon, Ash's draw, Misty chip damage; other attacks; and last, trades that lose the attacker for nothing. It always takes Ash's free summon when there is room. Strategy Cards: Hypervoice only when you have Pokémon (scored by damage dealt and Pokémon defeated), Recover only on its own damaged Pokémon or Trainers (more when a Trainer is low), Quickdraw about as highly as Ash's draw. Supporters: it pays with random cards from its hand, but puts a card that meets the Gift Challenge in when it has one; it scores them by what they gain (Field Researcher like a draw, Veteran Coach by stats gained, Field Medic by Strength healed) minus the cards paid, a Released card counting double. Locations: it only plays into empty Location spaces and never replaces one. XP: it spends all of it on the cheapest Pokémon in hand it can afford this Round with Base Energy, splitting points between Attack and Strength at random; with no affordable Pokémon it keeps the XP. Open Bag: an Item bought from hand is used straight away if it has a legal target, otherwise stored; it sometimes buys from the PokéMart when its Bag has room; Held Items go on a random Pokémon of its own in the arena, preferring one without an Item. When one of its abilities needs a target, it picks a random legal one. It tries moves on a copy of the game to score them (abilities included), except draws (Ash, Quickdraw), so it never sees its own Draw Pile.

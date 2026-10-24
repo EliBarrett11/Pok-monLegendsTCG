@@ -302,14 +302,58 @@ export const LOCATION_CARDS = [
     ]),
 ];
 
-// PLACEHOLDER non-Pokémon cards: name and Card-Type only, for now.
-export const OTHER_CARDS = [
-  ...Array.from({ length: 8 }, (_, i) => ({ id: `item-${i + 1}`, name: `Item ${i + 1}`, cardType: 'Item' })),
+// --- Item Cards -------------------------------------------------------------
+//
+// Bought with PokéDollars through the Open Bag Action, then used (or stored
+// in the Bag and used later). `effects` resolve when it is used:
+//   Held      attachHeld to a friendly Pokémon (arena or hand); `held` says
+//             what the holder gets while it is in the arena:
+//             { attack?, strength?, speedUp?, luckyCoin? }
+//   Consumed  effects resolve, then the Item goes to the PokéMart
+
+const FRIENDLY_POKEMON_ANYWHERE = { mode: 'targeted', side: 'friendly', kinds: ['pokemon', 'hand'] };
+
+function item(name, itemType, cost, rarity, effectText, more) {
+  const id = name.toLowerCase().replace(/\s+/g, '-');
+  return { id, name, cardType: 'Item', itemType, cost, image: null, effectText, rarity, ...more };
+}
+
+function heldItem(name, cost, rarity, effectText, held) {
+  return item(name, 'Held', cost, rarity, effectText, {
+    held,
+    effects: [{ op: 'attachHeld', target: FRIENDLY_POKEMON_ANYWHERE }],
+  });
+}
+
+// PLACEHOLDER Items.
+export const ITEM_CARDS = [
+  heldItem('Power Band', 3, 'Common', 'Holder gains +2 Attack.', { attack: 2 }),
+  heldItem('Iron Shell', 3, 'Common', 'Holder gains +3 Strength.', { strength: 3 }),
+  heldItem('Swift Feather', 4, 'Uncommon', "Holder's Speed-Tier is one higher (Slow → Steady → Swift).", { speedUp: 1 }),
+  heldItem('Lucky Coin', 2, 'Uncommon', 'When the holder deals the damage that defeats an opponent Pokémon, gain 2 extra PokéDollars.', { luckyCoin: 2 }),
+  item('Potion', 'Consumed', 2, 'Common', 'Heal a friendly Pokémon in the arena 4 Strength.', {
+    effects: [{ op: 'heal', amount: 4, target: { mode: 'targeted', side: 'friendly', damaged: true } }],
+  }),
+  item('Wake-Up Tonic', 'Consumed', 3, 'Uncommon', 'A friendly Spent Pokémon in the arena becomes Active.', {
+    effects: [{ op: 'ready', target: { mode: 'targeted', side: 'friendly', filter: { spent: true } } }],
+  }),
+  item('Energy Drink', 'Consumed', 4, 'Rare', 'Gain 2 Base Energy this Round.', {
+    effects: [{ op: 'gainEnergy', amount: 2 }],
+  }),
 ];
+
+// PLACEHOLDER non-Pokémon cards still to come.
+export const OTHER_CARDS = [];
 
 // Each deck: card id → number of copies. PLACEHOLDER: one of every card above.
 export const PLACEHOLDER_DECKLIST = {
   ...Object.fromEntries([...POKEMON_CARDS, ...OTHER_CARDS].map((c) => [c.id, 1])),
+  'power-band': 2,
+  'iron-shell': 2,
+  'swift-feather': 1,
+  'lucky-coin': 1,
+  potion: 1,
+  'energy-drink': 1,
   quickdraw: 3,
   hypervoice: 3,
   recover: 2,

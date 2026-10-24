@@ -5,6 +5,7 @@ import {
   ZONES, playablePokemon, costPreview, isAlert, legalTargets, canUsePower, powerTargets,
   summonSpaces, isFallen, attackOf, maxStrengthOf, playableStrategies, strategyTargets,
   playableSupporters, supporterTargets, giftMet, playableLocations, locationSpaces, weatherState,
+  openBagOptions, itemTargets, BAG_SIZE,
 } from '../engine/game.js';
 import { INNATE_POWERS, WEATHER } from '../engine/cardData.js';
 
@@ -26,9 +27,11 @@ function resetUiFor(state) {
   ui.location = null;          // uid of a Location Card in hand to play
   ui.xpPlan = [];              // the XP step: [{ uid, stat }] planned before locking in
   ui.xpPick = null;            // the XP step: uid of the Pokémon picked to buff
+  ui.bag = null;               // Open Bag: { mode: null | 'buyHand' | 'buyMart' | 'useBag', uid, then, picking }
 }
 
 function clearSelection() {
+  ui.bag = null;
   ui.location = null;
   ui.selectedPokemon = null;
   ui.attacker = null;
@@ -48,7 +51,15 @@ function supporterChoice(state) {
 }
 
 const key = (ref) => (ref.kind === 'trainer' ? `${ref.owner}:T${ref.zone}`
-  : ref.kind === 'zone' ? `${ref.owner}:Z${ref.zone}` : `${ref.owner}:P${ref.zone}${ref.space}`);
+  : ref.kind === 'zone' ? `${ref.owner}:Z${ref.zone}`
+    : ref.kind === 'hand' ? `${ref.owner}:H${ref.uid}` : `${ref.owner}:P${ref.zone}${ref.space}`);
+
+// The Item chosen in the Open Bag flow (from hand or from the Bag).
+function bagItem(state) {
+  if (!ui.bag?.uid) return null;
+  const p = state.players.player;
+  return (ui.bag.mode === 'buyHand' ? p.hand : p.bag).find((i) => i.uid === ui.bag.uid) ?? null;
+}
 
 // Cards that can be clicked as the target of the current choice, as keys,
 // with the highlight to use: red for attacks, green for effects (either side).
@@ -63,6 +74,7 @@ function targetKeys(state) {
   if (ui.power !== null) return { keys: new Set(powerTargets(state, 'player', ui.power).map(key)), cls: ' power-target' };
   if (ui.strategy) return { keys: new Set(strategyTargets(state, 'player', ui.strategy).map(key)), cls: ' power-target' };
   if (ui.supporter?.picking) return { keys: new Set(supporterTargets(state, 'player', ui.supporter.uid).map(key)), cls: ' power-target' };
+  if (ui.bag?.picking) return { keys: new Set(itemTargets(state, 'player', bagItem(state)).map(key)), cls: ' power-target' };
   return { keys: new Set(), cls: '' };
 }
 
@@ -94,6 +106,7 @@ export function render(root, state, actions) {
       <section class="side opponent">
         ${pileBar(them, true)}
         ${energyBar(them)}
+        ${bagRow(state, 'ai')}
         ${trainerRow(state, 'ai')}
         ${locationRow(state, 'ai')}
         ${pokemonRow(state, 'ai')}
@@ -106,6 +119,7 @@ export function render(root, state, actions) {
           ${state.initiative ? `<span class="initiative">Initiative: ${state.players[state.initiative].name}</span>` : ''}
         </div>
         ${weatherPanel(state)}
+        ${martPanel(state)}
         <div class="controls">${controls(state)}</div>
       </section>
 
@@ -115,6 +129,7 @@ export function render(root, state, actions) {
         ${trainerRow(state, 'player')}
         ${pileBar(me, false)}
         ${energyBar(me)}
+        ${bagRow(state, 'player')}
         ${trainerTray(state)}
         <div class="hand">${handCards(state)}</div>
       </section>
@@ -155,6 +170,7 @@ function energyBar(p) {
       <span>Exert: <strong>${p.exertMax - p.exhaust.length}/${p.exertMax}</strong></span>
       <span>Exhaust: ${exhaust || '<strong>0</strong>'}</span>
       <span class="xp-pool">XP: <strong>${p.xp}</strong></span>
+      <span class="dollars">PokéDollars: <strong>$${p.dollars}</strong></span>
     </div>`;
 }
 
@@ -183,6 +199,33 @@ function weatherTags(c, stat) {
   for (const mod of Object.values(c.weather ?? {})) byType[mod.type] = (byType[mod.type] ?? 0) + (mod[stat] ?? 0);
   return Object.entries(byType).filter(([, n]) => n)
     .map(([type, n]) => `<span class="wx-tag" title="${type}">${WEATHER[type].icon}${n > 0 ? '+' : '−'}${Math.abs(n)}</span>`).join('');
+}
+
+// A player's Bag: 6 spaces, In Delivery marked. Both Bags are visible.
+function bagRow(state, who) {
+  const p = state.players[who];
+  const usable = new Set(who === 'player' && isMyBattleTurn(state) && !ui.supporter
+    ? openBagOptions(state, 'player').filter((o) => o.mode === 'useBag').map((o) => o.uid) : []);
+  const slots = Array.from({ length: BAG_SIZE }, (_, i) => {
+    const item = p.bag[i];
+    if (!item) return '<div class="bag-slot empty"></div>';
+    const cls = `bag-slot${item.inDelivery ? ' delivery' : ''}${usable.has(item.uid) ? ' usable' : ''}${ui.bag?.uid === item.uid ? ' selected' : ''}`;
+    return `<div class="${cls}" data-uid="${item.uid}" title="${item.name} (${item.itemType}, $${item.cost})&#10;${item.effectText}">
+      <b>${item.name}</b>${item.inDelivery ? '<span class="delivery-badge">In Delivery</span>' : ''}</div>`;
+  }).join('');
+  return `<div class="bag"><span class="bag-label">Bag ${p.bag.length}/${BAG_SIZE}</span>${slots}</div>`;
+}
+
+// The shared PokéMart: 3 Items on sale and the deck count.
+function martPanel(state) {
+  if (!state.round) return '';
+  const buyable = new Set(isMyBattleTurn(state) && !ui.supporter
+    ? openBagOptions(state, 'player').filter((o) => o.mode === 'buyMart').map((o) => o.slot) : []);
+  const slots = state.mart.onSale.map((item, slot) => (item
+    ? `<div class="mart-item${buyable.has(slot) ? ' buyable' : ''}" data-slot="${slot}" title="${item.name} (${item.itemType})&#10;${item.effectText}">
+        <b>${item.name}</b> <span class="price">$${item.cost}</span><div class="card-line">${item.itemType}: ${item.effectText}</div></div>`
+    : '<div class="mart-item sold">Sold</div>')).join('');
+  return `<div class="mart"><span class="mart-label">PokéMart <span class="hint">(deck ${state.mart.deck.length})</span></span>${slots}</div>`;
 }
 
 function locationRow(state, who) {
@@ -280,6 +323,15 @@ function handCards(state) {
       const pay = ui.supporter.discard.includes(c.uid) ? 'discard' : ui.supporter.release.includes(c.uid) ? 'release' : null;
       return card(c, { selectable: !ui.supporter.picking, pay });
     }
+    if (ui.bag?.picking) {
+      // A Held Item can go on a Pokémon in hand.
+      const target = targetKeys(state).keys.has(key({ kind: 'hand', owner: 'player', uid: c.uid }));
+      return card(c, { selectable: target, selected: target });
+    }
+    if (myTurn && c.cardType === 'Item') {
+      const buyable = openBagOptions(state, 'player').some((o) => o.mode === 'buyHand' && o.uid === c.uid);
+      return card(c, { selectable: buyable, unavailable: !buyable, selected: ui.bag?.uid === c.uid });
+    }
     if (myTurn && ['Pokémon', 'Strategy', 'Supporter', 'Location'].includes(c.cardType)) {
       return playable.includes(c.uid)
         ? card(c, { selectable: true, selected: [ui.selectedPokemon, ui.strategy, ui.location].includes(c.uid) })
@@ -287,6 +339,22 @@ function handCards(state) {
     }
     return card(c);
   }).join('');
+}
+
+function itemCard(c, opts) {
+  return `<div class="card item rarity-${slug(c.rarity)}${stateClasses(opts)}" data-uid="${c.uid}" title="${c.name} (${c.rarity})&#10;${c.itemType} Item, $${c.cost}&#10;${c.effectText}">
+    ${payBadge(opts)}
+    <div class="card-head"><span class="card-name">${c.name}</span><span class="price" title="PokéDollar Cost">$${c.cost}</span></div>
+    <div class="card-type">Item · ${c.itemType}</div>
+    ${c.image ? `<img class="card-art" src="${c.image}" alt="">` : '<div class="card-art item-art">Item</div>'}
+    <div class="card-line effect">${c.effectText}</div>
+    <div class="card-line rarity">${c.rarity}</div>
+  </div>`;
+}
+
+// A Held Item shown on its Pokémon, wherever the card is visible.
+function heldLine(c) {
+  return c.heldItem ? `<div class="card-line held" title="${c.heldItem.effectText}">🎒 ${c.heldItem.name}</div>` : '';
 }
 
 function trainerTray(state) {
@@ -328,6 +396,7 @@ function card(c, opts = {}) {
   if (c.cardType === 'Strategy') return strategyCard(c, opts);
   if (c.cardType === 'Supporter') return supporterCard(c, opts);
   if (c.cardType === 'Location') return locationCard(c, opts);
+  if (c.cardType === 'Item') return itemCard(c, opts);
   return `<div class="card type-${slug(c.cardType)}${stateClasses(opts)}" data-uid="${c.uid}">
     ${payBadge(opts)}
     <div class="card-type">${c.cardType}</div>
@@ -405,6 +474,7 @@ function pokemonCard(c, opts) {
     ${c.innatePower ? `<div class="card-line keyword" title="${INNATE_POWERS[c.innatePower] ?? ''}">${c.innatePower}</div>` : ''}
     ${c.effectText ? `<div class="card-line effect"><b>${c.effectTrigger}:</b> ${c.effectText}</div>` : ''}
     ${c.weatherTokens ? `<div class="card-line weather">Weather: ${weatherText(c.weatherTokens)}</div>` : ''}
+    ${heldLine(c)}
     <div class="card-line rarity">${c.rarity}</div>
   </div>`;
 }
@@ -423,6 +493,7 @@ function boardPokemon(c, { alert, ...opts } = {}) {
     </div>
     <div class="card-line">${c.speedTier}</div>
     ${c.effectTrigger ? `<div class="card-line" title="${c.effectText}"><b>${c.effectTrigger}</b></div>` : ''}
+    ${heldLine(c)}
     ${c.spent ? '<div class="spent-badge">Spent</div>' : ''}
     ${alert ? '<div class="alert-badge">Alert</div>' : ''}
   </div>`;
@@ -440,6 +511,7 @@ function tooltip(c) {
     c.innatePower && `Innate Power: ${c.innatePower}${INNATE_POWERS[c.innatePower] ? ` (${INNATE_POWERS[c.innatePower]})` : ''}`,
     c.effectText && `${c.effectTrigger}: ${c.effectText}`,
     c.weatherTokens && `Weather Tokens: ${Object.entries(c.weatherTokens).map(([t, n]) => `${n} ${t}`).join(', ')}`,
+    c.heldItem && `Held Item: ${c.heldItem.name} (${c.heldItem.effectText})`,
     c.spent && 'Spent',
   ].filter(Boolean).join('\n').replace(/"/g, '&quot;');
 }
@@ -483,6 +555,28 @@ function controls(state) {
       }
       if (state.turn !== 'player' || state.pending) return '<span>Waiting for opponent…</span>';
       const pass = '<button data-action="pass">Pass</button>';
+      if (ui.bag) {
+        const cancel = '<button data-action="cancel-bag" class="secondary">Cancel</button>';
+        const opts = openBagOptions(state, 'player');
+        const has = (mode) => opts.some((o) => o.mode === mode);
+        const item = bagItem(state);
+        if (ui.bag.picking) {
+          const where = item.itemType === 'Held' ? ' (a Pokémon in the arena, or one in your hand)' : '';
+          return `<span class="hint">${item.name}: click a highlighted target${where}.</span>${cancel}`;
+        }
+        if (ui.bag.mode === 'buyHand' && item) {
+          const can = (then) => opts.some((o) => o.uid === item.uid && o.then === then);
+          return `<span class="hint">Buy ${item.name} for $${item.cost}, then:</span>
+            <button data-action="bag-use" ${can('use') ? '' : 'disabled'}>Use now</button>
+            <button data-action="bag-store" ${can('store') ? '' : 'disabled'}>Store in Bag</button>${cancel}`;
+        }
+        const hints = { buyHand: 'Click an Item in your hand to buy it.', buyMart: 'Click an Item in the PokéMart to buy it (In Delivery until next Breakfast).', useBag: 'Click an Item in your Bag to use it.' };
+        if (ui.bag.mode) return `<span class="hint">${hints[ui.bag.mode]}</span>${cancel}`;
+        return `<span class="hint"><b>Open Bag</b> ($${me.dollars}): choose one.</span>
+          <button data-action="bag-mode" data-mode="buyHand" ${has('buyHand') ? '' : 'disabled'}>Buy from hand</button>
+          <button data-action="bag-mode" data-mode="buyMart" ${has('buyMart') ? '' : 'disabled'}>Buy from PokéMart</button>
+          <button data-action="bag-mode" data-mode="useBag" ${has('useBag') ? '' : 'disabled'}>Use from Bag</button>${cancel}`;
+      }
       const paying = supporterChoice(state);
       if (paying) {
         const { card: c, exact, gift } = paying;
@@ -508,7 +602,8 @@ function controls(state) {
         : ui.attacker ? 'Click a highlighted enemy Pokémon or Trainer to attack, or click your Pokémon again to cancel.'
           : strategy ? `${strategy.name}: click a highlighted target, or click the card again to cancel.`
             : 'Play a card from your hand, attack with an Alert Pokémon, use a Trainer Power, or Pass.';
-      return `<span class="hint">${hint}</span>${pass}`;
+      const openBag = openBagOptions(state, 'player').length ? '<button data-action="open-bag" class="secondary">Open Bag</button>' : '';
+      return `<span class="hint">${hint}</span>${openBag}${pass}`;
     }
     case 'gameOver':
       return `<span>${state.winner ? `${state.players[state.winner].name} ${state.winner === 'player' ? 'win' : 'wins'}!` : 'Draw.'}</span>`;
@@ -571,6 +666,10 @@ function wire(root, state, { dispatch, newGame }) {
   on('.hand .card.selectable', (el) => {
     const uid = el.dataset.uid;
     const c = state.players.player.hand.find((h) => h.uid === uid);
+    if (ui.bag?.picking) {
+      dispatchBag({ kind: 'hand', owner: 'player', uid });
+      return;
+    }
     if (state.phase === 'breakfast' && state.xpStep) {
       ui.xpPick = ui.xpPick === uid ? null : uid;
     } else if (state.phase === 'breakfast') {
@@ -594,6 +693,11 @@ function wire(root, state, { dispatch, newGame }) {
           release.push(uid);
         }
       }
+    } else if (c.cardType === 'Item') {
+      // Buy from hand: then Use now or Store in Bag.
+      const again = ui.bag?.uid === uid;
+      clearSelection();
+      ui.bag = again ? null : { mode: 'buyHand', uid };
     } else if (c.cardType === 'Location') {
       const again = ui.location === uid;
       clearSelection();
@@ -632,6 +736,32 @@ function wire(root, state, { dispatch, newGame }) {
     }
   });
   on('.zone.zone-target', (el) => playSupporter({ kind: 'zone', owner: el.dataset.owner, zone: Number(el.dataset.zone) }));
+
+  // Open Bag: choose a mode, then an Item, then (to use it) a target.
+  const dispatchBag = (target) => {
+    const { mode, uid, then } = ui.bag;
+    dispatch({ type: 'openBag', who: 'player', mode, uid, then, target });
+  };
+  // Using an Item: pick a target if it needs one, otherwise go straight away.
+  const useNow = () => {
+    if (bagItem(state).effects.some((e) => e.target?.mode === 'targeted')) {
+      ui.bag.picking = true;
+      redraw();
+    } else {
+      dispatchBag(undefined);
+    }
+  };
+  on('[data-action="open-bag"]', () => { clearSelection(); ui.bag = { mode: null }; redraw(); });
+  on('[data-action="cancel-bag"]', () => { ui.bag = null; redraw(); });
+  on('[data-action="bag-mode"]', (el) => { ui.bag = { mode: el.dataset.mode }; redraw(); });
+  on('[data-action="bag-store"]', () => { ui.bag.then = 'store'; dispatchBag(undefined); });
+  on('[data-action="bag-use"]', () => { ui.bag.then = 'use'; useNow(); });
+  on('.mart-item.buyable', (el) => dispatch({ type: 'openBag', who: 'player', mode: 'buyMart', slot: Number(el.dataset.slot) }));
+  on('.player .bag-slot.usable', (el) => {
+    clearSelection();
+    ui.bag = { mode: 'useBag', uid: el.dataset.uid };
+    useNow();
+  });
 
   // Command: pick one of your Alert Pokémon, then a highlighted target.
   // (While a Power is picking a target, a click on a target card goes to the Power.)
@@ -679,6 +809,8 @@ function wire(root, state, { dispatch, newGame }) {
       dispatch({ type: 'playStrategy', who: 'player', uid: ui.strategy, target: ref });
     } else if (ui.supporter?.picking) {
       playSupporter(ref);
+    } else if (ui.bag?.picking) {
+      dispatchBag(ref);
     }
   });
 

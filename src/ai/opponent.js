@@ -11,6 +11,7 @@ import {
   applyAction, legalActions, playablePokemon, summonSpaces, alertPokemon, legalTargets,
   usablePowers, powerTargets, playableStrategies, strategyTargets, opponentOf, maxStrengthOf, attackOf,
   playableSupporters, supporterTargets, giftMet, playableLocations, locationSpaces,
+  openBagOptions, itemTargets,
 } from '../engine/game.js';
 
 // Where the AI's random choices come from. Tests pass a seeded generator
@@ -76,6 +77,7 @@ function candidateMoves(state, who) {
     if (targets.length) targets.forEach((target) => moves.push({ ...move, target }));
     else if (!card.effects.some((e) => e.target?.mode === 'targeted')) moves.push(move);
   }
+  moves.push(...bagMoves(state, who));
   // Locations: only into empty Location spaces; it never replaces one.
   const seenLocation = new Set();
   for (const card of playableLocations(state, who)) {
@@ -86,6 +88,60 @@ function candidateMoves(state, who) {
     }
   }
   return moves;
+}
+
+// Open Bag. Bought from hand: used straight away if it has a target, else
+// stored. The PokéMart: only sometimes, when there is room. Held Items go on
+// a random Pokémon of its own in the arena, preferring one without an Item.
+function bagMoves(state, who) {
+  const p = state.players[who];
+  const moves = [];
+  const itemOf = (opt) => (opt.mode === 'buyHand' ? p.hand : p.bag).find((i) => i.uid === opt.uid);
+  const targetFor = (item) => {
+    const options = itemTargets(state, who, item).filter((r) => r.kind !== 'hand');
+    if (item.itemType !== 'Held') return options;
+    const bare = options.filter((r) => !state.players[who].zones[r.zone].pokemon[r.space].heldItem);
+    const pool = bare.length ? bare : options;
+    return pool.length ? [pool[Math.floor(random() * pool.length)]] : [];
+  };
+  const opts = openBagOptions(state, who);
+  for (const opt of opts) {
+    if (opt.mode === 'buyMart') {
+      if (random() < 0.3) moves.push({ type: 'openBag', who, ...opt });
+      continue;
+    }
+    const item = itemOf(opt);
+    if (opt.then === 'store') {
+      // Store only what it can't use straight away.
+      if (!opts.some((o) => o.uid === opt.uid && o.then === 'use') || !targetFor(item).length) moves.push({ type: 'openBag', who, ...opt });
+      continue;
+    }
+    const needsTarget = item.effects.some((e) => e.target?.mode === 'targeted');
+    if (!needsTarget) { moves.push({ type: 'openBag', who, ...opt }); continue; }
+    for (const target of targetFor(item)) moves.push({ type: 'openBag', who, ...opt, target });
+  }
+  return moves;
+}
+
+// Open Bag scores: what using the Item gains, a little for storing or buying ahead.
+function bagScore(state, who, move) {
+  const p = state.players[who];
+  if (move.mode === 'buyMart') return 4;
+  if (move.then === 'store') return 5;
+  const item = (move.mode === 'buyHand' ? p.hand : p.bag).find((i) => i.uid === move.uid);
+  const price = move.mode === 'buyHand' ? item.cost / 2 : 0;
+  if (item.id === 'energy-drink') {
+    const wants = p.hand.some((c) => (c.cardType === 'Pokémon' || c.cardType === 'Strategy')
+      && c.energyCost > p.baseEnergy && c.energyCost <= p.baseEnergy + 2);
+    return (wants ? 14 : 3) - price;
+  }
+  const after = applyAction({ ...state, log: [] }, move);
+  const mine = (s) => s.players[who].zones.flatMap((z) => z.pokemon).filter(Boolean);
+  const stats = (s) => mine(s).reduce((sum, c) => sum + attackOf(c) + maxStrengthOf(c) + c.currentStrength, 0);
+  const gained = stats(after) - stats(state);
+  const readied = mine(state).filter((c) => c.spent).length - mine(after).filter((c) => c.spent).length;
+  const special = item.itemType === 'Held' && !item.held.attack && !item.held.strength ? 6 : 0;   // Swift Feather, Lucky Coin
+  return 6 + 2 * gained + 8 * readied + special - price;
 }
 
 // Random cards from hand (not the Supporter), with one that meets the Gift
@@ -133,6 +189,7 @@ function scoreMove(state, who, move) {
   const supporter = move.type === 'playSupporter' ? state.players[who].hand.find((c) => c.uid === move.uid) : null;
   if (supporter) return supporterScore(state, who, move, supporter);
   if (move.type === 'playLocation') return locationScore(state, who, move);
+  if (move.type === 'openBag') return bagScore(state, who, move);
 
   const after = applyAction({ ...state, log: [] }, move);
   if (after.winner === who) return 1000;
