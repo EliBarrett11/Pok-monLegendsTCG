@@ -50,3 +50,14 @@ export function speedIcon(tier) {
 export function weatherIcon(type) {
   return icon(type === 'Sun' ? 'sun' : 'rain');
 }
+
+// Phase banners: Breakfast (sunrise), Battle (crossed swords), Supper (moon).
+const PHASE_ICONS = {
+  sunrise: svg('<path d="M3 17h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6.5 17a5.5 5.5 0 0 1 11 0z" fill="currentColor"/><path d="M12 5v3M5.2 8.2l2 2M18.8 8.2l-2 2M2.5 13h2.5M19 13h2.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6 20.5h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity="0.6"/>'),
+  swords: svg('<path d="M4 3l9 9-2 2-9-9V3zM20 3h-2l-9 9 2 2 9-9z" fill="currentColor"/><path d="M6 16l2 2-3 3-2-2zM18 16l-2 2 3 3 2-2z" fill="currentColor"/><path d="M8.5 13.5l2 2M15.5 13.5l-2 2" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>'),
+  moon: svg('<path d="M15.5 3a8.5 8.5 0 1 0 5.5 14.9A7 7 0 0 1 15.5 3z" fill="currentColor"/><circle cx="19" cy="6" r="1" fill="currentColor"/><circle cx="21" cy="10.5" r="0.7" fill="currentColor"/>'),
+};
+
+export function phaseIcon(name) {
+  return PHASE_ICONS[name] ?? '';
+}

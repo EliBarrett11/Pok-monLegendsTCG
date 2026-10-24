@@ -859,3 +859,151 @@ button.primary {
   background: linear-gradient(#a33a2a, #5c1616); color: #ffe9d0; border-color: #2a0808;
   text-shadow: 0 3px 4px rgba(0, 0, 0, 0.7), 0 0 20px rgba(255, 120, 80, 0.6);
 }
+
+/* --- V5: turn flow and clarity ------------------------------------------------------------- */
+
+/* The side panel: PokéMart at the top, the prompt, then the main action medallion beside my side of the board. */
+.mart { flex-direction: row; flex-wrap: wrap; gap: 5px; }
+.mart-label { flex-basis: 100%; }
+.mart-item { flex: 1 1 0; min-width: 0; height: auto; flex-direction: column; align-items: center; gap: 2px; padding: 4px 3px 3px; }
+.mart-item .mart-text { width: 100%; align-items: center; padding: 0; }
+.mart-item .mart-name { flex-direction: column; align-items: center; gap: 1px; width: 100%; }
+.mart-item .mart-name b { font-size: 11px; max-width: 100%; }
+.mart-item .mart-effect { display: none; }
+.mart-item.sold { height: 105px; }
+.panel-title h1 { font-size: 17px; }
+.medallion-seat { flex: none; height: 182px; display: grid; place-items: center; }
+
+/* The main action: a large brass medallion. It glows and gently pulses when it's my move; dull otherwise. */
+.side-panel button.primary {
+  position: relative; width: 172px; height: 172px; padding: 18px 14px; border-radius: 50%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; line-height: 1.05;
+  border: 3px solid var(--brass-dark);
+  background:
+    radial-gradient(circle at 50% 50%, transparent 58%, rgba(70, 44, 12, 0.55) 59%, transparent 62%),
+    radial-gradient(circle at 38% 30%, #fff3c4 0, var(--brass-light) 18%, var(--brass) 48%, var(--brass-mid) 78%, #7a5420 100%);
+  box-shadow: inset 0 2px 2px rgba(255, 250, 225, 0.8), inset 0 -4px 6px rgba(70, 44, 12, 0.6), 0 6px 14px rgba(0, 0, 0, 0.6);
+  font-family: var(--font-display); color: var(--ink); text-shadow: 0 1px 0 rgba(255, 245, 210, 0.7);
+}
+.side-panel button.primary .m-main { font-size: 25px; font-weight: 800; letter-spacing: 0.02em; }
+.side-panel button.primary .m-sub { font-family: var(--font-text); font-size: 15px; font-weight: 800; color: #5a3a10; max-width: 130px; }
+.side-panel button.primary kbd {
+  position: absolute; bottom: 14px; padding: 0 6px; border-radius: 4px; font: 700 10px var(--font-text); letter-spacing: 0.06em;
+  background: rgba(60, 36, 10, 0.25); color: #4a2e0a; border: 1px solid rgba(70, 44, 12, 0.45); text-shadow: none;
+}
+.side-panel button.primary:disabled { filter: grayscale(0.85) brightness(0.55); }
+.side-panel button.primary:active:not(:disabled) { transform: translateY(2px) scale(0.98); }
+.side-panel.my-move button.primary:not(:disabled) { animation: medallion 1.9s ease-in-out infinite; }
+@keyframes medallion {
+  0%, 100% { box-shadow: inset 0 2px 2px rgba(255, 250, 225, 0.8), inset 0 -4px 6px rgba(70, 44, 12, 0.6), 0 0 14px 4px var(--gold-glow), 0 6px 14px rgba(0, 0, 0, 0.6); }
+  50% { box-shadow: inset 0 2px 2px rgba(255, 250, 225, 0.8), inset 0 -4px 6px rgba(70, 44, 12, 0.6), 0 0 34px 12px var(--gold-glow), 0 6px 14px rgba(0, 0, 0, 0.6); }
+}
+
+/* Simultaneous steps: both players choosing at once. */
+.sim-status {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 2px 10px; border-radius: 10px;
+  background: rgba(122, 32, 32, 0.15); border: 1px solid rgba(122, 32, 32, 0.4); color: var(--burgundy); font-size: 14px; font-weight: 800;
+}
+.sim-status.ready { background: rgba(30, 77, 52, 0.15); border-color: rgba(30, 77, 52, 0.5); color: var(--green-deep); }
+.sim-status .dots { width: 18px; height: 6px; background: radial-gradient(circle, currentColor 2px, transparent 2.5px) 0 0 / 6px 6px repeat-x; animation: dots 1s steps(3) infinite; }
+@keyframes dots { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+
+/* Whose move it is, and who passed last turn. */
+.turn-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(209, 169, 90, 0.4); }
+.turn-dot.on { background: radial-gradient(circle at 35% 30%, #fff6c8, #ffc94a 55%, #b0761a); border-color: #6b4a1c; animation: turn-dot 1.4s ease-in-out infinite; }
+@keyframes turn-dot { 50% { box-shadow: 0 0 10px 3px rgba(255, 205, 90, 0.85); } }
+.passed-chip {
+  padding: 0 7px; border-radius: 8px; font-family: var(--font-display); font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
+  background: linear-gradient(#a33a2a, #6e1e16); color: var(--cream); border: 1px solid #3a0c0c;
+}
+
+/* Energy as crystals: gold Base Energy, then the Exert crystals (dark once Exhausted). */
+.info-line:has(.energy) { overflow: visible; }
+.energy { position: relative; gap: 4px !important; }
+.crystals { display: inline-flex; align-items: center; gap: 1.5px; }
+.crystal { width: 8px; height: 13px; clip-path: polygon(50% 0, 100% 30%, 100% 70%, 50% 100%, 0 70%, 0 30%); }
+.crystal.base { background: linear-gradient(135deg, #fff2b0, #f0b43a 50%, #a8680c); }
+.crystal.exert { background: linear-gradient(135deg, #e6f2ff, #8aaed0 50%, #44607e); }
+.crystal.exert.exhausted { background: linear-gradient(135deg, #5a4a3a, #2a1e14); }
+.crystal-gap { width: 4px; }
+.crystal-more { font-style: normal; font-size: 11px; font-weight: 800; color: var(--brass-light); }
+.energy .exert-n { color: #b9d4ee; font-size: 12px; }
+/* A cost being previewed: what it would spend. */
+.energy.previewing .crystal.spend { animation: crystal-flicker 0.5s ease-in-out infinite alternate; }
+@keyframes crystal-flicker { from { filter: brightness(1.6); opacity: 1; } to { filter: brightness(0.7); opacity: 0.35; } }
+.energy.previewing .crystal.spend-exert { background: linear-gradient(135deg, #fff0c8, #ffa030 50%, #b05a08); filter: drop-shadow(0 0 3px #ffa030); animation: crystal-flicker 0.5s ease-in-out infinite alternate; }
+.cost-note {
+  display: none; position: absolute; left: 0; bottom: calc(100% + 4px); z-index: 5; padding: 1px 8px; border-radius: 6px; white-space: nowrap;
+  background: rgba(20, 10, 2, 0.95); border: 1px solid var(--brass); color: var(--brass-light); font-size: 13px; font-weight: 800;
+}
+.energy.previewing .cost-note { display: block; }
+.cost-note.exert { color: #ffb050; border-color: #ffa030; }
+.energy.short .cost-note { color: #ff9a8a; border-color: var(--red-bright); }
+.energy.short .base-n, .energy.short .exert-n { color: var(--red-bright); }
+.info-bar.ai .cost-note { bottom: auto; top: calc(100% + 4px); }
+
+/* On my turn, what I can still act with pulses gently. */
+.table.my-turn .player .pokemon-space .card.selectable,
+.table.my-turn .player .trainer-space .card.selectable,
+.table.my-turn .player .bag-slot.usable { animation: can-act 2s ease-in-out infinite; }
+@keyframes can-act { 0%, 100% { outline: 2px solid rgba(150, 240, 170, 0.0); outline-offset: 1px; } 50% { outline: 2px solid rgba(150, 240, 170, 0.85); outline-offset: 4px; } }
+
+/* A brief ring around what I could still do, when I pass anyway. */
+.fx-remind { position: absolute; pointer-events: none; border-radius: 12px; border: 3px solid rgba(255, 220, 120, 0.95); box-shadow: 0 0 16px 4px rgba(255, 210, 100, 0.6); animation: remind 1.2s ease-out forwards; }
+@keyframes remind { 0% { opacity: 0; transform: scale(1.15); } 25% { opacity: 1; transform: scale(1); } 70% { opacity: 1; } 100% { opacity: 0; transform: scale(0.98); } }
+
+/* The history strip: down the left edge of the mat, newest at the top. */
+.history {
+  position: absolute; left: 200px; top: 96px; width: 66px; padding: 4px 5px 6px; z-index: 2;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  background: linear-gradient(90deg, rgba(26, 14, 6, 0.9), rgba(40, 23, 11, 0.85)); border: 1px solid var(--brass-dark); border-right: 0;
+  border-radius: 10px 0 0 10px; box-shadow: inset 0 0 0 1px rgba(246, 221, 154, 0.2), -4px 6px 14px rgba(0, 0, 0, 0.5);
+}
+.history:not(:has(.hist)) { display: none; }
+.history-title { font-family: var(--font-display); font-size: 10px; font-weight: 800; letter-spacing: 0.06em; color: var(--brass); text-transform: uppercase; }
+.hist { position: relative; width: 56px; height: 73px; display: grid; place-items: center; border-radius: 6px; border: 2px solid; cursor: help; flex: none; }
+.hist.player { border-color: rgba(120, 231, 166, 0.85); }
+.hist.ai { border-color: rgba(226, 90, 70, 0.9); }
+.hist .card.mini { width: 48px; height: 67px; }
+.hist-blank { width: 48px; height: 67px; border-radius: 4px; background: url('../../assets/ui/card-back.jpg') center / cover; filter: brightness(0.55); }
+.hist-word { position: absolute; top: 24px; font-family: var(--font-display); font-weight: 800; font-size: 12px; color: var(--cream); text-shadow: 0 1px 2px #000; }
+.hist-icon {
+  position: absolute; right: -5px; bottom: -5px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(circle at 35% 30%, #fff3c4, var(--brass) 55%, var(--brass-mid)); border: 1px solid var(--brass-dark); color: var(--ink);
+}
+.hist-icon .icon { width: 12px; height: 12px; --icon-cut: var(--brass); }
+.hist.ai .hist-icon { background: radial-gradient(circle at 35% 30%, #ffc0b0, #c0442e 55%, #6e1e16); color: #fff; }
+.hist.fresh { animation: hist-in 0.45s ease-out; }
+@keyframes hist-in { from { transform: translateY(-40px) scale(0.6); opacity: 0; } to { transform: none; opacity: 1; } }
+.pv-caption {
+  margin-bottom: 8px; padding: 8px 12px; border-radius: 8px; font-size: 15px; font-weight: 700; line-height: 1.35; color: var(--cream);
+  background: rgba(20, 10, 2, 0.95); border: 2px solid var(--brass-dark); box-shadow: var(--shadow-lift);
+}
+.pv-caption.player { border-color: rgba(120, 231, 166, 0.85); }
+.pv-caption.ai { border-color: rgba(226, 90, 70, 0.9); }
+
+/* Round, phase and turn banners: a ribbon sweeping across the middle of the mat. */
+.fx-phase {
+  position: absolute; left: 940px; top: 508px; z-index: 6; min-width: 620px; padding: 14px 70px; white-space: nowrap;
+  display: flex; align-items: center; justify-content: center; gap: 18px;
+  --accent: var(--brass-light);
+  background: linear-gradient(90deg, transparent, rgba(24, 12, 4, 0.92) 14%, rgba(24, 12, 4, 0.92) 86%, transparent);
+  border-top: 2px solid var(--accent); border-bottom: 2px solid var(--accent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+  pointer-events: none;
+}
+.fx-phase-icon { color: var(--accent); filter: drop-shadow(0 0 10px var(--accent)); }
+.fx-phase-icon .icon { width: 54px; height: 54px; }
+.fx-phase-text { display: flex; flex-direction: column; align-items: center; line-height: 1.05; }
+.fx-phase-text b { font-family: var(--font-display); font-size: 58px; font-weight: 800; letter-spacing: 0.06em; color: var(--accent); text-shadow: 0 3px 4px rgba(0, 0, 0, 0.8), 0 0 24px color-mix(in srgb, var(--accent) 50%, transparent); }
+.fx-phase-text span { font-size: 19px; font-weight: 700; color: var(--cream); letter-spacing: 0.04em; margin-top: 4px; }
+.fx-phase.round { --accent: #f6dd9a; }
+.fx-phase.breakfast { --accent: #ffd889; }
+.fx-phase.battle { --accent: #c8d4e2; }
+.fx-phase.supper { --accent: #f0a050; }
+.fx-phase.end { --accent: #d8a8a0; }
+.fx-phase.your-turn { --accent: #b8f0a0; }
+.fx-phase.your-turn .fx-phase-text b { font-size: 66px; }
+.fx-phase.small { min-width: 380px; padding: 6px 50px; top: 270px; }
+.fx-phase.their-turn { --accent: #ff9a88; }
+.fx-phase.small .fx-phase-text b { font-size: 30px; }

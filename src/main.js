@@ -1,11 +1,12 @@
 // Entry point: holds the current game state, sends the player's actions
 // to the engine, lets the AI respond, and plays each action back on screen.
-import { createGame, applyAction } from './engine/game.js';
+import { createGame, applyAction, legalActions } from './engine/game.js';
 import { chooseAction } from './ai/opponent.js';
-import { render, STAGE } from './ui/render.js';
-import { present, think, skip, resetFx } from './ui/present.js';
+import { render, STAGE, pushHistory, clearHistory, setCaption } from './ui/render.js';
+import { present, think, skip, resetFx, historyEntry, captionFor } from './ui/present.js';
+import { speedFactor } from './ui/settings.js';
 
-export const BUILD = 'V4 — Combat and effect feedback';
+export const BUILD = 'V5 — Turn flow and clarity';
 
 
 // The whole game is drawn on a fixed 1920×1080 stage, scaled uniformly to
@@ -38,11 +39,30 @@ function lock(on) {
 }
 
 async function show(prev, next, who) {
+  pushHistory(historyEntry(prev, next, who));
   await present(root, prev, next, who, draw);
+}
+
+// Simultaneous steps (Trainers, mulligan, XP): both players choose at once.
+// The AI takes a moment, then locks in on its own, so "Opponent ready" shows
+// while the player is still choosing. Input stays open meanwhile.
+const SIMULTANEOUS = ['assignTrainers', 'mulligan', 'spendXp'];
+let lockInTimer = null;
+function scheduleAiLockIn(id) {
+  clearTimeout(lockInTimer);
+  lockInTimer = setTimeout(() => {
+    if (id !== match || busy) return;
+    const action = chooseAction(state, 'ai');
+    if (!action || !SIMULTANEOUS.includes(action.type)) return;
+    state = applyAction(state, action);
+    setCaption(captionFor(state, 'ai'));
+    draw();
+  }, (900 + Math.random() * 900) * speedFactor());
 }
 
 async function dispatch(action) {
   if (busy) return;
+  clearTimeout(lockInTimer);
   let next;
   try {
     next = applyAction(state, action);
@@ -74,6 +94,11 @@ async function opponentActs(id) {
       action = chooseAction(state, 'player') ?? (state.phase === 'initiative' ? { type: 'flipCoin' } : null);
     }
     if (!action) return;
+    // The player is still choosing in a simultaneous step: the AI locks in by itself, shortly.
+    if (who === 'ai' && !autoplay && SIMULTANEOUS.includes(action.type) && legalActions(state, 'player').includes(action.type)) {
+      scheduleAiLockIn(id);
+      return;
+    }
     if (who === 'ai' && state.phase === 'battle') await think(stage);
     await nextFrame();   // lets the page paint and take clicks between actions, even at Instant speed
     if (id !== match) return;
@@ -87,11 +112,14 @@ const nextFrame = () => new Promise((resolve) => { setTimeout(resolve, 0); });
 
 function newGame() {
   match += 1;
+  clearTimeout(lockInTimer);
   resetFx();
+  clearHistory();
+  setCaption('');
   lock(false);
   state = createGame(Date.now());
   draw();
-  if (autoplay) start();
+  start();
 }
 
 function draw() {
@@ -127,5 +155,5 @@ async function start() {
 preload().then(() => {
   draw();
   stage.classList.add('ready');
-  if (autoplay) start();
+  start();
 });

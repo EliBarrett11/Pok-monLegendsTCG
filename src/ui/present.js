@@ -10,6 +10,7 @@
 import { setCaption, cardElements, cardMarkup, STAGE } from './render.js';
 import { speedFactor } from './settings.js';
 import { burst, edgeBurst, clearParticles, reducedMotion } from './particles.js';
+import { phaseIcon } from './icons.js';
 
 // --- Timing and skipping -----------------------------------------------------------
 
@@ -622,10 +623,63 @@ async function before(root, prev, next, actor, t, late) {
   } else if (main?.type === 'choiceMade' && main.target) {
     glow(shown(main.target.uid), 'fx-target');
     await wait(t(400));
-  } else if (main?.type === 'pass') {
+  } else if (main?.type === 'pass' && !main.endsPhase) {
     await banner(`${actor === 'player' ? 'You pass' : 'Opponent passes'}`, t(850), actor);
   }
   await walk(root, ev, t, late);
+  // The Battle Phase ending (two passes in a row), then Supper, before the board changes.
+  if (main?.type === 'pass' && main.endsPhase) {
+    await phaseBanner('end', 'Battle ends', `${actor === 'player' ? 'You' : 'The opponent'} passed straight back`, t(800));
+  }
+  if (ev.some((e) => e.type === 'phaseChanged' && e.phase === 'supper')) {
+    await phaseBanner('supper', 'Supper', 'Hands are discarded', t(850));
+  }
+}
+
+// --- Round, phase and turn banners ----------------------------------------------------------
+
+const PHASES = {
+  round: { icon: '' },
+  breakfast: { icon: 'sunrise' },
+  battle: { icon: 'swords' },
+  supper: { icon: 'moon' },
+  end: { icon: 'swords' },
+};
+
+// A banner that sweeps across the middle of the mat. Awaited for its full
+// length unless `hold` is given (then only that long, and it finishes on its own).
+async function phaseBanner(kind, title, sub, ms, { hold = null, small = false } = {}) {
+  if (ms <= 0 || skipping) return;
+  const art = PHASES[kind]?.icon ? phaseIcon(PHASES[kind].icon) : '';
+  const b = spawn(`fx-phase ${kind}${small ? ' small' : ''}`, null,
+    `${art ? `<i class="fx-phase-icon">${art}</i>` : ''}<div class="fx-phase-text"><b>${title}</b>${sub ? `<span>${sub}</span>` : ''}</div>`);
+  const done = play(b, [
+    { opacity: 0, transform: 'translate(-50%, -50%) translateX(-140px) scaleX(0.7)' },
+    { opacity: 1, transform: 'translate(-50%, -50%) translateX(0) scaleX(1)', offset: 0.22 },
+    { opacity: 1, transform: 'translate(-50%, -50%) translateX(12px)', offset: 0.78 },
+    { opacity: 0, transform: 'translate(-50%, -50%) translateX(160px) scaleX(0.85)' },
+  ], ms, { easing: 'cubic-bezier(.2,.7,.3,1)' });
+  if (hold !== null) await wait(hold);
+  else await done;
+}
+
+const PHASE_TITLES = { breakfast: ['Breakfast', 'Energy, cards and Weather'], battle: ['Battle', 'Take turns: one Action each'] };
+
+// After the board changes: a new Round, Breakfast, Battle, and whose turn it is now.
+async function turnFlow(prev, next, t) {
+  for (const e of next.events) {
+    if (skipping) return;
+    if (e.type === 'roundStarted') {
+      await phaseBanner('round', `Round ${e.round}`, `Initiative: ${e.initiative === 'player' ? 'You' : 'Opponent'}`, t(1150));
+    } else if (e.type === 'phaseChanged' && PHASE_TITLES[e.phase]) {
+      await phaseBanner(e.phase, ...PHASE_TITLES[e.phase], t(850));
+    }
+  }
+  // It became someone else's turn in the Battle Phase (or Battle just began).
+  if (next.phase === 'battle' && !next.pending && (prev.phase !== 'battle' || prev.turn !== next.turn || prev.round !== next.round)) {
+    if (next.turn === 'player') await phaseBanner('your-turn', 'Your Turn', '', t(1000), { hold: t(380) });
+    else await phaseBanner('their-turn', "Opponent's Turn", '', t(700), { hold: 0, small: true });
+  }
 }
 
 // --- After the new state is drawn: cards move to their new places --------------------------
@@ -738,8 +792,6 @@ async function after(root, snap, next, actor, t, late) {
     pip?.animate([{ transform: 'scale(1)' }, { transform: 'scale(2.2)', filter: 'brightness(2)' }, { transform: 'scale(1)' }], { duration: t(700) });
   }
   await Promise.all(flips);
-  const round = ev.find((e) => e.type === 'roundStarted');
-  if (round) await banner(`Round ${round.round}`, t(800), 'round');
 }
 
 // --- Captions -----------------------------------------------------------------------------
@@ -822,6 +874,33 @@ export function captionFor(state, actor) {
   return [text, ...extra].filter(Boolean).join(' · ');
 }
 
+// --- The history strip --------------------------------------------------------------------
+
+// One entry for the history strip, or null for actions that aren't worth one.
+export function historyEntry(prev, next, who) {
+  const ev = next.events ?? [];
+  const main = ev.find((e) => ['cardPlayed', 'itemBought', 'itemUsed', 'attack', 'powerUsed', 'pass', 'choiceMade'].includes(e.type));
+  if (!main) return null;
+  const find = (uid) => {
+    for (const p of Object.values(prev.players)) {
+      const c = p.hand.find((x) => x.uid === uid) ?? p.bag.find((x) => x.uid === uid);
+      if (c) return c;
+      for (const z of p.zones) {
+        if (z.trainer?.uid === uid) return z.trainer;
+        if (z.location?.uid === uid) return z.location;
+        const m = z.pokemon.find((x) => x?.uid === uid);
+        if (m) return m;
+      }
+    }
+    return prev.mart?.onSale.find((x) => x?.uid === uid) ?? null;
+  };
+  const kind = main.type === 'cardPlayed' ? (main.cardType === 'Item' ? 'item' : 'play')
+    : main.type === 'itemBought' || main.type === 'itemUsed' ? 'item'
+      : main.type === 'attack' ? 'attack' : main.type === 'powerUsed' ? 'power' : main.type === 'pass' ? 'pass' : 'choice';
+  const uid = main.type === 'attack' ? main.attacker.uid : main.type === 'choiceMade' ? (main.uid ?? main.target?.uid) : main.uid;
+  return { who, kind, text: captionFor(next, who), card: uid ? find(uid) : null };
+}
+
 // --- The queue ---------------------------------------------------------------------------
 
 // Shows one action, from prev to next (actor: who took it), then draws
@@ -838,6 +917,9 @@ export async function present(root, prev, next, actor, draw) {
     const snap = k > 0 ? snapshot() : new Map();
     draw();
     if (k > 0 && !skipping) await after(root, snap, next, actor, t, late);
+    // Round, phase and turn banners: own actions don't speed these up.
+    const kb = speedFactor();
+    if (kb > 0 && !skipping) await turnFlow(prev, next, (ms) => ms * kb);
   } catch (err) {
     console.error(err);
     draw();

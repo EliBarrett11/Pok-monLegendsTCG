@@ -33,6 +33,18 @@ const cardEls = new Map();
 let caption = '';
 // Whether the settings menu is open.
 let settingsOpen = false;
+// The last actions, newest first, for the history strip: { who, kind, text, card, fresh }.
+let history = [];
+const HISTORY_SIZE = 10;
+
+export function pushHistory(entry) {
+  if (!entry) return;
+  history = [{ ...entry, fresh: true }, ...history].slice(0, HISTORY_SIZE);
+}
+
+export function clearHistory() {
+  history = [];
+}
 
 export function cardElements() {
   return cardEls;
@@ -81,6 +93,13 @@ function adoptCards(root) {
 
 function resetUiFor(state) {
   if (ui.state === state) return;
+  // The opponent locking in during a simultaneous step changes the state but
+  // not my half-made choice: keep it.
+  const was = ui.state;
+  const keep = was && was.phase === state.phase && was.round === state.round && was.xpStep === state.xpStep
+    && ['trainers', 'breakfast'].includes(state.phase)
+    && !state.players.player.pending && !state.players.player.xpChoice
+    && { placing: ui.placing, selectedTrainer: ui.selectedTrainer, mulligan: ui.mulligan, xpPlan: ui.xpPlan, xpPick: ui.xpPick };
   ui.state = state;
   ui.placing = Array(ZONES).fill(null);
   ui.selectedTrainer = null;   // setup: Trainer picked from the tray
@@ -94,6 +113,8 @@ function resetUiFor(state) {
   ui.xpPlan = [];              // the XP step: [{ uid, stat }] planned before locking in
   ui.xpPick = null;            // the XP step: uid of the Pokémon picked to buff
   ui.bag = null;               // Open Bag: { mode: null | 'buyHand' | 'buyMart' | 'useBag', uid, then, picking }
+  ui.costFocus = null;         // the card or Power whose Energy cost is being previewed: { uid } | { power: zone }
+  if (keep) Object.assign(ui, keep);
 }
 
 function clearSelection() {
@@ -178,8 +199,9 @@ export function render(root, state, actions) {
   const c = controls(state);
 
   root.innerHTML = `
-    <div class="table">
+    <div class="table${isMyBattleTurn(state) && !ui.supporter ? ' my-turn' : ''}">
       ${infoBar(state, 'ai')}
+      ${historyStrip()}
       <div class="arena">
         <div class="mat mat-top"></div><div class="mat mat-bottom"></div>
         <section class="side opponent">${lanes(state, 'ai')}</section>
@@ -194,10 +216,10 @@ export function render(root, state, actions) {
 
     <aside class="side-panel${isMyMove(state) ? ' my-move' : ''}">
       <header class="panel-title"><h1>Pokémon Legends TCG</h1><span class="build-tag">${actions.build ?? ''}</span></header>
+      ${martPanel(state)}
       <div class="prompt">${c.hint}</div>
       <div class="secondary-actions">${c.secondary}</div>
-      ${c.primary}
-      ${martPanel(state)}
+      <div class="medallion-seat">${c.primary}</div>
       <div class="panel-foot">
         <button data-action="toggle-log" class="secondary">${logOpen ? 'Hide log' : 'Log'}</button>
         <button data-action="new-game" class="secondary">New match</button>
@@ -220,12 +242,35 @@ export function render(root, state, actions) {
   `;
 
   adoptCards(root);
+  applyCost(root, state);
   const logBody = root.querySelector('.log-body');
   logBody.scrollTop = logBody.scrollHeight;
   wire(root, state, actions);
 }
 
 // --- Info bars, strip, panels ------------------------------------------------
+
+const HISTORY_ICONS = { play: 'discard', item: 'dollar', attack: 'physical', power: 'power', pass: 'energy', choice: 'quest' };
+
+// A strip down the left edge of the mat: the last actions as small card
+// thumbnails, coloured by player; hovering one shows it in words. The newest
+// slides in at the top.
+function historyStrip() {
+  const entries = history.map((h, i) => {
+    let thumb = '<div class="hist-blank"></div>';
+    let pv = '';
+    if (h.card) {
+      const html = card(h.card, 'mini');
+      pv = html.match(/data-pv="(\d+)"/)?.[1] ?? '';
+      // No uid or preview of its own: the thumbnail is not that card's element on the board.
+      thumb = html.replace(/ data-uid="[^"]*"/, '').replace(/ data-pv="\d+"/, '');
+    }
+    const cls = `hist ${h.who} ${h.kind}${h.fresh ? ' fresh' : ''}`;
+    h.fresh = false;
+    return `<div class="${cls}" data-hist="${i}"${pv ? ` data-pv="${pv}"` : ''}>${thumb}<i class="hist-icon">${icon(HISTORY_ICONS[h.kind] ?? 'quest')}</i>${h.kind === 'pass' ? '<span class="hist-word">Pass</span>' : ''}</div>`;
+  }).join('');
+  return `<aside class="history" aria-label="Recent actions"><div class="history-title">Recent</div>${entries}</aside>`;
+}
 
 // Name, piles, Energy, XP, PokéDollars and Bag. The opponent's is the top bar;
 // mine sits at the bottom, beside the hand. Hidden piles show a card back.
@@ -236,13 +281,13 @@ function infoBar(state, who) {
   return `
     <div class="info-bar ${who}">
       <div class="info-text">
-        <div class="info-line"><strong class="pname">${p.name}</strong>
+        <div class="info-line"><i class="turn-dot${state.phase === 'battle' && state.turn === who && !state.pending ? ' on' : ''}" title="${state.turn === who ? 'Their move now' : ''}"></i><strong class="pname">${p.name}</strong>
+          ${passedLast(state, who) ? `<span class="passed-chip" title="Passed last turn: ${who === 'ai' ? 'if you pass now, the Battle Phase ends' : 'if the opponent passes now, the Battle Phase ends'}">Passed</span>` : ''}
           <span data-pile="${who}-draw"><i class="back-stack"></i>Draw <b>${p.drawPile.length}</b></span>
           <span data-pile="${who}-discard">Discard <b>${p.discard.length}</b></span>
           <span data-pile="${who}-released">Released <b>${p.released.length}</b></span></div>
         <div class="info-line">
-          <span class="energy" data-pile="${who}-energy">${icon('energy')} Energy <b>${p.baseEnergy}</b></span>
-          <span>Exert <b>${p.exertMax - p.exhaust.length}/${p.exertMax}</b></span>
+          ${energyCrystals(p, who)}
           <span class="xp-pool" data-pile="${who}-xp">${icon('xp')} XP <b>${p.xp}</b></span></div>
         <div class="info-line"><span class="dollars" data-pile="${who}-dollars">${icon('dollar')} PokéDollars <b>$${p.dollars}</b></span>
           <span>Exhaust ${exhaust || '<b>0</b>'}</span></div>
@@ -260,6 +305,28 @@ function opponentHand(n) {
     return `<i class="back" style="left:${Math.round(120 + off * step - 17)}px;--rot:${(off * 4).toFixed(1)}deg;top:${Math.round(Math.abs(off) * Math.abs(off) * 0.6)}px"></i>`;
   }).join('');
   return `<div class="opp-hand" data-pile="ai-hand" title="Opponent's hand: ${n} card${n === 1 ? '' : 's'}">${backs}<span class="opp-hand-count">Hand <b>${n}</b></span></div>`;
+}
+
+// Who passed on the last turn of this Battle Phase (their pass did not end it).
+function passedLast(state, who) {
+  return state.phase === 'battle' && state.passesInARow === 1 && state.turn !== who;
+}
+
+// Energy as crystals: one gold crystal per Base Energy, then the Exert
+// crystals (dark once Exhausted). A cost being previewed marks what it would spend.
+function energyCrystals(p, who) {
+  const base = Math.min(p.baseEnergy, 14);
+  const more = p.baseEnergy - base;
+  const free = p.exertMax - p.exhaust.length;
+  const crystals = [
+    ...Array.from({ length: base }, (_, i) => `<i class="crystal base" data-i="${i}"></i>`),
+    more > 0 ? `<i class="crystal-more">+${more}</i>` : '',
+    '<i class="crystal-gap"></i>',
+    ...Array.from({ length: p.exertMax }, (_, i) => `<i class="crystal exert${i >= free ? ' exhausted' : ''}" data-i="${i}"></i>`),
+  ].join('');
+  return `<span class="energy" data-pile="${who}-energy" title="Base Energy ${p.baseEnergy} · Exert ${free}/${p.exertMax}">
+    ${icon('energy')}<b class="base-n">${p.baseEnergy}</b><span class="crystals">${crystals}</span><b class="exert-n">${free}/${p.exertMax}</b>
+    <span class="cost-note"></span></span>`;
 }
 
 function weatherText(tokens) {
@@ -770,7 +837,8 @@ function detail({ c, opts }) {
 // Shows the preview beside the hovered card, inside the stage, without moving anything.
 function showPreview(root, el) {
   const box = root.querySelector('.preview');
-  box.innerHTML = detail(previews[Number(el.dataset.pv)]);
+  const entry = el.dataset.hist !== undefined ? history[Number(el.dataset.hist)] : null;
+  box.innerHTML = `${entry ? `<div class="pv-caption ${entry.who}">${attr(entry.text)}</div>` : ''}${el.dataset.pv ? detail(previews[Number(el.dataset.pv)]) : ''}`;
   box.hidden = false;
   const stage = root.getBoundingClientRect();
   const scale = stage.width / STAGE.width;
@@ -794,54 +862,66 @@ function showPreview(root, el) {
 // action button, which is always on screen.
 
 const button = (action, label, { disabled = false, cls = '', extra = '' } = {}) => `<button data-action="${action}"${extra}${cls ? ` class="${cls}"` : ''}${disabled ? ' disabled' : ''}>${label}</button>`;
-const primary = (action, label, disabled = false) => button(action, label, { disabled, cls: 'primary' });
-const idle = (label) => `<button class="primary" disabled>${label}</button>`;
+// The main action: a brass medallion whose label always says what will
+// happen (main word, then a detail), with its keyboard shortcut.
+const medal = (main, sub) => `<span class="m-main">${main}</span>${sub ? `<span class="m-sub">${sub}</span>` : ''}`;
+const primary = (action, main, sub = '', disabled = false) => `<button data-action="${action}" class="primary" title="${attr(sub ? `${main} (${sub})` : main)} · Space"${disabled ? ' disabled' : ''}>${medal(main, sub)}<kbd>Space</kbd></button>`;
+const idle = (main, sub = '') => `<button class="primary" disabled>${medal(main, sub)}</button>`;
 const waiting = {
   get hint() { return `<b class="prompt-caption">${attr(caption)}</b><p class="muted">Waiting for the opponent…</p>`; },
   secondary: '',
   primary: idle('Waiting…'),
 };
 
+// In a simultaneous step: both players choose at once; this says whether the opponent has locked in.
+function together(state, what, ready) {
+  return `<b>${what}</b> — the opponent is choosing too.
+    <div class="sim-status${ready ? ' ready' : ''}">${ready ? 'Opponent ready ✓' : '<i class="dots"></i>Opponent choosing…'}</div>`;
+}
+
 function controls(state) {
   const me = state.players.player;
   // An ability waiting for my target, in any phase.
   if (state.pending?.who === 'player' && state.pending.kind === 'target') {
-    return { hint: `<b>${state.pending.label}:</b> ${state.pending.text ?? ''} Choose a highlighted target.`, secondary: '', primary: idle('Choose a target') };
+    return { hint: `<b>${state.pending.label}:</b> ${state.pending.text ?? ''} Choose a highlighted target.`, secondary: '', primary: idle('Choose', 'a target') };
   }
   switch (state.phase) {
     case 'trainers': {
       if (me.pending) return waiting;
       const ready = ui.placing.every(Boolean);
       return {
-        hint: '<b>Place your Trainers.</b> Pick a Trainer from the bottom of the screen, then click one of your Trainer Spaces. Click a placed Trainer to take it back.',
-        secondary: '', primary: primary('lock-trainers', 'Lock in Trainers', !ready),
+        hint: `${together(state, 'Choose your Trainers', Boolean(state.players.ai.pending))}
+          <p>Drag (or click) a Trainer from the bottom of the screen to one of your Trainer Spaces. Click a placed Trainer to take it back.</p>`,
+        secondary: '', primary: primary('lock-trainers', 'Lock in', 'Trainers', !ready),
       };
     }
     case 'initiative':
-      return { hint: 'Flip a coin to decide who has initiative.', secondary: '', primary: primary('flip', 'Flip coin') };
+      return { hint: 'Flip a coin to decide who has initiative.', secondary: '', primary: primary('flip', 'Flip', 'coin') };
     case 'breakfast': {
       if (state.xpStep) {
         if (me.xpChoice) return waiting;
         const left = me.xp - ui.xpPlan.length;
         const pick = ui.xpPick && me.hand.find((c) => c.uid === ui.xpPick);
         return {
-          hint: `<b>Spend XP</b> (${left} of ${me.xp} left): each point gives a Pokémon in hand +1 Attack or +1 Strength. ${pick ? `<b>${pick.name}</b> picked.` : 'Click a Pokémon in your hand.'}`,
+          hint: `${together(state, 'Spend your XP', Boolean(state.players.ai.xpChoice))}
+            <p>${left} of ${me.xp} XP left: each point gives a Pokémon in hand +1 Attack or +1 Strength. ${pick ? `<b>${pick.name}</b> picked.` : 'Click a Pokémon in your hand.'}</p>`,
           secondary: `${pick ? `${button('xp-attack', '+1 Attack', { disabled: !left })}${button('xp-strength', '+1 Strength', { disabled: !left })}` : ''}
             ${button('xp-undo', 'Undo', { disabled: !ui.xpPlan.length, cls: 'secondary' })}`,
-          primary: primary('xp-lock', `Lock in${ui.xpPlan.length ? ` (${ui.xpPlan.length} XP)` : ' (keep XP)'}`),
+          primary: primary('xp-lock', 'Confirm XP', ui.xpPlan.length ? `spend ${ui.xpPlan.length}` : 'keep it all'),
         };
       }
       if (me.pending) return waiting;
       const n = ui.mulligan.size;
       return {
-        hint: '<b>Mulligan.</b> Click cards in your hand to mark them, then swap them, or keep your hand.',
-        secondary: '', primary: primary('mulligan', n ? `Mulligan ${n} card${n === 1 ? '' : 's'}` : 'Keep hand'),
+        hint: `${together(state, 'Mulligan', Boolean(state.players.ai.pending))}
+          <p>Click cards in your hand to mark them, then swap them, or keep your hand.</p>`,
+        secondary: '', primary: n ? primary('mulligan', `Mulligan ${n}`, `swap ${n} card${n === 1 ? '' : 's'}`) : primary('mulligan', 'Keep hand'),
       };
     }
     case 'battle': {
       if (state.pending?.who === 'player' && state.pending.kind === 'freeSummon') {
         const c = me.hand.find((h) => h.uid === state.pending.uid);
-        return { hint: `Ash drew <b>${c.name}</b>: click a highlighted space to summon it for free, or keep it.`, secondary: '', primary: primary('keep-card', 'Keep in hand') };
+        return { hint: `Ash drew <b>${c.name}</b>: click a highlighted space to summon it for free, or keep it.`, secondary: '', primary: primary('keep-card', 'Keep', 'in hand') };
       }
       if (state.turn !== 'player' || state.pending) return waiting;
       if (ui.bag) {
@@ -851,42 +931,43 @@ function controls(state) {
         const item = bagItem(state);
         if (ui.bag.picking) {
           const where = item.itemType === 'Held' ? ' (a Pokémon in the arena, or one in your hand)' : '';
-          return { hint: `<b>${item.name}</b>: click a highlighted target${where}.`, secondary: cancel, primary: idle('Choose a target') };
+          return { hint: `<b>${item.name}</b>: click a highlighted target${where}.`, secondary: cancel, primary: idle('Choose', 'a target') };
         }
         if (ui.bag.mode === 'buyHand' && item) {
           const can = (then) => opts.some((o) => o.uid === item.uid && o.then === then);
           return {
             hint: `Buy <b>${item.name}</b> for $${item.cost}, then use it now or store it in your Bag.`,
             secondary: `${button('bag-use', 'Use now', { disabled: !can('use') })}${button('bag-store', 'Store in Bag', { disabled: !can('store') })}${cancel}`,
-            primary: idle('Choose above'),
+            primary: idle('Choose', 'above'),
           };
         }
         const hints = { buyHand: 'Click an Item in your hand to buy it.', buyMart: 'Click an Item in the PokéMart to buy it (In Delivery until next Breakfast).', useBag: 'Click an Item in your Bag to use it.' };
-        if (ui.bag.mode) return { hint: hints[ui.bag.mode], secondary: cancel, primary: idle('Choose an Item') };
+        if (ui.bag.mode) return { hint: hints[ui.bag.mode], secondary: cancel, primary: idle('Choose', 'an Item') };
         return {
           hint: `<b>Open Bag</b> ($${me.dollars}): choose one.`,
           secondary: `${button('bag-mode', 'Buy from hand', { disabled: !has('buyHand'), extra: ' data-mode="buyHand"' })}
             ${button('bag-mode', 'Buy from PokéMart', { disabled: !has('buyMart'), extra: ' data-mode="buyMart"' })}
             ${button('bag-mode', 'Use from Bag', { disabled: !has('useBag'), extra: ' data-mode="useBag"' })}${cancel}`,
-          primary: idle('Choose above'),
+          primary: idle('Choose', 'above'),
         };
       }
       const paying = supporterChoice(state);
       if (paying) {
         const { card: c, exact, gift } = paying;
         const cancel = button('cancel-supporter', 'Cancel', { cls: 'secondary' });
-        if (ui.supporter.picking) return { hint: `<b>${c.name}</b>: click a highlighted target.`, secondary: cancel, primary: idle('Choose a target') };
+        if (ui.supporter.picking) return { hint: `<b>${c.name}</b>: click a highlighted target.`, secondary: cancel, primary: idle('Choose', 'a target') };
         const counts = [c.cardCost.discard && `Discard ${ui.supporter.discard.length}/${c.cardCost.discard}`,
           c.cardCost.release && `<span class="release-count">Release ${ui.supporter.release.length}/${c.cardCost.release}</span>`].filter(Boolean).join(' · ');
         return {
           hint: `<b>${c.name}</b>: click hand cards to pay (click again: Discard → Release → none).<br>${counts}<br>
             Gift (${c.gift.challengeText}): <span class="gift-status ${gift ? 'met' : ''}">${gift ? '✓ met' : 'not met'}</span>`,
-          secondary: cancel, primary: primary('confirm-supporter', 'Confirm', !exact),
+          secondary: cancel, primary: primary('confirm-supporter', 'Confirm', c.name, !exact),
         };
       }
       // What passing will do: +1 Base Energy, or end the phase after the opponent's Pass.
-      const passLabel = passEndsPhase(state) ? 'Pass (end phase)' : `Pass (+${PASS_ENERGY} Energy)`;
-      const pass = primary('pass', passLabel);
+      const passSub = passEndsPhase(state) ? 'end Battle' : `+${PASS_ENERGY} Energy`;
+      const passLabel = `Pass (${passSub})`;
+      const pass = primary('pass', 'Pass', passSub);
       if (ui.power !== null) {
         const t = me.zones[ui.power].trainer;
         if (powerTargets(state, 'player', ui.power).length) {
@@ -894,7 +975,7 @@ function controls(state) {
         }
         return {
           hint: `<b>${t.name}'s Power:</b> ${t.power.text}`,
-          secondary: button('pass', passLabel, { cls: 'secondary' }), primary: primary('use-power', `Use Power (${t.power.cost})`),
+          secondary: button('pass', passLabel, { cls: 'secondary' }), primary: primary('use-power', 'Use Power', `${t.name} · ${t.power.cost} Energy`),
         };
       }
       const strategy = ui.strategy && me.hand.find((c) => c.uid === ui.strategy);
@@ -916,6 +997,98 @@ function controls(state) {
   }
 }
 
+// --- Cost previews ------------------------------------------------------------------
+//
+// Hovering (or dragging) anything that costs Energy shows on my Energy
+// crystals what it would spend: Base Energy first (those crystals flicker),
+// then Exert (glowing amber, "+1 Exhaust"), or why it can't be paid.
+
+function costOf(state, focus) {
+  const p = state.players.player;
+  if (focus.power !== undefined) {
+    const t = p.zones[focus.power]?.trainer;
+    return t && t.strength > 0 ? t.power.cost : null;
+  }
+  const c = p.hand.find((h) => h.uid === focus.uid);
+  return c && (c.cardType === 'Pokémon' || c.cardType === 'Strategy') ? c.energyCost : null;
+}
+
+function applyCost(root, state) {
+  const box = root.querySelector('[data-pile="player-energy"]');
+  if (!box) return;
+  box.classList.remove('previewing', 'short');
+  box.querySelectorAll('.crystal').forEach((c) => c.classList.remove('spend', 'spend-exert'));
+  const note = box.querySelector('.cost-note');
+  note.textContent = '';
+  const cost = ui.costFocus && state.phase === 'battle' ? costOf(state, ui.costFocus) : null;
+  if (cost === null || cost === undefined) return;
+  const p = state.players.player;
+  const free = p.exertMax - p.exhaust.length;
+  box.classList.add('previewing');
+  if (cost > p.baseEnergy + free) {
+    box.classList.add('short');
+    note.textContent = `Costs ${cost}: only ${p.baseEnergy} Base + ${free} Exert`;
+    return;
+  }
+  const fromBase = Math.min(cost, p.baseEnergy);
+  const fromExert = cost - fromBase;
+  const base = [...box.querySelectorAll('.crystal.base')];
+  base.slice(Math.max(0, Math.min(p.baseEnergy, base.length) - fromBase)).forEach((c) => c.classList.add('spend'));
+  [...box.querySelectorAll('.crystal.exert:not(.exhausted)')].slice(0, fromExert).forEach((c) => c.classList.add('spend-exert'));
+  note.textContent = cost === 0 ? 'Free' : fromExert ? `−${fromBase} Base · +${fromExert} Exhaust` : `−${fromBase} Base Energy`;
+  if (fromExert) note.classList.add('exert'); else note.classList.remove('exert');
+}
+
+function wireCostPreview(root, state) {
+  let current = null;
+  const keyOf = (f) => (f ? JSON.stringify(f) : '');
+  root.onmouseover = (e) => {
+    const handCard = e.target.closest('.hand > .card');
+    const trainer = e.target.closest('.player .trainer-space');
+    const focus = handCard ? { uid: handCard.dataset.uid }
+      : trainer?.querySelector('.card') ? { power: Number(trainer.dataset.zone) } : null;
+    if (keyOf(focus) === current) return;
+    current = keyOf(focus);
+    ui.costFocus = focus;
+    applyCost(root, state);
+  };
+}
+
+// A brief ring around what I could still do (when I pass anyway).
+function remind(root) {
+  const can = [...root.querySelectorAll('.hand > .card.playable, .player .pokemon-space .card.selectable, '
+    + '.player .trainer-space .card.selectable, .player .bag-slot.usable')].slice(0, 10);
+  const fx = document.getElementById('fx');
+  if (!can.length || !fx) return;
+  const stage = document.getElementById('stage').getBoundingClientRect();
+  const scale = stage.width / STAGE.width;
+  for (const el of can) {
+    const r = el.getBoundingClientRect();
+    const ring = document.createElement('div');
+    ring.className = 'fx-remind fx-keep';
+    Object.assign(ring.style, {
+      left: `${(r.left - stage.left) / scale - 5}px`, top: `${(r.top - stage.top) / scale - 5}px`,
+      width: `${r.width / scale + 10}px`, height: `${r.height / scale + 10}px`,
+    });
+    ring.addEventListener('animationend', () => ring.remove());
+    fx.append(ring);
+  }
+}
+
+// Space: the main action, whenever it is enabled and nothing else is going on.
+let spaceInstalled = false;
+function installSpace() {
+  if (spaceInstalled) return;
+  spaceInstalled = true;
+  addEventListener('keydown', (e) => {
+    if (e.code !== 'Space' || e.repeat || e.target.closest?.('input, textarea')) return;
+    e.preventDefault();
+    const stage = document.getElementById('stage');
+    if (stage.classList.contains('locked') || !document.getElementById('inspect')?.hidden) return;
+    document.querySelector('#app .side-panel button.primary:not(:disabled)')?.click();
+  });
+}
+
 // --- Clicks -----------------------------------------------------------------
 
 // Using Exert has a recovery cost, so it needs a yes first.
@@ -930,7 +1103,7 @@ function wire(root, state, actions) {
 
   // Hover preview for every card on screen except my hand (a hovered hand card lifts instead).
   const box = root.querySelector('.preview');
-  root.querySelectorAll('[data-pv]').forEach((el) => {
+  root.querySelectorAll('[data-pv], .hist').forEach((el) => {
     if (el.closest('.hand, .tray')) return;
     el.onmouseenter = () => showPreview(root, el);
     el.onmouseleave = () => { box.hidden = true; };
@@ -950,7 +1123,11 @@ function wire(root, state, actions) {
   on('[data-action="new-game"]', newGame);
   on('[data-action="flip"]', () => dispatch({ type: 'flipCoin' }));
   on('[data-action="lock-trainers"]', () => dispatch({ type: 'assignTrainers', who: 'player', order: [...ui.placing] }));
-  on('[data-action="pass"]', () => dispatch({ type: 'pass', who: 'player' }));
+  // Passing is never blocked, but a brief ring shows anything I could still have done.
+  on('[data-action="pass"]', () => {
+    remind(root);
+    dispatch({ type: 'pass', who: 'player' });
+  });
   on('[data-action="mulligan"]', () => dispatch({ type: 'mulligan', who: 'player', cardUids: [...ui.mulligan] }));
   on('[data-action="keep-card"]', () => dispatch({ type: 'resolveChoice', who: 'player' }));
 
@@ -1150,6 +1327,9 @@ function wire(root, state, actions) {
     dispatch({ type: 'playPokemon', who: 'player', uid, zone, space });
   });
 
+  wireCostPreview(root, state);
+  installSpace();
+
   // Drag to play, targeting arrows and inspection (interact.js) work through
   // the same choices and click handlers as above.
   wireInteractions(root, {
@@ -1159,7 +1339,7 @@ function wire(root, state, actions) {
     inspect: (el) => inspectView(previews[Number(el.dataset.pv)]),
     selecting: () => Boolean(ui.attacker || ui.power !== null || ui.strategy || ui.location || ui.selectedPokemon
       || ui.bag || ui.supporter || ui.selectedTrainer),
-    cancel: () => { clearSelection(); ui.selectedTrainer = null; redraw(); },
+    cancel: () => { clearSelection(); ui.selectedTrainer = null; ui.costFocus = null; redraw(); },
   });
 }
 
