@@ -4,9 +4,9 @@
 import {
   ZONES, playablePokemon, costPreview, isAlert, legalTargets, canUsePower, powerTargets,
   summonSpaces, isFallen, attackOf, maxStrengthOf, playableStrategies, strategyTargets,
-  playableSupporters, supporterTargets, giftMet, playableLocations, locationSpaces, weatherCounts,
+  playableSupporters, supporterTargets, giftMet, playableLocations, locationSpaces, weatherState,
 } from '../engine/game.js';
-import { INNATE_POWERS } from '../engine/cardData.js';
+import { INNATE_POWERS, WEATHER } from '../engine/cardData.js';
 
 // Choices the player is still making before they lock in. Reset whenever the
 // game state changes (the engine returns a new state object for every action).
@@ -104,8 +104,8 @@ export function render(root, state, actions) {
           ${state.round ? `Round ${state.round} · ` : ''}${PHASE_NAMES[state.phase]}
           ${state.turn ? `<span class="turn">${state.turn === 'player' ? 'Your turn' : "AI Opponent's turn"}</span>` : ''}
           ${state.initiative ? `<span class="initiative">Initiative: ${state.players[state.initiative].name}</span>` : ''}
-          ${weatherPanel(state)}
         </div>
+        ${weatherPanel(state)}
         <div class="controls">${controls(state)}</div>
       </section>
 
@@ -164,12 +164,25 @@ function weatherText(tokens) {
   return Object.entries(tokens ?? {}).map(([type, n]) => `<span class="weather-chip">${WEATHER_ICONS[type] ?? '☁'} ${n} ${type}</span>`).join(' ');
 }
 
-// Weather Tokens in play, both sides combined.
+// Weather in play, both sides combined: each type's count, its brackets
+// (reached ones lit), and the effects that apply, in plain words.
 function weatherPanel(state) {
   if (!state.round) return '';
-  const counts = weatherCounts(state);
-  return `<span class="weather-panel" title="Weather Tokens in play (Locations and Pokémon, both sides)">Weather: ${
-    Object.keys(counts).length ? weatherText(counts) : '<span class="weather-chip">none</span>'}</span>`;
+  const types = Object.entries(weatherState(state)).filter(([, w]) => w.count > 0);
+  if (!types.length) return '<div class="weather-panel">Weather: <span class="weather-chip">none</span></div>';
+  return `<div class="weather-panel" title="Weather Tokens in play: Locations and Pokémon, both sides">${types.map(([type, w]) => {
+    const all = WEATHER[type].brackets.map((b) => `<span class="bracket${w.active.includes(b) ? ' on' : ''}${w.effective.includes(b) ? '' : ' replaced'}">${b.at}</span>`).join('');
+    const effects = w.effective.map((b) => b.text).join(' ') || 'No effect yet.';
+    return `<div class="weather-type"><b>${w.icon} ${type} ${w.count}</b> ${all} <span class="weather-effects">${effects}</span></div>`;
+  }).join('')}</div>`;
+}
+
+// Weather's share of a stat, per type, e.g. ☔+1 ☀−1 (shown apart from other buffs).
+function weatherTags(c, stat) {
+  const byType = {};
+  for (const mod of Object.values(c.weather ?? {})) byType[mod.type] = (byType[mod.type] ?? 0) + (mod[stat] ?? 0);
+  return Object.entries(byType).filter(([, n]) => n)
+    .map(([type, n]) => `<span class="wx-tag" title="${type}">${WEATHER[type].icon}${n > 0 ? '+' : '−'}${Math.abs(n)}</span>`).join('');
 }
 
 function locationRow(state, who) {
@@ -405,8 +418,8 @@ function boardPokemon(c, { alert, ...opts } = {}) {
     <div class="card-head"><span class="card-name">${c.name}</span><span class="cost">${c.energyCost}</span></div>
     <div class="card-type">${c.pokemonType}</div>
     <div class="stats">
-      <span title="${c.attackType} (printed ${c.attackValue})">${c.attackType === 'Physical' ? 'Phys' : 'Spec'} <b class="${atk > c.attackValue ? 'buffed' : ''}">${atk}</b></span>
-      <span title="Current / maximum ${c.strengthType} (printed ${c.strengthValue})">Str <b>${c.currentStrength}</b>/<b class="${max > c.strengthValue ? 'buffed' : ''}">${max}</b></span>
+      <span title="${c.attackType} (printed ${c.attackValue})">${c.attackType === 'Physical' ? 'Phys' : 'Spec'} <b class="${atk > c.attackValue ? 'buffed' : atk < c.attackValue ? 'nerfed' : ''}">${atk}</b>${weatherTags(c, 'attack')}</span>
+      <span title="Current / maximum ${c.strengthType} (printed ${c.strengthValue})">Str <b>${c.currentStrength}</b>/<b class="${max > c.strengthValue ? 'buffed' : ''}">${max}</b>${weatherTags(c, 'strength')}</span>
     </div>
     <div class="card-line">${c.speedTier}</div>
     ${c.effectTrigger ? `<div class="card-line" title="${c.effectText}"><b>${c.effectTrigger}</b></div>` : ''}

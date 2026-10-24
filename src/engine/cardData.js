@@ -239,7 +239,47 @@ export const SUPPORTER_CARDS = [
 // When the quest is completed you gain `xp`, `effects` resolve (the
 // Location's Zone is the source Zone), then the Location is Released.
 
-export const WEATHER_TYPES = ['Rain', 'Sun'];
+// --- Weather ------------------------------------------------------------------
+//
+// Each Weather type has milestone brackets by combined token count (both
+// players' cards). A bracket is active while the count is at or above `at`.
+//   mode   'also' adds to the brackets before it; 'instead' replaces the
+//          bracket just before it (and whatever that one replaced)
+//   stats  continuous modifiers: [{ filter, attack?, strength? }] for every
+//          matching Pokémon in the arena, both sides (like a Passive)
+//   timed  [{ at: 'breakfast' | 'supper', effects }] resolving at that moment,
+//          before Pokémon abilities that trigger then
+// PLACEHOLDER Weather types.
+
+const WATER = { pokemonType: 'Water' };
+const FIRE = { pokemonType: 'Fire' };
+
+export const WEATHER = {
+  Rain: {
+    icon: '☔',
+    brackets: [
+      { at: 2, mode: 'also', text: 'Water Pokémon gain +1 Attack.', stats: [{ filter: WATER, attack: 1 }] },
+      { at: 4, mode: 'instead', text: 'Water Pokémon gain +1/+1 (instead).', stats: [{ filter: WATER, attack: 1, strength: 1 }] },
+      { at: 6, mode: 'also', text: 'Fire Pokémon have −1 Attack.', stats: [{ filter: FIRE, attack: -1 }] },
+      { at: 8, mode: 'also', text: 'At Supper, each Water Pokémon heals 2 Strength.', timed: [{
+        at: 'supper', effects: [{ op: 'heal', amount: 2, target: { mode: 'area', side: 'any', filter: WATER, damaged: true } }],
+      }] },
+    ],
+  },
+  Sun: {
+    icon: '☀',
+    brackets: [
+      { at: 2, mode: 'also', text: 'Fire Pokémon gain +1 Attack.', stats: [{ filter: FIRE, attack: 1 }] },
+      { at: 4, mode: 'instead', text: 'Fire Pokémon gain +2 Attack (instead).', stats: [{ filter: FIRE, attack: 2 }] },
+      { at: 6, mode: 'also', text: 'Water Pokémon have −1 Attack.', stats: [{ filter: WATER, attack: -1 }] },
+      { at: 8, mode: 'also', text: 'At Breakfast, each non-Fire Pokémon takes 1 damage.', timed: [{
+        at: 'breakfast', effects: [{ op: 'damage', amount: 1, target: { mode: 'area', side: 'any', filter: { pokemonType: { not: 'Fire' } } } }],
+      }] },
+    ],
+  },
+};
+
+export const WEATHER_TYPES = Object.keys(WEATHER);
 
 function location(name, rarity, weatherTokens, quest, xp, effectText, effects) {
   const id = name.toLowerCase().replace(/\s+/g, '-');

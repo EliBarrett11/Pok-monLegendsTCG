@@ -51,8 +51,9 @@
 //   'Quick Attack'  summoned Active instead of Spent
 //   'Agility'       can't be chosen as a target by a Strategy Card (area effects still hit)
 
+import { WEATHER } from './cardData.js';
 import {
-  PLAYERS, opponentOf, log, whose, draw, canDraw, arenaPokemon, activeTrainers, cardAt, sameRef,
+  PLAYERS, opponentOf, log, whose, draw, canDraw, arenaPokemon, activeTrainers, cardAt, sameRef, weatherCounts, weatherTotal,
   describeRef, summonSpaces, damage, heal, releaseDefeated, maxStrengthOf, strengthOf, inPlay,
 } from './board.js';
 
@@ -72,11 +73,15 @@ function sidesFor(ctx, side) {
 //   { cardType: 'Pokémon', speedTier: 'Swift' }
 //   { pokemonType: ['Water', 'Ice'] }          any of these
 //   { energyCost: { min: 3 } }                  a range (min and/or max)
+//   { pokemonType: { not: 'Fire' } }            anything but (a value or a list)
 // Every field must match.
 export function matchesCard(card, condition = {}) {
   return Object.entries(condition).every(([field, want]) => {
     const value = card[field];
     if (Array.isArray(want)) return want.includes(value);
+    if (want && typeof want === 'object' && 'not' in want) {
+      return Array.isArray(want.not) ? !want.not.includes(value) : value !== want.not;
+    }
     if (want && typeof want === 'object') {
       return typeof value === 'number' && (want.min === undefined || value >= want.min) && (want.max === undefined || value <= want.max);
     }
@@ -190,6 +195,7 @@ const OPS = {
     p.released.push(zone.location);
     log(state, `${ctx.label} goes to the Released Pile.`);
     zone.location = null;
+    refreshAuras(state);   // its Weather Tokens stop counting
   },
 
   gainEnergy(state, ctx, e) {
@@ -428,6 +434,95 @@ export function refreshAuras(state) {
       log(state, `${what[0].toUpperCase()}${what.slice(1)} loses the bonus from ${bonus.name}'s Passive.`);
     }
   }
+  refreshWeather(state);
+}
+
+// --- Weather --------------------------------------------------------------------
+
+// For each Weather type: its combined count, the brackets reached (active),
+// and the ones whose effects apply ('instead' replacing the bracket before it).
+export function weatherState(state) {
+  const counts = weatherCounts(state);
+  const out = {};
+  for (const [type, def] of Object.entries(WEATHER)) {
+    const count = counts[type] ?? 0;
+    const active = def.brackets.filter((b) => count >= b.at);
+    const effective = [];
+    for (const b of active) {
+      if (b.mode === 'instead') effective.pop();
+      effective.push(b);
+    }
+    out[type] = { count, icon: def.icon, active, effective };
+  }
+  return out;
+}
+
+// Logs brackets switching on and off, and recalculates every Weather stat
+// modifier, with the same rule as Passives: gaining Strength raises current
+// and maximum; losing it lowers the maximum, and current Strength only if it
+// is now above the maximum, so Weather changing never defeats a Pokémon.
+function refreshWeather(state) {
+  const weather = weatherState(state);
+  const now = [];
+  for (const [type, w] of Object.entries(weather)) {
+    for (const b of w.active) now.push(`${type} ${b.at}`);
+  }
+  const before = state.weatherOn ?? [];
+  for (const [type, w] of Object.entries(weather)) {
+    for (const b of w.active) {
+      if (!before.includes(`${type} ${b.at}`)) log(state, `Weather: ${w.icon} ${type} ${b.at} is now active (${type} ${w.count}). ${b.text}`);
+    }
+  }
+  for (const key of before) {
+    if (!now.includes(key)) {
+      const [type] = key.split(' ');
+      log(state, `Weather: ${WEATHER[type].icon} ${key} has ended (${type} ${weather[type].count}).`);
+    }
+  }
+  state.weatherOn = now;
+
+  for (const { card } of arenaPokemon(state)) {
+    const next = {};
+    for (const [type, w] of Object.entries(weather)) {
+      for (const b of w.effective) {
+        for (const st of b.stats ?? []) {
+          if (!matchesCard(card, st.filter)) continue;
+          const mod = (next[`${type} ${b.at}`] ??= { attack: 0, strength: 0, type });
+          mod.attack += st.attack ?? 0;
+          mod.strength += st.strength ?? 0;
+        }
+      }
+    }
+    const was = weatherTotal(card, 'strength');
+    card.weather = next;
+    const gained = weatherTotal(card, 'strength') - was;
+    if (gained > 0) card.currentStrength += gained;
+    else if (gained < 0) card.currentStrength = Math.min(card.currentStrength, maxStrengthOf(card));
+  }
+}
+
+// Queues the timed Weather effects for this moment ('breakfast' | 'supper'),
+// in Weather order, on top of the stack: they resolve before Pokémon
+// abilities triggering at the same moment.
+export function queueWeather(state, moment) {
+  const jobs = [];
+  for (const [type, w] of Object.entries(weatherState(state))) {
+    for (const b of w.effective) {
+      for (const t of b.timed ?? []) {
+        if (t.at !== moment) continue;
+        jobs.push({
+          ctx: {
+            who: state.initiative ?? 'player',
+            source: { kind: 'weather', name: `${type} ${b.at}` },
+            label: `Weather (${w.icon} ${type} ${b.at})`,
+            text: b.text,
+          },
+          effects: t.effects,
+        });
+      }
+    }
+  }
+  for (const { ctx, effects } of jobs.reverse()) queueEffects(state, ctx, effects);
 }
 
 // After damage: release defeated Pokémon, queue their On Defeated triggers,

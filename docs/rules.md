@@ -115,7 +115,23 @@ Keyword abilities on Pokémon that always apply.
 ### 1.6 Weather Tokens
 
 - The game keeps a **combined count per Weather type** across both players' Locations and any Pokémon in the arena that carry a Weather Token. Tokens stop counting the moment their card leaves play (a card in hand doesn't count).
-- Weather effects: *not yet defined* (next step).
+
+#### Weather effects
+
+- Each Weather type has **milestone brackets at 2, 4, 6 and 8** combined tokens (both players' cards count). A bracket is active while the count is at or above it.
+- Multiple Weather types can be active at once, each with its own count. Weather affects the whole arena, both sides.
+- A bracket marked **"instead"** replaces the earlier bracket's effect; **"also"** adds to it.
+- **Stat effects are continuous**, like Trainer Passives: recalculated whenever the count changes. When a stat effect switches off, the rule for losing a Passive applies (current Strength only drops if it's above the new maximum; Weather changing never defeats a Pokémon). Weather modifiers add up with each other and with other buffs. **Attack can't go below 0.**
+- **Timed effects** (at Breakfast / at Supper) resolve before Pokémon abilities that trigger at the same moment: at Breakfast after cards are drawn and Energy is gained (before On Breakfast and the XP step), at Supper before On Supper and before hands are discarded. Pokémon defeated by Weather go to the Released Pile and trigger On Defeated as normal. Weather damage is effect damage (it never triggers On Defend), and Weather only affects Pokémon in the arena (not Trainers, not cards in hand).
+
+| Bracket | ☔ Rain | ☀ Sun |
+|---|---|---|
+| **2** | Water Pokémon gain +1 Attack. | Fire Pokémon gain +1 Attack. |
+| **4** | Water Pokémon gain +1/+1 *instead*. | Fire Pokémon gain +2 Attack *instead*. |
+| **6** | *Also*, Fire Pokémon have −1 Attack. | *Also*, Water Pokémon have −1 Attack. |
+| **8** | *Also*, at Supper, each Water Pokémon heals 2 Strength. | *Also*, at Breakfast, each non-Fire Pokémon takes 1 damage. |
+
+Weather types are data (`WEATHER` in `src/engine/cardData.js`), so real Weather types can be added there.
 
 ## 2. The Battle Arena
 
@@ -153,7 +169,7 @@ Every Round, each player:
 3. **Base Energy** is set to the Round number, with a maximum of 10. Unspent Base Energy does not carry over.
 4. **Exert maximum** goes up by 1 each Round, to a limit of 3 (Round 1 = 1, Round 2 = 2, Round 3 onward = 3). Unspent Exert carries over.
 5. **Draws 7 cards**, one at a time. If the Draw Pile is empty when a card needs drawing, shuffle the Discard Pile to form a new Draw Pile, then keep drawing. If both piles are empty, drawing stops and the player keeps a smaller hand.
-6. **On Breakfast** abilities fire (section 8).
+6. **Timed Weather** effects (section 1.6), then **On Breakfast** abilities fire (section 8).
 7. **XP step** (after the mulligan in Round 1): see 4.1.1.
 
 **Mulligan (Round 1 only):** each player may put any number of cards from their hand into their Discard Pile, then draw the same number from their Draw Pile. Both players choose in secret and reveal together.
@@ -193,7 +209,7 @@ Every Round, each player:
 
 ### 4.3 Supper Phase
 
-- **On Supper** abilities fire (section 8).
+- **Timed Weather** effects (section 1.6), then **On Supper** abilities fire (section 8).
 - Each player puts all cards left in their hand into their Discard Pile.
 - Then the next Round begins.
 
@@ -283,7 +299,7 @@ A Pokémon ability is an **Effect Trigger Word** plus **Effect Text**. It fires 
 - What do Item cards do, and how are they played?
 - **Quest timing:** when a quest completes during an Action that also sets off abilities (e.g. a summon that triggers Brock), the build resolves the quest's effect first. Is that right?
 - Can a Command be anything other than an Attack?
-- What do Weather Tokens do? (Next step.)
+- **Timed Weather order:** if two Weather types have timed effects at the same moment, the build resolves them in Weather order (Rain, then Sun). Is that right?
 - **Trainer vs Pokémon order:** when a Trainer's Passive and a Pokémon in the same zone trigger at the same moment, which goes first? (The build puts the Trainer after the Pokémon in its zone.)
 - **On Supper:** no placeholder uses it yet; the hook is built and tested.
 - Does Rarity limit how many copies go in a deck?
@@ -295,6 +311,7 @@ A Pokémon ability is an **Effect Trigger Word** plus **Effect Text**. It fires 
 - The 16 Pokémon are invented placeholders, one of each per deck, with the same list for both players. Stats: Energy Cost 1–6, Attack 1–6, Strength 2–10.
 - Placeholder art is a box tinted by Pokémon Type (striped for Strategy, Supporter and Location Cards).
 - Fire Pokémon: Emberkit, plus Brawlix and Quakemaw (retyped from Fighting and Ground). Glimmeria carries a Weather Token of 1 Sun; no other placeholder Pokémon has one.
+- Rain and Sun (section 1.6) are placeholder Weather types.
 - Location rarities are placeholders: Tidal Cove Common, Sunbaked Plateau and Old Training Hall Uncommon.
 - Placeholder abilities (section 8):
 

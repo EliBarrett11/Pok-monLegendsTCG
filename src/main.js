@@ -4,7 +4,7 @@ import { createGame, applyAction } from './engine/game.js';
 import { chooseAction } from './ai/opponent.js';
 import { render } from './ui/render.js';
 
-export const BUILD = 'Step 9 — Locations, quests and XP';
+export const BUILD = 'Step 10 — Weather';
 
 document.getElementById('build-tag').textContent = BUILD;
 

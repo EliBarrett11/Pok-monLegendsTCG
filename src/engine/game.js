@@ -14,10 +14,11 @@ import {
 } from './board.js';
 import {
   summon, candidates, canResolve, targetedEffect, queueEffects, queueStep, run, refreshAuras, settle, fireTriggers,
-  matchesCard, questEvent,
+  matchesCard, questEvent, queueWeather, weatherState,
 } from './effects.js';
 
-export { PLAYERS, opponentOf, emptySpaces, summonSpaces, isFallen, attackOf, weatherCounts };
+export { PLAYERS, opponentOf, emptySpaces, summonSpaces, isFallen, attackOf, weatherCounts, weatherState };
+export { weatherTotal } from './board.js';
 export { maxStrengthOf } from './board.js';
 
 export const ZONES = 3;
@@ -655,6 +656,7 @@ function startBreakfast(state) {
   // On Breakfast: after cards are drawn and Energy is gained.
   queueStep(state, 'afterBreakfast');
   fireTriggers(state, everyPokemon(state, 'breakfast'));
+  queueWeather(state, 'breakfast');   // on top: Weather first
 }
 
 function endBreakfast(state) {
@@ -729,4 +731,5 @@ function startSupper(state) {
   // On Supper: before hands are discarded.
   queueStep(state, 'supperDiscard');
   fireTriggers(state, everyPokemon(state, 'supper'));
+  queueWeather(state, 'supper');      // on top: Weather first
 }

@@ -307,7 +307,14 @@ button.secondary { background: var(--panel-2); color: var(--text); margin-top: 0
 .xp-reward { flex: none; padding: 0 0.3rem; border-radius: 3px; background: #7a5cf0; color: #fff; font-size: 0.62rem; font-weight: 700; }
 
 /* Weather and XP */
-.weather-panel { margin-left: 0.75rem; font-size: 0.8rem; font-weight: 400; color: var(--text); }
+.weather-panel { flex-basis: 100%; display: grid; gap: 0.2rem; font-size: 0.78rem; color: var(--text); }
+.weather-type { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; }
+.bracket { padding: 0 0.3rem; border-radius: 3px; background: var(--panel-2); color: var(--muted); font-size: 0.7rem; }
+.bracket.on { background: #2f5f8a; color: #fff; font-weight: 700; }
+.bracket.on.replaced { background: #2a3a4a; color: var(--muted); text-decoration: line-through; }
+.weather-effects { color: var(--muted); }
+.wx-tag { margin-left: 0.15rem; font-size: 0.6rem; color: #7cc4ff; font-weight: 700; }
+.stats b.nerfed { color: #e0574f; }
 .weather-chip { padding: 0 0.3rem; border-radius: 3px; background: var(--panel-2); font-size: 0.75em; white-space: nowrap; }
 .xp-pool strong { color: #a58cff; }
 .xp-tag { color: #a58cff; font-size: 0.6rem; }

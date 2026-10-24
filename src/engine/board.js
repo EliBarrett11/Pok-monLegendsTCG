@@ -114,19 +114,26 @@ export function summonSpaces(state, who) {
 // A Pokémon in play carries:
 //   attackBonus, strengthBonus  permanent buffs
 //   aura                        Passive bonuses by source uid: { [uid]: { attack, strength } }
+//   weather                     Weather modifiers by bracket: { ['Rain 4']: { attack, strength } }
 //   currentStrength
 
 function auraTotal(c, stat) {
   return Object.values(c.aura ?? {}).reduce((sum, b) => sum + b[stat], 0);
 }
 
+// The part of a stat that comes from Weather (shown separately on cards).
+export function weatherTotal(c, stat) {
+  return Object.values(c.weather ?? {}).reduce((sum, b) => sum + (b[stat] ?? 0), 0);
+}
+
+// Attack can't go below 0.
 export function attackOf(c) {
-  return c.attackValue + (c.attackBonus ?? 0) + auraTotal(c, 'attack');
+  return Math.max(0, c.attackValue + (c.attackBonus ?? 0) + auraTotal(c, 'attack') + weatherTotal(c, 'attack'));
 }
 
 export function maxStrengthOf(c) {
   if (c.cardType === 'Trainer') return c.maxStrength;
-  return c.strengthValue + (c.strengthBonus ?? 0) + auraTotal(c, 'strength');
+  return c.strengthValue + (c.strengthBonus ?? 0) + auraTotal(c, 'strength') + weatherTotal(c, 'strength');
 }
 
 export function strengthOf(c) {
@@ -144,6 +151,7 @@ export function inPlay(card, { spent }) {
     attackBonus: xp.attack,
     strengthBonus: xp.strength,
     aura: {},
+    weather: {},
   };
 }
 
