@@ -540,6 +540,23 @@ async function triggerBanner(e, t) {
   await wait(t(420));
 }
 
+// Passing with unmatched speed: each of those Pokémon is marked, then turns
+// Spent on the board as the new state is drawn.
+async function spentBeat(e, t) {
+  for (const ref of e.targets) {
+    const el = shown(ref.uid);
+    if (!el) continue;
+    const r = rectOf(el);
+    const below = r.y < 150;
+    const tag = spawn(`fx-trigger spent-tag${below ? ' below' : ''}`, null, `<b>${ref.name}</b> · Spent: unmatched speed`);
+    tag.style.left = `${r.x + r.w / 2}px`;
+    tag.style.top = `${below ? r.y + r.h + 4 : r.y - 4}px`;
+    play(tag, [{ opacity: 0, transform: 'scale(0.8)' }, { opacity: 1, transform: 'scale(1)', offset: 0.15 }, { opacity: 1, offset: 0.8 }, { opacity: 0 }], t(1500));
+    animate(el, [{ filter: 'none', rotate: '0deg' }, { filter: 'saturate(0.6) brightness(0.94)', rotate: '4deg' }], t(500), { fill: 'forwards' });
+  }
+  await wait(t(650));
+}
+
 // Walks an action's events in order, each one its own beat. Effects on cards
 // that aren't on screen yet (just summoned) wait until after the new state is
 // drawn (`late`).
@@ -600,6 +617,7 @@ async function walk(root, events, t, late) {
         break;
       }
       case 'trainerRemoved': await trainerFallsBeat(root, e, t); break;
+      case 'spentByPass': await spentBeat(e, t); break;
       case 'dollarsEarned': coins(root, e, lastDefeated, t); break;
       case 'questProgress': questTick(e, t); break;
       case 'questComplete': await questCompleteBeat(root, e, t); break;
@@ -857,6 +875,11 @@ export function captionFor(state, actor) {
     text = `${S} ${verb(actor, 'use')} ${main.name}'s Power${on(main.target)}`;
   } else if (main?.type === 'pass') {
     text = `${S} ${verb(actor, 'pass', 'passes')}${main.gain ? `, +${main.gain} Energy` : ''}`;
+    if (main.spends?.length) {
+      const names = main.spends.map((r) => r.name);
+      const list = names.length < 2 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+      text += ` — ${list} ${names.length === 1 ? 'is' : 'are'} Spent (unmatched speed)`;
+    }
     if (ev.some((e) => e.type === 'phaseChanged' && e.phase === 'supper')) text += ' · Battle Phase ends';
   } else if (main?.type === 'choiceMade') {
     text = main.kind === 'target'

@@ -145,6 +145,19 @@ export function isAlert(state, card) {
   return !card.spent && speedOf(card) === alertTier(state);
 }
 
+// The Pokémon a Pass by this player would make Spent: their Active Pokémon
+// at the top Speed-Tier, when the opponent has no Active Pokémon at that
+// tier ("unmatched speed"). None if the Pass would end the Battle Phase.
+// As refs: { kind: 'pokemon', owner, zone, space, uid, name }.
+export function passSpends(state, who) {
+  if (state.phase !== 'battle' || passEndsPhase(state)) return [];
+  const top = alertTier(state);
+  if (top < 0) return [];
+  const atTop = arenaPokemon(state).filter(({ card }) => !card.spent && speedOf(card) === top);
+  if (atTop.some(({ ref }) => ref.owner !== who)) return [];
+  return atTop.map(({ ref, card }) => ({ ...ref, uid: card.uid, name: card.name }));
+}
+
 // This player's Alert Pokémon, as { zone, space, card }.
 export function alertPokemon(state, who) {
   return arenaPokemon(state)
@@ -767,13 +780,20 @@ const HANDLERS = {
   pass(state, { who }) {
     const p = state.players[who];
     const ends = passEndsPhase(state);
-    emit(state, 'pass', { who, endsPhase: ends, gain: ends ? 0 : PASS_ENERGY });
+    const spends = passSpends(state, who);
+    emit(state, 'pass', { who, endsPhase: ends, gain: ends ? 0 : PASS_ENERGY, spends });
     if (ends) {
       log(state, `${p.name} passed.`);
     } else {
       p.baseEnergy += PASS_ENERGY;
       emit(state, 'energyGained', { who, amount: PASS_ENERGY, source: 'Pass' });
       log(state, `${p.name} passed and ${who === 'player' ? 'gain' : 'gains'} ${PASS_ENERGY} Base Energy this Round (now ${p.baseEnergy}).`);
+      // Unmatched speed: their Active Pokémon at the top Speed-Tier become Spent (Alert is worked out afresh).
+      if (spends.length) {
+        for (const ref of spends) cardAt(state, ref).spent = true;
+        emit(state, 'spentByPass', { who, targets: spends });
+        log(state, `Unmatched speed: ${spends.map((r) => describeRef(state, r)).join(', ')} ${spends.length === 1 ? 'becomes' : 'become'} Spent.`);
+      }
     }
     endTurn(state, who, true);
   },

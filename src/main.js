@@ -6,7 +6,7 @@ import { render, STAGE, pushHistory, clearHistory, setCaption } from './ui/rende
 import { present, think, skip, resetFx, historyEntry, captionFor } from './ui/present.js';
 import { speedFactor } from './ui/settings.js';
 
-export const BUILD = 'V5 — Turn flow and clarity';
+export const BUILD = 'Step 14 — Unmatched speed';
 
 
 // The whole game is drawn on a fixed 1920×1080 stage, scaled uniformly to

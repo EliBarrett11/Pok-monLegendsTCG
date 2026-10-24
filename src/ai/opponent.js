@@ -11,7 +11,7 @@ import {
   applyAction, legalActions, playablePokemon, summonSpaces, alertPokemon, legalTargets,
   usablePowers, powerTargets, playableStrategies, strategyTargets, opponentOf, maxStrengthOf, attackOf,
   playableSupporters, supporterTargets, giftMet, playableLocations, locationSpaces,
-  openBagOptions, itemTargets, passEndsPhase, PASS_ENERGY,
+  openBagOptions, itemTargets, passEndsPhase, PASS_ENERGY, passSpends,
 } from '../engine/game.js';
 
 // Where the AI's random choices come from. Tests pass a seeded generator
@@ -186,7 +186,19 @@ function passScore(state, who) {
   for (const move of candidateMoves(richer, who)) {
     if (!now.has(JSON.stringify(move))) enabled = Math.max(enabled, scoreMove(richer, who, move));
   }
-  return 2 + (1 - passBackRisk(state, who)) * enabled;
+  return 2 + (1 - passBackRisk(state, who)) * enabled - spentCost(state, who);
+}
+
+// Unmatched speed: a Pass would make these Pokémon Spent, so it gives up the
+// best attack each could have made this Round (scored like any attack).
+function spentCost(state, who) {
+  let lost = 0;
+  for (const ref of passSpends(state, who)) {
+    const from = { zone: ref.zone, space: ref.space };
+    const scores = legalTargets(state, who, from).map((target) => scoreMove(state, who, { type: 'command', who, from, target }));
+    if (scores.length) lost += Math.max(0, ...scores);
+  }
+  return lost;
 }
 
 // How likely the opponent is to pass straight back, from what it can see:

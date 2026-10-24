@@ -9,7 +9,7 @@ import {
   ZONES, playablePokemon, costPreview, isAlert, legalTargets, canUsePower, powerTargets,
   summonSpaces, isFallen, attackOf, maxStrengthOf, playableStrategies, strategyTargets,
   playableSupporters, supporterTargets, giftMet, playableLocations, locationSpaces, weatherState,
-  openBagOptions, itemTargets, BAG_SIZE, passEndsPhase, PASS_ENERGY, applyAction,
+  openBagOptions, itemTargets, BAG_SIZE, passEndsPhase, PASS_ENERGY, applyAction, passSpends,
 } from '../engine/game.js';
 import { heldBonus, weatherTotal, speedOf, cardAt } from '../engine/board.js';
 import { INNATE_POWERS, WEATHER, SPEED_TIERS } from '../engine/cardData.js';
@@ -114,10 +114,12 @@ function resetUiFor(state) {
   ui.xpPick = null;            // the XP step: uid of the Pokémon picked to buff
   ui.bag = null;               // Open Bag: { mode: null | 'buyHand' | 'buyMart' | 'useBag', uid, then, picking }
   ui.costFocus = null;         // the card or Power whose Energy cost is being previewed: { uid } | { power: zone }
+  ui.passWarn = false;         // the "passing now will make … Spent" warning is showing
   if (keep) Object.assign(ui, keep);
 }
 
 function clearSelection() {
+  ui.passWarn = false;
   ui.bag = null;
   ui.location = null;
   ui.selectedPokemon = null;
@@ -237,6 +239,7 @@ export function render(root, state, actions) {
       <div class="log-head"><h3>Match log</h3><button data-action="toggle-log" class="secondary">Close</button></div>
       <div class="log-body">${state.log.map((line) => `<p>${line}</p>`).join('')}</div>
     </aside>
+    ${passWarningBox(state)}
     ${gameOverScreen(state)}
     <div class="preview" hidden></div>
   `;
@@ -454,6 +457,7 @@ function pokemonZone(state, who, z, targets, fallen) {
         const alert = c && isAlert(state, c);
         const opts = {
           alert,
+          willSpend: ui.passWarn && who === 'player' && passSpends(state, 'player').some((r) => r.uid === c?.uid),
           selectable: alert && who === 'player' && myTurn,
           selected: who === 'player' && ui.attacker?.zone === z && ui.attacker?.space === s,
         };
@@ -727,7 +731,7 @@ function art(c, f, extra = '') {
 }
 
 function cardClasses(c, f, size, opts) {
-  return `card ${size} ${f.kind}${c.rarity ? ` rarity-${slug(c.rarity)}` : ''}${f.cost ? ' has-cost' : ''}${c.spent ? ' spent' : ''}`
+  return `card ${size} ${f.kind}${c.rarity ? ` rarity-${slug(c.rarity)}` : ''}${f.cost ? ' has-cost' : ''}${c.spent ? ' spent' : ''}${opts.willSpend ? ' will-spend' : ''}`
     + `${opts.alert ? ' alert' : ''}${c.inDelivery ? ' delivery' : ''}${stateClasses(opts)}`;
 }
 
@@ -965,7 +969,9 @@ function controls(state) {
         };
       }
       // What passing will do: +1 Base Energy, or end the phase after the opponent's Pass.
-      const passSub = passEndsPhase(state) ? 'end Battle' : `+${PASS_ENERGY} Energy`;
+      const spends = passSpends(state, 'player').length;
+      const passSub = passEndsPhase(state) ? 'end Battle'
+        : spends ? `+${PASS_ENERGY} Energy, spends ${spends} Pokémon` : `+${PASS_ENERGY} Energy`;
       const passLabel = `Pass (${passSub})`;
       const pass = primary('pass', 'Pass', passSub);
       if (ui.power !== null) {
@@ -995,6 +1001,36 @@ function controls(state) {
     default:
       return waiting;
   }
+}
+
+// --- Passing with unmatched speed -------------------------------------------------------
+
+const listNames = (names) => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`);
+
+// The warning to show before I pass, when the Pass would make my top-speed
+// Pokémon Spent (the opponent can't match their speed); null otherwise.
+export function passWarning(state) {
+  if (state.phase !== 'battle' || state.turn !== 'player' || state.pending) return null;
+  const refs = passSpends(state, 'player');
+  if (!refs.length) return null;
+  const names = listNames(refs.map((r) => r.name));
+  return {
+    refs,
+    text: `Passing now will make ${names} Spent this Round, because the opponent can't match ${refs.length === 1 ? 'its' : 'their'} speed.`,
+  };
+}
+
+function passWarningBox(state) {
+  const w = ui.passWarn && passWarning(state);
+  if (!w) return '';
+  return `<div class="pass-warn" role="dialog" aria-label="Pass warning">
+    <p>${w.text}</p>
+    <p class="muted">You still gain +${PASS_ENERGY} Base Energy. Cancel to attack with ${w.refs.length === 1 ? 'it' : 'them'} first.</p>
+    <div class="pass-warn-buttons">
+      <button data-action="cancel-pass" class="secondary">Cancel</button>
+      <button data-action="pass-anyway">Pass anyway</button>
+    </div>
+  </div>`;
 }
 
 // --- Cost previews ------------------------------------------------------------------
@@ -1084,7 +1120,7 @@ function installSpace() {
     if (e.code !== 'Space' || e.repeat || e.target.closest?.('input, textarea')) return;
     e.preventDefault();
     const stage = document.getElementById('stage');
-    if (stage.classList.contains('locked') || !document.getElementById('inspect')?.hidden) return;
+    if (stage.classList.contains('locked') || !document.getElementById('inspect')?.hidden || document.querySelector('.pass-warn')) return;
     document.querySelector('#app .side-panel button.primary:not(:disabled)')?.click();
   });
 }
@@ -1124,10 +1160,19 @@ function wire(root, state, actions) {
   on('[data-action="flip"]', () => dispatch({ type: 'flipCoin' }));
   on('[data-action="lock-trainers"]', () => dispatch({ type: 'assignTrainers', who: 'player', order: [...ui.placing] }));
   // Passing is never blocked, but a brief ring shows anything I could still have done.
+  // A Pass with unmatched speed would make Pokémon Spent: ask first.
   on('[data-action="pass"]', () => {
+    if (passWarning(state) && !ui.passWarn) {
+      clearSelection();
+      ui.passWarn = true;
+      redraw();
+      return;
+    }
     remind(root);
     dispatch({ type: 'pass', who: 'player' });
   });
+  on('[data-action="pass-anyway"]', () => dispatch({ type: 'pass', who: 'player' }));
+  on('[data-action="cancel-pass"]', () => { ui.passWarn = false; redraw(); });
   on('[data-action="mulligan"]', () => dispatch({ type: 'mulligan', who: 'player', cardUids: [...ui.mulligan] }));
   on('[data-action="keep-card"]', () => dispatch({ type: 'resolveChoice', who: 'player' }));
 
@@ -1337,7 +1382,7 @@ function wire(root, state, actions) {
     arrowSource: () => arrowSource(state),
     outcome: (el) => outcome(state, el),
     inspect: (el) => inspectView(previews[Number(el.dataset.pv)]),
-    selecting: () => Boolean(ui.attacker || ui.power !== null || ui.strategy || ui.location || ui.selectedPokemon
+    selecting: () => Boolean(ui.passWarn || ui.attacker || ui.power !== null || ui.strategy || ui.location || ui.selectedPokemon
       || ui.bag || ui.supporter || ui.selectedTrainer),
     cancel: () => { clearSelection(); ui.selectedTrainer = null; ui.costFocus = null; redraw(); },
   });
