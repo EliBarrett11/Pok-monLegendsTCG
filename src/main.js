@@ -2,11 +2,23 @@
 // to the engine, and lets the AI respond.
 import { createGame, applyAction } from './engine/game.js';
 import { chooseAction } from './ai/opponent.js';
-import { render } from './ui/render.js';
+import { render, STAGE } from './ui/render.js';
 
-export const BUILD = 'Step 12 — Card names and art';
+export const BUILD = 'V1a — One-screen layout';
 
 document.getElementById('build-tag').textContent = BUILD;
+
+// The whole game is drawn on a fixed 1920×1080 stage, scaled uniformly to
+// fit the window and centred (letterboxed), so the page never scrolls.
+const stage = document.getElementById('stage');
+function fitStage() {
+  const scale = Math.min(innerWidth / STAGE.width, innerHeight / STAGE.height);
+  const x = (innerWidth - STAGE.width * scale) / 2;
+  const y = (innerHeight - STAGE.height * scale) / 2;
+  stage.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+}
+addEventListener('resize', fitStage);
+fitStage();
 
 const root = document.getElementById('app');
 const seedFromUrl = Number(new URLSearchParams(location.search).get('seed'));
