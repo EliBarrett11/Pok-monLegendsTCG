@@ -810,16 +810,17 @@ button.primary {
 /* --- V4: combat and effect feedback --------------------------------------------------------- */
 #particles { position: absolute; inset: 0; width: 1920px; height: 1080px; z-index: 45; pointer-events: none; }
 #fx { z-index: 45; }
-.fx-flash, .fx-wave, .fx-tint, .fx-shimmer, .fx-coin, .fx-xp, .fx-trigger { position: absolute; pointer-events: none; }
+.fx-energy { border-radius: 50%; mix-blend-mode: screen; }
+.fx-flash, .fx-energy, .fx-wave, .fx-tint, .fx-shimmer, .fx-coin, .fx-xp, .fx-trigger { position: absolute; pointer-events: none; }
 .fx-flash { border-radius: 14px; mix-blend-mode: screen; }
 .fx-wave {
   border-radius: 20px; mix-blend-mode: screen;
-  background: linear-gradient(100deg, transparent 0%, rgba(255, 214, 140, 0) 38%, rgba(255, 220, 150, 0.55) 50%, rgba(255, 214, 140, 0) 62%, transparent 100%) no-repeat;
+  background: linear-gradient(100deg, transparent 0%, rgba(255, 214, 140, 0) 34%, rgba(255, 226, 160, 0.85) 50%, rgba(255, 214, 140, 0) 66%, transparent 100%) no-repeat;
   background-size: 60% 100%;
 }
-.fx-tint { border-radius: 30px; mix-blend-mode: screen; background-size: 100% 220%; }
-.fx-tint.rain { background-image: linear-gradient(180deg, transparent, rgba(90, 160, 255, 0.35) 40%, rgba(150, 200, 255, 0.45) 50%, rgba(90, 160, 255, 0.35) 60%, transparent); }
-.fx-tint.sun { background-image: linear-gradient(180deg, transparent, rgba(255, 170, 60, 0.3) 40%, rgba(255, 210, 120, 0.42) 50%, rgba(255, 170, 60, 0.3) 60%, transparent); }
+.fx-tint { border-radius: 30px; background-size: 100% 220%; }
+.fx-tint.rain { background-color: rgba(60, 130, 230, 0.1); background-image: linear-gradient(180deg, transparent, rgba(120, 185, 255, 0.2) 40%, rgba(200, 230, 255, 0.28) 50%, rgba(120, 185, 255, 0.2) 60%, transparent); }
+.fx-tint.sun { background-color: rgba(255, 200, 110, 0.08); background-image: linear-gradient(180deg, transparent, rgba(255, 210, 130, 0.18) 40%, rgba(255, 235, 180, 0.28) 50%, rgba(255, 210, 130, 0.18) 60%, transparent); }
 .fx-shimmer {
   border-radius: 8px; mix-blend-mode: screen; overflow: hidden;
   background: linear-gradient(110deg, transparent 30%, rgba(255, 236, 170, 0.9) 48%, rgba(255, 255, 255, 0.95) 50%, rgba(255, 236, 170, 0.9) 52%, transparent 70%) no-repeat;
@@ -832,14 +833,16 @@ button.primary {
 }
 .fx-xp {
   display: grid; place-items: center; white-space: nowrap; font-family: var(--font-display); font-weight: 800; font-size: 18px;
-  color: #e9dcff; text-shadow: 0 0 8px #8a5cff, 0 2px 2px #000;
+  color: #fff; text-shadow: 0 1px 2px #000; border-radius: 18px; border: 2px solid #c3a8ff;
+  background: radial-gradient(circle at 40% 30%, #8a64e8, #3d2280); box-shadow: 0 0 14px 4px rgba(150, 110, 255, 0.7);
 }
 .fx-trigger {
   padding: 3px 12px; border-radius: 6px; white-space: nowrap; transform-origin: left center; z-index: 2;
   background: var(--brass-plate); border: 1px solid var(--brass-dark); box-shadow: var(--bevel), 0 4px 10px rgba(0, 0, 0, 0.6);
   font-family: var(--font-display); font-size: 14px; color: var(--ink);
 }
-.fx-trigger.left { translate: -100% 0; transform-origin: right center; }
+.fx-trigger { translate: -50% -100%; transform-origin: center bottom; }
+.fx-trigger.below { translate: -50% 0; transform-origin: center top; }
 .fx-beam { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: visible; filter: drop-shadow(0 0 6px rgba(255, 210, 110, 0.95)); }
 /* Damage: a big red number on a splash. */
 .fx-num { isolation: isolate; }

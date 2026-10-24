@@ -190,16 +190,20 @@ function attackStyle(el) {
 }
 
 // A hit landing on a card: flash, particles, the damage number and the badge counting down.
-function impact(root, el, hit, t, { style = null, trainer = false, big = false, kind = '' } = {}) {
+function impact(root, el, hit, t, { style = null, trainer = false, big = false, kind = '', rect = null } = {}) {
   if (!el) return;
-  const r = rectOf(el);
+  const r = rect ?? rectOf(el);
   const c = centre(r);
   const dmg = hit?.amount ?? 1;
   const scale = clamp(dmg / 4, 0.5, 2.2) * (trainer || big ? 1.4 : 1);
   flash(r, dmg * (trainer ? 1.5 : 1), t(320), undefined, kind || (style?.special ? 'hit-special' : 'hit-physical'));
   if (style?.special) {
-    burst(c.x, c.y, { kind: 'energy', colors: style.colors, count: 14 * scale, speed: 320 * scale, life: t(520), size: 5 });
-    burst(c.x, c.y, { kind: 'spark', colors: [...style.colors, '#ffffff'], count: 12 * scale, speed: 420, life: t(420), size: 2.5 });
+    // An energy burst in the attacker's Type colour: a bright core, orbs and streaks.
+    const core = spawn('fx-energy', { x: c.x - 70, y: c.y - 70, w: 140, h: 140 });
+    core.style.background = `radial-gradient(circle, #ffffff 0, ${style.colors[1]} 22%, ${style.colors[0]} 45%, transparent 70%)`;
+    play(core, [{ transform: 'scale(0.2)', opacity: 1 }, { transform: 'scale(1.3)', opacity: 0.95, offset: 0.35 }, { transform: 'scale(1.8)', opacity: 0 }], t(480));
+    burst(c.x, c.y, { kind: 'energy', colors: style.colors, count: 22 * scale, speed: 360 * Math.sqrt(scale), life: t(620), size: 7 });
+    burst(c.x, c.y, { kind: 'spark', colors: [...style.colors, '#ffffff'], count: 18 * scale, speed: 520, life: t(460), size: 3 });
   } else {
     burst(c.x, c.y + r.h * 0.2, { kind: 'dust', colors: ['#b8925e', '#8a6a44', '#d9c09a'], count: 12 * scale, speed: 180, life: t(700), size: 7, up: 30, area: r.w * 0.5 });
     burst(c.x, c.y, { kind: 'spark', colors: ['#fff3c4', '#ffd36b', '#ffffff'], count: 16 * scale, speed: 480 * Math.sqrt(scale), life: t(380), size: 2.5, gravity: 600 });
@@ -289,6 +293,13 @@ async function reveal(root, prev, e, t) {
   glow(target, 'fx-target');
   await wait(t(950));
   panel?.remove();
+  return el;
+}
+
+// Once the effects of a revealed card start, it fades back so it never hides them.
+function stepAside(el, t) {
+  if (!el?.isConnected) return;
+  animate(el, [{ opacity: 1 }, { opacity: 0.18 }], t(250), { fill: 'forwards' });
 }
 
 // Under a revealed Supporter: the cards paid and whether the Gift was met.
@@ -325,7 +336,8 @@ async function attackBeat(root, e, hits, t) {
   }
   glow(a, 'fx-attacker');
   glow(b, 'fx-target');
-  const A = centre(rectOf(a));
+  const restA = rectOf(a);   // where the attacker sits, before it lunges
+  const A = centre(restA);
   const B = centre(rectOf(b));
   const path = curve(A, B);
   const line = svgLayer('fx-arrow', `<path d="${path.d}" fill="none" stroke="#f0cf78" stroke-width="7" stroke-linecap="round" stroke-dasharray="16 8" opacity="0.75"/>`);
@@ -347,7 +359,7 @@ async function attackBeat(root, e, hits, t) {
   const trainer = e.target.kind === 'trainer';
   shake(root, 1.5 + (onTarget?.amount ?? 1) * 0.35 + (trainer ? 1 : 0), t(300));
   impact(root, b, onTarget, t, { style, trainer, kind: e.trades ? 'hit-trade' : '' });
-  if (e.trades) impact(root, a, onAttacker, t, { style: attackStyle(b), kind: 'hit-trade' });
+  if (e.trades) impact(root, a, onAttacker, t, { style: attackStyle(b), kind: 'hit-trade', rect: restA });
   await lunge;
   line.remove();
   await wait(t(320));
@@ -484,7 +496,7 @@ function weatherTint(root, e, t) {
   const arena = root.querySelector('.arena');
   if (!arena) return;
   const tint = spawn(`fx-tint ${e.weather === 'Sun' ? 'sun' : 'rain'}`, rectOf(arena));
-  play(tint, [{ opacity: 0, backgroundPosition: '0 -40%' }, { opacity: 1, offset: 0.3 }, { opacity: 0, backgroundPosition: '0 140%' }], t(1000), { easing: 'ease-in-out' });
+  play(tint, [{ opacity: 0, backgroundPosition: '0 -60%' }, { opacity: 1, offset: 0.3 }, { opacity: 1, offset: 0.65 }, { opacity: 0, backgroundPosition: '0 160%' }], t(1300), { easing: 'ease-in-out' });
 }
 
 // A Trainer's Power: the Trainer glows, then a beam of sparks travels to its target.
@@ -512,13 +524,14 @@ async function triggerBanner(e, t) {
   const el = shown(e.source.uid);
   if (!el) return;
   const r = rectOf(el);
-  const right = r.x + r.w + 230 < STAGE.width - 340;
-  const tag = spawn(`fx-trigger${right ? '' : ' left'}`, null, `<b>${e.source.name}</b> · ${e.word}`);
-  tag.style.left = `${right ? r.x + r.w + 6 : r.x - 6}px`;
-  tag.style.top = `${r.y + 18}px`;
+  // Just above its own card (below it near the top edge), clear of its neighbours.
+  const below = r.y < 150;
+  const tag = spawn(`fx-trigger${below ? ' below' : ''}`, null, `<b>${e.source.name}</b> · ${e.word}`);
+  tag.style.left = `${r.x + r.w / 2}px`;
+  tag.style.top = `${below ? r.y + r.h + 4 : r.y - 4}px`;
   play(tag, [
-    { opacity: 0, transform: `translateX(${right ? -10 : 10}px) scale(0.8)` },
-    { opacity: 1, transform: 'translateX(0) scale(1)', offset: 0.15 },
+    { opacity: 0, transform: 'scale(0.8)' },
+    { opacity: 1, transform: 'scale(1)', offset: 0.15 },
     { opacity: 1, offset: 0.8 },
     { opacity: 0 },
   ], t(1400));
@@ -529,7 +542,21 @@ async function triggerBanner(e, t) {
 // Walks an action's events in order, each one its own beat. Effects on cards
 // that aren't on screen yet (just summoned) wait until after the new state is
 // drawn (`late`).
-async function walk(root, ev, t, late) {
+async function walk(root, events, t, late) {
+  // The engine counts an attack's quest progress before resolving its damage;
+  // on screen the attack lands first, then the quest ticks.
+  const ev = [...events];
+  const at = ev.findIndex((e) => e.type === 'attack');
+  if (at >= 0) {
+    const quest = ev.slice(0, at).filter((e) => e.type === 'questProgress' || e.type === 'questComplete');
+    if (quest.length) {
+      const rest = ev.filter((e) => !quest.includes(e));
+      let after = rest.indexOf(ev[at]) + 1;
+      while (after < rest.length && rest[after].type === 'damage') after += 1;
+      rest.splice(after, 0, ...quest);
+      ev.splice(0, ev.length, ...rest);
+    }
+  }
   const used = new Set();
   let lastDefeated = null;
   for (let i = 0; i < ev.length; i++) {
@@ -584,7 +611,11 @@ async function walk(root, ev, t, late) {
 async function before(root, prev, next, actor, t, late) {
   const ev = next.events;
   const main = ev.find((e) => ['cardPlayed', 'itemUsed', 'pass', 'choiceMade', 'itemBought'].includes(e.type));
-  if (main?.type === 'cardPlayed' || main?.type === 'itemUsed') await reveal(root, prev, { ...main, cardType: main.cardType ?? 'Item', to: main.to ?? { kind: 'use' } }, t);
+  if (main?.type === 'cardPlayed' || main?.type === 'itemUsed') {
+    const shownCard = await reveal(root, prev, { ...main, cardType: main.cardType ?? 'Item', to: main.to ?? { kind: 'use' } }, t);
+    const effects = ['damage', 'heal', 'buff', 'defeated', 'abilityTriggered', 'questComplete', 'trainerRemoved'];
+    if (ev.some((e) => effects.includes(e.type))) stepAside(shownCard, t);
+  }
   else if (main?.type === 'itemBought') {
     glow(shown(main.uid), 'fx-target');
     await wait(t(450));
