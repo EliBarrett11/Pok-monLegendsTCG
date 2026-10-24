@@ -186,11 +186,11 @@ assert.deepEqual(POKEMON_CARDS.filter((c) => c.weatherTokens).map((c) => [c.name
   attack(1, 0);
   assert.equal(s.players.player.xp, 3);
   assert.equal(loc(s, 'player', 1), null);
-  assert.equal(attackOf(at(s, 'player', 1, 0)), 4, 'Pidgey 3 + 1');
-  assert.equal(attackOf(at(s, 'player', 1, 1)), 3, 'Shinx 2 + 1');
-  assert.equal(attackOf(at(s, 'player', 0, 0)), 2, 'other zone: no buff');
+  assert.equal(attackOf(at(s, 'player', 1, 0)), 5, 'Pidgey 4 + 1');
+  assert.equal(attackOf(at(s, 'player', 1, 1)), 4, 'Shinx 3 + 1');
+  assert.equal(attackOf(at(s, 'player', 0, 0)), 3, 'other zone: no buff');
   s = play(s, 'player', 'magmar', 1, 2);
-  assert.equal(attackOf(at(s, 'player', 1, 2)), 4, 'a one-off: later Pokémon get nothing');
+  assert.equal(attackOf(at(s, 'player', 1, 2)), 5, 'a one-off: later Pokémon get nothing');
 }
 
 // Shalour City: 3 Trainer Powers. Then +2 XP and heal friendly Trainers 2.
@@ -275,10 +275,10 @@ assert.deepEqual(POKEMON_CARDS.filter((c) => c.weatherTokens).map((c) => [c.name
   assert.deepEqual(s.players.player.hand.find((c) => c.uid === ember.uid).xp, { attack: 1, strength: 1 });
   assert.ok(s.log.some((l) => l.includes('You spent 2 XP: Growlithe +1 Attack, +1 Strength (1 XP left).')));
   s = applyAction(onTurn(s, 'player'), { type: 'playPokemon', who: 'player', uid: ember.uid, zone: 0, space: 0 });
-  assert.deepEqual(stats(at(s, 'player', 0, 0)), [3, 4, 4], 'permanent once played: current and maximum Strength');
+  assert.deepEqual(stats(at(s, 'player', 0, 0)), [4, 6, 6], 'permanent once played: current and maximum Strength');
   s = nextRound(s);
   if (s.xpStep) s = applyAction(s, { type: 'spendXp', who: 'player', spend: [] });
-  assert.deepEqual(stats(at(s, 'player', 0, 0)), [3, 4, 4], 'still there next Round');
+  assert.deepEqual(stats(at(s, 'player', 0, 0)), [4, 6, 6], 'still there next Round');
 }
 
 // Secret: the first lock-in isn't applied until both have locked in.

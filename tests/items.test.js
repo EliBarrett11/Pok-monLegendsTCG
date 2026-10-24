@@ -176,7 +176,7 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
   s = bag(s, 'player', { mode: 'useBag', uid: band, target: pref('player', 0, 0) });
   assert.equal(s.players.player.bag.length, 0);
   assert.equal(at(s, 'player', 0, 0).heldItem.name, 'Black Belt');
-  assert.equal(attackOf(at(s, 'player', 0, 0)), 4, '+2 Attack');
+  assert.equal(attackOf(at(s, 'player', 0, 0)), 5, '+2 Attack');
 }
 
 // No legal target: can't be used, but can still be bought and stored.
@@ -280,7 +280,7 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
   }
   s = act(s, 'player', { type: 'playPokemon', uid: iron, zone: 1, space: 0 });
   const placed = at(s, 'player', 1, 0);
-  assert.deepEqual([placed.currentStrength, maxStrengthOf(placed)], [11, 11], 'Lairon 8 + 3, current and maximum');
+  assert.deepEqual([placed.currentStrength, maxStrengthOf(placed)], [13, 13], 'Lairon 10 + 3, current and maximum');
 }
 
 // Lost only when its Pokémon is Released: defeated, or paid as a Released Supporter cost.
@@ -311,19 +311,18 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
 // One Held Item per Pokémon: a new one sends the old one to the PokéMart.
 {
   let s = match();
-  s = play(s, 'player', 'geodude', 0, 0);            // 2/5
-  at(s, 'player', 0, 0).currentStrength = 7;
+  s = play(s, 'player', 'geodude', 0, 0);            // 3/7
   const shell = give(s, 'player', 'rocky-helmet');
   s.players.player.dollars = 10;
-  at(s, 'player', 0, 0).currentStrength = 5;
+  at(s, 'player', 0, 0).currentStrength = 7;
   s = bag(s, 'player', { mode: 'buyHand', uid: shell, then: 'use', target: pref('player', 0, 0) });
-  assert.deepEqual([at(s, 'player', 0, 0).currentStrength, maxStrengthOf(at(s, 'player', 0, 0))], [8, 8]);
+  assert.deepEqual([at(s, 'player', 0, 0).currentStrength, maxStrengthOf(at(s, 'player', 0, 0))], [10, 10]);
   const band = give(s, 'player', 'black-belt');
   s = bag(s, 'player', { mode: 'buyHand', uid: band, then: 'use', target: pref('player', 0, 0) });
   const geodude = at(s, 'player', 0, 0);
   assert.equal(geodude.heldItem.name, 'Black Belt');
-  assert.equal(attackOf(geodude), 4);
-  assert.deepEqual([geodude.currentStrength, maxStrengthOf(geodude)], [5, 5], 'Rocky Helmet gone: like losing a Passive');
+  assert.equal(attackOf(geodude), 5);
+  assert.deepEqual([geodude.currentStrength, maxStrengthOf(geodude)], [7, 7], 'Rocky Helmet gone: like losing a Passive');
   assert.ok(s.mart.deck.some((c) => c.uid === shell));
   assert.ok(logged(s, 'Rocky Helmet was replaced on your Geodude'));
 }
@@ -370,7 +369,7 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
   t.players.player.dollars = 2;
   t = bag(t, 'player', { mode: 'buyHand', uid: c2, then: 'use', target: pref('player', 0, 0) });
   ready(t, 'player', 0, 0);
-  t = play(t, 'ai', 'shinx', 1, 0);                 // Swift, Quick Attack, cost 1, Strength 2
+  t = play(t, 'ai', 'shinx', 1, 0);                 // Swift, Quick Attack, cost 1, Strength 4
   at(t, 'player', 0, 0).currentStrength = 9;
   t = act(t, 'ai', { type: 'command', from: { zone: 1, space: 0 }, target: { kind: 'pokemon', zone: 0, space: 0 } });
   assert.equal(t.players.ai.zones[1].pokemon[0], null);
@@ -402,7 +401,7 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
   s.players.player.dollars = 2;
   assert.deepEqual(itemTargets(s, 'player', s.players.player.hand.find((c) => c.uid === potion)), [pref('player', 0, 0)]);
   s = bag(s, 'player', { mode: 'buyHand', uid: potion, then: 'use', target: pref('player', 0, 0) });
-  assert.equal(at(s, 'player', 0, 0).currentStrength, 3, 'capped at 3');
+  assert.equal(at(s, 'player', 0, 0).currentStrength, 5, 'capped at its maximum of 5');
 }
 
 // Rose Incense (from the PokéMart): a Spent Pokémon becomes Active, and can be Alert.

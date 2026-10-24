@@ -18,8 +18,8 @@ for (const c of POKEMON_CARDS) {
   assert.ok(SPEED_TIERS.includes(c.speedTier), c.name);
   assert.ok(c.rarity in RARITIES, c.name);
   assert.ok(c.energyCost >= 1 && c.energyCost <= 6, `${c.name} cost`);
-  assert.ok(c.attackValue >= 1 && c.attackValue <= 6, `${c.name} attack`);
-  assert.ok(c.strengthValue >= 2 && c.strengthValue <= 10, `${c.name} strength`);
+  assert.ok(c.attackValue >= 2 && c.attackValue <= 7, `${c.name} attack`);
+  assert.ok(c.strengthValue >= 4 && c.strengthValue <= 12, `${c.name} strength`);
   assert.ok('image' in c);
   for (const field of ['effectTrigger', 'effectText', 'innatePower']) {
     assert.ok(c[field] === null || typeof c[field] === 'string', `${c.name} ${field}`);
@@ -83,8 +83,8 @@ const pass = (s) => applyAction(s, { type: 'pass', who: s.turn });
   const placed = s.players[me].zones[1].pokemon[2];
   assert.equal(placed.name, 'Growlithe');
   assert.equal(placed.spent, true, 'arrives Spent');
-  assert.equal(placed.currentStrength, 3);
-  assert.equal(placed.strengthValue, 3, 'printed value kept separately');
+  assert.equal(placed.currentStrength, 5);
+  assert.equal(placed.strengthValue, 5, 'printed value kept separately');
   assert.equal(s.players[me].baseEnergy, 0);
   assert.equal(s.players[me].exhaust.length, 0);
   assert.ok(!s.players[me].hand.some((c) => c.uid === ember), 'left the hand');

@@ -151,18 +151,19 @@ assert.ok(POKEMON_CARDS.filter((c) => c.innatePower === 'Agility').length >= 2);
 // 2 damage to every opponent Pokémon, Agility included; friendly ones untouched.
 {
   let s = match();
-  s = play(s, 'ai', 'geodude', 0, 0);                // 5 → 3
-  s = play(s, 'ai', 'pidgey', 1, 1);               // Agility, 3 → 1
-  s = play(s, 'ai', 'shinx', 2, 2);                 // 2 → defeated
+  s = play(s, 'ai', 'geodude', 0, 0);                // 7 → 5
+  s = play(s, 'ai', 'pidgey', 1, 1);               // Agility, 5 → 3
+  s = play(s, 'ai', 'shinx', 2, 2);
+  at(s, 'ai', 2, 2).currentStrength = 2;            // already damaged: 2 → defeated
   s = play(s, 'player', 'growlithe', 0, 0);
   const trainers = s.players.ai.zones.map((z) => z.trainer.strength);
   s.players.player.baseEnergy = 3;
   s = strategy(s, 'player', give(s, 'player', 'hypervoice'));
-  assert.equal(at(s, 'ai', 0, 0).currentStrength, 3);
-  assert.equal(at(s, 'ai', 1, 1).currentStrength, 1, 'area effects still hit Agility');
+  assert.equal(at(s, 'ai', 0, 0).currentStrength, 5);
+  assert.equal(at(s, 'ai', 1, 1).currentStrength, 3, 'area effects still hit Agility');
   assert.equal(at(s, 'ai', 2, 2), null);
   assert.equal(s.players.ai.released.at(-1).name, 'Shinx');
-  assert.equal(at(s, 'player', 0, 0).currentStrength, 3);
+  assert.equal(at(s, 'player', 0, 0).currentStrength, 5);
   assert.deepEqual(s.players.ai.zones.map((z) => z.trainer.strength), trainers, 'Trainers are not Pokémon');
   assert.equal(s.players.player.baseEnergy, 0);
   assert.ok(s.log.some((l) => l.includes("Your Hypervoice: 2 damage to AI Opponent's Pidgey")));
@@ -199,7 +200,7 @@ assert.ok(POKEMON_CARDS.filter((c) => c.innatePower === 'Agility').length >= 2);
 
   const second = give(s, 'player', 'recover');
   s = strategy(s, 'player', second, pref('player', 0, 0));
-  assert.equal(at(s, 'player', 0, 0).currentStrength, 8, 'capped at maximum');
+  assert.equal(at(s, 'player', 0, 0).currentStrength, 10, 'capped at maximum');
 
   let t = match();
   t.players.player.zones[2].trainer.strength = 13;
@@ -210,7 +211,7 @@ assert.ok(POKEMON_CARDS.filter((c) => c.innatePower === 'Agility').length >= 2);
   u = play(u, 'ai', 'geodude', 1, 0);
   at(u, 'ai', 1, 0).currentStrength = 1;
   u = strategy(u, 'player', give(u, 'player', 'recover'), pref('ai', 1, 0));
-  assert.equal(at(u, 'ai', 1, 0).currentStrength, 5, "can heal the opponent's Pokémon");
+  assert.equal(at(u, 'ai', 1, 0).currentStrength, 6, "can heal the opponent's Pokémon");
 }
 
 // Respects a buffed maximum.
@@ -220,7 +221,7 @@ assert.ok(POKEMON_CARDS.filter((c) => c.innatePower === 'Agility').length >= 2);
   at(s, 'player', 1, 0).currentStrength = 1;
   s = strategy(s, 'player', give(s, 'player', 'recover'), pref('player', 1, 0));
   assert.equal(at(s, 'player', 1, 0).currentStrength, 6);
-  assert.equal(maxStrengthOf(at(s, 'player', 1, 0)), 7);
+  assert.equal(maxStrengthOf(at(s, 'player', 1, 0)), 9);
 }
 
 // Unplayable with no legal target: nothing damaged, or only Agility Pokémon damaged.

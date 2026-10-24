@@ -342,7 +342,7 @@ A Pokémon ability is an **Effect Trigger Word** plus **Effect Text**. It fires 
 
 ## Open questions
 
-- **Stalled matches (more common since passing gives Energy):** the extra Base Energy from passing pays for more Recovers, so a lone attacker is out-healed more often: in 200 AI-vs-AI matches cut off at Round 60, 1 stalled before the change and 16 after. With the unmatched-speed rule (Step 14), 16 of 200 matches cut off at Round 100 stall, up from 13; in every one, one side has a single Pokémon left and the other heals with Recover about twice a Round. Healing (Recover) can keep up with the only damage left, so a match can go on forever while a Pokémon is still in play (about 1 in 30 AI-vs-AI matches before Supporters; none in the latest 60, as Released cards now thin decks out). Should there be a Round limit or a "no progress" draw? (For now the AI-vs-AI test stops matches at Round 100 and reports them as stalled.)
+- **Stalled matches (more common since passing gives Energy):** the extra Base Energy from passing pays for more Recovers, so a lone attacker is out-healed more often: in 200 AI-vs-AI matches cut off at Round 60, 1 stalled before the change and 16 after. With the unmatched-speed rule (Step 14), 16 of 200 matches cut off at Round 100 stall, up from 13; in every one, one side has a single Pokémon left and the other heals with Recover about twice a Round. After the stronger Pokémon (Step 15), players run out of Pokémon far less often and only 1 of 120 matches stalls (`node tools/balance.js`). Healing (Recover) can keep up with the only damage left, so a match can go on forever while a Pokémon is still in play (about 1 in 30 AI-vs-AI matches before Supporters; none in the latest 60, as Released cards now thin decks out). Should there be a Round limit or a "no progress" draw? (For now the AI-vs-AI test stops matches at Round 100 and reports them as stalled.)
 - **Quick Attack and Ash:** Ash's Power says the free summon "arrives Spent". The build lets Quick Attack win (the Pokémon arrives Active), because every summon follows the same rules. Is that right?
 - **Quest timing:** when a quest completes during an Action that also sets off abilities (e.g. a summon that triggers Brock), the build resolves the quest's effect first. Is that right?
 - Can a Command be anything other than an Attack?
@@ -355,8 +355,29 @@ A Pokémon ability is an **Effect Trigger Word** plus **Effect Text**. It fires 
 ## Placeholders in the current build
 
 - Decks are 16 Pokémon, 8 Strategy (3 Quickdraw, 3 Hypervoice, 2 Recover), 8 Item (2 Black Belt, 2 Rocky Helmet, 1 Oran Berry, 1 Amulet Coin, 1 Potion, 1 Miracle Seed; Rose Incense is PokéMart only), 4 Location (2 Cerulean Cape, 1 Floaroma Meadow, 1 Shalour City) and 4 Supporter (2 Tracey, 1 Professor Oak, 1 Mallow) cards. This mix is a stand-in, not a rule.
-- The 16 Pokémon are invented placeholders, one of each per deck, with the same list for both players. Stats: Energy Cost 1–6, Attack 1–6, Strength 2–10.
-- Card art comes from `assets/cards/<card id>.jpg` (the id is the card name in lowercase with hyphens, e.g. `professor-oak.jpg`). A card without a file shows a placeholder box, tinted by Pokémon Type or striped by Card-Type. The Trainers (ash.jpg, misty.jpg, brock.jpg) have no art yet.
+- The 16 Pokémon are invented placeholders, one of each per deck, with the same list for both players. Stats: Energy Cost 1–6, Attack 2–7, Strength 4–12.
+- **Balance (Step 15):** every placeholder Pokémon got +1 Attack and +2 Strength on its printed stats, because in AI-vs-AI testing players ran out of Pokémon too often while their Trainers still had most of their Strength. Energy Costs, abilities and everything else stayed the same. `node tools/balance.js` reports the effect of any balance change.
+
+| Pokémon | Cost | Type | Attack | Strength | Speed-Tier | Rarity |
+|---|---|---|---|---|---|---|
+| Growlithe | 1 | Fire | Physical 3 | Hitpoints 5 | Swift | Common |
+| Horsea | 1 | Water | Special 2 | Hitpoints 6 | Steady | Common |
+| Sewaddle | 1 | Grass | Physical 2 | Defence 6 | Slow | Common |
+| Shinx | 1 | Electric | Special 3 | Special Defence 4 | Swift | Common |
+| Geodude | 2 | Rock | Physical 3 | Defence 7 | Slow | Common |
+| Pidgey | 2 | Flying | Physical 4 | Hitpoints 5 | Swift | Uncommon |
+| Metapod | 2 | Bug | Special 3 | Special Defence 6 | Steady | Uncommon |
+| Goldeen | 3 | Water | Special 4 | Special Defence 7 | Steady | Uncommon |
+| Magmar | 3 | Fire | Physical 5 | Hitpoints 7 | Steady | Uncommon |
+| Quagsire | 3 | Water | Special 4 | Defence 8 | Slow | Rare |
+| Dusclops | 4 | Ghost | Special 5 | Special Defence 8 | Swift | Rare |
+| Lairon | 4 | Steel | Physical 4 | Defence 10 | Slow | Rare |
+| Sylveon | 5 | Fairy | Special 6 | Special Defence 9 | Steady | Epic |
+| Absol | 5 | Dark | Physical 6 | Hitpoints 9 | Swift | Epic |
+| Blaziken | 6 | Fire | Physical 7 | Defence 12 | Slow | Legendary |
+| Dragonite | 6 | Dragon | Special 7 | Hitpoints 11 | Steady | Legendary |
+
+- Card art comes from `assets/cards/<card id>.jpg` (the id is the card name in lowercase with hyphens, e.g. `professor-oak.jpg`). A card without a file shows a placeholder box, tinted by Pokémon Type or striped by Card-Type. The Trainers have art too (ash.jpg, misty.jpg, brock.jpg).
 - Fire Pokémon: Growlithe, plus Magmar and Blaziken (retyped from Fighting and Ground). Sylveon carries a Weather Token of 1 Sun; no other placeholder Pokémon has one.
 - Rain and Sun (section 1.6) are placeholder Weather types.
 - Location rarities are placeholders: Cerulean Cape Common, Floaroma Meadow and Shalour City Uncommon.

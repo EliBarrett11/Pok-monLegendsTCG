@@ -69,26 +69,26 @@ for (const [type, def] of Object.entries(WEATHER)) {
 
 {
   const s = match();
-  const pud = place(s, 'player', 2, 0, 'horsea');   // Water 1/4
-  const ember = place(s, 'player', 2, 1, 'growlithe'); // Fire 2/3
+  const pud = place(s, 'player', 2, 0, 'horsea');   // Water 2/6
+  const ember = place(s, 'player', 2, 1, 'growlithe'); // Fire 3/5
   weather(s, { Rain: 1 });
-  assert.deepEqual(stats(pud), [1, 4, 4], 'below 2: nothing');
+  assert.deepEqual(stats(pud), [2, 6, 6], 'below 2: nothing');
   weather(s, { Rain: 2 });
-  assert.deepEqual(stats(pud), [2, 4, 4], 'Rain 2: Water +1 Attack');
+  assert.deepEqual(stats(pud), [3, 6, 6], 'Rain 2: Water +1 Attack');
   assert.ok(logged(s, 'Weather: ☔ Rain 2 is now active (Rain 2). Water Pokémon gain +1 Attack.'));
   weather(s, { Rain: 4 });
-  assert.deepEqual(stats(pud), [2, 5, 5], 'Rain 4: +1/+1 instead, not +2 Attack');
-  assert.deepEqual(stats(ember), [2, 3, 3]);
+  assert.deepEqual(stats(pud), [3, 7, 7], 'Rain 4: +1/+1 instead, not +2 Attack');
+  assert.deepEqual(stats(ember), [3, 5, 5]);
   weather(s, { Rain: 6 });
-  assert.deepEqual(stats(ember), [1, 3, 3], 'Rain 6: also Fire −1 Attack');
-  assert.deepEqual(stats(pud), [2, 5, 5], 'the Rain 4 effect stays');
+  assert.deepEqual(stats(ember), [2, 5, 5], 'Rain 6: also Fire −1 Attack');
+  assert.deepEqual(stats(pud), [3, 7, 7], 'the Rain 4 effect stays');
   weather(s, { Rain: 3 });
-  assert.deepEqual(stats(pud), [2, 4, 4], 'back to Rain 2');
-  assert.deepEqual(stats(ember), [2, 3, 3]);
+  assert.deepEqual(stats(pud), [3, 6, 6], 'back to Rain 2');
+  assert.deepEqual(stats(ember), [3, 5, 5]);
   assert.ok(logged(s, 'Weather: ☔ Rain 4 has ended (Rain 3).'));
   assert.ok(logged(s, 'Weather: ☔ Rain 6 has ended (Rain 3).'));
   weather(s, { Rain: 0 });
-  assert.deepEqual(stats(pud), [1, 4, 4]);
+  assert.deepEqual(stats(pud), [2, 6, 6]);
   assert.deepEqual(weatherState(s).Rain.active, []);
 }
 
@@ -96,19 +96,19 @@ for (const [type, def] of Object.entries(WEATHER)) {
 
 {
   const s = match();
-  const ember = place(s, 'player', 0, 0, 'growlithe'); // Fire 2/3
-  const pud = place(s, 'ai', 1, 0, 'horsea');        // Water 1/4, opponent's side
+  const ember = place(s, 'player', 0, 0, 'growlithe'); // Fire 3/5
+  const pud = place(s, 'ai', 1, 0, 'horsea');        // Water 2/6, opponent's side
   const weak = place(s, 'ai', 1, 1, 'goldeen', { attackValue: 0 });   // Water with 0 Attack
   weather(s, { Sun: 2 });
-  assert.equal(attackOf(ember), 3, 'Sun 2: Fire +1 Attack');
+  assert.equal(attackOf(ember), 4, 'Sun 2: Fire +1 Attack');
   weather(s, { Sun: 4 });
-  assert.equal(attackOf(ember), 4, 'Sun 4: +2 instead, not +3');
+  assert.equal(attackOf(ember), 5, 'Sun 4: +2 instead, not +3');
   weather(s, { Sun: 6 });
-  assert.equal(attackOf(ember), 4);
-  assert.equal(attackOf(pud), 0, 'Sun 6: Water −1 Attack, on the opponent\'s side too');
+  assert.equal(attackOf(ember), 5);
+  assert.equal(attackOf(pud), 1, 'Sun 6: Water −1 Attack, on the opponent\'s side too');
   assert.equal(attackOf(weak), 0, 'Attack can\'t go below 0');
   weather(s, { Sun: 5 });
-  assert.equal(attackOf(pud), 1);
+  assert.equal(attackOf(pud), 2);
 }
 
 // --- Rain and Sun together, both sides ------------------------------------------
@@ -120,9 +120,9 @@ for (const [type, def] of Object.entries(WEATHER)) {
   const ember = place(s, 'ai', 0, 1, 'growlithe');
   weather(s, { Rain: 6, Sun: 6 });
   // Water: Rain 4 (+1/+1) and Sun 6 (−1 Attack). Fire: Sun 4 (+2) and Rain 6 (−1).
-  assert.deepEqual(stats(mine), [1, 5, 5]);
-  assert.deepEqual(stats(theirs), [1, 5, 5], 'Weather affects both sides');
-  assert.equal(attackOf(ember), 3);
+  assert.deepEqual(stats(mine), [2, 7, 7]);
+  assert.deepEqual(stats(theirs), [2, 7, 7], 'Weather affects both sides');
+  assert.equal(attackOf(ember), 4);
   const w = weatherState(s);
   assert.deepEqual(w.Rain.effective.map((b) => b.at), [4, 6]);
   assert.deepEqual(w.Sun.effective.map((b) => b.at), [4, 6]);
@@ -133,13 +133,13 @@ for (const [type, def] of Object.entries(WEATHER)) {
 {
   const s = match();
   const hurt = place(s, 'player', 0, 0, 'horsea');
-  const full = place(s, 'player', 0, 1, 'quagsire');  // Water 3/6
+  const full = place(s, 'player', 0, 1, 'quagsire');  // Water 4/8
   weather(s, { Rain: 4 });
-  assert.deepEqual(stats(full), [4, 7, 7], 'gaining Strength raises current and maximum');
+  assert.deepEqual(stats(full), [5, 9, 9], 'gaining Strength raises current and maximum');
   hurt.currentStrength = 1;
   weather(s, { Rain: 0 });
-  assert.deepEqual(stats(hurt), [1, 1, 4], 'current only drops if above the new maximum');
-  assert.deepEqual(stats(full), [3, 6, 6]);
+  assert.deepEqual(stats(hurt), [2, 1, 6], 'current only drops if above the new maximum');
+  assert.deepEqual(stats(full), [4, 8, 8]);
   assert.ok(s.players.player.zones[0].pokemon[0], 'not defeated');
 }
 
@@ -157,7 +157,7 @@ for (const [type, def] of Object.entries(WEATHER)) {
   weather(s, { Sun: 8 });
   s = nextRound(s);
   const p = s.players.player;
-  assert.equal(p.zones[0].pokemon[0].currentStrength, 3, 'Fire untouched');
+  assert.equal(p.zones[0].pokemon[0].currentStrength, 5, 'Fire untouched');
   assert.equal(p.zones[0].pokemon[1].currentStrength, frost.currentStrength - 1);
   assert.equal(s.players.ai.zones[1].pokemon[0], null, 'defeated by Weather');
   assert.equal(s.players.ai.released.at(-1).name, 'Horsea');
@@ -181,12 +181,12 @@ for (const [type, def] of Object.entries(WEATHER)) {
   const theirs = place(s, 'ai', 0, 0, 'quagsire');
   const ember = place(s, 'player', 0, 1, 'growlithe');
   weather(s, { Rain: 8 });                           // Water at Rain 4+: +1/+1
-  pud.currentStrength = 1;                           // 1/5
-  theirs.currentStrength = 6;                        // 6/7: capped at 7
+  pud.currentStrength = 1;                           // 1/7
+  theirs.currentStrength = 8;                        // 8/9: capped at 9
   ember.currentStrength = 1;
   s = nextRound(s);
   assert.equal(s.players.player.zones[0].pokemon[0].currentStrength, 3);
-  assert.equal(s.players.ai.zones[0].pokemon[0].currentStrength, 7, 'capped, opponent\'s side too');
+  assert.equal(s.players.ai.zones[0].pokemon[0].currentStrength, 9, 'capped, opponent\'s side too');
   assert.equal(s.players.player.zones[0].pokemon[1].currentStrength, 1, 'not Water');
   const rain = logIndex(s, 'Weather (☔ Rain 8): healed your Horsea');
   assert.ok(rain >= 0);
@@ -210,7 +210,7 @@ for (const [type, def] of Object.entries(WEATHER)) {
   act('ai', { type: 'playLocation', uid: give('ai', 'cerulean-cape'), zone: 0 });
   assert.equal(weatherState(s).Rain.count, 4);
   act('player', { type: 'playPokemon', uid: give('player', 'goldeen'), zone: 1, space: 0 });
-  assert.deepEqual(stats(s.players.player.zones[1].pokemon[0]), [4, 6, 6], 'summoned into Rain 4');
+  assert.deepEqual(stats(s.players.player.zones[1].pokemon[0]), [5, 8, 8], 'summoned into Rain 4');
 }
 
 console.log('All Weather tests passed.');

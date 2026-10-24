@@ -83,24 +83,25 @@ const EARLY_RISER = ability('On Breakfast', 'Gain 1 extra Base Energy this Round
   { op: 'gainEnergy', amount: 1 },
 ]);
 
-// PLACEHOLDER Pokémon: invented names and stats (Cost 1–6, Attack 1–6, Strength 2–10).
+// PLACEHOLDER Pokémon: invented stats (Cost 1–6, Attack 2–7, Strength 4–12). Step 15 raised every one
+// by +1 Attack and +2 Strength so Pokémon last longer.
 export const POKEMON_CARDS = [
-  pokemon('Growlithe',   1, 'Fire',     'Physical', 2, 'Hitpoints',       3,  'Swift',  'Common', SUMMON_STRIKE),
-  pokemon('Horsea',    1, 'Water',    'Special',  1, 'Hitpoints',       4,  'Steady', 'Common', LAST_GIFT),
-  pokemon('Sewaddle',   1, 'Grass',    'Physical', 1, 'Defence',         4,  'Slow',   'Common', COUNTER),
-  pokemon('Shinx',     1, 'Electric', 'Special',  2, 'Special Defence', 2,  'Swift',  'Common', QUICK_ATTACK),
-  pokemon('Geodude',    2, 'Rock',     'Physical', 2, 'Defence',         5,  'Slow',   'Common', COUNTER),
-  pokemon('Pidgey',   2, 'Flying',   'Physical', 3, 'Hitpoints',       3,  'Swift',  'Uncommon', { ...AGILITY, ...TRAINER_HUNTER }),
-  pokemon('Metapod',   2, 'Bug',      'Special',  2, 'Special Defence', 4,  'Steady', 'Uncommon', LAST_GIFT),
-  pokemon('Goldeen',   3, 'Water',    'Special',  3, 'Special Defence', 5,  'Steady', 'Uncommon', EARLY_RISER),
-  pokemon('Magmar',    3, 'Fire',     'Physical', 4, 'Hitpoints',       5,  'Steady', 'Uncommon', QUICK_ATTACK),
-  pokemon('Quagsire',    3, 'Water',    'Special',  3, 'Defence',         6,  'Slow',   'Rare', LAST_GIFT),
-  pokemon('Dusclops',   4, 'Ghost',    'Special',  4, 'Special Defence', 6,  'Swift',  'Rare', { ...AGILITY, ...SUMMON_STRIKE }),
-  pokemon('Lairon',   4, 'Steel',    'Physical', 3, 'Defence',         8,  'Slow',   'Rare', COUNTER),
-  pokemon('Sylveon',  5, 'Fairy',    'Special',  5, 'Special Defence', 7,  'Steady', 'Epic', { ...AGILITY, ...ONE_SUN, ...EARLY_RISER }),
-  pokemon('Absol',   5, 'Dark',     'Physical', 5, 'Hitpoints',       7,  'Swift',  'Epic', { ...QUICK_ATTACK, ...TRAINER_HUNTER }),
-  pokemon('Blaziken',   6, 'Fire',     'Physical', 6, 'Defence',         10, 'Slow',   'Legendary', SUMMON_STRIKE),
-  pokemon('Dragonite',   6, 'Dragon',   'Special',  6, 'Hitpoints',       9,  'Steady', 'Legendary'),
+  pokemon('Growlithe',   1, 'Fire',     'Physical', 3, 'Hitpoints',       5,  'Swift',  'Common', SUMMON_STRIKE),
+  pokemon('Horsea',    1, 'Water',    'Special',  2, 'Hitpoints',       6,  'Steady', 'Common', LAST_GIFT),
+  pokemon('Sewaddle',   1, 'Grass',    'Physical', 2, 'Defence',         6,  'Slow',   'Common', COUNTER),
+  pokemon('Shinx',     1, 'Electric', 'Special',  3, 'Special Defence', 4,  'Swift',  'Common', QUICK_ATTACK),
+  pokemon('Geodude',    2, 'Rock',     'Physical', 3, 'Defence',         7,  'Slow',   'Common', COUNTER),
+  pokemon('Pidgey',   2, 'Flying',   'Physical', 4, 'Hitpoints',       5,  'Swift',  'Uncommon', { ...AGILITY, ...TRAINER_HUNTER }),
+  pokemon('Metapod',   2, 'Bug',      'Special',  3, 'Special Defence', 6,  'Steady', 'Uncommon', LAST_GIFT),
+  pokemon('Goldeen',   3, 'Water',    'Special',  4, 'Special Defence', 7,  'Steady', 'Uncommon', EARLY_RISER),
+  pokemon('Magmar',    3, 'Fire',     'Physical', 5, 'Hitpoints',       7,  'Steady', 'Uncommon', QUICK_ATTACK),
+  pokemon('Quagsire',    3, 'Water',    'Special',  4, 'Defence',         8,  'Slow',   'Rare', LAST_GIFT),
+  pokemon('Dusclops',   4, 'Ghost',    'Special',  5, 'Special Defence', 8,  'Swift',  'Rare', { ...AGILITY, ...SUMMON_STRIKE }),
+  pokemon('Lairon',   4, 'Steel',    'Physical', 4, 'Defence',         10,  'Slow',   'Rare', COUNTER),
+  pokemon('Sylveon',  5, 'Fairy',    'Special',  6, 'Special Defence', 9,  'Steady', 'Epic', { ...AGILITY, ...ONE_SUN, ...EARLY_RISER }),
+  pokemon('Absol',   5, 'Dark',     'Physical', 6, 'Hitpoints',       9,  'Swift',  'Epic', { ...QUICK_ATTACK, ...TRAINER_HUNTER }),
+  pokemon('Blaziken',   6, 'Fire',     'Physical', 7, 'Defence',         12, 'Slow',   'Legendary', SUMMON_STRIKE),
+  pokemon('Dragonite',   6, 'Dragon',   'Special',  7, 'Hitpoints',       11,  'Steady', 'Legendary'),
 ];
 
 // --- Trainers ---------------------------------------------------------------

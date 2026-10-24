@@ -43,14 +43,15 @@ const tref = (owner, zone) => ({ kind: 'trainer', owner, zone });
 // Hypervoice: 2 damage to every opponent Pokémon, Agility ones included; defeats release.
 {
   const s = battle();
-  place(s, 'ai', 0, 0, 'growlithe');                        // 3 → 1
-  place(s, 'ai', 1, 1, 'shinx', { innatePower: 'Agility' }); // 2 → 0: defeated
+  place(s, 'ai', 0, 0, 'growlithe');                        // 5 → 3
+  place(s, 'ai', 1, 1, 'shinx', { innatePower: 'Agility' });
+  s.players.ai.zones[1].pokemon[1].currentStrength = 2;      // already damaged: 2 → 0, defeated
   place(s, 'player', 0, 0, 'growlithe');                    // friendly: untouched
   resolveEffects(s, strategyCtx('player'), HYPERVOICE.effects);
-  assert.equal(s.players.ai.zones[0].pokemon[0].currentStrength, 1);
+  assert.equal(s.players.ai.zones[0].pokemon[0].currentStrength, 3);
   assert.equal(s.players.ai.zones[1].pokemon[1], null, 'area effects still hit Agility');
   assert.equal(s.players.ai.released.at(-1).name, 'Shinx');
-  assert.equal(s.players.player.zones[0].pokemon[0].currentStrength, 3);
+  assert.equal(s.players.player.zones[0].pokemon[0].currentStrength, 5);
 }
 
 // Recover: any Pokémon or Trainer, never above maximum; Agility can't be chosen by a Strategy Card.
@@ -69,7 +70,7 @@ const tref = (owner, zone) => ({ kind: 'trainer', owner, zone });
   resolveEffects(s, strategyCtx('player', pref('player', 0, 0)), RECOVER.effects);
   assert.equal(hurt.currentStrength, 7);
   resolveEffects(s, strategyCtx('player', pref('player', 0, 0)), RECOVER.effects);
-  assert.equal(hurt.currentStrength, 8, 'capped at maximum Strength');
+  assert.equal(hurt.currentStrength, 10, 'capped at maximum Strength');
   resolveEffects(s, strategyCtx('player', tref('player', 1)), RECOVER.effects);
   assert.equal(s.players.player.zones[1].trainer.strength, 15, "capped at the Trainer's starting Strength");
   assert.throws(() => resolveEffects(s, strategyCtx('player', pref('ai', 0, 0)), RECOVER.effects), /legal target/);
@@ -81,8 +82,8 @@ const tref = (owner, zone) => ({ kind: 'trainer', owner, zone });
   const c = place(s, 'player', 0, 0, 'geodude', { strengthBonus: 2 });   // 5 + 2 = 7
   c.currentStrength = 1;
   resolveEffects(s, strategyCtx('player', pref('player', 0, 0)), [{ op: 'heal', amount: 10, target: RECOVER.effects[0].target }]);
-  assert.equal(c.currentStrength, 7);
-  assert.equal(maxStrengthOf(c), 7);
+  assert.equal(c.currentStrength, 9);
+  assert.equal(maxStrengthOf(c), 9);
 }
 
 // Strength-Type buffs: targeted ones only fit that Strength-Type; area ones skip others.
@@ -93,9 +94,9 @@ const tref = (owner, zone) => ({ kind: 'trainer', owner, zone });
   const buffDef = { op: 'buff', strength: 2, strengthType: 'Defence', target: { mode: 'targeted', side: 'friendly' } };
   assert.deepEqual(candidates(s, strategyCtx('player'), buffDef.target, buffDef), [pref('player', 0, 1)]);
   resolveEffects(s, strategyCtx('player'), [{ ...buffDef, target: { mode: 'area', side: 'friendly' } }]);
-  assert.equal(maxStrengthOf(def), 7);
-  assert.equal(maxStrengthOf(hp), 3, 'area version skips other Strength-Types');
-  assert.equal(def.currentStrength, 7, 'a Strength buff raises current Strength too');
+  assert.equal(maxStrengthOf(def), 9);
+  assert.equal(maxStrengthOf(hp), 5, 'area version skips other Strength-Types');
+  assert.equal(def.currentStrength, 9, 'a Strength buff raises current Strength too');
 }
 
 // A targeted effect with no legal target can't be used.
@@ -138,7 +139,7 @@ const tref = (owner, zone) => ({ kind: 'trainer', owner, zone });
   });
   place(t, 'ai', 1, 0, 'lairon');
   t = applyAction(t, { type: 'command', who: 'player', from: { zone: 0, space: 0 }, target: { kind: 'pokemon', zone: 1, space: 0 } });
-  assert.equal(t.players.ai.zones[1].pokemon[0].currentStrength, 8 - 2 - 1, 'attack damage plus On Attack');
+  assert.equal(t.players.ai.zones[1].pokemon[0].currentStrength, 10 - 3 - 1, 'attack damage plus On Attack');
 }
 
 console.log('All effect tests passed.');

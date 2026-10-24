@@ -225,8 +225,8 @@ assert.equal(PLACEHOLDER_DECKLIST['mallow'], 1);
 
 {
   let s = match();
-  s = play(s, 'player', 'growlithe', 0, 0);           // 2/3
-  s = play(s, 'player', 'geodude', 0, 2);            // 2/5
+  s = play(s, 'player', 'growlithe', 0, 0);           // 3/5
+  s = play(s, 'player', 'geodude', 0, 2);            // 3/7
   s = play(s, 'player', 'horsea', 2, 0);            // another zone
   s = play(s, 'ai', 'shinx', 0, 1);                 // enemy, same zone
   const coach = give(s, 'player', 'professor-oak');
@@ -234,17 +234,17 @@ assert.equal(PLACEHOLDER_DECKLIST['mallow'], 1);
   assert.deepEqual(supporterTargets(s, 'player', coach), [zoneRef(0), zoneRef(2)], 'only zones with a friendly Pokémon');
   assert.throws(() => support(s, 'player', coach, { release: [item], target: zoneRef(1) }), /legal target/);
   s = support(s, 'player', coach, { release: [item], target: zoneRef(0) });
-  assert.deepEqual(stats(at(s, 'player', 0, 0)), [3, 4, 4]);
-  assert.deepEqual(stats(at(s, 'player', 0, 2)), [3, 6, 6]);
-  assert.deepEqual(stats(at(s, 'player', 2, 0)), [1, 4, 4], 'other zone untouched');
-  assert.deepEqual(stats(at(s, 'ai', 0, 1)), [2, 2, 2], 'friendly only');
+  assert.deepEqual(stats(at(s, 'player', 0, 0)), [4, 6, 6]);
+  assert.deepEqual(stats(at(s, 'player', 0, 2)), [4, 8, 8]);
+  assert.deepEqual(stats(at(s, 'player', 2, 0)), [2, 6, 6], 'other zone untouched');
+  assert.deepEqual(stats(at(s, 'ai', 0, 1)), [3, 4, 4], 'friendly only');
   // Permanent, and only for Pokémon there when it resolved.
   s = play(s, 'player', 'sewaddle', 0, 1);
-  assert.deepEqual(stats(at(s, 'player', 0, 1)), [1, 4, 4]);
+  assert.deepEqual(stats(at(s, 'player', 0, 1)), [2, 6, 6]);
   s = applyAction(s, { type: 'pass', who: 'ai' });
   s = applyAction(s, { type: 'pass', who: 'player' });
   assert.equal(s.round, 2);
-  assert.deepEqual(stats(at(s, 'player', 0, 0)), [3, 4, 4], 'still there next Round');
+  assert.deepEqual(stats(at(s, 'player', 0, 0)), [4, 6, 6], 'still there next Round');
 }
 
 // Gift: releasing a Swift Pokémon makes it +2/+2. Unplayable with no friendly Pokémon.
@@ -253,10 +253,10 @@ assert.equal(PLACEHOLDER_DECKLIST['mallow'], 1);
   const coach = give(s, 'player', 'professor-oak');
   give(s, 'player', 'shinx');
   assert.ok(!playableSupporters(s, 'player').some((c) => c.uid === coach));
-  s = play(s, 'player', 'lairon', 1, 0);           // 3/8
+  s = play(s, 'player', 'lairon', 1, 0);           // 4/10
   const zap = s.players.player.hand.find((c) => c.id === 'shinx').uid;
   s = support(s, 'player', coach, { release: [zap], target: zoneRef(1) });
-  assert.deepEqual(stats(at(s, 'player', 1, 0)), [5, 10, 10]);
+  assert.deepEqual(stats(at(s, 'player', 1, 0)), [6, 12, 12]);
   assert.ok(s.log.some((l) => l.includes('Gift Challenge (a Swift-Tier Pokémon) met: +2/+2 instead.')));
   assert.equal(s.players.player.released.at(-1).name, 'Shinx');
 }
@@ -307,7 +307,7 @@ assert.equal(PLACEHOLDER_DECKLIST['mallow'], 1);
   s = support(s, 'player', medic, { discard: [item], release: [water], target: tref('player', 1) });
   assert.equal(trainer(s, 'player', 1).strength, 10);
   assert.equal(at(s, 'player', 1, 0).currentStrength, 5);
-  assert.equal(at(s, 'player', 1, 1).currentStrength, 5, 'capped at maximum');
+  assert.equal(at(s, 'player', 1, 1).currentStrength, 6, 'capped at maximum');
   assert.equal(at(s, 'player', 0, 0).currentStrength, 1, 'other zone untouched');
   assert.equal(at(s, 'ai', 1, 0).currentStrength, 1, 'friendly only');
   assert.ok(s.log.some((l) => l.includes('Gift Challenge (a Water Pokémon) met')));

@@ -117,42 +117,42 @@ const targetKeys = (s, who, from) => legalTargets(s, who, from).map(key).sort();
 // Alert vs Alert: both deal damage at once, both become Spent; excess is lost.
 {
   let s = battle();
-  place(s, 'player', 0, 0, 'absol');                      // Swift, Physical 5, HP 7
-  place(s, 'ai', 1, 2, 'pidgey');                          // Swift, Physical 3, HP 3
+  place(s, 'player', 0, 0, 'absol');                      // Swift, Physical 6, HP 9
+  place(s, 'ai', 1, 2, 'pidgey');                          // Swift, Physical 4, HP 5
   s = command(s, 'player', { zone: 0, space: 0 }, pk(1, 2));
-  assert.equal(at(s, 'player', 0, 0).currentStrength, 4, 'took 3 back');
+  assert.equal(at(s, 'player', 0, 0).currentStrength, 5, 'took 4 back');
   assert.equal(at(s, 'player', 0, 0).spent, true);
   assert.equal(at(s, 'ai', 1, 2), null, 'Pidgey defeated');
   assert.equal(s.players.ai.released.length, 1);
   assert.equal(s.players.ai.released[0].name, 'Pidgey');
   assert.ok(!s.players.ai.discard.some((c) => c.name === 'Pidgey'), 'not the Discard Pile');
-  assert.ok(s.log.some((l) => l.includes('Pidgey was Alert and hit back for 3')));
+  assert.ok(s.log.some((l) => l.includes('Pidgey was Alert and hit back for 4')));
   assert.ok(s.log.some((l) => l.includes('Pidgey was defeated')));
 }
 
 // Non-Alert target (Active but slower, or Spent): no damage back; it stays as it was.
 {
   let s = battle();
-  place(s, 'player', 0, 0, 'growlithe');                      // Swift, Physical 2
+  place(s, 'player', 0, 0, 'growlithe');                      // Swift, Physical 3
   place(s, 'ai', 0, 0, 'magmar');                           // Steady: Active, not Alert
   place(s, 'ai', 0, 1, 'absol', { spent: true });         // Swift but Spent
   s = command(s, 'player', { zone: 0, space: 0 }, pk(0, 0));
-  assert.equal(at(s, 'ai', 0, 0).currentStrength, 3);
+  assert.equal(at(s, 'ai', 0, 0).currentStrength, 4);
   assert.equal(at(s, 'ai', 0, 0).spent, false, 'only the attacker becomes Spent');
-  assert.equal(at(s, 'player', 0, 0).currentStrength, 3, 'no damage back');
+  assert.equal(at(s, 'player', 0, 0).currentStrength, 5, 'no damage back');
 
   let t = battle();
   place(t, 'player', 0, 0, 'growlithe');
   place(t, 'ai', 0, 1, 'absol', { spent: true });
   t = command(t, 'player', { zone: 0, space: 0 }, pk(0, 1));
-  assert.equal(at(t, 'ai', 0, 1).currentStrength, 5);
-  assert.equal(at(t, 'player', 0, 0).currentStrength, 3, 'a Spent target never hits back');
+  assert.equal(at(t, 'ai', 0, 1).currentStrength, 6);
+  assert.equal(at(t, 'player', 0, 0).currentStrength, 5, 'a Spent target never hits back');
 }
 
 // Double defeat in one trade.
 {
   let s = battle();
-  place(s, 'player', 2, 1, 'growlithe', { strength: 2 });   // Swift, Physical 2
+  place(s, 'player', 2, 1, 'growlithe', { strength: 2 });   // Swift, Physical 3
   place(s, 'ai', 0, 0, 'growlithe', { strength: 1 });
   s = command(s, 'player', { zone: 2, space: 1 }, pk(0, 0));
   assert.equal(at(s, 'player', 2, 1), null);
@@ -165,13 +165,13 @@ const targetKeys = (s, who, from) => legalTargets(s, who, from).map(key).sort();
 {
   let s = battle();
   place(s, 'player', 0, 0, 'growlithe');
-  place(s, 'ai', 0, 0, 'lairon');                          // Defence 8, Slow
+  place(s, 'ai', 0, 0, 'lairon');                          // Defence 10, Slow
   s = command(s, 'player', { zone: 0, space: 0 }, pk(0, 0));
   s = applyAction(s, { type: 'pass', who: 'ai' });
   s = applyAction(s, { type: 'pass', who: 'player' });
   s = applyAction(s, { type: 'pass', who: s.turn });
   assert.equal(s.round, 2);
-  assert.equal(at(s, 'ai', 0, 0).currentStrength, 6);
+  assert.equal(at(s, 'ai', 0, 0).currentStrength, 7);
 }
 
 // The Released Pile is never shuffled back into the Draw Pile.
@@ -198,7 +198,7 @@ const targetKeys = (s, who, from) => legalTargets(s, who, from).map(key).sort();
 // Trainer Strength stops at 0; the win triggers on the third Trainer reaching 0.
 {
   let s = battle();
-  place(s, 'player', 0, 0, 'magmar');                       // Physical 4
+  place(s, 'player', 0, 0, 'magmar');                       // Physical 5
   const enemyTrainers = s.players.ai.zones.map((z) => z.trainer);
   enemyTrainers[0].strength = 0;
   enemyTrainers[1].strength = 3;
@@ -216,7 +216,7 @@ const targetKeys = (s, who, from) => legalTargets(s, who, from).map(key).sort();
   place(s, 'player', 0, 0, 'magmar');
   s.players.ai.zones[0].trainer.strength = 0;
   s = command(s, 'player', { zone: 0, space: 0 }, tr(1));
-  assert.equal(s.players.ai.zones[1].trainer.strength, 11);
+  assert.equal(s.players.ai.zones[1].trainer.strength, 10);
   assert.equal(s.phase, 'battle', 'two Trainers still standing');
 }
 

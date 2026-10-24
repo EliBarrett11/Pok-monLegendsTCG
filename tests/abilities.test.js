@@ -101,7 +101,7 @@ const abilityOf = (id) => POKEMON_CARDS.find((c) => c.id === id).ability;
   assert.throws(() => applyAction(s, { type: 'resolveChoice', who: 'player', target: pref('ai', 1, 0) }), /legal target/);
   assert.throws(() => applyAction(s, { type: 'resolveChoice', who: 'player' }), /legal target/, 'must pick one');
   s = applyAction(s, { type: 'resolveChoice', who: 'player', target: pref('ai', 0, 1) });
-  assert.equal(at(s, 'ai', 0, 1).currentStrength, 3);
+  assert.equal(at(s, 'ai', 0, 1).currentStrength, 5);
   assert.equal(s.turn, 'ai');
   assert.ok(s.log.some((l) => l.includes("Your Growlithe's On Summon: 1 damage to AI Opponent's Metapod")));
 }
@@ -127,7 +127,7 @@ const abilityOf = (id) => POKEMON_CARDS.find((c) => c.id === id).ability;
   s = applyAction(s, { type: 'resolveChoice', who: 'player', zone: 2, space: 2 });
   assert.equal(s.pending.kind, 'target', 'On Summon asks next');
   s = applyAction(s, { type: 'resolveChoice', who: 'player', target: pref('ai', 2, 0) });
-  assert.equal(at(s, 'ai', 2, 0).currentStrength, 4);
+  assert.equal(at(s, 'ai', 2, 0).currentStrength, 6);
   assert.equal(s.turn, 'ai');
 }
 
@@ -138,7 +138,7 @@ const abilityOf = (id) => POKEMON_CARDS.find((c) => c.id === id).ability;
   s = play(s, 'player', 'shinx', 0, 1, { effectTrigger: 'On Summon', ability: abilityOf('growlithe') });
   assert.equal(at(s, 'player', 0, 1).spent, false);
   s = applyAction(s, { type: 'resolveChoice', who: 'player', target: pref('ai', 0, 0) });
-  assert.equal(at(s, 'ai', 0, 0).currentStrength, 4);
+  assert.equal(at(s, 'ai', 0, 0).currentStrength, 6);
 }
 
 // The AI picks a random legal target.
@@ -182,12 +182,12 @@ const abilityOf = (id) => POKEMON_CARDS.find((c) => c.id === id).ability;
 // On Defend: the attacker takes 1. It doesn't fire for effect damage.
 {
   let s = match();
-  s = play(s, 'ai', 'lairon', 1, 0);               // Defence 8, Slow
-  s = play(s, 'player', 'growlithe', 0, 0);           // Swift, 2/3
+  s = play(s, 'ai', 'lairon', 1, 0);               // Defence 10, Slow
+  s = play(s, 'player', 'growlithe', 0, 0);           // Swift, 3/5
   ready(s, 'player', 0, 0);
   s = command(s, 'player', { zone: 0, space: 0 }, { kind: 'pokemon', zone: 1, space: 0 });
-  assert.equal(at(s, 'ai', 1, 0).currentStrength, 6);
-  assert.equal(at(s, 'player', 0, 0).currentStrength, 2, 'Lairon was not Alert, but On Defend still hits back for 1');
+  assert.equal(at(s, 'ai', 1, 0).currentStrength, 7);
+  assert.equal(at(s, 'player', 0, 0).currentStrength, 4, 'Lairon was not Alert, but On Defend still hits back for 1');
   assert.ok(s.log.some((l) => l.includes("AI Opponent's Lairon's On Defend: 1 damage to your Growlithe")));
 
   let t = match();
@@ -199,7 +199,7 @@ const abilityOf = (id) => POKEMON_CARDS.find((c) => c.id === id).ability;
   t.turn = 'player';
   t.players.player.baseEnergy = 10;
   t = applyAction(t, { type: 'playStrategy', who: 'player', uid: t.players.player.hand.at(-1).uid });
-  assert.equal(at(t, 'ai', 1, 0).currentStrength, 5);
+  assert.equal(at(t, 'ai', 1, 0).currentStrength, 7);
   assert.ok(!t.log.some((l) => l.includes('On Defend')), 'effect damage never triggers On Defend');
 }
 
@@ -208,7 +208,7 @@ const abilityOf = (id) => POKEMON_CARDS.find((c) => c.id === id).ability;
 {
   for (const initiative of ['player', 'ai']) {
     let s = match({ initiative });
-    s = play(s, 'ai', 'lairon', 1, 0);             // Slow, Physical 3, Defence 8, On Defend
+    s = play(s, 'ai', 'lairon', 1, 0);             // Slow, Physical 4, Defence 10, On Defend
     const onAttackDraw = { on: 'attack', match: { self: true }, effects: [{ op: 'draw', amount: 1 }] };
     s = play(s, 'player', 'blaziken', 0, 0, { effectTrigger: 'On Attack', ability: onAttackDraw, effectText: 'Draw 1.' });
     if (s.pending) s = applyAction(s, { type: 'resolveChoice', who: 'player', target: s.pending.options[0] });
@@ -216,8 +216,8 @@ const abilityOf = (id) => POKEMON_CARDS.find((c) => c.id === id).ability;
     ready(s, 'ai', 1, 0);                            // both Slow and Active: both Alert
     const hand = s.players.player.hand.length;
     s = command(s, 'player', { zone: 0, space: 0 }, { kind: 'pokemon', zone: 1, space: 0 });
-    assert.equal(at(s, 'ai', 1, 0).currentStrength, 2, 'took 6');
-    assert.equal(at(s, 'player', 0, 0).currentStrength, 10 - 3 - 1, 'hit back for 3, then On Defend for 1');
+    assert.equal(at(s, 'ai', 1, 0).currentStrength, 10 - 7, 'took 7');
+    assert.equal(at(s, 'player', 0, 0).currentStrength, 12 - 4 - 1, 'hit back for 4, then On Defend for 1');
     assert.equal(s.players.player.hand.length, hand + 1, 'On Attack drew');
     const attackAt = logIndex(s, "Your Blaziken's On Attack");
     const defendAt = logIndex(s, "AI Opponent's Lairon's On Defend");
@@ -229,7 +229,7 @@ const abilityOf = (id) => POKEMON_CARDS.find((c) => c.id === id).ability;
 // A Pokémon defeated in the trade fires neither.
 {
   let s = match();
-  s = play(s, 'ai', 'geodude', 1, 0);                // Defence 5, On Defend
+  s = play(s, 'ai', 'geodude', 1, 0);                // Defence 7, On Defend
   s = play(s, 'player', 'blaziken', 0, 0);           // 6 damage: Geodude is defeated
   if (s.pending) s = applyAction(s, { type: 'resolveChoice', who: 'player', target: s.pending.options[0] });
   ready(s, 'player', 0, 0);
@@ -343,7 +343,7 @@ const abilityOf = (id) => POKEMON_CARDS.find((c) => c.id === id).ability;
   assert.ok(strike >= 0 && heal >= 0 && brock >= 0);
   assert.ok(strike < heal && heal < brock, 'On Defeated jumps ahead of the waiting Passive');
   assert.equal(trainer(s, 'ai', 2).strength, 13);
-  assert.equal(at(s, 'player', 2, 1).currentStrength, 2);
+  assert.equal(at(s, 'player', 2, 1).currentStrength, 4);
 }
 
 // A win ends everything at once.
