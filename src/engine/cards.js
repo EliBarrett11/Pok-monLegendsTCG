@@ -1,6 +1,6 @@
 // Builds decks and Trainers from the card definitions in cardData.js.
 
-import { POKEMON_CARDS, OTHER_CARDS, PLACEHOLDER_DECKLIST } from './cardData.js';
+import { POKEMON_CARDS, OTHER_CARDS, PLACEHOLDER_DECKLIST, TRAINER_CARDS } from './cardData.js';
 
 export const CARD_TYPES = ['Pokémon', 'Strategy', 'Item', 'Location', 'Supporter'];
 
@@ -26,14 +26,13 @@ export function buildDeck(owner, decklist = PLACEHOLDER_DECKLIST) {
   return cards;
 }
 
-// Placeholder until real Trainer cards arrive.
-export const PLACEHOLDER_TRAINER_STRENGTH = 15;
-
-export function placeholderTrainers(owner) {
-  return ['A', 'B', 'C'].map((letter) => ({
-    uid: `${owner}-trainer-${letter}`,
-    name: `Trainer ${letter}`,
-    cardType: 'Trainer',
-    strength: PLACEHOLDER_TRAINER_STRENGTH,
+// Each player's 3 Trainers, as copies of the Trainer definitions.
+// maxStrength is the starting Strength, the cap for healing.
+export function buildTrainers(owner) {
+  return TRAINER_CARDS.map((def) => ({
+    ...structuredClone(def),
+    uid: `${owner}-trainer-${def.id}`,
+    maxStrength: def.strength,
+    powerUsedRound: null,
   }));
 }

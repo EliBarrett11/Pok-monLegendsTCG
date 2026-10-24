@@ -227,7 +227,30 @@ button.secondary { background: var(--panel-2); color: var(--text); margin-top: 0
 }
 .attack-target { cursor: crosshair; border: 2px solid #e0574f !important; background: #3a2226 !important; }
 .attack-target:hover { background: #55282d !important; }
-.trainer-space.down .card { opacity: 0.45; text-decoration: line-through; }
+.trainer-space.down .card { opacity: 0.45; }
+.trainer-space.down .card-name { text-decoration: line-through; }
+
+/* Trainer cards: Strength, Power and Passive */
+.card.trainer { width: 100%; max-width: 300px; min-height: 0; border-top-color: var(--trainer); gap: 0.2rem; }
+.trainer-strength { color: var(--accent); font-weight: 700; font-size: 0.72rem; white-space: nowrap; }
+.card.trainer .card-line { font-size: 0.66rem; color: var(--muted); }
+.card.trainer .card-line b { color: var(--text); }
+.power-line.used { opacity: 0.55; }
+.power-line i { color: var(--accent); font-style: normal; font-weight: 600; }
+.trainer-space { padding: 4px; }
+.trainer-space .card.trainer.selectable { box-shadow: 0 0 0 1px var(--select); }
+.trainer-space .card.trainer.selected { transform: none; }
+.tray .card.trainer { width: 240px; }
+
+/* Power targets on your own side (e.g. Brock's buff) */
+.power-target { cursor: pointer; border: 2px solid var(--select) !important; background: #1f3a33 !important; }
+
+/* Stats raised above printed values */
+.stats b.buffed { color: var(--select); }
+
+/* A zone that has fallen on one side */
+.zone.fallen { border-color: #6b2f33; background: repeating-linear-gradient(135deg, #1c2230, #1c2230 8px, #221a20 8px, #221a20 16px); }
+.zone.fallen .zone-label { color: #e0574f; font-weight: 600; }
 
 /* Victory / defeat screen */
 .game-over {

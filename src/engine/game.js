@@ -5,11 +5,18 @@
 // state and never edits the old one.
 
 import { shuffle, nextRandom } from './random.js';
-import { buildDeck, placeholderTrainers } from './cards.js';
+import { buildDeck, buildTrainers } from './cards.js';
 import { SPEED_TIERS } from './cardData.js';
 import { newEnergy, refreshEnergy, canPay, payCost, splitCost } from './energy.js';
+import {
+  PLAYERS, opponentOf, log, whose, draw, arenaPokemon, cardAt, emptySpaces, summonSpaces, isFallen,
+  attackOf, damage, describeRef,
+} from './board.js';
+import { summon, candidates, canResolve, targetedEffect, resolveEffects, refreshAuras, settle, fireTriggers } from './effects.js';
 
-export const PLAYERS = ['player', 'ai'];
+export { PLAYERS, opponentOf, emptySpaces, summonSpaces, isFallen, attackOf };
+export { maxStrengthOf } from './board.js';
+
 export const ZONES = 3;
 export const SPACES_PER_ZONE = 3;
 export const HAND_SIZE = 7;
@@ -21,10 +28,9 @@ export const HAND_SIZE = 7;
 //   battle     - alternating turns of 1 Action each, until both pass in a row
 //   supper     - simultaneous: discard hands, then the next Round begins
 //   gameOver   - a player has won, or the match is a draw (winner stays null)
-
-export function opponentOf(who) {
-  return who === 'player' ? 'ai' : 'player';
-}
+//
+// state.pending holds a choice the player must make mid-Action (e.g. Ash's
+// free summon). While it is set, that player's only Action is resolveChoice.
 
 function newPlayer(name, owner, state) {
   return {
@@ -33,7 +39,7 @@ function newPlayer(name, owner, state) {
     hand: [],
     discard: [],
     released: [],        // defeated Pokémon; never shuffled back
-    trainers: placeholderTrainers(owner),
+    trainers: buildTrainers(owner),
     // The Battle Arena row: 3 zones, each with 1 Trainer Space and 3 Pokémon Spaces.
     zones: Array.from({ length: ZONES }, () => ({
       trainer: null,
@@ -54,6 +60,7 @@ export function createGame(seed = Date.now()) {
     initiative: null,
     turn: null,          // whose Battle turn it is
     passesInARow: 0,     // Battle ends at 2
+    pending: null,       // a mid-Action choice
     winner: null,
     log: [],
   };
@@ -64,34 +71,6 @@ export function createGame(seed = Date.now()) {
   log(state, 'The Battle Arena is laid out: 3 zones per side, each with a Trainer Space and 3 Pokémon Spaces.');
   log(state, 'Both players choose which Trainer takes each zone.');
   return state;
-}
-
-// "Your" / "AI Opponent's" (or lower-case "your" mid-sentence).
-function whose(state, who, capital = true) {
-  if (who === 'player') return capital ? 'Your' : 'your';
-  return `${state.players[who].name}'s`;
-}
-
-function log(state, message) {
-  state.log.push(message);
-}
-
-// Draws one card at a time. An empty Draw Pile is replaced by the shuffled
-// Discard Pile; if both are empty, drawing stops.
-function draw(state, who, count) {
-  const p = state.players[who];
-  let drawn = 0;
-  for (let i = 0; i < count; i++) {
-    if (!p.drawPile.length) {
-      if (!p.discard.length) break;
-      p.drawPile = shuffle(state, p.discard);
-      p.discard = [];
-      log(state, `${p.name} shuffled ${who === 'player' ? 'your' : 'their'} Discard Pile to form a new Draw Pile.`);
-    }
-    p.hand.push(p.drawPile.shift());
-    drawn++;
-  }
-  return drawn;
 }
 
 // A player wins immediately when all 3 enemy Trainers are at 0 Strength.
@@ -112,15 +91,28 @@ export function isStuck(state) {
 
 // --- Questions the UI and AI ask ------------------------------------------
 
-// Every Pokémon in the arena, as { who, zone, space, card }.
-function arenaPokemon(state) {
-  const all = [];
-  for (const who of PLAYERS) {
-    state.players[who].zones.forEach((z, zone) => z.pokemon.forEach((card, space) => {
-      if (card) all.push({ who, zone, space, card });
-    }));
-  }
-  return all;
+// Pokémon in hand this player could play right now (affordable, with room).
+export function playablePokemon(state, who) {
+  const p = state.players[who];
+  if (!summonSpaces(state, who).length) return [];
+  return p.hand.filter((c) => c.cardType === 'Pokémon' && canPay(p, c.energyCost));
+}
+
+// How paying a cost would split: { fromBase, fromExert }. For a card in hand
+// pass its uid; for a Trainer Power pass { power: zone }.
+export function costPreview(state, who, what) {
+  const p = state.players[who];
+  const cost = typeof what === 'object'
+    ? p.zones[what.power].trainer.power.cost
+    : p.hand.find((h) => h.uid === what).energyCost;
+  return splitCost(p, cost);
+}
+
+function describePayment({ fromBase, fromExert }) {
+  const parts = [];
+  if (fromBase || !fromExert) parts.push(`${fromBase} Base Energy`);
+  if (fromExert) parts.push(`${fromExert} Exert`);
+  return parts.join(' + ');
 }
 
 // The highest Speed-Tier among all Active Pokémon in the arena, both sides.
@@ -140,12 +132,12 @@ export function isAlert(state, card) {
 // This player's Alert Pokémon, as { zone, space, card }.
 export function alertPokemon(state, who) {
   return arenaPokemon(state)
-    .filter((x) => x.who === who && isAlert(state, x.card))
-    .map(({ zone, space, card }) => ({ zone, space, card }));
+    .filter(({ ref, card }) => ref.owner === who && isAlert(state, card))
+    .map(({ ref, card }) => ({ zone: ref.zone, space: ref.space, card }));
 }
 
-// Legal targets for the Pokémon at `from` = { zone, space }, as
-// { kind: 'pokemon', zone, space } or { kind: 'trainer', zone }.
+// Legal attack targets for the Pokémon at `from` = { zone, space }, as
+// { kind: 'pokemon', zone, space } or { kind: 'trainer', zone } on the enemy side.
 // Physical attackers must target a Defence Pokémon if the opponent has any;
 // Special attackers must target a Special Defence Pokémon if there is any.
 export function legalTargets(state, who, from) {
@@ -170,34 +162,38 @@ function canCommand(state, who) {
   return alertPokemon(state, who).some((a) => legalTargets(state, who, a).length);
 }
 
-// Empty Pokémon Spaces on this player's side, as { zone, space }.
-export function emptySpaces(state, who) {
-  const spaces = [];
-  state.players[who].zones.forEach((z, zone) => z.pokemon.forEach((c, space) => {
-    if (!c) spaces.push({ zone, space });
-  }));
-  return spaces;
+// The context a Trainer's Power resolves in.
+function powerCtx(state, who, zone, target) {
+  const trainer = state.players[who].zones[zone].trainer;
+  return {
+    who,
+    source: { kind: 'trainer', owner: who, zone, uid: trainer.uid, name: trainer.name },
+    label: `${whose(state, who)} ${trainer.name}'s Power`,
+    target,
+  };
 }
 
-// Pokémon in hand this player could play right now (affordable, with room).
-export function playablePokemon(state, who) {
+// Whether this player's Trainer in `zone` can use its Power now: still in
+// play, not used this Round, affordable, and with a legal target.
+export function canUsePower(state, who, zone) {
   const p = state.players[who];
-  if (!emptySpaces(state, who).length) return [];
-  return p.hand.filter((c) => c.cardType === 'Pokémon' && canPay(p, c.energyCost));
+  const trainer = p.zones[zone]?.trainer;
+  if (!trainer?.power || trainer.strength <= 0) return false;
+  if (trainer.powerUsedRound === state.round) return false;
+  if (!canPay(p, trainer.power.cost)) return false;
+  return canResolve(state, powerCtx(state, who, zone), trainer.power.effects);
 }
 
-// How playing this card would be paid: { fromBase, fromExert }.
-export function costPreview(state, who, uid) {
-  const p = state.players[who];
-  const c = p.hand.find((h) => h.uid === uid);
-  return splitCost(p, c.energyCost);
+// Legal targets for a Power, as refs ({ kind, owner, zone, space? }).
+// Empty for a Power that needs no target.
+export function powerTargets(state, who, zone) {
+  const trainer = state.players[who].zones[zone].trainer;
+  const e = targetedEffect(trainer.power.effects);
+  return e ? candidates(state, powerCtx(state, who, zone), e.target, e) : [];
 }
 
-function describePayment({ fromBase, fromExert }) {
-  const parts = [];
-  if (fromBase || !fromExert) parts.push(`${fromBase} Base Energy`);
-  if (fromExert) parts.push(`${fromExert} Exert`);
-  return parts.join(' + ');
+export function usablePowers(state, who) {
+  return [0, 1, 2].filter((zone) => canUsePower(state, who, zone));
 }
 
 // --- Actions -------------------------------------------------------------
@@ -212,11 +208,13 @@ export function legalActions(state, who) {
     case 'breakfast':
       return state.round === 1 && !p.pending ? ['mulligan'] : [];
     case 'battle':
+      if (state.pending) return state.pending.who === who ? ['resolveChoice'] : [];
       if (state.turn !== who) return [];
       return [
         'pass',
         ...(playablePokemon(state, who).length ? ['playPokemon'] : []),
         ...(canCommand(state, who) ? ['command'] : []),
+        ...(usablePowers(state, who).length ? ['usePower'] : []),
       ];
     default:
       return [];
@@ -232,6 +230,7 @@ export function applyAction(prev, action) {
   }
   handler(state, action);
   if (state.phase === 'gameOver') return state;
+  refreshAuras(state);
   const won = winner(state);
   if (won) {
     endMatch(state, won);
@@ -247,6 +246,7 @@ function endMatch(state, won) {
   state.phase = 'gameOver';
   state.winner = won;
   state.turn = null;
+  state.pending = null;
 }
 
 const HANDLERS = {
@@ -278,17 +278,18 @@ const HANDLERS = {
   },
 
   // Battle Action: play a Pokémon from hand into an empty Pokémon Space on
-  // your side, paying its Energy Cost. It arrives Spent.
+  // your side (not in a fallen zone), paying its Energy Cost.
   playPokemon(state, { who, uid, zone, space }) {
     const p = state.players[who];
     const c = p.hand.find((h) => h.uid === uid);
     if (!c || c.cardType !== 'Pokémon') throw new Error('Choose a Pokémon from your hand');
     if (p.zones[zone]?.pokemon[space] !== null) throw new Error('Choose an empty Pokémon Space');
+    if (isFallen(state, who, zone)) throw new Error(`Zone ${zone + 1} has fallen on this side; no new Pokémon can go there`);
     if (!canPay(p, c.energyCost)) throw new Error(`Not enough Energy to play ${c.name}`);
     const paid = payCost(p, c.energyCost, state.round);
-    p.hand = p.hand.filter((h) => h !== c);
-    p.zones[zone].pokemon[space] = { ...c, currentStrength: c.strengthValue, spent: true };
     log(state, `${p.name} played ${c.name} into Zone ${zone + 1}, Space ${space + 1}, paying ${describePayment(paid)}.`);
+    summon(state, who, c, zone, space);
+    settle(state);
     endTurn(state, who, false);
   },
 
@@ -296,32 +297,74 @@ const HANDLERS = {
   // from = { zone, space } on your side; target from legalTargets().
   command(state, { who, from, target }) {
     const p = state.players[who];
-    const enemy = state.players[opponentOf(who)];
+    const foe = opponentOf(who);
     const attacker = p.zones[from?.zone]?.pokemon[from?.space];
     if (!attacker || !isAlert(state, attacker)) throw new Error('Choose one of your Alert Pokémon');
     const legal = legalTargets(state, who, from).some((t) =>
       t.kind === target?.kind && t.zone === target.zone && (t.kind === 'trainer' || t.space === target.space));
     if (!legal) throw new Error('That is not a legal target');
 
-    const where = (zone, space) => `Zone ${zone + 1}${space === undefined ? '' : `, Space ${space + 1}`}`;
+    const attackerRef = { kind: 'pokemon', owner: who, ...from };
+    const targetRef = { ...target, owner: foe };
+    const name = `${whose(state, who)} ${attacker.name}`;
+    const power = attackOf(attacker);
     if (target.kind === 'trainer') {
-      const trainer = enemy.zones[target.zone].trainer;
-      const before = trainer.strength;
-      trainer.strength = Math.max(0, before - attacker.attackValue);
+      const before = cardAt(state, targetRef).strength;
+      log(state, `${name} attacked ${describeRef(state, targetRef)} for ${power}. Strength ${before} → ${Math.max(0, before - power)}.`);
+      damage(state, targetRef, power);
       attacker.spent = true;
-      log(state, `${whose(state, who)} ${attacker.name} attacked ${whose(state, opponentOf(who), false)} ${trainer.name} (${where(target.zone)}) for ${attacker.attackValue}. ${trainer.name}: ${before} → ${trainer.strength} Strength.`);
     } else {
-      const defender = enemy.zones[target.zone].pokemon[target.space];
+      const defender = cardAt(state, targetRef);
+      const what = describeRef(state, targetRef);
       const trades = isAlert(state, defender);   // decided before anyone becomes Spent
-      defender.currentStrength -= attacker.attackValue;
-      if (trades) attacker.currentStrength -= defender.attackValue;
+      const back = attackOf(defender);
+      damage(state, targetRef, power);
+      if (trades) damage(state, attackerRef, back);
       attacker.spent = true;
       if (trades) defender.spent = true;
-      log(state, `${whose(state, who)} ${attacker.name} attacked ${whose(state, opponentOf(who), false)} ${defender.name} (${where(target.zone, target.space)}) for ${attacker.attackValue}`
-        + (trades ? `; ${defender.name} was Alert and hit back for ${defender.attackValue}.` : '.'));
-      releaseDefeated(state);
+      log(state, `${name} attacked ${what} for ${power}`
+        + (trades ? `; ${defender.name} was Alert and hit back for ${back}.` : '.'));
     }
+    fireTriggers(state, { type: 'attack', ref: attackerRef, card: attacker, target: targetRef });
+    settle(state);
     endTurn(state, who, false);
+  },
+
+  // Battle Action: use a Trainer's Power, once per Round, paying its cost.
+  // target: a ref from powerTargets(), for a Power that needs one.
+  usePower(state, { who, zone, target }) {
+    if (!canUsePower(state, who, zone)) throw new Error('That Power cannot be used now');
+    const p = state.players[who];
+    const trainer = p.zones[zone].trainer;
+    const ctx = powerCtx(state, who, zone, target);
+    if (targetedEffect(trainer.power.effects) && !powerTargets(state, who, zone).some((r) =>
+      r.kind === target?.kind && r.owner === target.owner && r.zone === target.zone && r.space === target.space)) {
+      throw new Error('That is not a legal target');
+    }
+    const paid = payCost(p, trainer.power.cost, state.round);
+    trainer.powerUsedRound = state.round;
+    log(state, `${ctx.label} (${trainer.power.text}) Paid ${describePayment(paid)}.`);
+    if (!resolveEffects(state, ctx, trainer.power.effects, 'endTurn')) endTurn(state, who, false);
+  },
+
+  // Answers state.pending. For a free summon: { zone, space } to summon, or
+  // no zone to keep the card in hand.
+  resolveChoice(state, { who, zone, space }) {
+    const pending = state.pending;
+    const p = state.players[who];
+    if (pending.kind === 'freeSummon') {
+      const card = p.hand.find((c) => c.uid === pending.uid);
+      if (zone === undefined || zone === null) {
+        log(state, `${pending.ctx.label}: ${state.players[who].name} kept ${card.name} in hand.`);
+      } else {
+        summon(state, who, card, zone, space);
+        log(state, `${pending.ctx.label}: ${card.name} was summoned for free into Zone ${zone + 1}, Space ${space + 1}.`);
+        settle(state);
+      }
+    }
+    state.pending = null;
+    const next = resolveEffects(state, pending.ctx, pending.rest, pending.then);
+    if (!next && pending.then === 'endTurn') endTurn(state, who, false);
   },
 
   // A Battle turn's Action. The Phase ends when both players pass in a row.
@@ -330,17 +373,6 @@ const HANDLERS = {
     endTurn(state, who, true);
   },
 };
-
-// Pokémon at 0 Strength or less go to their owner's Released Pile.
-function releaseDefeated(state) {
-  for (const { who, zone, space, card } of arenaPokemon(state)) {
-    if (card.currentStrength > 0) continue;
-    const p = state.players[who];
-    p.zones[zone].pokemon[space] = null;
-    p.released.push(card);
-    log(state, `${whose(state, who)} ${card.name} was defeated and goes to the Released Pile.`);
-  }
-}
 
 function endTurn(state, who, passed) {
   state.passesInARow = passed ? state.passesInARow + 1 : 0;
@@ -386,7 +418,7 @@ function startBreakfast(state) {
     const readied = p.zones.flatMap((z) => z.pokemon).filter((c) => c?.spent);
     readied.forEach((c) => { c.spent = false; });
     if (readied.length) log(state, `${whose(state, who)} Spent Pokémon became Active: ${readied.map((c) => c.name).join(', ')}.`);
-    const n = draw(state, who, HAND_SIZE);
+    const n = draw(state, who, HAND_SIZE).length;
     log(state, `${p.name} drew ${n} card${n === 1 ? '' : 's'}.`);
   }
   if (state.round === 1) {

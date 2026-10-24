@@ -17,6 +17,8 @@ function battle(seed = 1) {
   s = applyAction(s, { type: 'flipCoin' });
   for (const who of PLAYERS) s = applyAction(s, { type: 'mulligan', who, cardUids: [] });
   s.turn = 'player';
+  // Plain Trainers, so these tests check combat alone (Trainers have their own test).
+  for (const who of PLAYERS) for (const t of s.players[who].trainers) { t.power = null; t.passive = null; }
   return s;
 }
 
@@ -233,10 +235,11 @@ const targetKeys = (s, who, from) => legalTargets(s, who, from).map(key).sort();
 
 // --- AI ---------------------------------------------------------------------
 
-// An Alert Pokémon attacks a random legal target, ahead of playing a Pokémon.
+// The AI's attack respects targeting restrictions. (Its scoring is tested in trainers.test.js.)
 {
   const s = battle();
   s.turn = 'ai';
+  s.players.ai.hand = [];
   place(s, 'ai', 0, 0, 'emberkit');
   place(s, 'player', 1, 1, 'pebblet');                       // Defence: the only legal target
   const action = chooseAction(s, 'ai');
@@ -245,11 +248,13 @@ const targetKeys = (s, who, from) => legalTargets(s, who, from).map(key).sort();
   applyAction(s, action);
 }
 
-// Full AI-vs-AI matches always finish.
+// Full AI-vs-AI matches always finish. (Each AI turn tries its moves on a
+// copy of the game, so this is the slow part of the test run.)
+const MATCHES = 60;
 {
   const results = { player: 0, ai: 0, draw: 0 };
   let longest = 0;
-  for (let seed = 1; seed <= 200; seed++) {
+  for (let seed = 1; seed <= MATCHES; seed++) {
     let s = createGame(seed);
     for (let steps = 0; s.phase !== 'gameOver'; steps++) {
       assert.ok(steps < 20000 && s.round <= 200, `seed ${seed} did not finish`);
@@ -265,7 +270,7 @@ const targetKeys = (s, who, from) => legalTargets(s, who, from).map(key).sort();
     longest = Math.max(longest, s.round);
   }
   assert.ok(results.player > 0 && results.ai > 0, 'both sides can win');
-  console.log(`200 AI-vs-AI matches finished: ${results.player} / ${results.ai} wins, ${results.draw} draws, longest ${longest} Rounds.`);
+  console.log(`${MATCHES} AI-vs-AI matches finished: ${results.player} / ${results.ai} wins, ${results.draw} draws, longest ${longest} Rounds.`);
 }
 
 console.log('All combat tests passed.');

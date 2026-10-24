@@ -4,7 +4,7 @@ import { createGame, applyAction } from './engine/game.js';
 import { chooseAction } from './ai/opponent.js';
 import { render } from './ui/render.js';
 
-export const BUILD = 'Step 4 — Combat';
+export const BUILD = 'Step 5 — Trainer Powers and Passives';
 
 document.getElementById('build-tag').textContent = BUILD;
 
