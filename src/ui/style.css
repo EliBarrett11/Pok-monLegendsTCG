@@ -153,7 +153,7 @@ button.primary {
 
 /* --- Panels: dark leather with brass trim -------------------------------------------- */
 
-.info-bar, .side-panel, .log, .settings, .game-over-box, .fx-panel {
+.res, .side-panel, .log, .settings, .game-over-box, .fx-panel {
   background: var(--leather-panel);
   border: 2px solid var(--brass-dark);
   border-radius: var(--radius-panel);
@@ -168,30 +168,6 @@ button.primary {
 
 .table { position: absolute; inset: 0; }
 
-.info-bar { display: flex; gap: var(--space-4); font-size: 13px; color: var(--cream-muted); }
-.info-bar.ai {
-  position: absolute; left: 330px; top: 2px; width: 1270px; height: 76px;
-  align-items: center; justify-content: space-between; padding: 1px 12px 1px 16px;
-}
-.info-bar.player {
-  width: 404px; height: 138px; margin-top: 2px; flex-direction: column; gap: 2px; padding: 3px 10px;
-}
-.info-text { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.info-line { display: flex; gap: 12px; align-items: center; white-space: nowrap; overflow: hidden; line-height: 17px; }
-.info-line > span { display: inline-flex; align-items: center; gap: 3px; }
-.info-line b { color: var(--cream); font-weight: 800; }
-.pname { font-family: var(--font-display); color: var(--brass-light); font-size: 15px; letter-spacing: 0.03em; }
-.energy .icon { color: var(--sun); }
-.xp-pool .icon, .xp-pool b { color: #c3a8ff; }
-.dollars .icon, .dollars b { color: var(--brass-light); }
-.exhaust {
-  padding: 0 5px; border-radius: 4px; font-size: 12px; color: var(--cream);
-  background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(209, 169, 90, 0.4);
-}
-#stage.ai-thinking .info-bar.ai .pname::after {
-  content: ' is thinking…'; font-family: var(--font-text); font-weight: 400; font-size: 14px; color: var(--cream-muted);
-}
-
 /* A small stack of card backs beside hidden piles (Draw Piles, the opponent's hand). */
 .back-stack {
   width: 13px; height: 18px; margin-right: 3px; border-radius: 2px;
@@ -203,17 +179,6 @@ button.primary {
   box-shadow: var(--shadow-card);
 }
 .card-back.board { width: var(--board-w); height: var(--board-h); border-radius: var(--radius-board); }
-
-/* Bags: 6 mini-card slots */
-.bag { display: flex; align-items: center; gap: 6px; flex: none; }
-.bag-label { width: 38px; font-family: var(--font-display); font-size: 12px; font-weight: 700; color: var(--brass); line-height: 1.2; }
-.bag-slots { display: flex; gap: 3px; }
-.bag-slot { width: var(--mini-w); height: var(--mini-h); flex: none; border-radius: var(--radius-mini); }
-.bag-slot.empty { border: 1.5px dashed rgba(240, 205, 150, 0.25); background: rgba(0, 0, 0, 0.2); }
-.bag-slot.delivery { outline: 2px dashed var(--brass-light); outline-offset: 1px; }
-.bag-slot.usable { cursor: pointer; outline: 2px solid var(--green-bright); outline-offset: 1px; }
-.bag-slot.usable:hover { filter: brightness(1.15); }
-.bag-slot.selected { outline: 3px solid var(--green-bright); }
 
 /* The arena: the leather mat on the table. The mat image is drawn in two
    halves so its tooled lines land on the layout: the horizontal line under
@@ -364,8 +329,8 @@ button.primary {
 .wx-tag { display: inline-flex; align-items: center; margin-left: 2px; color: var(--sky); font-weight: 800; }
 
 /* Bottom: my hand fanned along the edge, then my info bar. */
-.bottom { position: absolute; left: 380px; top: 938px; width: 1220px; height: 142px; display: flex; gap: 6px; z-index: 3; }
-.hand-area { position: relative; width: 810px; height: 142px; flex: none; }
+.bottom { position: absolute; left: 196px; top: 938px; width: 1414px; height: 142px; display: flex; z-index: 3; }
+.hand-area { position: relative; width: 740px; height: 142px; flex: none; margin: 0 18px 0 24px; }
 .hand, .tray { position: absolute; inset: 0; }
 /* The fan: each card rotates around its bottom edge (render.js arcLayout places it). */
 .hand > .card, .tray > .card {
@@ -388,7 +353,7 @@ button.primary {
 }
 
 /* The opponent's hand: one card back per card, in a small fan. */
-.opp-hand { position: relative; width: 240px; height: 68px; flex: none; }
+.opp-hand { position: relative; width: 190px; height: 68px; flex: none; }
 .opp-hand .back {
   position: absolute; width: 34px; height: 48px; border-radius: 3px; rotate: var(--rot); transform-origin: 50% 100%;
   background: url('../../assets/ui/card-back.jpg') center / cover; box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.7);
@@ -917,31 +882,6 @@ button.primary {
   background: linear-gradient(#a33a2a, #6e1e16); color: var(--cream); border: 1px solid #3a0c0c;
 }
 
-/* Energy as crystals: gold Base Energy, then the Exert crystals (dark once Exhausted). */
-.info-line:has(.energy) { overflow: visible; }
-.energy { position: relative; gap: 4px !important; }
-.crystals { display: inline-flex; align-items: center; gap: 1.5px; }
-.crystal { width: 8px; height: 13px; clip-path: polygon(50% 0, 100% 30%, 100% 70%, 50% 100%, 0 70%, 0 30%); }
-.crystal.base { background: linear-gradient(135deg, #fff2b0, #f0b43a 50%, #a8680c); }
-.crystal.exert { background: linear-gradient(135deg, #e6f2ff, #8aaed0 50%, #44607e); }
-.crystal.exert.exhausted { background: linear-gradient(135deg, #5a4a3a, #2a1e14); }
-.crystal-gap { width: 4px; }
-.crystal-more { font-style: normal; font-size: 11px; font-weight: 800; color: var(--brass-light); }
-.energy .exert-n { color: #b9d4ee; font-size: 12px; }
-/* A cost being previewed: what it would spend. */
-.energy.previewing .crystal.spend { animation: crystal-flicker 0.5s ease-in-out infinite alternate; }
-@keyframes crystal-flicker { from { filter: brightness(1.6); opacity: 1; } to { filter: brightness(0.7); opacity: 0.35; } }
-.energy.previewing .crystal.spend-exert { background: linear-gradient(135deg, #fff0c8, #ffa030 50%, #b05a08); filter: drop-shadow(0 0 3px #ffa030); animation: crystal-flicker 0.5s ease-in-out infinite alternate; }
-.cost-note {
-  display: none; position: absolute; left: 0; bottom: calc(100% + 4px); z-index: 5; padding: 1px 8px; border-radius: 6px; white-space: nowrap;
-  background: rgba(20, 10, 2, 0.95); border: 1px solid var(--brass); color: var(--brass-light); font-size: 13px; font-weight: 800;
-}
-.energy.previewing .cost-note { display: block; }
-.cost-note.exert { color: #ffb050; border-color: #ffa030; }
-.energy.short .cost-note { color: #ff9a8a; border-color: var(--red-bright); }
-.energy.short .base-n, .energy.short .exert-n { color: var(--red-bright); }
-.info-bar.ai .cost-note { bottom: auto; top: calc(100% + 4px); }
-
 /* On my turn, what I can still act with pulses gently. */
 .table.my-turn .player .pokemon-space .card.selectable,
 .table.my-turn .player .trainer-space .card.selectable,
@@ -1021,3 +961,222 @@ button.primary {
 .card.will-spend { animation: will-spend 1s ease-in-out infinite !important; box-shadow: 0 0 0 3px #ff9a5a, 0 0 18px 6px rgba(255, 140, 80, 0.7) !important; }
 @keyframes will-spend { 50% { outline: 3px solid rgba(255, 150, 90, 0.95); outline-offset: 4px; filter: saturate(0.6); } }
 .fx-trigger.spent-tag { background: linear-gradient(#8a6a50, #5a4030); color: var(--cream); text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6); }
+
+/* --- V6: resource displays and piles ------------------------------------------------- */
+/* Mine along the bottom: piles left of the hand, the resource panel right of
+   it. The opponent's along the top, mirrored: resource panel left, piles right. */
+
+.res-row {
+  position: absolute; left: 290px; top: 1px; width: 1330px; height: 76px;
+  display: flex; align-items: center; gap: 14px;
+}
+.res { position: relative; display: grid; color: var(--cream-muted); font-size: 13px; }
+.res.ai {
+  height: 74px; padding: 3px 12px; column-gap: 16px; align-items: center;
+  grid-template-columns: 170px 290px 96px auto; grid-template-rows: 30px 36px;
+  grid-template-areas: "id energy exert bag" "tokens energy exert bag";
+}
+.res.player {
+  width: 416px; height: 138px; margin-top: 2px; padding: 4px 10px 5px; column-gap: 10px; row-gap: 2px;
+  grid-template-columns: 1fr auto; grid-template-rows: 26px 40px 1fr;
+  grid-template-areas: "id tokens" "energy exert" "bag bag";
+}
+.res-id { grid-area: id; display: flex; align-items: center; gap: 7px; white-space: nowrap; min-width: 0; }
+.pname { font-family: var(--font-display); color: var(--brass-light); font-size: 16px; letter-spacing: 0.03em; }
+#stage.ai-thinking .res.ai .pname::after {
+  content: ' is thinking…'; font-family: var(--font-text); font-weight: 400; font-size: 14px; color: var(--cream-muted);
+}
+.res-tokens { grid-area: tokens; display: flex; align-items: center; gap: 16px; justify-self: start; }
+.res.player .res-tokens { justify-self: end; }
+
+/* Energy: a row of crystals and the number left of this Round's. */
+.energy { grid-area: energy; position: relative; display: flex; align-items: center; gap: 5px; }
+.energy > .icon { width: 16px; height: 16px; color: var(--sun); flex: none; }
+.crystals { display: flex; align-items: center; gap: 2px; }
+.crystal {
+  position: relative; width: 12px; height: 22px; flex: none;
+  clip-path: polygon(50% 0, 100% 28%, 100% 72%, 50% 100%, 0 72%, 0 28%);
+}
+.crystal.lit { background: linear-gradient(120deg, #fffbe0 0%, #ffd760 30%, #f0a628 58%, #9c5a08 100%); }
+.crystal.empty { background: linear-gradient(120deg, #4a3420, #22150a 60%, #120a04); opacity: 0.85; }
+.crystal.empty::after { content: ''; position: absolute; inset: 3px 3px; clip-path: inherit; background: rgba(0, 0, 0, 0.45); }
+.crystal.bonus {
+  background: linear-gradient(120deg, #f0fffb 0%, #7ff5de 32%, #24b8a4 62%, #0b5e56 100%);
+  animation: bonus-glow 1.6s ease-in-out infinite alternate;
+}
+@keyframes bonus-glow { from { filter: brightness(1); } to { filter: brightness(1.35); } }
+.crystal-ghost {
+  position: absolute; inset: 0;
+  background: linear-gradient(120deg, #fffbe0 0%, #ffd760 30%, #f0a628 58%, #9c5a08 100%),
+    linear-gradient(60deg, transparent 46%, #000 48%, transparent 52%);
+  background-blend-mode: multiply;
+}
+.crystal-more { font-style: normal; font-size: 13px; font-weight: 800; color: #7ff5de; margin-left: 2px; }
+.crystal-none { font-style: normal; color: var(--cream-muted); }
+.energy-n { font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--brass-light); white-space: nowrap; line-height: 1; margin-left: 3px; }
+.energy-n small { font-size: 16px; color: var(--cream-muted); margin-left: 3px; }
+.energy-n.over .base-n { color: #7ff5de; }
+
+/* A cost being previewed: the crystals and gems it would spend flicker. */
+.energy.previewing .crystal.spend { animation: crystal-flicker 0.5s ease-in-out infinite alternate; }
+.exert.previewing .xgem.spend-exert { animation: crystal-flicker 0.5s ease-in-out infinite alternate; box-shadow: 0 0 10px 3px #ffa030; }
+@keyframes crystal-flicker { from { filter: brightness(1.7); opacity: 1; } to { filter: brightness(0.7); opacity: 0.3; } }
+.cost-note {
+  display: none; position: absolute; left: 0; bottom: calc(100% + 6px); z-index: 5; padding: 2px 9px; border-radius: 6px; white-space: nowrap;
+  background: rgba(20, 10, 2, 0.95); border: 1px solid var(--brass); color: var(--brass-light); font-size: 15px; font-weight: 800;
+}
+.energy.previewing .cost-note { display: block; }
+.cost-note.exert { color: #ffb050; border-color: #ffa030; }
+.energy.short .cost-note { color: #ff9a8a; border-color: var(--red-bright); }
+.energy.short .base-n, .exert.short .exert-n { color: var(--red-bright); }
+
+/* Exert: amber gems in brass sockets; Exhausted ones cracked stones with their Round; locked sockets. */
+.exert { grid-area: exert; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
+.exert-label { order: -1; display: flex; align-items: baseline; gap: 5px; line-height: 13px; font-family: var(--font-display); font-size: 11px; font-weight: 700; color: var(--brass); letter-spacing: 0.04em; text-transform: uppercase; }
+.exert-label b { font-family: var(--font-text); font-size: 15px; color: #ffc46a; text-transform: none; }
+.gems { display: flex; gap: 5px; }
+.xgem {
+  position: relative; width: 24px; height: 24px; flex: none; border-radius: 8px;
+  border: 2px solid var(--brass-dark); box-shadow: inset 0 0 0 1px rgba(246, 221, 154, 0.35), 0 2px 3px rgba(0, 0, 0, 0.6);
+}
+.xgem.free {
+  background: radial-gradient(circle at 34% 28%, #fff4cc 0%, #ffbf48 30%, #e07e10 65%, #8a4404 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 240, 200, 0.5), 0 0 8px 1px rgba(255, 170, 60, 0.55), 0 2px 3px rgba(0, 0, 0, 0.6);
+}
+.xgem.stone {
+  background:
+    linear-gradient(118deg, transparent 44%, rgba(0, 0, 0, 0.75) 46%, rgba(0, 0, 0, 0.75) 48%, transparent 50%),
+    linear-gradient(62deg, transparent 58%, rgba(0, 0, 0, 0.6) 60%, transparent 63%),
+    radial-gradient(circle at 34% 28%, #8c8070, #4a4036 55%, #241e18);
+}
+.xgem.stone b {
+  position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%); padding: 0 3px; border-radius: 3px;
+  font-size: 12px; font-weight: 800; line-height: 13px; color: var(--ink); background: var(--brass-plate); border: 1px solid var(--brass-dark);
+}
+.xgem.locked { display: grid; place-items: center; background: linear-gradient(#2a1a0c, #140c06); }
+.xgem.locked .icon { width: 14px; height: 14px; color: var(--brass); --icon-cut: #140c06; }
+.gem-ghost { position: absolute; inset: -2px; border-radius: 9px; background: radial-gradient(circle at 34% 28%, #fff4cc 0%, #ffbf48 30%, #e07e10 65%, #8a4404 100%); }
+.res-tip {
+  display: none; position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 30; width: 310px; padding: 8px 12px; border-radius: 8px;
+  background: var(--parchment-fill); color: var(--ink); font-size: 14px; line-height: 1.35; box-shadow: var(--shadow-panel); border: 1px solid var(--brass-dark);
+}
+.res-tip ul { margin: 5px 0 0; padding-left: 18px; }
+.exert:hover .res-tip { display: block; }
+.res.ai .res-tip { bottom: auto; top: calc(100% + 8px); left: 0; right: auto; }
+
+/* XP: a star badge. PokéDollars: a stack of gold coins. */
+.xp-badge, .dollars { position: relative; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.xp-badge .star .icon { width: 26px; height: 26px; color: #c9b0ff; filter: drop-shadow(0 0 4px rgba(170, 130, 255, 0.7)) drop-shadow(0 1px 1px #000); }
+.xp-badge .star { display: flex; }
+.xp-n, .dollars-n { display: inline-block; font-size: 19px; font-weight: 800; }
+.xp-n { color: #d9c8ff; }
+.xp-badge span { font-family: var(--font-display); font-size: 11px; font-weight: 700; color: #b9a0f0; }
+.fly-star { position: absolute; left: 0; top: 0; pointer-events: none; }
+.fly-star .icon { width: 18px; height: 18px; color: #e6d8ff; filter: drop-shadow(0 0 5px #b48cff); }
+.coin-stack { position: relative; width: 24px; height: 27px; flex: none; }
+.coin {
+  position: absolute; left: 0; width: 24px; height: 9px; border-radius: 50%;
+  background: linear-gradient(#fff0b0, #e8b440 50%, #8a5e12); box-shadow: 0 1.5px 0 #5a3a08, inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+.dollars-n { color: var(--brass-light); }
+
+/* The Bag: a leather satchel with 6 pockets. */
+.bag {
+  grid-area: bag; display: flex; align-items: center; gap: 6px; padding: 1px 7px 1px 4px; justify-self: start;
+  border-radius: 7px 7px 12px 12px; background: linear-gradient(#8a5a32, #5a3820 60%, #3d2514);
+  box-shadow: inset 0 0 0 1px rgba(246, 221, 154, 0.25), inset 0 -3px 6px rgba(0, 0, 0, 0.45), 0 3px 6px rgba(0, 0, 0, 0.55);
+  outline: 1px dashed rgba(246, 221, 154, 0.35); outline-offset: -4px;
+}
+.bag-flap {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; width: 40px;
+  font-family: var(--font-display); font-size: 12px; font-weight: 700; color: var(--brass-light);
+}
+.bag-count { padding: 0 5px; border-radius: 5px; font-family: var(--font-text); font-size: 15px; line-height: 17px; color: var(--ink); background: var(--brass-plate); border: 1px solid var(--brass-dark); }
+.bag.full { box-shadow: inset 0 0 0 1px rgba(246, 221, 154, 0.25), inset 0 -3px 6px rgba(0, 0, 0, 0.45), 0 3px 6px rgba(0, 0, 0, 0.55), 0 0 0 2px #c0392b; }
+.bag.full .bag-count { background: linear-gradient(#e0503c, #9a2418); color: #fff; border-color: #4a0c06; }
+.bag-slots { display: flex; gap: 3px; }
+.bag-slot { position: relative; width: 40px; height: 56px; flex: none; border-radius: var(--radius-mini); }
+.bag-slot > .card.mini { transform: scale(0.77); transform-origin: 0 0; }
+.bag-slot.empty { background: rgba(20, 10, 2, 0.45); box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.7); border: 1px dashed rgba(240, 205, 150, 0.25); }
+.bag-slot.usable { cursor: pointer; outline: 2px solid var(--green-bright); outline-offset: 1px; }
+.bag-slot.usable:hover { filter: brightness(1.15); }
+.bag-slot.selected { outline: 3px solid var(--green-bright); }
+.parcel {
+  position: absolute; inset: 0; border-radius: var(--radius-mini); pointer-events: none;
+  background:
+    linear-gradient(90deg, transparent 43%, #b8322a 43%, #d2453a 50%, #b8322a 57%, transparent 57%),
+    linear-gradient(transparent 30%, #b8322a 30%, #d2453a 36%, #b8322a 42%, transparent 42%),
+    rgba(190, 145, 90, 0.7);
+  box-shadow: inset 0 0 0 1px rgba(90, 50, 20, 0.8);
+}
+.parcel span {
+  position: absolute; left: -2px; right: -2px; bottom: 2px; padding: 1px 0; border-radius: 3px; text-align: center;
+  font-size: 10px; font-weight: 800; line-height: 10px; color: var(--cream); background: rgba(110, 28, 22, 0.95);
+}
+
+/* Piles: physical stacks with depth, the count on a brass tag. */
+.piles { display: flex; align-items: flex-end; gap: 10px; flex: none; }
+.piles.player { --ps: 1.12; width: 210px; height: 142px; padding: 0 0 4px 6px; }
+.piles.ai { --ps: 0.78; height: 76px; gap: 12px; }
+.pile { position: relative; width: calc(52px * var(--ps)); height: calc(73px * var(--ps) + 9px + 18px); flex: none; }
+.piles.ai .pile { height: calc(73px * var(--ps) + 9px + 6px); }
+.pile-stack {
+  position: absolute; left: 0; bottom: calc(18px + var(--depth)); width: 100%; height: calc(73px * var(--ps));
+  border-radius: var(--radius-mini); transition: transform 0.15s;
+}
+.piles.ai .pile-stack { bottom: calc(6px + var(--depth)); }
+.pile.none .pile-stack { bottom: 18px; border: 1.5px dashed rgba(240, 205, 150, 0.3); background: rgba(20, 10, 2, 0.35); }
+.piles.ai .pile.none .pile-stack { bottom: 6px; }
+.pile-face { position: absolute; inset: 0; overflow: hidden; border-radius: var(--radius-mini); }
+.pile-face > .card.mini { transform: scale(var(--ps)); transform-origin: 0 0; box-shadow: none; }
+.pile-face.back { background: url('../../assets/ui/card-back.jpg') center / cover; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5); }
+.pile.released .pile-face { filter: brightness(0.5) sepia(0.5) saturate(0.8); }
+.weight {
+  position: absolute; left: 12%; right: 12%; top: 38%; height: 16px; border-radius: 2px;
+  clip-path: polygon(18% 0, 82% 0, 100% 100%, 0 100%);
+  background: var(--brass-plate); border: 1px solid var(--brass-dark); box-shadow: var(--bevel), 0 3px 5px rgba(0, 0, 0, 0.7);
+}
+.weight::before { display: none; content: ''; position: absolute; left: 50%; top: -7px; width: 12px; height: 7px; transform: translateX(-50%); border-radius: 6px 6px 0 0; border: 2.5px solid var(--brass-mid); border-bottom: 0; }
+.pile-tag {
+  position: absolute; right: -7px; bottom: calc(18px + 2px); z-index: 2; min-width: 24px; padding: 0 4px; border-radius: 5px; text-align: center;
+  font-size: 15px; font-weight: 800; line-height: 18px; color: var(--ink); background: var(--brass-plate); border: 1px solid var(--brass-dark); box-shadow: var(--bevel), 0 2px 3px rgba(0, 0, 0, 0.6);
+}
+.piles.ai .pile-tag { bottom: 2px; font-size: 13px; line-height: 15px; min-width: 20px; }
+.pile-name {
+  position: absolute; left: -6px; right: -6px; bottom: 0; text-align: center; white-space: nowrap;
+  font-family: var(--font-display); font-size: 12px; font-weight: 700; color: var(--brass-light); letter-spacing: 0.03em;
+  text-shadow: 0 1px 2px #000, 0 0 4px #000;
+}
+.piles.ai .pile-name { display: none; }
+.pile-hover {
+  display: none; position: absolute; left: 50%; bottom: calc(100% + 4px); z-index: 30; transform: translateX(-50%); padding: 2px 9px; border-radius: 6px; white-space: nowrap;
+  background: rgba(20, 10, 2, 0.95); border: 1px solid var(--brass); color: var(--brass-light); font-size: 14px; font-weight: 700;
+}
+.piles.ai .pile-hover { bottom: auto; top: calc(100% + 4px); }
+.pile:hover .pile-hover { display: block; }
+.pile.opens { cursor: pointer; }
+.pile.opens:hover .pile-stack { transform: translateY(-3px); }
+
+/* Looking through a pile: every card face up, oldest first. */
+.pile-view {
+  position: absolute; inset: 0; z-index: 40; display: grid; place-items: center;
+  background: radial-gradient(ellipse at center, rgba(20, 10, 2, 0.55), rgba(8, 4, 0, 0.85));
+}
+.pile-view-box {
+  width: 1380px; max-height: 900px; display: flex; flex-direction: column; padding: 16px 22px 20px;
+  background: var(--leather-panel); border: 2px solid var(--brass-dark); border-radius: var(--radius-panel);
+  box-shadow: inset 0 0 0 1px rgba(246, 221, 154, 0.3), inset 0 2px 14px rgba(0, 0, 0, 0.6), var(--shadow-panel);
+}
+.pile-view-box header { display: flex; align-items: baseline; gap: 18px; margin-bottom: 12px; }
+.pile-view-box h3 { margin: 0; font-family: var(--font-display); font-size: 26px; color: var(--brass-light); }
+.pile-view-box h3 span { font-family: var(--font-text); font-size: 18px; color: var(--cream-muted); margin-left: 8px; }
+.pile-view-box header p { margin: 0; flex: 1; font-size: 16px; color: var(--cream-muted); }
+.pile-view-cards { display: flex; flex-wrap: wrap; gap: 14px 12px; overflow-y: auto; padding: 8px 4px 4px; }
+.pv-slot { position: relative; }
+.pv-i {
+  position: absolute; left: 50%; top: -11px; transform: translateX(-50%); z-index: 2; min-width: 22px; padding: 0 4px; border-radius: 6px; text-align: center;
+  font-size: 13px; font-weight: 800; line-height: 18px; color: var(--ink); background: var(--brass-plate); border: 1px solid var(--brass-dark);
+}
+
+/* The reshuffle: card backs flying from the Discard Pile to the Draw Pile. */
+.fx-shuffle-card { position: absolute; border-radius: 4px; background: url('../../assets/ui/card-back.jpg') center / cover; box-shadow: 2px 4px 8px rgba(0, 0, 0, 0.6); }

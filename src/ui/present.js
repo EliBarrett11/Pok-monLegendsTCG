@@ -461,6 +461,28 @@ function coins(root, e, from, t) {
   to.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.25)', filter: 'brightness(1.6)' }, { transform: 'scale(1)' }], { duration: t(400), delay: t(800) + n * t(80) });
 }
 
+// The Discard Pile shuffled into a new Draw Pile: card backs riffle across,
+// then the new pile gives a little wiggle.
+async function shuffleBeat(root, e, t) {
+  const from = pile(root, `${e.who}-discard`)?.querySelector('.pile-stack');
+  const to = pile(root, `${e.who}-draw`)?.querySelector('.pile-stack');
+  if (!from || !to || t(1) <= 0) return;
+  const a = rectOf(from);
+  const b = rectOf(to);
+  for (let i = 0; i < 6; i++) {
+    const c = spawn('fx-shuffle-card', a);
+    const lift = b.y < 300 ? 40 : -40;
+    play(c, [
+      { transform: 'translate(0, 0) rotate(0deg)' },
+      { transform: `translate(${(b.x - a.x) / 2}px, ${(b.y - a.y) / 2 + lift}px) rotate(${i % 2 ? 160 : -160}deg)`, offset: 0.5 },
+      { transform: `translate(${b.x - a.x}px, ${b.y - a.y}px) rotate(360deg)` },
+    ], t(520), { delay: i * t(70), fill: 'backwards', easing: 'ease-in-out' });
+  }
+  await wait(t(520) + 6 * t(70));
+  to.animate([{ rotate: '0deg' }, { rotate: '-6deg' }, { rotate: '5deg' }, { rotate: '-3deg' }, { rotate: '0deg' }], { duration: t(380) });
+  await wait(t(200));
+}
+
 // Quest progress: the counter ticks up with a pulse.
 function questTick(e, t) {
   const el = shown(e.uid);
@@ -622,6 +644,7 @@ async function walk(root, events, t, late) {
       case 'questProgress': questTick(e, t); break;
       case 'questComplete': await questCompleteBeat(root, e, t); break;
       case 'weatherChanged': if (e.on) weatherTint(root, e, t); break;
+      case 'shuffled': await shuffleBeat(root, e, t); break;
       default: break;
     }
   }

@@ -11,9 +11,11 @@ import {
   playableSupporters, supporterTargets, giftMet, playableLocations, locationSpaces, weatherState,
   openBagOptions, itemTargets, BAG_SIZE, passEndsPhase, PASS_ENERGY, applyAction, passSpends,
 } from '../engine/game.js';
+import { EXERT_LIMIT } from '../engine/energy.js';
+import { energySlots, exertSlots, pileDepth } from './resources.js';
 import { heldBonus, weatherTotal, speedOf, cardAt } from '../engine/board.js';
 import { INNATE_POWERS, WEATHER, SPEED_TIERS } from '../engine/cardData.js';
-import { SPEEDS, getSpeed, setSpeed } from './settings.js';
+import { SPEEDS, getSpeed, setSpeed, speedFactor } from './settings.js';
 import { wireInteractions } from './interact.js';
 import { icon, statIcon, speedIcon, weatherIcon } from './icons.js';
 
@@ -33,6 +35,8 @@ const cardEls = new Map();
 let caption = '';
 // Whether the settings menu is open.
 let settingsOpen = false;
+// The Discard or Released Pile being looked through: { who, kind } or null.
+let pileView = null;
 // The last actions, newest first, for the history strip: { who, kind, text, card, fresh }.
 let history = [];
 const HISTORY_SIZE = 10;
@@ -202,7 +206,7 @@ export function render(root, state, actions) {
 
   root.innerHTML = `
     <div class="table${isMyBattleTurn(state) && !ui.supporter ? ' my-turn' : ''}">
-      ${infoBar(state, 'ai')}
+      <section class="res-row">${resources(state, 'ai')}${opponentHand(state.players.ai.hand.length)}${piles(state, 'ai')}</section>
       ${historyStrip()}
       <div class="arena">
         <div class="mat mat-top"></div><div class="mat mat-bottom"></div>
@@ -211,8 +215,9 @@ export function render(root, state, actions) {
         <section class="side player">${lanes(state, 'player')}</section>
       </div>
       <section class="bottom">
+        ${piles(state, 'player')}
         <div class="hand-area">${trainerTray(state) || `<div class="hand">${handCards(state)}</div>`}</div>
-        ${infoBar(state, 'player')}
+        ${resources(state, 'player')}
       </section>
     </div>
 
@@ -240,12 +245,14 @@ export function render(root, state, actions) {
       <div class="log-body">${state.log.map((line) => `<p>${line}</p>`).join('')}</div>
     </aside>
     ${passWarningBox(state)}
+    ${pileViewBox(state)}
     ${gameOverScreen(state)}
     <div class="preview" hidden></div>
   `;
 
   adoptCards(root);
   applyCost(root, state);
+  animateResources(root, state);
   const logBody = root.querySelector('.log-body');
   logBody.scrollTop = logBody.scrollHeight;
   wire(root, state, actions);
@@ -275,37 +282,33 @@ function historyStrip() {
   return `<aside class="history" aria-label="Recent actions"><div class="history-title">Recent</div>${entries}</aside>`;
 }
 
-// Name, piles, Energy, XP, PokéDollars and Bag. The opponent's is the top bar;
-// mine sits at the bottom, beside the hand. Hidden piles show a card back.
-function infoBar(state, who) {
+// --- Resources and piles ------------------------------------------------------
+//
+// Each player's resources sit on their own side: mine along the bottom (piles
+// left of the hand, the resource panel right of it), the opponent's along the
+// top, mirrored (resource panel left, piles right). Every number the old text
+// bars showed is still here, on a crystal row, a gem, a badge or a pile tag.
+
+// A player's resource panel: name and turn, XP, PokéDollars, Energy, Exert and the Bag.
+function resources(state, who) {
   const p = state.players[who];
-  const exhaust = [...p.exhaust].sort((a, b) => a.position - b.position)
-    .map((x) => `<span class="exhaust" title="Exhaust position ${x.position}, recovers in Round ${x.recoversRound}">P${x.position}→R${x.recoversRound}</span>`).join('');
   return `
-    <div class="info-bar ${who}">
-      <div class="info-text">
-        <div class="info-line"><i class="turn-dot${state.phase === 'battle' && state.turn === who && !state.pending ? ' on' : ''}" title="${state.turn === who ? 'Their move now' : ''}"></i><strong class="pname">${p.name}</strong>
-          ${passedLast(state, who) ? `<span class="passed-chip" title="Passed last turn: ${who === 'ai' ? 'if you pass now, the Battle Phase ends' : 'if the opponent passes now, the Battle Phase ends'}">Passed</span>` : ''}
-          <span data-pile="${who}-draw"><i class="back-stack"></i>Draw <b>${p.drawPile.length}</b></span>
-          <span data-pile="${who}-discard">Discard <b>${p.discard.length}</b></span>
-          <span data-pile="${who}-released">Released <b>${p.released.length}</b></span></div>
-        <div class="info-line">
-          ${energyCrystals(p, who)}
-          <span class="xp-pool" data-pile="${who}-xp">${icon('xp')} XP <b>${p.xp}</b></span></div>
-        <div class="info-line"><span class="dollars" data-pile="${who}-dollars">${icon('dollar')} PokéDollars <b>$${p.dollars}</b></span>
-          <span>Exhaust ${exhaust || '<b>0</b>'}</span></div>
-      </div>
-      ${who === 'ai' ? opponentHand(p.hand.length) : ''}
-      ${bagRow(state, who)}
+    <div class="res ${who}">
+      <div class="res-id"><i class="turn-dot${state.phase === 'battle' && state.turn === who && !state.pending ? ' on' : ''}" title="${state.turn === who ? 'Their move now' : ''}"></i><strong class="pname">${p.name}</strong>
+        ${passedLast(state, who) ? `<span class="passed-chip" title="Passed last turn: ${who === 'ai' ? 'if you pass now, the Battle Phase ends' : 'if the opponent passes now, the Battle Phase ends'}">Passed</span>` : ''}</div>
+      <div class="res-tokens">${xpBadge(p, who)}${coinStack(p, who)}</div>
+      ${energyMeter(state, p, who)}
+      ${exertGems(state, p, who)}
+      ${satchel(state, who)}
     </div>`;
 }
 
 // The opponent's hand: one card back per card, in a small fan, so the count reads at a glance.
 function opponentHand(n) {
-  const step = n > 1 ? Math.min(22, 200 / (n - 1)) : 0;
+  const step = n > 1 ? Math.min(20, 150 / (n - 1)) : 0;
   const backs = Array.from({ length: n }, (_, i) => {
     const off = (i - (n - 1) / 2);
-    return `<i class="back" style="left:${Math.round(120 + off * step - 17)}px;--rot:${(off * 4).toFixed(1)}deg;top:${Math.round(Math.abs(off) * Math.abs(off) * 0.6)}px"></i>`;
+    return `<i class="back" style="left:${Math.round(95 + off * step - 17)}px;--rot:${(off * 4).toFixed(1)}deg;top:${Math.round(Math.abs(off) * Math.abs(off) * 0.6)}px"></i>`;
   }).join('');
   return `<div class="opp-hand" data-pile="ai-hand" title="Opponent's hand: ${n} card${n === 1 ? '' : 's'}">${backs}<span class="opp-hand-count">Hand <b>${n}</b></span></div>`;
 }
@@ -315,21 +318,264 @@ function passedLast(state, who) {
   return state.phase === 'battle' && state.passesInARow === 1 && state.turn !== who;
 }
 
-// Energy as crystals: one gold crystal per Base Energy, then the Exert
-// crystals (dark once Exhausted). A cost being previewed marks what it would spend.
-function energyCrystals(p, who) {
-  const base = Math.min(p.baseEnergy, 14);
-  const more = p.baseEnergy - base;
-  const free = p.exertMax - p.exhaust.length;
-  const crystals = [
-    ...Array.from({ length: base }, (_, i) => `<i class="crystal base" data-i="${i}"></i>`),
-    more > 0 ? `<i class="crystal-more">+${more}</i>` : '',
-    '<i class="crystal-gap"></i>',
-    ...Array.from({ length: p.exertMax }, (_, i) => `<i class="crystal exert${i >= free ? ' exhausted' : ''}" data-i="${i}"></i>`),
+const BONUS_SHOWN = 3;   // extra crystals drawn above this Round's Base Energy; more shows as "+n"
+
+// Base Energy as crystals: one socket per point of this Round's Base Energy
+// (up to 10), lit while unspent, dim once spent. Energy above that (from
+// passing or abilities) shows as extra crystals in a cooler shade.
+function energyMeter(state, p, who) {
+  const { sockets, lit, bonus } = energySlots(state.round, p.baseEnergy);
+  const cells = [
+    ...Array.from({ length: sockets }, (_, i) => `<i class="crystal ${i < lit ? 'lit' : 'empty'}"></i>`),
+    ...Array.from({ length: Math.min(bonus, BONUS_SHOWN) }, () => '<i class="crystal bonus"></i>'),
+    bonus > BONUS_SHOWN ? `<i class="crystal-more">+${bonus - BONUS_SHOWN}</i>` : '',
   ].join('');
-  return `<span class="energy" data-pile="${who}-energy" title="Base Energy ${p.baseEnergy} · Exert ${free}/${p.exertMax}">
-    ${icon('energy')}<b class="base-n">${p.baseEnergy}</b><span class="crystals">${crystals}</span><b class="exert-n">${free}/${p.exertMax}</b>
-    <span class="cost-note"></span></span>`;
+  const tip = `Base Energy: ${p.baseEnergy} left of this Round's ${sockets}`
+    + `${bonus ? ` (+${bonus} extra from passing or abilities)` : ''}. Spent first; it resets at Breakfast.`;
+  return `
+    <div class="energy" data-pile="${who}-energy" data-sockets="${sockets}" title="${attr(tip)}">
+      ${icon('energy')}<span class="crystals">${cells || '<i class="crystal-none">—</i>'}</span>
+      <b class="energy-n${bonus ? ' over' : ''}"><span class="base-n">${p.baseEnergy}</span><small>/ ${sockets}</small></b>
+      <span class="cost-note"></span>
+    </div>`;
+}
+
+// Exert: 3 sockets. Free points are amber gems; Exhausted ones are cracked
+// stones marked with the Round they recover in; sockets above this Round's
+// Exert maximum are locked (Rounds 1 and 2).
+function exertGems(state, p, who) {
+  const free = p.exertMax - p.exhaust.length;
+  const slots = exertSlots(p);
+  const gems = slots.map((x) => (x.kind === 'free' ? '<i class="xgem free"></i>'
+    : x.kind === 'stone' ? `<i class="xgem stone"><b>R${x.recoversRound}</b></i>`
+      : `<i class="xgem locked">${icon('lock')}</i>`)).join('');
+  const lines = slots.map((x) => `<li>${x.kind === 'free' ? 'Ready to use'
+    : x.kind === 'stone' ? `Exhausted (position ${x.position}): recovers at the start of Round ${x.recoversRound}`
+      : `Locked until Round ${EXERT_LIMIT}`}</li>`).join('');
+  return `
+    <div class="exert" data-pile="${who}-exert">
+      <span class="gems">${gems}</span><span class="exert-label">Exert <b class="exert-n">${free}/${p.exertMax}</b></span>
+      <div class="res-tip"><b>Exert</b>: extra Energy, used only once Base Energy runs out. Each point used
+        becomes Exhausted and takes Rounds to recover.<ul>${lines}</ul></div>
+    </div>`;
+}
+
+function xpBadge(p, who) {
+  return `<div class="xp-badge" data-pile="${who}-xp" title="XP: ${p.xp} (spent in the XP step to raise a Pokémon's stats)"><i class="star">${icon('xp')}</i><b class="xp-n">${p.xp}</b><span>XP</span></div>`;
+}
+
+const COINS_SHOWN = 6;
+
+// PokéDollars: a stack of gold coins (taller with more money) and the amount.
+function coinStack(p, who) {
+  const n = Math.min(COINS_SHOWN, Math.ceil(p.dollars / 2));
+  const coins = Array.from({ length: n }, (_, i) => `<i class="coin" style="bottom:${i * 3}px"></i>`).join('');
+  return `<div class="dollars" data-pile="${who}-dollars" title="PokéDollars: $${p.dollars} (buy Items at the PokéMart)"><span class="coin-stack">${coins}</span><b class="dollars-n">$${p.dollars}</b></div>`;
+}
+
+// A player's Bag: a leather satchel with 6 spaces. Items In Delivery are
+// wrapped until the next Round. Both Bags are visible.
+function satchel(state, who) {
+  const p = state.players[who];
+  const usable = new Set(who === 'player' && isMyBattleTurn(state) && !ui.supporter
+    ? openBagOptions(state, 'player').filter((o) => o.mode === 'useBag').map((o) => o.uid) : []);
+  const slots = Array.from({ length: BAG_SIZE }, (_, i) => {
+    const item = p.bag[i];
+    if (!item) return '<div class="bag-slot empty"></div>';
+    const cls = `bag-slot${item.inDelivery ? ' delivery' : ''}${usable.has(item.uid) ? ' usable' : ''}${ui.bag?.uid === item.uid ? ' selected' : ''}`;
+    const parcel = item.inDelivery ? '<i class="parcel" title="In Delivery: usable from next Round"><span>Next Round</span></i>' : '';
+    return `<div class="${cls}" data-uid="${item.uid}">${card(item, 'mini')}${parcel}</div>`;
+  }).join('');
+  const full = p.bag.length >= BAG_SIZE;
+  const delivery = p.bag.filter((i) => i.inDelivery).length;
+  const tip = `Bag: ${p.bag.length} of ${BAG_SIZE} Items${full ? ' (full)' : ''}${delivery ? `, ${delivery} In Delivery until next Round` : ''}`;
+  return `
+    <div class="bag${full ? ' full' : ''}" data-pile="${who}-bag" title="${tip}">
+      <span class="bag-flap"><span>Bag</span><b class="bag-count">${p.bag.length}/${BAG_SIZE}</b></span>
+      <div class="bag-slots">${slots}</div>
+    </div>`;
+}
+
+const PILE_NAMES = { draw: 'Draw Pile', discard: 'Discard Pile', released: 'Released Pile' };
+
+// A pile as a physical stack: taller with more cards, the count on a brass
+// tag. The Draw Pile is face down; the Discard and Released Piles show their
+// top card (the Released Pile darker, under a brass weight) and open a view
+// of all their cards when clicked.
+function pileStack(p, who, kind) {
+  const cards = kind === 'draw' ? p.drawPile : kind === 'discard' ? p.discard : p.released;
+  const n = cards.length;
+  const depth = pileDepth(n);
+  const edges = Array.from({ length: depth }, (_, i) => `${i % 2 ? 0.5 : 0}px ${i + 1}px 0 ${i % 2 ? '#2a1a0c' : '#d9c79f'}`).join(', ');
+  let face = '';
+  if (n && kind === 'draw') face = '<div class="pile-face back"></div>';
+  else if (n) {
+    // The top card, face up; not that card's own element and no preview of its own.
+    face = `<div class="pile-face">${card(cards[n - 1], 'mini').replace(/ data-uid="[^"]*"/, '').replace(/ data-pv="\d+"/, '')}</div>`;
+  }
+  const whose = who === 'player' ? 'Your' : "Opponent's";
+  const label = `${whose} ${PILE_NAMES[kind]}: ${n} card${n === 1 ? '' : 's'}`;
+  const opens = kind !== 'draw' && n > 0;
+  return `
+    <div class="pile ${kind}${n ? '' : ' none'}${opens ? ' opens' : ''}" data-pile="${who}-${kind}"${opens ? ` data-pile-view="${who}:${kind}"` : ''} title="${attr(label)}${opens ? ' (click to look through)' : ''}">
+      <div class="pile-stack" style="--depth:${depth}px${edges ? `;box-shadow:${edges}, 2px ${depth + 3}px 6px rgba(0,0,0,0.6)` : ''}">${face}${kind === 'released' && n ? '<i class="weight"></i>' : ''}</div>
+      <span class="pile-tag">${n}</span><span class="pile-name">${kind === 'draw' ? 'Draw' : kind === 'discard' ? 'Discard' : 'Released'}</span>
+      <span class="pile-hover">${attr(label)}</span>
+    </div>`;
+}
+
+function piles(state, who) {
+  const p = state.players[who];
+  const order = who === 'player' ? ['draw', 'discard', 'released'] : ['released', 'discard', 'draw'];
+  return `<div class="piles ${who}">${order.map((k) => pileStack(p, who, k)).join('')}</div>`;
+}
+
+// Looking through a Discard or Released Pile: every card face up, in the order they arrived.
+function pileViewBox(state) {
+  if (!pileView) return '';
+  const { who, kind } = pileView;
+  const p = state.players[who];
+  const cards = kind === 'discard' ? p.discard : p.released;
+  const faces = cards.map((c, i) => `<div class="pv-slot"><span class="pv-i">${i + 1}</span>${card(c, 'board').replace(/ data-uid="[^"]*"/, '')}</div>`).join('');
+  return `
+    <div class="pile-view" data-action="close-pile">
+      <div class="pile-view-box">
+        <header><h3>${who === 'player' ? 'Your' : "Opponent's"} ${PILE_NAMES[kind]} <span>${cards.length} card${cards.length === 1 ? '' : 's'}</span></h3>
+          <p>In the order they arrived: first on the left, the top card last.${kind === 'released' ? ' Released cards never return to play.' : ''}</p>
+          <button data-action="close-pile" class="secondary">Close</button></header>
+        <div class="pile-view-cards">${faces || '<p class="muted">Empty.</p>'}</div>
+      </div>
+    </div>`;
+}
+
+// --- Resource animations ---------------------------------------------------------
+//
+// Each render compares every player's numbers with the last render's and
+// animates the change: crystals light up one by one or crack from the right,
+// Exert gems drain into stones or glow back, XP and PokéDollars count up,
+// coins slide off the stack when spent.
+
+const lastRes = {};
+
+function animateResources(root, state) {
+  for (const who of ['player', 'ai']) {
+    const p = state.players[who];
+    const now = { round: state.round, base: p.baseEnergy, free: p.exertMax - p.exhaust.length, xp: p.xp, dollars: p.dollars };
+    const was = lastRes[who];
+    lastRes[who] = now;
+    const f = speedFactor();
+    if (!was || f === 0 || now.round < was.round || !state.round) continue;
+    const box = root.querySelector(`.res.${who}`);
+    if (!box) continue;
+    const step = 110 * f;
+
+    // Energy, position by position: the Round's sockets first, then the extra crystals.
+    const sockets = [...box.querySelectorAll('.energy .crystal.lit, .energy .crystal.empty')];
+    const extra = [...box.querySelectorAll('.energy .crystal.bonus')];
+    const at = (k) => (k < sockets.length ? sockets[k] : extra[k - sockets.length]);
+    for (let k = was.base; k < now.base; k++) {
+      at(k)?.animate([
+        { opacity: 0.2, transform: 'scale(0.5)', filter: 'brightness(3)' },
+        { opacity: 1, transform: 'scale(1.35)', filter: 'brightness(2)', offset: 0.5 },
+        { opacity: 1, transform: 'scale(1)', filter: 'none' },
+      ], { duration: 380 * f, delay: (k - was.base) * step, fill: 'backwards', easing: 'ease-out' });
+    }
+    for (let k = was.base - 1; k >= now.base; k--) {
+      const el = at(k);
+      if (!el) continue;
+      crackOut(el, 'crystal-ghost', 420 * f, (was.base - 1 - k) * step);
+    }
+
+    // Exert: free gems first, then stones, so a spent gem turns to stone in its own socket.
+    const gems = [...box.querySelectorAll('.exert .xgem')];
+    for (let k = now.free; k < was.free; k++) if (gems[k]) crackOut(gems[k], 'gem-ghost', 520 * f, (k - now.free) * step);
+    for (let k = was.free; k < now.free; k++) {
+      gems[k]?.animate([
+        { filter: 'grayscale(1) brightness(0.5)', transform: 'scale(0.8)' },
+        { filter: 'brightness(1.9) drop-shadow(0 0 6px #ffb040)', transform: 'scale(1.25)', offset: 0.55 },
+        { filter: 'none', transform: 'scale(1)' },
+      ], { duration: 700 * f, delay: (k - was.free) * step * 2, fill: 'backwards' });
+    }
+
+    if (now.xp !== was.xp) {
+      const badge = box.querySelector('.xp-badge');
+      tick(badge?.querySelector('.xp-n'), was.xp, now.xp, 500 * f, '');
+      if (now.xp > was.xp) stars(badge, Math.min(5, now.xp - was.xp), f);
+    }
+    if (now.dollars !== was.dollars) {
+      const stack = box.querySelector('.dollars');
+      tick(stack?.querySelector('.dollars-n'), was.dollars, now.dollars, 500 * f, '$');
+      if (now.dollars > was.dollars) {
+        stack?.querySelector('.coin-stack')?.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.2) translateY(-3px)', filter: 'brightness(1.5)' }, { transform: 'scale(1)' }], { duration: 450 * f });
+      } else slideCoins(stack, Math.min(5, was.dollars - now.dollars), f);
+    }
+  }
+}
+
+// A lit copy over the element that flares, cracks and fades: the point being spent.
+function crackOut(el, cls, ms, delay) {
+  const ghost = document.createElement('i');
+  ghost.className = cls;
+  el.append(ghost);
+  const a = ghost.animate([
+    { opacity: 1, filter: 'brightness(1)', transform: 'scale(1)' },
+    { opacity: 1, filter: 'brightness(2.2)', transform: 'scale(1.15)', offset: 0.25 },
+    { opacity: 0.9, filter: 'brightness(0.7) grayscale(0.6)', transform: 'scale(1) rotate(4deg)', offset: 0.55 },
+    { opacity: 0, filter: 'brightness(0.3) grayscale(1)', transform: 'scale(0.85) translateY(3px)' },
+  ], { duration: ms, delay, fill: 'backwards', easing: 'ease-in' });
+  a.onfinish = () => ghost.remove();
+}
+
+// A number counting from one value to another.
+function tick(el, from, to, ms, prefix) {
+  if (!el) return;
+  const start = performance.now();
+  const step = (now) => {
+    const k = Math.min(1, (now - start) / ms);
+    el.textContent = `${prefix}${Math.round(from + (to - from) * k)}`;
+    if (k < 1 && el.isConnected) requestAnimationFrame(step);
+  };
+  el.textContent = `${prefix}${from}`;
+  requestAnimationFrame(step);
+  el.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.35)', color: '#fff6d0' }, { transform: 'scale(1)' }], { duration: ms * 1.2 });
+}
+
+// Small stars flying in to the XP badge.
+function stars(badge, n, f) {
+  if (!badge) return;
+  for (let i = 0; i < n; i++) {
+    const s = document.createElement('i');
+    s.className = 'fly-star';
+    s.innerHTML = icon('xp');
+    badge.append(s);
+    const a = (i / n) * Math.PI * 2 + Math.random();
+    const a2 = s.animate([
+      { transform: `translate(${Math.cos(a) * 70}px, ${Math.sin(a) * 50 - 30}px) scale(0.6) rotate(-90deg)`, opacity: 0 },
+      { opacity: 1, offset: 0.3 },
+      { transform: 'translate(0, 0) scale(1.1) rotate(0deg)', opacity: 1, offset: 0.85 },
+      { transform: 'translate(0, 0) scale(0.4)', opacity: 0 },
+    ], { duration: 650 * f, delay: i * 90 * f, fill: 'backwards', easing: 'ease-in' });
+    a2.onfinish = () => s.remove();
+  }
+}
+
+// Coins sliding off the top of the stack: money spent.
+function slideCoins(stack, n, f) {
+  const holder = stack?.querySelector('.coin-stack');
+  if (!holder) return;
+  const top = holder.querySelectorAll('.coin').length;
+  for (let i = 0; i < n; i++) {
+    const c = document.createElement('i');
+    c.className = 'coin sliding';
+    c.style.bottom = `${(top + i) * 3}px`;
+    holder.append(c);
+    const a = c.animate([
+      { transform: 'translate(0, 0) rotate(0deg)', opacity: 1 },
+      { transform: `translate(${18 + i * 4}px, -6px) rotate(25deg)`, opacity: 1, offset: 0.35 },
+      { transform: `translate(${34 + i * 6}px, ${24 + i * 3}px) rotate(80deg)`, opacity: 0 },
+    ], { duration: 600 * f, delay: i * 90 * f, fill: 'backwards', easing: 'ease-in' });
+    a.onfinish = () => c.remove();
+  }
 }
 
 function weatherText(tokens) {
@@ -366,20 +612,6 @@ function centreStrip(state) {
       </div>
       <div class="caption-slot"><span class="caption" title="${attr(caption)}"${caption ? '' : ' hidden'}>${attr(caption)}</span></div>
     </section>`;
-}
-
-// A player's Bag: 6 spaces, In Delivery marked. Both Bags are visible.
-function bagRow(state, who) {
-  const p = state.players[who];
-  const usable = new Set(who === 'player' && isMyBattleTurn(state) && !ui.supporter
-    ? openBagOptions(state, 'player').filter((o) => o.mode === 'useBag').map((o) => o.uid) : []);
-  const slots = Array.from({ length: BAG_SIZE }, (_, i) => {
-    const item = p.bag[i];
-    if (!item) return '<div class="bag-slot empty"></div>';
-    const cls = `bag-slot${item.inDelivery ? ' delivery' : ''}${usable.has(item.uid) ? ' usable' : ''}${ui.bag?.uid === item.uid ? ' selected' : ''}`;
-    return `<div class="${cls}" data-uid="${item.uid}">${card(item, 'mini')}</div>`;
-  }).join('');
-  return `<div class="bag" data-pile="${who}-bag"><span class="bag-label">Bag ${p.bag.length}/${BAG_SIZE}</span><div class="bag-slots">${slots}</div></div>`;
 }
 
 // The shared PokéMart: 3 Items on sale and the deck count.
@@ -474,7 +706,7 @@ function pokemonZone(state, who, z, targets, fallen) {
 // cost, art); the fan tightens as the hand grows, so it never leaves its area.
 // interact.js uses arcLayout again to lift a hovered card and spread its
 // neighbours apart.
-export const HAND_AREA = 810;      // width of the hand area (stage px)
+export const HAND_AREA = 740;      // width of the hand area (stage px)
 export const HAND_AREA_H = 142;    // its height: from its top down to the bottom edge of the stage
 export const HAND_CARD = 170;
 export const HAND_CARD_H = 238;
@@ -1051,9 +1283,11 @@ function costOf(state, focus) {
 
 function applyCost(root, state) {
   const box = root.querySelector('[data-pile="player-energy"]');
-  if (!box) return;
+  const exert = root.querySelector('[data-pile="player-exert"]');
+  if (!box || !exert) return;
   box.classList.remove('previewing', 'short');
-  box.querySelectorAll('.crystal').forEach((c) => c.classList.remove('spend', 'spend-exert'));
+  exert.classList.remove('previewing', 'short');
+  root.querySelectorAll('.res.player .spend, .res.player .spend-exert').forEach((c) => c.classList.remove('spend', 'spend-exert'));
   const note = box.querySelector('.cost-note');
   note.textContent = '';
   const cost = ui.costFocus && state.phase === 'battle' ? costOf(state, ui.costFocus) : null;
@@ -1061,16 +1295,20 @@ function applyCost(root, state) {
   const p = state.players.player;
   const free = p.exertMax - p.exhaust.length;
   box.classList.add('previewing');
+  exert.classList.add('previewing');
   if (cost > p.baseEnergy + free) {
     box.classList.add('short');
+    exert.classList.add('short');
     note.textContent = `Costs ${cost}: only ${p.baseEnergy} Base + ${free} Exert`;
     return;
   }
   const fromBase = Math.min(cost, p.baseEnergy);
   const fromExert = cost - fromBase;
-  const base = [...box.querySelectorAll('.crystal.base')];
-  base.slice(Math.max(0, Math.min(p.baseEnergy, base.length) - fromBase)).forEach((c) => c.classList.add('spend'));
-  [...box.querySelectorAll('.crystal.exert:not(.exhausted)')].slice(0, fromExert).forEach((c) => c.classList.add('spend-exert'));
+  // The crystals it would spend flicker: the rightmost unspent ones (extra crystals first).
+  const unspent = [...box.querySelectorAll('.crystal.lit'), ...box.querySelectorAll('.crystal.bonus')];
+  unspent.slice(unspent.length - Math.min(fromBase, unspent.length)).forEach((c) => c.classList.add('spend'));
+  const gems = [...exert.querySelectorAll('.xgem.free')];
+  if (fromExert) gems.slice(gems.length - fromExert).forEach((c) => c.classList.add('spend-exert'));
   note.textContent = cost === 0 ? 'Free' : fromExert ? `−${fromBase} Base · +${fromExert} Exhaust` : `−${fromBase} Base Energy`;
   if (fromExert) note.classList.add('exert'); else note.classList.remove('exert');
 }
@@ -1156,7 +1394,20 @@ function wire(root, state, actions) {
     root.querySelectorAll('[data-speed]').forEach((b) => { b.className = b === el ? 'chosen' : 'secondary'; });
     root.querySelector('[data-action="settings"]').textContent = `⚙ ${SPEEDS[getSpeed()].label}`;
   });
-  on('[data-action="new-game"]', newGame);
+  on('[data-action="new-game"]', () => { pileView = null; newGame(); });
+  // Looking through a Discard or Released Pile; the backdrop or Close shuts it.
+  on('[data-pile-view]', (el) => {
+    const [who, kind] = el.dataset.pileView.split(':');
+    pileView = { who, kind };
+    redraw();
+  });
+  root.querySelectorAll('[data-action="close-pile"]').forEach((el) => {
+    el.onclick = (e) => {
+      if (e.target !== el) return;
+      pileView = null;
+      redraw();
+    };
+  });
   on('[data-action="flip"]', () => dispatch({ type: 'flipCoin' }));
   on('[data-action="lock-trainers"]', () => dispatch({ type: 'assignTrainers', who: 'player', order: [...ui.placing] }));
   // Passing is never blocked, but a brief ring shows anything I could still have done.
@@ -1382,9 +1633,9 @@ function wire(root, state, actions) {
     arrowSource: () => arrowSource(state),
     outcome: (el) => outcome(state, el),
     inspect: (el) => inspectView(previews[Number(el.dataset.pv)]),
-    selecting: () => Boolean(ui.passWarn || ui.attacker || ui.power !== null || ui.strategy || ui.location || ui.selectedPokemon
+    selecting: () => Boolean(pileView || ui.passWarn || ui.attacker || ui.power !== null || ui.strategy || ui.location || ui.selectedPokemon
       || ui.bag || ui.supporter || ui.selectedTrainer),
-    cancel: () => { clearSelection(); ui.selectedTrainer = null; ui.costFocus = null; redraw(); },
+    cancel: () => { pileView = null; clearSelection(); ui.selectedTrainer = null; ui.costFocus = null; redraw(); },
   });
 }
 

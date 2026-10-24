@@ -175,7 +175,7 @@ function destinationAt(x, y, plan) {
     if (bag) return { el: bag, type: 'bag' };
     const arena = plan?.arena && el.closest('.arena');
     if (arena) return { el: arena, type: 'arena' };
-    if (el.closest('.hand-area, .side-panel, .info-bar')) return null;
+    if (el.closest('.hand-area, .side-panel, .res, .piles, .res-row')) return null;
   }
   return null;
 }
