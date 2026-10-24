@@ -762,13 +762,31 @@ const HANDLERS = {
     state.pending = null;
   },
 
-  // A Battle turn's Action. The Phase ends when both players pass in a row.
+  // A Battle turn's Action. The Phase ends when both players pass in a row;
+  // any other Pass gains +1 Base Energy for this Round (it can go above 10).
   pass(state, { who }) {
-    emit(state, 'pass', { who });
-    log(state, `${state.players[who].name} passed.`);
+    const p = state.players[who];
+    const ends = passEndsPhase(state);
+    emit(state, 'pass', { who, endsPhase: ends, gain: ends ? 0 : PASS_ENERGY });
+    if (ends) {
+      log(state, `${p.name} passed.`);
+    } else {
+      p.baseEnergy += PASS_ENERGY;
+      emit(state, 'energyGained', { who, amount: PASS_ENERGY, source: 'Pass' });
+      log(state, `${p.name} passed and ${who === 'player' ? 'gain' : 'gains'} ${PASS_ENERGY} Base Energy this Round (now ${p.baseEnergy}).`);
+    }
     endTurn(state, who, true);
   },
 };
+
+// Passing gains this much Base Energy, unless it is the Pass that ends the phase.
+export const PASS_ENERGY = 1;
+
+// Whether a Pass now would be the second of two consecutive Passes (and so
+// end the Battle Phase, gaining nothing).
+export function passEndsPhase(state) {
+  return state.passesInARow >= 1;
+}
 
 // Every Action type, for tests and tools.
 export const ACTION_TYPES = Object.keys(HANDLERS);

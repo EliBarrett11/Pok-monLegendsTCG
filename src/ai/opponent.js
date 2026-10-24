@@ -2,8 +2,8 @@
 // and public information) and returns an action for the engine to apply.
 //
 // On a Battle turn it lists every legal move it can pay for with Base Energy
-// alone, scores each one and picks the best (ties at random). It passes only
-// when nothing else is legal. Most moves are scored by trying them on a copy
+// alone, scores each one and Pass too, and picks the best (ties at random).
+// Most moves are scored by trying them on a copy
 // of the game; draws (Ash, Quickdraw) are scored without trying them, so the
 // AI never peeks at its own Draw Pile.
 
@@ -11,7 +11,7 @@ import {
   applyAction, legalActions, playablePokemon, summonSpaces, alertPokemon, legalTargets,
   usablePowers, powerTargets, playableStrategies, strategyTargets, opponentOf, maxStrengthOf, attackOf,
   playableSupporters, supporterTargets, giftMet, playableLocations, locationSpaces,
-  openBagOptions, itemTargets,
+  openBagOptions, itemTargets, passEndsPhase, PASS_ENERGY,
 } from '../engine/game.js';
 
 // Where the AI's random choices come from. Tests pass a seeded generator
@@ -25,7 +25,7 @@ export function chooseAction(state, who = 'ai', { rng = Math.random } = {}) {
   if (legal.includes('mulligan')) return mulligan(state, who);
   if (legal.includes('spendXp')) return spendXp(state, who);
   if (legal.includes('resolveChoice')) return resolveChoice(state, who);
-  if (legal.includes('pass')) return bestMove(state, who) ?? { type: 'pass', who };
+  if (legal.includes('pass')) return bestMove(state, who);
   return null;
 }
 
@@ -162,12 +162,42 @@ function choosePayment(state, who, card) {
 }
 
 function bestMove(state, who) {
-  let best = null;
+  let best = { move: { type: 'pass', who }, score: passScore(state, who) + random() * 0.01 };
   for (const move of candidateMoves(state, who)) {
     const score = scoreMove(state, who, move) + random() * 0.01;
-    if (!best || score > best.score) best = { move, score };
+    if (score > best.score) best = { move, score };
   }
-  return best?.move ?? null;
+  return best.move;
+}
+
+// Passing. The Pass that ends the phase gains nothing, so (as before the
+// Pass gave Energy) it is only a last resort, when no other move is legal:
+// any move, even a losing trade, keeps a stalemate from going on forever.
+// Any other Pass gains +1 Base Energy: a little for that,
+// plus the best move the extra Energy would make affordable (scored the same
+// way as every move), weighed by the chance the opponent passes straight
+// back and ends the phase before it can be used.
+function passScore(state, who) {
+  if (passEndsPhase(state)) return -Infinity;
+  const p = state.players[who];
+  const richer = { ...state, players: { ...state.players, [who]: { ...p, baseEnergy: p.baseEnergy + PASS_ENERGY } } };
+  const now = new Set(candidateMoves(state, who).map((m) => JSON.stringify(m)));
+  let enabled = 0;
+  for (const move of candidateMoves(richer, who)) {
+    if (!now.has(JSON.stringify(move))) enabled = Math.max(enabled, scoreMove(richer, who, move));
+  }
+  return 2 + (1 - passBackRisk(state, who)) * enabled;
+}
+
+// How likely the opponent is to pass straight back, from what it can see:
+// unlikely with an Alert Pokémon to attack with, likelier with only cards
+// and Energy, very likely with neither.
+function passBackRisk(state, who) {
+  const foe = opponentOf(who);
+  const f = state.players[foe];
+  if (alertPokemon(state, foe).length) return 0.25;
+  if (f.hand.length && f.baseEnergy + f.exertMax - f.exhaust.length > 0) return 0.5;
+  return 0.9;
 }
 
 const value = (cards) => cards.reduce((sum, c) => sum + (c.energyCost ?? 0) + (c.attackValue ?? 0), 0);

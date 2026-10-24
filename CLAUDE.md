@@ -38,3 +38,4 @@ Every feature must:
 2. Come with a test in `tests/` that checks the rule (`node tests/<name>.test.js`).
 3. Be committed and pushed to `main`.
 4. Add an entry to the build log in `README.md`.
+5. Share the link to play the current build: https://elibarrett11.github.io/Pok-monLegendsTCG/

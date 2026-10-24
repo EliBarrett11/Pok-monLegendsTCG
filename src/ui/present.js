@@ -109,11 +109,13 @@ function floatNumber(r, text, kind, ms) {
   n.style.left = `${r.x + r.w / 2}px`;
   n.style.top = `${r.y + r.h * 0.3}px`;
   fxEl().append(n);
+  // Numbers rise, except near the top edge of the stage, where they sink instead.
+  const d = r.y < 120 ? -1 : 1;
   const a = n.animate([
     { transform: 'translate(-50%, 0) scale(0.6)', opacity: 0 },
-    { transform: 'translate(-50%, -12px) scale(1.15)', opacity: 1, offset: 0.2 },
-    { transform: 'translate(-50%, -24px) scale(1)', opacity: 1, offset: 0.7 },
-    { transform: 'translate(-50%, -56px) scale(1)', opacity: 0 },
+    { transform: `translate(-50%, ${-12 * d}px) scale(1.15)`, opacity: 1, offset: 0.2 },
+    { transform: `translate(-50%, ${-24 * d}px) scale(1)`, opacity: 1, offset: 0.7 },
+    { transform: `translate(-50%, ${-56 * d}px) scale(1)`, opacity: 0 },
   ], { duration: ms, easing: 'ease-out' });
   a.onfinish = () => n.remove();
   a.oncancel = () => n.remove();
@@ -353,6 +355,11 @@ async function after(root, snap, next, actor, t, numbersDone) {
 
   // Healing, buffs and anything not shown yet float on the cards as they are now.
   showNumbers(ev, numbersDone, t);
+  // Base Energy gained by passing floats up from that player's Energy counter.
+  for (const e of ev.filter((x) => x.type === 'energyGained' && x.source === 'Pass')) {
+    const counter = pile(root, `${e.who}-energy`);
+    if (counter) floatNumber(rectOf(counter), `+${e.amount} Energy`, 'buff', t(1300));
+  }
   for (const e of ev.filter((x) => x.type === 'questProgress')) {
     animate(shown(e.uid), [{ transform: 'none' }, { transform: 'scale(1.08)' }, { transform: 'none' }], t(450));
   }
@@ -426,7 +433,7 @@ export function captionFor(state, actor) {
   } else if (main?.type === 'powerUsed') {
     text = `${S} ${verb(actor, 'use')} ${main.name}'s Power${on(main.target)}`;
   } else if (main?.type === 'pass') {
-    text = `${S} ${verb(actor, 'pass', 'passes')}`;
+    text = `${S} ${verb(actor, 'pass', 'passes')}${main.gain ? `, +${main.gain} Energy` : ''}`;
     if (ev.some((e) => e.type === 'phaseChanged' && e.phase === 'supper')) text += ' · Battle Phase ends';
   } else if (main?.type === 'choiceMade') {
     text = main.kind === 'target'

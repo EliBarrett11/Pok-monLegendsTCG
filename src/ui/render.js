@@ -9,7 +9,7 @@ import {
   ZONES, playablePokemon, costPreview, isAlert, legalTargets, canUsePower, powerTargets,
   summonSpaces, isFallen, attackOf, maxStrengthOf, playableStrategies, strategyTargets,
   playableSupporters, supporterTargets, giftMet, playableLocations, locationSpaces, weatherState,
-  openBagOptions, itemTargets, BAG_SIZE,
+  openBagOptions, itemTargets, BAG_SIZE, passEndsPhase, PASS_ENERGY,
 } from '../engine/game.js';
 import { heldBonus, weatherTotal, speedOf } from '../engine/board.js';
 import { INNATE_POWERS, WEATHER, SPEED_TIERS } from '../engine/cardData.js';
@@ -241,7 +241,7 @@ function infoBar(state, who) {
           <span data-pile="${who}-discard">Discard <b>${p.discard.length}</b></span>
           <span data-pile="${who}-released">Released <b>${p.released.length}</b></span></div>
         <div class="info-line">
-          <span class="energy">${icon('energy')} Energy <b>${p.baseEnergy}</b></span>
+          <span class="energy" data-pile="${who}-energy">${icon('energy')} Energy <b>${p.baseEnergy}</b></span>
           <span>Exert <b>${p.exertMax - p.exhaust.length}/${p.exertMax}</b></span>
           <span class="xp-pool">${icon('xp')} XP <b>${p.xp}</b></span></div>
         <div class="info-line"><span class="dollars">${icon('dollar')} PokéDollars <b>$${p.dollars}</b></span>
@@ -837,7 +837,9 @@ function controls(state) {
           secondary: cancel, primary: primary('confirm-supporter', 'Confirm', !exact),
         };
       }
-      const pass = primary('pass', 'Pass');
+      // What passing will do: +1 Base Energy, or end the phase after the opponent's Pass.
+      const passLabel = passEndsPhase(state) ? 'Pass (end phase)' : `Pass (+${PASS_ENERGY} Energy)`;
+      const pass = primary('pass', passLabel);
       if (ui.power !== null) {
         const t = me.zones[ui.power].trainer;
         if (powerTargets(state, 'player', ui.power).length) {
@@ -845,7 +847,7 @@ function controls(state) {
         }
         return {
           hint: `<b>${t.name}'s Power:</b> ${t.power.text}`,
-          secondary: button('pass', 'Pass', { cls: 'secondary' }), primary: primary('use-power', `Use Power (${t.power.cost})`),
+          secondary: button('pass', passLabel, { cls: 'secondary' }), primary: primary('use-power', `Use Power (${t.power.cost})`),
         };
       }
       const strategy = ui.strategy && me.hand.find((c) => c.uid === ui.strategy);
