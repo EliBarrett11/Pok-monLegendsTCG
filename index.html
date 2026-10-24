@@ -4,15 +4,25 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pokémon Legends TCG</title>
+  <!-- Fonts: Cinzel for names, headings and banners; Alegreya Sans for card text and numbers. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;0,800;1,400&family=Cinzel:wght@600;700;800&display=swap">
+  <!-- The tabletop art, fetched up front so nothing pops in (main.js waits for it). -->
+  <link rel="preload" as="image" href="assets/ui/table.jpg">
+  <link rel="preload" as="image" href="assets/ui/board-mat.jpg">
+  <link rel="preload" as="image" href="assets/ui/card-back.jpg">
+  <link rel="preload" as="image" href="assets/ui/frame-pokemon.jpg">
+  <link rel="preload" as="image" href="assets/ui/frame-strategy.jpg">
+  <link rel="preload" as="image" href="assets/ui/frame-item.jpg">
+  <link rel="preload" as="image" href="assets/ui/frame-location.jpg">
+  <link rel="preload" as="image" href="assets/ui/frame-supporter.jpg">
+  <link rel="preload" as="image" href="assets/ui/frame-trainer.jpg">
   <link rel="stylesheet" href="src/ui/style.css">
 </head>
 <body>
   <!-- A fixed 1920×1080 stage, scaled to fit the window (see main.js). -->
   <div id="stage">
-    <header class="title">
-      <h1>Pokémon Legends TCG</h1>
-      <span id="build-tag"></span>
-    </header>
     <main id="app"></main>
     <!-- Reveals, arrows, numbers and banners while actions play out. -->
     <div id="fx"></div>

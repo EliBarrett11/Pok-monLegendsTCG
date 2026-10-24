@@ -177,7 +177,7 @@ function glow(el, cls) {
 // --- Before the new state is drawn: the action itself ------------------------------------
 
 // Reveals sit over the acting player's half of the board, clear of the caption.
-const REVEAL = { cx: 780, w: 272, cy: { ai: 268, player: 742 } };
+const REVEAL = { cx: 940, w: 272, cy: { ai: 286, player: 730 } };
 
 // Shows a card face-up and large in the middle of the board.
 async function reveal(root, prev, e, t) {

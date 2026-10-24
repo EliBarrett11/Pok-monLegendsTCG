@@ -5,9 +5,8 @@ import { chooseAction } from './ai/opponent.js';
 import { render, STAGE } from './ui/render.js';
 import { present, think, skip, resetFx } from './ui/present.js';
 
-export const BUILD = 'V1b — Animations and opponent actions';
+export const BUILD = 'V2 — Tabletop art and design system';
 
-document.getElementById('build-tag').textContent = BUILD;
 
 // The whole game is drawn on a fixed 1920×1080 stage, scaled uniformly to
 // fit the window and centred (letterboxed), so the page never scrolls.
@@ -96,7 +95,24 @@ function newGame() {
 }
 
 function draw() {
-  render(root, state, { dispatch, newGame });
+  render(root, state, { dispatch, newGame, build: BUILD });
+}
+
+// The tabletop art and fonts, loaded before the first frame so nothing pops in
+// (with a time limit, so a slow or failed load never blocks the game).
+const UI_ART = ['table', 'board-mat', 'card-back', 'frame-pokemon', 'frame-strategy', 'frame-item',
+  'frame-location', 'frame-supporter', 'frame-trainer'].map((name) => `assets/ui/${name}.jpg`);
+function preload() {
+  const images = UI_ART.map((src) => {
+    const img = new Image();
+    img.src = src;
+    return img.decode().catch(() => {});
+  });
+  const fonts = document.fonts
+    ? Promise.all(['700 16px Cinzel', '800 16px Cinzel', '400 16px "Alegreya Sans"', '800 16px "Alegreya Sans"'].map((f) => document.fonts.load(f))).catch(() => {})
+    : Promise.resolve();
+  const limit = new Promise((resolve) => { setTimeout(resolve, 3000); });
+  return Promise.race([Promise.all([...images, fonts]), limit]);
 }
 
 async function start() {
@@ -108,5 +124,8 @@ async function start() {
   draw();
 }
 
-draw();
-if (autoplay) start();
+preload().then(() => {
+  draw();
+  stage.classList.add('ready');
+  if (autoplay) start();
+});

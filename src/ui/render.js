@@ -14,6 +14,7 @@ import {
 import { heldBonus, weatherTotal, speedOf } from '../engine/board.js';
 import { INNATE_POWERS, WEATHER, SPEED_TIERS } from '../engine/cardData.js';
 import { SPEEDS, getSpeed, setSpeed } from './settings.js';
+import { icon, statIcon, speedIcon, weatherIcon } from './icons.js';
 
 export const STAGE = { width: 1920, height: 1080 };
 
@@ -151,6 +152,16 @@ function placingSpaces(state) {
 
 const isMyBattleTurn = (state) => state.phase === 'battle' && state.turn === 'player' && !state.pending;
 
+// Whether the player has something to do now (the main button glows).
+function isMyMove(state) {
+  if (state.phase === 'gameOver') return true;
+  if (state.pending) return state.pending.who === 'player';
+  if (state.phase === 'battle') return state.turn === 'player';
+  if (state.phase === 'breakfast') return state.xpStep ? !state.players.player.xpChoice : !state.players.player.pending;
+  if (state.phase === 'trainers') return !state.players.player.pending;
+  return state.phase === 'initiative';
+}
+
 const PHASE_NAMES = {
   trainers: 'Setup · Place Trainers',
   initiative: 'Setup · Initiative',
@@ -168,22 +179,26 @@ export function render(root, state, actions) {
   root.innerHTML = `
     <div class="table">
       ${infoBar(state, 'ai')}
-      <section class="side opponent">${lanes(state, 'ai')}</section>
-      ${centreStrip(state)}
-      <section class="side player">${lanes(state, 'player')}</section>
+      <div class="arena">
+        <div class="mat mat-top"></div><div class="mat mat-bottom"></div>
+        <section class="side opponent">${lanes(state, 'ai')}</section>
+        ${centreStrip(state)}
+        <section class="side player">${lanes(state, 'player')}</section>
+      </div>
       <section class="bottom">
-        ${infoBar(state, 'player')}
         <div class="hand-area">${trainerTray(state) || `<div class="hand">${handCards(state)}</div>`}</div>
+        ${infoBar(state, 'player')}
       </section>
     </div>
 
-    <aside class="side-panel">
+    <aside class="side-panel${isMyMove(state) ? ' my-move' : ''}">
+      <header class="panel-title"><h1>Pokémon Legends TCG</h1><span class="build-tag">${actions.build ?? ''}</span></header>
       <div class="prompt">${c.hint}</div>
       <div class="secondary-actions">${c.secondary}</div>
       ${c.primary}
       ${martPanel(state)}
       <div class="panel-foot">
-        <button data-action="toggle-log" class="secondary">${logOpen ? 'Hide' : 'Show'} log</button>
+        <button data-action="toggle-log" class="secondary">${logOpen ? 'Hide log' : 'Log'}</button>
         <button data-action="new-game" class="secondary">New match</button>
         <div class="settings-wrap">
           <button data-action="settings" class="secondary" title="Settings">⚙ ${SPEEDS[getSpeed()].label}</button>
@@ -212,7 +227,7 @@ export function render(root, state, actions) {
 // --- Info bars, strip, panels ------------------------------------------------
 
 // Name, piles, Energy, XP, PokéDollars and Bag. The opponent's is the top bar;
-// mine sits at the bottom left, beside the hand.
+// mine sits at the bottom, beside the hand. Hidden piles show a card back.
 function infoBar(state, who) {
   const p = state.players[who];
   const exhaust = [...p.exhaust].sort((a, b) => a.position - b.position)
@@ -221,25 +236,23 @@ function infoBar(state, who) {
     <div class="info-bar ${who}">
       <div class="info-text">
         <div class="info-line"><strong class="pname">${p.name}</strong>
-          ${who === 'ai' ? `<span data-pile="ai-hand">Hand <b>${p.hand.length}</b></span>` : ''}
-          <span data-pile="${who}-draw">Draw <b>${p.drawPile.length}</b></span>
+          ${who === 'ai' ? `<span data-pile="ai-hand"><i class="back-stack"></i>Hand <b>${p.hand.length}</b></span>` : ''}
+          <span data-pile="${who}-draw"><i class="back-stack"></i>Draw <b>${p.drawPile.length}</b></span>
           <span data-pile="${who}-discard">Discard <b>${p.discard.length}</b></span>
           <span data-pile="${who}-released">Released <b>${p.released.length}</b></span></div>
         <div class="info-line">
-          <span>Energy <b>${p.baseEnergy}</b></span>
+          <span class="energy">${icon('energy')} Energy <b>${p.baseEnergy}</b></span>
           <span>Exert <b>${p.exertMax - p.exhaust.length}/${p.exertMax}</b></span>
-          <span class="xp-pool">XP <b>${p.xp}</b></span></div>
-        <div class="info-line"><span class="dollars">PokéDollars <b>$${p.dollars}</b></span>
+          <span class="xp-pool">${icon('xp')} XP <b>${p.xp}</b></span></div>
+        <div class="info-line"><span class="dollars">${icon('dollar')} PokéDollars <b>$${p.dollars}</b></span>
           <span>Exhaust ${exhaust || '<b>0</b>'}</span></div>
       </div>
       ${bagRow(state, who)}
     </div>`;
 }
 
-const WEATHER_ICONS = { Rain: '☔', Sun: '☀' };
-
 function weatherText(tokens) {
-  return Object.entries(tokens ?? {}).map(([type, n]) => `<span class="weather-chip">${WEATHER_ICONS[type] ?? '☁'} ${n} ${type}</span>`).join(' ');
+  return Object.entries(tokens ?? {}).map(([type, n]) => `<span class="weather-chip ${slug(type)}">${weatherIcon(type)} ${n} ${type}</span>`).join(' ');
 }
 
 // Round, phase, whose turn, initiative and the Weather in play (both sides
@@ -251,7 +264,7 @@ function centreStrip(state) {
     weather = types.length ? types.map(([type, w]) => {
       const all = WEATHER[type].brackets.map((b) => `<span class="bracket${w.active.includes(b) ? ' on' : ''}${w.effective.includes(b) ? '' : ' replaced'}">${b.at}</span>`).join('');
       const effects = w.effective.map((b) => b.text).join(' ') || 'No effect yet.';
-      return `<span class="weather-type" title="${attr(`${type} ${w.count}: ${effects}`)}"><b>${w.icon} ${type} ${w.count}</b>${all}<span class="weather-effects">${effects}</span></span>`;
+      return `<span class="weather-type ${slug(type)}" title="${attr(`${type} ${w.count}: ${effects}`)}"><b>${weatherIcon(type)} ${type} ${w.count}</b>${all}<span class="weather-effects">${effects}</span></span>`;
     }).join('') : '<span class="weather-chip">No Weather</span>';
   }
   return `
@@ -327,7 +340,7 @@ function trainerSpace(state, who, i, targets) {
     content = placed ? card(placed, 'board') : '<span class="empty">Click to place</span>';
     cls += ' target';
   } else if (who === 'ai' && p.pending) {
-    content = '<div class="face-down">Chosen</div>';
+    content = '<div class="card-back board" title="Chosen in secret"></div>';
   }
   return `<div class="${cls}" data-owner="${who}" data-zone="${i}">${content}</div>`;
 }
@@ -367,7 +380,7 @@ function pokemonZone(state, who, z, targets, fallen) {
 
 // Hand cards fan out across the hand area, overlapping more as the hand grows,
 // and peek up from the bottom edge (a hovered card rises fully into view).
-export const HAND_AREA = 1140;
+export const HAND_AREA = 810;
 export const HAND_CARD = 170;
 
 // Left edge of each of n hand cards: side by side while they fit, then overlapping.
@@ -478,82 +491,109 @@ function costText({ discard, release }) {
   return [discard && `Discard ${discard}`, release && `Release ${release}`].filter(Boolean).join(', ');
 }
 
-const SHORT = { Physical: 'PHY', Special: 'SPC', Hitpoints: 'HP', Defence: 'DEF', 'Special Defence': 'SPD' };
+// A Supporter's Card-Cost as icons: one per card to Discard, then one per card to Release.
+function cardCostIcons({ discard, release }) {
+  return `${icon('discard').repeat(discard)}${icon('release').repeat(release)}`;
+}
 
-// Weather's share of a stat, per type, e.g. ☔+1 ☀−1 (shown apart from other buffs).
+// Weather's share of a stat, per type (shown apart from other buffs in the preview).
 function weatherTags(c, stat) {
   const byType = {};
   for (const mod of Object.values(c.weather ?? {})) byType[mod.type] = (byType[mod.type] ?? 0) + (mod[stat] ?? 0);
   return Object.entries(byType).filter(([, n]) => n)
-    .map(([type, n]) => `<span class="wx-tag" title="${type}">${WEATHER[type].icon}${n > 0 ? '+' : '−'}${Math.abs(n)}</span>`).join('');
+    .map(([type, n]) => `<span class="wx-tag" title="${type}">${weatherIcon(type)}${n > 0 ? '+' : '−'}${Math.abs(n)}</span>`).join('');
+}
+
+// Weather Tokens and a Held Item, as small icon badges on the card's frame.
+function frameBadges(c) {
+  const weather = Object.entries(c.weatherTokens ?? {}).map(([type, n]) =>
+    `<span class="frame-badge ${slug(type)}" title="${n} ${type} Weather Token${n === 1 ? '' : 's'}">${weatherIcon(type)}${n > 1 ? `<b>${n}</b>` : ''}</span>`);
+  const held = c.heldItem ? [`<span class="frame-badge held" title="Held Item: ${attr(c.heldItem.name)}. ${attr(c.heldItem.effectText)}">${icon('held')}</span>`] : [];
+  return [...weather, ...held];
 }
 
 const trend = (now, printed) => (now > printed ? 'buffed' : now < printed ? 'nerfed' : '');
+const chip = (cls, text) => `<span class="chip ${cls}">${text}</span>`;
+const statBadge = (cls, iconHtml, value, title) => `<span class="stat ${cls}" title="${attr(title)}">${iconHtml}${value}</span>`;
 
-// What a card shows on its face, by Card-Type.
+// What a card shows on its face, by Card-Type: the cost in the top-left
+// corner, the type banner, the text box, the stat badges along the bottom,
+// icon badges on the frame and status chips over the art.
 function face(c, opts) {
   const inPlay = c.currentStrength !== undefined;
   switch (c.cardType) {
     case 'Pokémon': {
-      let stats;
+      let left;
+      let right;
       if (inPlay) {
         const atk = attackOf(c);
         const max = maxStrengthOf(c);
-        stats = `<span class="stat" title="${c.attackType}">${SHORT[c.attackType]} <b class="${trend(atk, c.attackValue)}">${atk}</b></span>
-          <span class="stat" title="${c.strengthType}: current / maximum">${SHORT[c.strengthType]} <b>${c.currentStrength}</b>/<b class="${trend(max, c.strengthValue)}">${max}</b></span>`;
+        const hurt = c.currentStrength < max;
+        left = statBadge('atk', statIcon(c.attackType), `<b class="${trend(atk, c.attackValue)}">${atk}</b>`, `${c.attackType} Attack ${atk}`);
+        right = statBadge('str', statIcon(c.strengthType),
+          `<b class="${hurt ? 'hurt' : trend(max, c.strengthValue)}">${c.currentStrength}</b>${hurt || max !== c.strengthValue ? `<small class="${trend(max, c.strengthValue)}">/${max}</small>` : ''}`,
+          `${c.strengthType}: ${c.currentStrength} of ${max}`);
       } else {
         // XP already on the card in hand, plus any still being planned.
         const xpAtk = (c.xp?.attack ?? 0) + (opts.plan?.attack ?? 0);
         const xpStr = (c.xp?.strength ?? 0) + (opts.plan?.strength ?? 0);
-        stats = `<span class="stat">${SHORT[c.attackType]} <b class="${xpAtk ? 'buffed' : ''}">${c.attackValue + xpAtk}</b>${xpAtk ? `<span class="xp-tag">+${xpAtk}XP</span>` : ''}</span>
-          <span class="stat">${SHORT[c.strengthType]} <b class="${xpStr ? 'buffed' : ''}">${c.strengthValue + xpStr}</b>${xpStr ? `<span class="xp-tag">+${xpStr}XP</span>` : ''}</span>`;
+        left = statBadge('atk', statIcon(c.attackType), `<b class="${xpAtk ? 'buffed' : ''}">${c.attackValue + xpAtk}</b>`, `${c.attackType} Attack${xpAtk ? ` (+${xpAtk} XP)` : ''}`);
+        right = statBadge('str', statIcon(c.strengthType), `<b class="${xpStr ? 'buffed' : ''}">${c.strengthValue + xpStr}</b>`, `${c.strengthType}${xpStr ? ` (+${xpStr} XP)` : ''}`);
       }
       const speed = SPEED_TIERS[speedOf(c)];
-      const text = [c.innatePower && `<b class="keyword">${c.innatePower}</b>`,
-        c.effectText && `<b>${c.effectTrigger}:</b> ${c.effectText}`].filter(Boolean).join(' ');
-      const badges = [
-        c.heldItem && `<span class="badge held">🎒 ${c.heldItem.name}</span>`,
-        c.spent && '<span class="badge spent">Spent</span>',
-        opts.alert && '<span class="badge alert">Alert</span>',
-      ];
+      left += `<span class="speed${speed !== c.speedTier ? ' buffed' : ''}" title="Speed-Tier: ${speed}">${speedIcon(speed)}</span>`;
       return {
-        kind: 'pokemon', corner: `<span class="cost" title="Energy Cost">${c.energyCost}</span>`,
-        type: `${c.pokemonType} · ${speed}${c.weatherTokens ? ` · ${weatherText(c.weatherTokens)}` : ''}`,
-        stats, text, badges, art: [`ptype-${slug(c.pokemonType)}`, c.pokemonType],
+        kind: 'pokemon',
+        cost: `<span class="gem-cost" title="Energy Cost">${c.energyCost}</span>`,
+        type: `Pokémon · ${c.pokemonType}`,
+        text: [c.innatePower && `<b class="keyword">${c.innatePower}</b>`, c.effectText && `<b>${c.effectTrigger}:</b> ${c.effectText}`].filter(Boolean).join(' '),
+        left,
+        right,
+        badges: frameBadges(c),
+        status: [opts.alert && chip('alert', 'Alert'), c.spent && chip('spent', 'Spent')],
+        art: [`ptype-${slug(c.pokemonType)}`, c.pokemonType],
       };
     }
     case 'Trainer': {
       const used = c.powerUsedRound === ui.state.round;
+      const out = c.strength <= 0;
       return {
         kind: 'trainer',
-        corner: `<span class="trainer-strength" title="Strength">${c.strength <= 0 ? 'Out' : `${c.strength}/${c.maxStrength}`}</span>`,
         type: 'Trainer',
         text: `<b>Power (${c.power.cost}):</b> ${c.power.text} <b>Passive:</b> ${c.passive.text}`,
-        badges: [used && '<span class="badge used">Power used</span>', c.strength <= 0 && '<span class="badge spent">Removed</span>'],
+        left: statBadge('power', icon('power'), `<b>${c.power.cost}</b>`, `Power cost ${c.power.cost}`),
+        right: statBadge('str', icon('hitpoints'), `<b class="${c.strength < c.maxStrength ? 'hurt' : ''}">${c.strength}</b><small>/${c.maxStrength}</small>`, `Strength ${c.strength} of ${c.maxStrength}`),
+        status: [used && !out && chip('used', 'Power used'), out && chip('spent', 'Removed')],
       };
     }
     case 'Location':
       return {
-        kind: 'location', corner: `<span class="xp-reward" title="XP Reward">${c.xp} XP</span>`,
-        type: `Location ${weatherText(c.weatherTokens)}`,
-        stats: inPlayLocation(c) ? `<span class="progress">${c.quest.label} ${c.progress}/${c.quest.count}</span>` : '',
-        text: `<b>Quest:</b> ${c.quest.text}`,
+        kind: 'location',
+        type: 'Location',
+        text: `<b>Quest:</b> ${c.quest.text} <b>Reward:</b> ${c.effectText}`,
+        left: statBadge('xp', icon('xp'), `<b>${c.xp}</b>`, `XP Reward ${c.xp}`),
+        right: inPlayLocation(c) ? statBadge('quest', icon('quest'), `<b>${c.progress}</b><small>/${c.quest.count}</small>`, `${c.quest.label} ${c.progress}/${c.quest.count}`) : '',
+        badges: frameBadges(c),
       };
     case 'Item':
       return {
-        kind: 'item', corner: `<span class="price" title="PokéDollar Cost">$${c.cost}</span>`,
-        type: `Item · ${c.itemType}`, text: c.effectText,
-        badges: [c.inDelivery && '<span class="badge delivery">In Delivery</span>'],
+        kind: 'item',
+        cost: `<span class="coin-cost" title="PokéDollar Cost">$${c.cost}</span>`,
+        type: `Item · ${c.itemType}`,
+        text: c.effectText,
+        status: [c.inDelivery && chip('delivery', `${icon('delivery')} In Delivery`)],
       };
     case 'Strategy':
-      return { kind: 'strategy', corner: `<span class="cost" title="Energy Cost">${c.energyCost}</span>`, type: 'Strategy', text: c.effectText };
+      return { kind: 'strategy', cost: `<span class="gem-cost" title="Energy Cost">${c.energyCost}</span>`, type: 'Strategy', text: c.effectText };
     case 'Supporter':
       return {
-        kind: 'supporter', corner: '', type: `Supporter · <span class="card-cost">${costText(c.cardCost)}</span>`,
+        kind: 'supporter',
+        cost: `<span class="icon-cost" title="Card-Cost: ${costText(c.cardCost)}">${cardCostIcons(c.cardCost)}</span>`,
+        type: 'Supporter',
         text: `${c.effectText} <b class="gift">Gift:</b> ${c.gift.challengeText} → ${c.gift.bonusText}`,
       };
     default:
-      return { kind: slug(c.cardType), corner: '', type: c.cardType, text: '' };
+      return { kind: slug(c.cardType), type: c.cardType, text: '' };
   }
 }
 
@@ -567,24 +607,39 @@ function artUrl(c) {
   return c.image ?? `assets/cards/${c.id}.jpg`;
 }
 
-function art(c, f, badges = '') {
+function art(c, f, extra = '') {
   const [cls, label] = f.art ?? [`${f.kind}-art`, c.cardType];
-  return `<div class="card-art ${cls}"><span>${label}</span><div class="art-img" style="background-image:url('${artUrl(c)}')"></div>${badges}</div>`;
+  return `<div class="card-art ${cls}"><span>${label}</span><div class="art-img" style="background-image:url('${artUrl(c)}')"></div>${extra}</div>`;
+}
+
+function cardClasses(c, f, size, opts) {
+  return `card ${size} ${f.kind}${c.rarity ? ` rarity-${slug(c.rarity)}` : ''}${f.cost ? ' has-cost' : ''}${c.spent ? ' spent' : ''}`
+    + `${opts.alert ? ' alert' : ''}${c.inDelivery ? ' delivery' : ''}${stateClasses(opts)}`;
+}
+
+// The parts every card face shares, top to bottom.
+function plate(c, f) {
+  return `<div class="plate"><span class="card-name">${c.name}</span></div>${f.cost ? `<div class="cost">${f.cost}</div>` : ''}`;
+}
+
+function statRow(c, f) {
+  return `<div class="stat-row"><span class="stat-left">${f.left ?? ''}</span>`
+    + `${c.rarity ? `<span class="gem" title="${c.rarity}"></span>` : ''}<span class="stat-right">${f.right ?? ''}</span></div>`;
 }
 
 function card(c, size, opts = {}) {
   const f = face(c, opts);
   const pv = previews.push({ c, opts }) - 1;
-  const cls = `card ${size} ${f.kind}${c.rarity ? ` rarity-${slug(c.rarity)}` : ''}${c.spent ? ' spent' : ''}${opts.alert ? ' alert' : ''}${stateClasses(opts)}`;
-  const head = `<div class="card-head"><span class="card-name">${c.name}</span>${f.corner}</div>`;
-  if (size === 'mini') return `<div class="${cls}" data-uid="${c.uid}" data-pv="${pv}">${head}${art(c, f)}</div>`;
+  const head = `class="${cardClasses(c, f, size, opts)}" data-uid="${c.uid}" data-pv="${pv}"`;
+  if (size === 'mini') return `<div ${head}>${plate(c, f)}${art(c, f)}</div>`;
   const badges = (f.badges ?? []).filter(Boolean).join('');
-  return `<div class="${cls}" data-uid="${c.uid}" data-pv="${pv}">
-    ${payBadge(opts)}${head}
-    ${art(c, f, badges ? `<div class="badges">${badges}</div>` : '')}
-    <div class="card-type">${f.type}</div>
-    ${f.stats ? `<div class="stats">${f.stats}</div>` : ''}
-    <div class="card-text">${f.text}</div>
+  const status = (f.status ?? []).filter(Boolean).join('');
+  return `<div ${head}>
+    ${payBadge(opts)}${plate(c, f)}
+    ${art(c, f, `${badges ? `<div class="frame-badges">${badges}</div>` : ''}${status ? `<div class="status-chips">${status}</div>` : ''}`)}
+    <div class="type-banner">${f.type}</div>
+    <div class="text-box">${f.text}</div>
+    ${statRow(c, f)}
   </div>`;
 }
 
@@ -611,15 +666,15 @@ function detailLines(c, opts) {
       const speed = SPEED_TIERS[speedOf(c)];
       return [
         row('Energy Cost', c.energyCost),
-        row('Attack', inPlay ? `${c.attackType} <b>${attackOf(c)}</b>${sources(c, 'attack')}`
-          : `${c.attackType} <b>${c.attackValue + xpAtk}</b>${xpAtk ? ` <span class="xp-tag">(+${xpAtk} XP)</span>` : ''}`),
-        row('Strength', inPlay ? `${c.strengthType} <b>${c.currentStrength}</b> / ${maxStrengthOf(c)}${sources(c, 'strength')}`
-          : `${c.strengthType} <b>${c.strengthValue + xpStr}</b>${xpStr ? ` <span class="xp-tag">(+${xpStr} XP)</span>` : ''}`),
-        row('Speed-Tier', speed === c.speedTier ? speed : `${speed} <span class="muted">(printed ${c.speedTier}, raised by Held Item)</span>`),
+        row('Attack', inPlay ? `${statIcon(c.attackType)} ${c.attackType} <b>${attackOf(c)}</b>${sources(c, 'attack')}`
+          : `${statIcon(c.attackType)} ${c.attackType} <b>${c.attackValue + xpAtk}</b>${xpAtk ? ` <span class="xp-tag">(+${xpAtk} XP)</span>` : ''}`),
+        row('Strength', inPlay ? `${statIcon(c.strengthType)} ${c.strengthType} <b>${c.currentStrength}</b> / ${maxStrengthOf(c)}${sources(c, 'strength')}`
+          : `${statIcon(c.strengthType)} ${c.strengthType} <b>${c.strengthValue + xpStr}</b>${xpStr ? ` <span class="xp-tag">(+${xpStr} XP)</span>` : ''}`),
+        row('Speed-Tier', `${speedIcon(speed)} ${speed === c.speedTier ? speed : `${speed} <span class="muted">(printed ${c.speedTier}, raised by Held Item)</span>`}`),
         c.innatePower && row('Innate Power', `<b class="keyword">${c.innatePower}</b> ${INNATE_POWERS[c.innatePower] ?? ''}`),
         c.effectText && row(c.effectTrigger, c.effectText),
         c.weatherTokens && row('Weather', weatherText(c.weatherTokens)),
-        c.heldItem && row('Held Item', `<b>🎒 ${c.heldItem.name}</b> ${c.heldItem.effectText}`),
+        c.heldItem && row('Held Item', `${icon('held')} <b>${c.heldItem.name}</b> ${c.heldItem.effectText}`),
         inPlay && row('Status', [c.spent ? 'Spent' : 'Active', opts.alert && 'Alert: can attack now'].filter(Boolean).join(' · ')),
       ];
     }
@@ -645,20 +700,23 @@ function detailLines(c, opts) {
     case 'Strategy':
       return [row('Energy Cost', c.energyCost), row('Effect', c.effectText)];
     case 'Supporter':
-      return [row('Card-Cost', costText(c.cardCost)), row('Effect', c.effectText),
+      return [row('Card-Cost', `${cardCostIcons(c.cardCost)} ${costText(c.cardCost)}`), row('Effect', c.effectText),
         row('Gift Challenge', c.gift.challengeText), row('Gift Bonus', c.gift.bonusText)];
     default:
       return [];
   }
 }
 
+// The large preview: the same card face, with every field written out on the parchment.
 function detail({ c, opts }) {
   const f = face(c, opts);
-  return `<div class="pv-card ${f.kind}${c.rarity ? ` rarity-${slug(c.rarity)}` : ''}">
-    <div class="card-head"><span class="card-name">${c.name}</span>${f.corner}</div>
-    <div class="pv-sub">${[c.rarity, c.cardType === 'Pokémon' ? `Pokémon · ${c.pokemonType}` : c.cardType].filter(Boolean).join(' · ')}</div>
-    ${art(c, f)}
-    <div class="pv-lines">${detailLines(c, opts).filter(Boolean).join('')}</div>
+  const badges = (f.badges ?? []).filter(Boolean).join('');
+  return `<div class="${cardClasses(c, f, 'full', {})}">
+    ${plate(c, f)}
+    ${art(c, f, badges ? `<div class="frame-badges">${badges}</div>` : '')}
+    <div class="type-banner">${[f.type, c.rarity].filter(Boolean).join(' · ')}</div>
+    <div class="text-box pv-lines">${detailLines(c, opts).filter(Boolean).join('')}</div>
+    ${statRow(c, f)}
   </div>`;
 }
 
@@ -816,8 +874,9 @@ function confirmExert(fromExert) {
   return !fromExert || confirm(`This will use ${fromExert} Exert. Exert takes Rounds to recover. Go ahead?`);
 }
 
-function wire(root, state, { dispatch, newGame }) {
-  const redraw = () => render(root, state, { dispatch, newGame });
+function wire(root, state, actions) {
+  const { dispatch, newGame } = actions;
+  const redraw = () => render(root, state, actions);
   const on = (selector, fn) => root.querySelectorAll(selector).forEach((el) => { el.onclick = () => fn(el); });
 
   // Hover preview for every card on screen.
