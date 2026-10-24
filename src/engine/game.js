@@ -196,6 +196,31 @@ export function usablePowers(state, who) {
   return [0, 1, 2].filter((zone) => canUsePower(state, who, zone));
 }
 
+// The context a Strategy Card resolves in.
+function strategyCtx(state, who, card, target) {
+  return {
+    who,
+    source: { kind: 'strategy', owner: who, uid: card.uid, name: card.name },
+    label: `${whose(state, who)} ${card.name}`,
+    target,
+  };
+}
+
+// Strategy Cards in hand this player could play now: affordable, and with
+// something to affect (a legal target, a card to draw).
+export function playableStrategies(state, who) {
+  const p = state.players[who];
+  return p.hand.filter((c) => c.cardType === 'Strategy' && canPay(p, c.energyCost)
+    && canResolve(state, strategyCtx(state, who, c), c.effects));
+}
+
+// Legal targets for a Strategy Card in hand, as refs. Empty if it needs none.
+export function strategyTargets(state, who, uid) {
+  const card = state.players[who].hand.find((c) => c.uid === uid);
+  const e = targetedEffect(card.effects);
+  return e ? candidates(state, strategyCtx(state, who, card), e.target, e) : [];
+}
+
 // --- Actions -------------------------------------------------------------
 
 export function legalActions(state, who) {
@@ -215,6 +240,7 @@ export function legalActions(state, who) {
         ...(playablePokemon(state, who).length ? ['playPokemon'] : []),
         ...(canCommand(state, who) ? ['command'] : []),
         ...(usablePowers(state, who).length ? ['usePower'] : []),
+        ...(playableStrategies(state, who).length ? ['playStrategy'] : []),
       ];
     default:
       return [];
@@ -345,6 +371,22 @@ const HANDLERS = {
     trainer.powerUsedRound = state.round;
     log(state, `${ctx.label} (${trainer.power.text}) Paid ${describePayment(paid)}.`);
     if (!resolveEffects(state, ctx, trainer.power.effects, 'endTurn')) endTurn(state, who, false);
+  },
+
+  // Battle Action: play a Strategy Card from hand, paying its Energy Cost.
+  // Its effect resolves, then it goes to the Discard Pile.
+  // target: a ref from strategyTargets(), for a card that needs one.
+  playStrategy(state, { who, uid, target }) {
+    const p = state.players[who];
+    const card = p.hand.find((c) => c.uid === uid);
+    if (!card || card.cardType !== 'Strategy') throw new Error('Choose a Strategy Card from your hand');
+    if (!playableStrategies(state, who).includes(card)) throw new Error(`${card.name} cannot be played now`);
+    const paid = payCost(p, card.energyCost, state.round);
+    p.hand = p.hand.filter((c) => c !== card);   // out of hand while it resolves, so Quickdraw can't draw itself
+    log(state, `${p.name} played ${card.name} (${card.effectText}) Paid ${describePayment(paid)}.`);
+    const pending = resolveEffects(state, strategyCtx(state, who, card, target), card.effects, 'endTurn');
+    p.discard.push(card);
+    if (!pending) endTurn(state, who, false);
   },
 
   // Answers state.pending. For a free summon: { zone, space } to summon, or

@@ -72,7 +72,7 @@ const pass = (s) => applyAction(s, { type: 'pass', who: s.turn });
 {
   let s = toRound1Battle(2);
   const me = s.turn;
-  const [ember] = setHand(s, me, ['emberkit', 'strategy-1']);
+  const [ember] = setHand(s, me, ['emberkit', 'item-1']);
   assert.deepEqual(legalActions(s, me), ['pass', 'playPokemon']);
   assert.deepEqual(costPreview(s, me, ember), { fromBase: 1, fromExert: 0 });
   s = play(s, me, ember, 1, 2);
@@ -105,10 +105,10 @@ const pass = (s) => applyAction(s, { type: 'pass', who: s.turn });
 {
   let s = toRound1Battle(4);
   const me = s.turn;
-  const [frostail, emberkit, strategy] = setHand(s, me, ['frostail', 'emberkit', 'strategy-2']);
+  const [frostail, emberkit, item] = setHand(s, me, ['frostail', 'emberkit', 'item-2']);
   assert.ok(!playablePokemon(s, me).some((c) => c.uid === frostail), 'cost 3 > 1 Base + 1 Exert');
   assert.throws(() => play(s, me, frostail, 0, 0), /Not enough Energy/);
-  assert.throws(() => play(s, me, strategy, 0, 0), /Pokémon/);
+  assert.throws(() => play(s, me, item, 0, 0), /Pokémon/);
   assert.throws(() => play(s, me, 'nope', 0, 0), /Pokémon/);
   assert.throws(() => play(s, me, emberkit, 3, 0), /empty/);
   assert.throws(() => play(s, opponentOf(me), emberkit, 0, 0), /cannot/);
@@ -132,9 +132,9 @@ const pass = (s) => applyAction(s, { type: 'pass', who: s.turn });
   let s = toRound1Battle(6);
   const first = s.turn;
   const second = opponentOf(first);
-  const [zap] = setHand(s, second, ['zappip']);
+  const [sprout] = setHand(s, second, ['sproutle']);
   s = pass(s);
-  s = play(s, second, zap, 2, 1);
+  s = play(s, second, sprout, 2, 1);
   assert.equal(s.phase, 'battle');
   assert.equal(s.turn, first, 'the passer gets another turn');
   s = pass(s);
@@ -142,10 +142,10 @@ const pass = (s) => applyAction(s, { type: 'pass', who: s.turn });
   s.players[second].zones[2].pokemon[1].currentStrength = 1;
   s = pass(s);
   assert.equal(s.round, 2);
-  const zappip = s.players[second].zones[2].pokemon[1];
-  assert.equal(zappip.spent, false, 'Active again at Breakfast');
-  assert.equal(zappip.currentStrength, 1, 'current Strength carries over');
-  assert.ok(s.log.some((l) => l.includes('Spent Pokémon became Active: Zappip')));
+  const sproutle = s.players[second].zones[2].pokemon[1];
+  assert.equal(sproutle.spent, false, 'Active again at Breakfast');
+  assert.equal(sproutle.currentStrength, 1, 'current Strength carries over');
+  assert.ok(s.log.some((l) => l.includes('Spent Pokémon became Active: Sproutle')));
 }
 
 // --- AI ---------------------------------------------------------------------
@@ -154,7 +154,7 @@ const pass = (s) => applyAction(s, { type: 'pass', who: s.turn });
 for (let seed = 1; seed <= 20; seed++) {
   let s = toRound1Battle(seed);
   s.turn = 'ai';
-  setHand(s, 'ai', ['emberkit', 'puddlop', 'pebblet', 'strategy-1']);
+  setHand(s, 'ai', ['emberkit', 'puddlop', 'pebblet', 'item-1']);
   const action = chooseAction(s, 'ai');
   assert.equal(action.type, 'playPokemon');
   s = applyAction(s, action);

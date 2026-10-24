@@ -4,15 +4,20 @@
 // On a Battle turn it lists every legal move it can pay for with Base Energy
 // alone, scores each one and picks the best (ties at random). It passes only
 // when nothing else is legal. Most moves are scored by trying them on a copy
-// of the game; Ash's draw is scored without trying it, so the AI never peeks
-// at its own Draw Pile.
+// of the game; draws (Ash, Quickdraw) are scored without trying them, so the
+// AI never peeks at its own Draw Pile.
 
 import {
   applyAction, legalActions, playablePokemon, summonSpaces, alertPokemon, legalTargets,
-  usablePowers, powerTargets, opponentOf, maxStrengthOf,
+  usablePowers, powerTargets, playableStrategies, strategyTargets, opponentOf, maxStrengthOf,
 } from '../engine/game.js';
 
-export function chooseAction(state, who = 'ai') {
+// Where the AI's random choices come from. Tests pass a seeded generator
+// so AI-vs-AI matches replay exactly.
+let random = Math.random;
+
+export function chooseAction(state, who = 'ai', { rng = Math.random } = {}) {
+  random = rng;
   const legal = legalActions(state, who);
   if (legal.includes('assignTrainers')) return assignTrainers(state, who);
   if (legal.includes('mulligan')) return mulligan(state, who);
@@ -48,13 +53,23 @@ function candidateMoves(state, who) {
     if (targets.length) targets.forEach((target) => moves.push({ type: 'usePower', who, zone, target }));
     else moves.push({ type: 'usePower', who, zone });
   }
+  // Strategy Cards. Recover only on its own damaged cards; Hypervoice is only
+  // playable when the opponent has Pokémon.
+  const seenStrategy = new Set();
+  for (const card of playableStrategies(state, who)) {
+    if (card.energyCost > p.baseEnergy || seenStrategy.has(card.id)) continue;
+    seenStrategy.add(card.id);
+    const targets = strategyTargets(state, who, card.uid).filter((t) => card.id !== 'recover' || t.owner === who);
+    if (targets.length) targets.forEach((target) => moves.push({ type: 'playStrategy', who, uid: card.uid, target }));
+    else if (!card.effects.some((e) => e.target?.mode === 'targeted')) moves.push({ type: 'playStrategy', who, uid: card.uid });
+  }
   return moves;
 }
 
 function bestMove(state, who) {
   let best = null;
   for (const move of candidateMoves(state, who)) {
-    const score = scoreMove(state, who, move) + Math.random() * 0.01;
+    const score = scoreMove(state, who, move) + random() * 0.01;
     if (!best || score > best.score) best = { move, score };
   }
   return best?.move ?? null;
@@ -72,6 +87,8 @@ const newlyReleased = (before, after, who) => after.players[who].released.slice(
 function scoreMove(state, who, move) {
   const trainer = move.type === 'usePower' ? state.players[who].zones[move.zone].trainer : null;
   if (trainer?.id === 'ash') return 12;
+  const strategy = move.type === 'playStrategy' ? state.players[who].hand.find((c) => c.uid === move.uid) : null;
+  if (strategy?.id === 'quickdraw') return 16;
 
   const after = applyAction({ ...state, log: [] }, move);
   if (after.winner === who) return 1000;
@@ -96,6 +113,24 @@ function scoreMove(state, who, move) {
   }
 
   if (move.type === 'playPokemon') return score + summonScore(state, after, who, move);
+
+  if (strategy?.id === 'hypervoice') {
+    // Damage actually dealt: Strength lost by each enemy Pokémon (all of it if defeated).
+    let dealt = 0;
+    state.players[foe].zones.forEach((z, zone) => z.pokemon.forEach((c, space) => {
+      if (c) dealt += c.currentStrength - Math.max(0, after.players[foe].zones[zone].pokemon[space]?.currentStrength ?? 0);
+    }));
+    return score + 10 + 4 * dealt + (enemyLost.length ? 30 + value(enemyLost) : 0);
+  }
+  if (strategy?.id === 'recover') {
+    const strengthAt = (s) => {
+      const z = s.players[who].zones[move.target.zone];
+      return move.target.kind === 'trainer' ? z.trainer.strength : z.pokemon[move.target.space].currentStrength;
+    };
+    const healed = strengthAt(after) - strengthAt(state);
+    const trainerInDanger = move.target.kind === 'trainer' && strengthAt(state) <= 6 ? 15 : 0;
+    return score + 8 + 3 * healed + trainerInDanger;
+  }
 
   // Powers.
   if (enemyLost.length) return score + 60 + value(enemyLost);
@@ -125,7 +160,7 @@ function resolveChoice(state, who) {
     seen.add(zone);
     const move = { type: 'resolveChoice', who, zone, space };
     const after = applyAction({ ...state, log: [] }, move);
-    const score = summonScore(state, after, who, { uid: state.pending.uid, zone, space }) + Math.random() * 0.01;
+    const score = summonScore(state, after, who, { uid: state.pending.uid, zone, space }) + random() * 0.01;
     if (!best || score > best.score) best = { move, score };
   }
   return best?.move ?? { type: 'resolveChoice', who };
@@ -137,7 +172,7 @@ function resolveChoice(state, who) {
 function assignTrainers(state, who) {
   const order = state.players[who].trainers.map((t) => t.uid);
   for (let i = order.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(random() * (i + 1));
     [order[i], order[j]] = [order[j], order[i]];
   }
   return { type: 'assignTrainers', who, order };

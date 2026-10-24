@@ -42,26 +42,33 @@ function pokemon(name, energyCost, pokemonType, attackType, attackValue, strengt
 
 // Placeholder effect text: display only, implies no rules.
 const SAMPLE_EFFECT = { effectTrigger: 'Placeholder', effectText: 'Sample effect text. Does nothing yet.' };
-const SAMPLE_POWER = { innatePower: 'Placeholder Power' };
+const QUICK_ATTACK = { innatePower: 'Quick Attack' };
+const AGILITY = { innatePower: 'Agility' };
 const SAMPLE_WEATHER = { weatherToken: 'Placeholder Weather' };
+
+// Innate Powers: keywords the rules check directly (see effects.js).
+export const INNATE_POWERS = {
+  'Quick Attack': 'This Pokémon is summoned Active instead of Spent.',
+  Agility: "This Pokémon can't be chosen as a target by Strategy Cards. Area effects still affect it.",
+};
 
 // PLACEHOLDER Pokémon: invented names and stats (Cost 1–6, Attack 1–6, Strength 2–10).
 export const POKEMON_CARDS = [
   pokemon('Emberkit',   1, 'Fire',     'Physical', 2, 'Hitpoints',       3,  'Swift',  'Common'),
   pokemon('Puddlop',    1, 'Water',    'Special',  1, 'Hitpoints',       4,  'Steady', 'Common'),
   pokemon('Sproutle',   1, 'Grass',    'Physical', 1, 'Defence',         4,  'Slow',   'Common', SAMPLE_EFFECT),
-  pokemon('Zappip',     1, 'Electric', 'Special',  2, 'Special Defence', 2,  'Swift',  'Common'),
+  pokemon('Zappip',     1, 'Electric', 'Special',  2, 'Special Defence', 2,  'Swift',  'Common', QUICK_ATTACK),
   pokemon('Pebblet',    2, 'Rock',     'Physical', 2, 'Defence',         5,  'Slow',   'Common'),
-  pokemon('Gustling',   2, 'Flying',   'Physical', 3, 'Hitpoints',       3,  'Swift',  'Uncommon', SAMPLE_WEATHER),
+  pokemon('Gustling',   2, 'Flying',   'Physical', 3, 'Hitpoints',       3,  'Swift',  'Uncommon', { ...AGILITY, ...SAMPLE_WEATHER }),
   pokemon('Mothdust',   2, 'Bug',      'Special',  2, 'Special Defence', 4,  'Steady', 'Uncommon'),
   pokemon('Frostail',   3, 'Water',    'Special',  3, 'Special Defence', 5,  'Steady', 'Uncommon', SAMPLE_EFFECT),
-  pokemon('Brawlix',    3, 'Fighting', 'Physical', 4, 'Hitpoints',       5,  'Steady', 'Uncommon'),
-  pokemon('Toxifin',    3, 'Water',    'Special',  3, 'Defence',         6,  'Slow',   'Rare', SAMPLE_POWER),
-  pokemon('Shadepup',   4, 'Ghost',    'Special',  4, 'Special Defence', 6,  'Swift',  'Rare', SAMPLE_EFFECT),
+  pokemon('Brawlix',    3, 'Fighting', 'Physical', 4, 'Hitpoints',       5,  'Steady', 'Uncommon', QUICK_ATTACK),
+  pokemon('Toxifin',    3, 'Water',    'Special',  3, 'Defence',         6,  'Slow',   'Rare'),
+  pokemon('Shadepup',   4, 'Ghost',    'Special',  4, 'Special Defence', 6,  'Swift',  'Rare', { ...AGILITY, ...SAMPLE_EFFECT }),
   pokemon('Ironhorn',   4, 'Steel',    'Physical', 3, 'Defence',         8,  'Slow',   'Rare'),
-  pokemon('Glimmeria',  5, 'Fairy',    'Special',  5, 'Special Defence', 7,  'Steady', 'Epic', { ...SAMPLE_POWER, ...SAMPLE_WEATHER }),
-  pokemon('Duskfang',   5, 'Dark',     'Physical', 5, 'Hitpoints',       7,  'Swift',  'Epic', SAMPLE_EFFECT),
-  pokemon('Quakemaw',   6, 'Ground',   'Physical', 6, 'Defence',         10, 'Slow',   'Legendary', { ...SAMPLE_EFFECT, ...SAMPLE_POWER }),
+  pokemon('Glimmeria',  5, 'Fairy',    'Special',  5, 'Special Defence', 7,  'Steady', 'Epic', { ...AGILITY, ...SAMPLE_WEATHER }),
+  pokemon('Duskfang',   5, 'Dark',     'Physical', 5, 'Hitpoints',       7,  'Swift',  'Epic', { ...QUICK_ATTACK, ...SAMPLE_EFFECT }),
+  pokemon('Quakemaw',   6, 'Ground',   'Physical', 6, 'Defence',         10, 'Slow',   'Legendary', SAMPLE_EFFECT),
   pokemon('Mindrake',   6, 'Dragon',   'Special',  6, 'Hitpoints',       9,  'Steady', 'Legendary', SAMPLE_WEATHER),
 ];
 
@@ -128,15 +135,36 @@ export const TRAINER_CARDS = [
   },
 ];
 
+// --- Strategy Cards ---------------------------------------------------------
+//
+// Played as a Battle Action for their Energy Cost; the effect resolves, then
+// the card goes to the Discard Pile. `effects` uses the language in effects.js.
+
+function strategy(name, energyCost, rarity, effectText, effects) {
+  return { id: name.toLowerCase(), name, cardType: 'Strategy', energyCost, image: null, effectText, rarity, effects };
+}
+
+export const STRATEGY_CARDS = [
+  strategy('Quickdraw', 1, 'Common', 'Draw 2 cards.', [{ op: 'draw', amount: 2 }]),
+  strategy('Hypervoice', 3, 'Uncommon', 'Deal 2 damage to all opponent Pokémon.', [
+    { op: 'damage', amount: 2, target: { mode: 'area', side: 'opponent' } },
+  ]),
+  strategy('Recover', 3, 'Rare', 'Heal 5 Strength to any target.', [
+    { op: 'heal', amount: 5, target: { mode: 'targeted', side: 'any', kinds: ['pokemon', 'trainer'], damaged: true } },
+  ]),
+];
+
 // PLACEHOLDER non-Pokémon cards: name and Card-Type only, for now.
 export const OTHER_CARDS = [
-  ...Array.from({ length: 8 }, (_, i) => ({ id: `strategy-${i + 1}`, name: `Strategy ${i + 1}`, cardType: 'Strategy' })),
   ...Array.from({ length: 8 }, (_, i) => ({ id: `item-${i + 1}`, name: `Item ${i + 1}`, cardType: 'Item' })),
   ...Array.from({ length: 4 }, (_, i) => ({ id: `location-${i + 1}`, name: `Location ${i + 1}`, cardType: 'Location' })),
   ...Array.from({ length: 4 }, (_, i) => ({ id: `supporter-${i + 1}`, name: `Supporter ${i + 1}`, cardType: 'Supporter' })),
 ];
 
 // Each deck: card id → number of copies. PLACEHOLDER: one of every card above.
-export const PLACEHOLDER_DECKLIST = Object.fromEntries(
-  [...POKEMON_CARDS, ...OTHER_CARDS].map((c) => [c.id, 1]),
-);
+export const PLACEHOLDER_DECKLIST = {
+  ...Object.fromEntries([...POKEMON_CARDS, ...OTHER_CARDS].map((c) => [c.id, 1])),
+  quickdraw: 3,
+  hypervoice: 3,
+  recover: 2,
+};

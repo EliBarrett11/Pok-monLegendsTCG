@@ -242,7 +242,11 @@ button.secondary { background: var(--panel-2); color: var(--text); margin-top: 0
 .trainer-space .card.trainer.selected { transform: none; }
 .tray .card.trainer { width: 240px; }
 
-/* Power targets on your own side (e.g. Brock's buff) */
+/* Strategy Cards: border colour shows Rarity-Tier */
+.card.strategy { width: 132px; border-width: 2px; border-style: solid; padding: 0.35rem; gap: 0.25rem; }
+.strategy-art { background: repeating-linear-gradient(45deg, #2c4a7a, #2c4a7a 6px, #34558a 6px, #34558a 12px); }
+
+/* Effect targets, either side (Powers, Strategy Cards) */
 .power-target { cursor: pointer; border: 2px solid var(--select) !important; background: #1f3a33 !important; }
 
 /* Stats raised above printed values */

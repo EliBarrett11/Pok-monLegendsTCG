@@ -36,6 +36,30 @@ The rules as settled while building the game, in match order. The code follows t
 
 Card definitions live in `src/engine/cardData.js`, so real cards can replace the placeholders without code changes.
 
+### 1.2 Strategy Cards
+
+| Field | Values |
+|---|---|
+| Name | |
+| Card-Type | Strategy |
+| Energy Cost | number |
+| Effect Text | what it does |
+| Rarity-Tier | as for Pokémon |
+| Image | card art |
+
+| Card | Cost | Effect |
+|---|---|---|
+| **Quickdraw** | 1 | Draw 2 cards (normal draw rules, including reshuffling the Discard Pile if the Draw Pile runs out). Can't be played if there is nothing to draw; with only 1 card available it draws 1. |
+| **Hypervoice** | 3 | Deal 2 damage to all opponent Pokémon (area). Can't be played if the opponent has no Pokémon. |
+| **Recover** | 3 | Heal 5 Strength to any target (targeted): any damaged Pokémon or Trainer on either side, capped at maximum Strength. Only cards below their maximum Strength can be chosen. |
+
+### 1.3 Innate Powers
+
+Keyword abilities on Pokémon that always apply.
+
+- **Quick Attack:** this Pokémon is summoned Active instead of Spent, so it can be Alert and Commanded the Round it arrives (by the normal Alert rules).
+- **Agility:** this Pokémon can't be chosen as a target by Strategy Cards. Area effects (e.g. Hypervoice) still affect it. Trainer Powers and attacks can still target it.
+
 ## 2. The Battle Arena
 
 - Each player has a horizontal row of **9 Pokémon Spaces**.
@@ -83,6 +107,7 @@ Every Round, each player:
   - **Play a Pokémon Card:** play a Pokémon from your hand into any empty Pokémon Space on your side of the arena (not in a fallen zone), paying its Energy Cost (section 5). You can't play it if you can't afford it. It arrives **Spent** and can't be Commanded this Round.
   - **Command an Alert Pokémon:** choose one of your Alert Pokémon and a legal target. A Command is always an Attack, and costs no Energy. See 4.2.1.
   - **Use a Trainer Power:** pay its cost (section 5); each Trainer's Power can be used once per Round, and not if it has no legal target. See 7.2.
+  - **Play a Strategy Card:** on any of your turns, pay its Energy Cost (section 5). Its effect resolves immediately, then the card goes to your Discard Pile. A Strategy Card can't be played if it has no legal target (or, for an area card, nothing to affect). Cards drawn during Battle go into your hand and can be played this Round; they're discarded at Supper with the rest of your hand.
 - Passing doesn't lock a player out: if one player passes and the other takes an Action, the first player gets another turn.
 - The Battle Phase ends when **both players Pass consecutively**.
 
@@ -158,46 +183,35 @@ Both players use these three for now (placeholders until the real Trainers arriv
 
 | Trainer | Strength | Power | Passive |
 |---|---|---|---|
-| **Ash** | 15 | **(1):** Draw 1 card. If it's a 1-cost Pokémon, you may summon it immediately without paying its cost (normal summoning rules: any empty space in your row outside a fallen zone, arrives Spent; if there is no such space, it stays in hand). Can't be used if there is no card to draw. | Friendly Pokémon in Ash's Zone gain +1/+1. |
+| **Ash** | 15 | **(1):** Draw 1 card. If it's a 1-cost Pokémon, you may summon it immediately without paying its cost (normal summoning rules: any empty space in your row outside a fallen zone, arrives Spent unless it has Quick Attack; if there is no such space, it stays in hand). Can't be used if there is no card to draw. | Friendly Pokémon in Ash's Zone gain +1/+1. |
 | **Misty** | 15 | **(1):** Deal 1 damage to an opponent Pokémon in Misty's Zone. | Friendly Water Pokémon in Misty's Zone gain +3 Strength. |
 | **Brock** | 15 | **(1):** Give a friendly Pokémon +2 Defence (Defence Strength-Type only). | Opponent Pokémon summoned to Brock's Zone take 1 damage. |
 
 ## Reference cards (not yet implemented)
 
-These cards are not in the game yet. The effect system (`src/engine/effects.js`) already handles each one, and `tests/effects.test.js` runs them as data, so adding them later means adding card data rather than changing the engine.
-
-**Strategy Cards**
-
-| Card | Cost | Effect | As data |
-|---|---|---|---|
-| Quickdraw | 1 | Draw 2 cards. | `draw 2` |
-| Hypervoice | 3 | Deal 2 damage to all opponent Pokémon. | `damage 2`, area, opponent Pokémon |
-| Recover | 3 | Heal 5 Strength to any target. | `heal 5`, targeted, any Pokémon or Trainer |
+Not in the game yet. The effect system (`src/engine/effects.js`) already handles them, and `tests/effects.test.js` runs them as data, so adding them later means adding card data rather than changing the engine.
 
 **Pokémon abilities:** an Effect Trigger Word (e.g. On Summon, On Defeated, On Attack) plus Effect Text. The ability triggers every time the condition is met. As data: a trigger `{ on: 'summon' | 'defeated' | 'attack', match: { self: true }, effects }`.
 
-**Innate Powers**
-
-- **Quick Attack:** this Pokémon is summoned Active instead of Spent.
-- **Agility:** can't be chosen as a target by Strategy Cards; area effects like Hypervoice still hit it.
-
 ## Open questions
 
-- What do Strategy, Item, Location and Supporter cards do, and how are they played?
+- **Stalled matches:** healing (Recover) can keep up with the only damage left, so a match can go on forever while a Pokémon is still in play (about 1 in 30 AI-vs-AI matches). Should there be a Round limit or a "no progress" draw? (For now the AI-vs-AI test stops matches at Round 100 and reports them as stalled.)
+- **Quick Attack and Ash:** Ash's Power says the free summon "arrives Spent". The build lets Quick Attack win (the Pokémon arrives Active), because every summon follows the same rules. Is that right?
+- What do Item, Location and Supporter cards do, and how are they played?
 - Can a Command be anything other than an Attack?
-- What do Item, Location and Supporter cards do, and how are Strategy Cards played (cost, timing, used once then discarded?)
 - What do Weather Tokens do?
 - When exactly does an "On Attack" ability trigger: before or after the attack's damage, and does it fire when the Pokémon is hit back? (The engine currently fires it after the attack's damage.)
-- Does an area effect with no matching targets (e.g. Hypervoice with no opponent Pokémon) still count as legal to play?
 - Does Rarity limit how many copies go in a deck?
-- Is there a hand size limit, or any limit on Rounds?
+- Is there a hand size limit?
 
 ## Placeholders in the current build
 
-- Decks are 16 Pokémon, 8 Strategy, 8 Item, 4 Location and 4 Supporter cards. This mix is a stand-in, not a rule.
+- Decks are 16 Pokémon, 8 Strategy (3 Quickdraw, 3 Hypervoice, 2 Recover), 8 Item, 4 Location and 4 Supporter cards. This mix is a stand-in, not a rule.
 - The 16 Pokémon are invented placeholders, one of each per deck, with the same list for both players. Stats: Energy Cost 1–6, Attack 1–6, Strength 2–10.
-- Placeholder art is a box tinted by Pokémon Type. Effect, Innate Power and Weather text on placeholders is sample text and does nothing.
-- Strategy, Item, Location and Supporter cards have only a name and Card-Type.
+- Placeholder art is a box tinted by Pokémon Type (striped blue for Strategy Cards). Effect and Weather text on placeholder Pokémon is sample text and does nothing.
+- Innate Powers on placeholder Pokémon: **Quick Attack** on Zappip, Brawlix and Duskfang; **Agility** on Gustling, Shadepup and Glimmeria.
+- Strategy Card rarities are placeholders: Quickdraw Common, Hypervoice Uncommon, Recover Rare.
+- Item, Location and Supporter cards have only a name and Card-Type.
 - Both players use the same three Trainers: Ash, Misty and Brock (section 7.4), each with Strength 15.
 - To give every Trainer something to work with, three placeholder Pokémon are Water (Puddlop, Frostail, Toxifin), four cost 1, and five have Defence Strength-Type.
-- **The AI** places Trainers at random and only spends Base Energy (never Exert). On a Battle turn it scores every legal move and picks the best (ties at random), passing only when nothing else is legal. From the top: winning the match; bringing an enemy Trainer to 0; defeating an enemy Pokémon (by attack or Misty) without losing its own; attacking the weakest enemy Trainer; playing its most expensive affordable Pokémon, preferring zones where its own Passives boost it and avoiding the opponent's Brock zone; Brock's buff on its strongest Defence Pokémon, Ash's draw, Misty chip damage; other attacks; and last, trades that lose the attacker for nothing. It always takes Ash's free summon when there is room. It tries moves on a copy of the game to score them, except Ash's draw, so it never sees its own Draw Pile.
+- **The AI** places Trainers at random and only spends Base Energy (never Exert). On a Battle turn it scores every legal move and picks the best (ties at random), passing only when nothing else is legal. From the top: winning the match; bringing an enemy Trainer to 0; defeating an enemy Pokémon (by attack or Misty) without losing its own; attacking the weakest enemy Trainer; playing its most expensive affordable Pokémon, preferring zones where its own Passives boost it and avoiding the opponent's Brock zone; Brock's buff on its strongest Defence Pokémon, Ash's draw, Misty chip damage; other attacks; and last, trades that lose the attacker for nothing. It always takes Ash's free summon when there is room. Strategy Cards: Hypervoice only when you have Pokémon (scored by damage dealt and Pokémon defeated), Recover only on its own damaged Pokémon or Trainers (more when a Trainer is low), Quickdraw about as highly as Ash's draw. It tries moves on a copy of the game to score them, except draws (Ash, Quickdraw), so it never sees its own Draw Pile.

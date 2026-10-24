@@ -3,8 +3,9 @@
 
 import {
   ZONES, playablePokemon, costPreview, isAlert, legalTargets, canUsePower, powerTargets,
-  summonSpaces, isFallen, attackOf, maxStrengthOf,
+  summonSpaces, isFallen, attackOf, maxStrengthOf, playableStrategies, strategyTargets,
 } from '../engine/game.js';
+import { INNATE_POWERS } from '../engine/cardData.js';
 
 // Choices the player is still making before they lock in. Reset whenever the
 // game state changes (the engine returns a new state object for every action).
@@ -19,23 +20,28 @@ function resetUiFor(state) {
   ui.selectedPokemon = null;   // uid of a Pokémon in hand to play
   ui.attacker = null;          // { zone, space } of the player's chosen Alert Pokémon
   ui.power = null;             // zone of the player's Trainer whose Power is chosen
+  ui.strategy = null;          // uid of a Strategy Card in hand waiting for a target
 }
 
 function clearSelection() {
   ui.selectedPokemon = null;
   ui.attacker = null;
   ui.power = null;
+  ui.strategy = null;
 }
 
 const key = (ref) => (ref.kind === 'trainer' ? `${ref.owner}:T${ref.zone}` : `${ref.owner}:P${ref.zone}${ref.space}`);
 
-// Cards that can be clicked as the target of the current choice, as keys.
+// Cards that can be clicked as the target of the current choice, as keys,
+// with the highlight to use: red for attacks, green for effects (either side).
 function targetKeys(state) {
   if (ui.attacker) {
-    return new Set(legalTargets(state, 'player', ui.attacker).map((t) => key({ ...t, owner: 'ai' })));
+    const keys = legalTargets(state, 'player', ui.attacker).map((t) => key({ ...t, owner: 'ai' }));
+    return { keys: new Set(keys), cls: ' attack-target' };
   }
-  if (ui.power !== null) return new Set(powerTargets(state, 'player', ui.power).map(key));
-  return new Set();
+  if (ui.power !== null) return { keys: new Set(powerTargets(state, 'player', ui.power).map(key)), cls: ' power-target' };
+  if (ui.strategy) return { keys: new Set(strategyTargets(state, 'player', ui.strategy).map(key)), cls: ' power-target' };
+  return { keys: new Set(), cls: '' };
 }
 
 // Empty spaces that can be clicked: for playing a Pokémon, or Ash's free summon.
@@ -136,7 +142,7 @@ function trainerRow(state, who) {
       const usable = who === 'player' && isMyBattleTurn(state) && canUsePower(state, 'player', i);
       content = trainerCard(state, zone.trainer, { selectable: usable, selected: who === 'player' && ui.power === i });
       if (zone.trainer.strength <= 0) cls += ' down';
-      if (targets.has(key({ kind: 'trainer', owner: who, zone: i }))) cls += who === 'ai' ? ' attack-target' : ' power-target';
+      if (targets.keys.has(key({ kind: 'trainer', owner: who, zone: i }))) cls += targets.cls;
     } else if (who === 'player' && state.phase === 'trainers') {
       const placed = ui.placing[i] && p.trainers.find((t) => t.uid === ui.placing[i]);
       content = placed ? trainerCard(state, placed) : '<span class="empty">Click to place</span>';
@@ -162,7 +168,7 @@ function pokemonRow(state, who) {
       <div class="spaces">${zone.pokemon.map((c, s) => {
         let cls = 'pokemon-space';
         if (placing.has(`${z}${s}`)) cls += ' target';
-        if (targets.has(key({ kind: 'pokemon', owner: who, zone: z, space: s }))) cls += who === 'ai' ? ' attack-target' : ' power-target';
+        if (targets.keys.has(key({ kind: 'pokemon', owner: who, zone: z, space: s }))) cls += targets.cls;
         const alert = c && isAlert(state, c);
         const opts = {
           alert,
@@ -179,13 +185,14 @@ function handCards(state) {
   const me = state.players.player;
   const mulligan = state.phase === 'breakfast' && state.round === 1 && !me.pending;
   const myTurn = isMyBattleTurn(state);
-  const playable = myTurn ? playablePokemon(state, 'player').map((c) => c.uid) : [];
+  const playable = myTurn
+    ? [...playablePokemon(state, 'player'), ...playableStrategies(state, 'player')].map((c) => c.uid) : [];
   return me.hand.map((c) => {
     if (mulligan) return card(c, { selectable: true, selected: ui.mulligan.has(c.uid) });
     if (state.pending?.uid === c.uid) return card(c, { selected: true });
-    if (myTurn && c.cardType === 'Pokémon') {
+    if (myTurn && (c.cardType === 'Pokémon' || c.cardType === 'Strategy')) {
       return playable.includes(c.uid)
-        ? card(c, { selectable: true, selected: ui.selectedPokemon === c.uid })
+        ? card(c, { selectable: true, selected: ui.selectedPokemon === c.uid || ui.strategy === c.uid })
         : card(c, { unavailable: true });
     }
     return card(c);
@@ -221,9 +228,20 @@ function stateClasses({ selectable, selected, unavailable }) {
 
 function card(c, opts = {}) {
   if (c.cardType === 'Pokémon') return pokemonCard(c, opts);
+  if (c.cardType === 'Strategy') return strategyCard(c, opts);
   return `<div class="card type-${slug(c.cardType)}${stateClasses(opts)}" data-uid="${c.uid}">
     <div class="card-type">${c.cardType}</div>
     <div class="card-name">${c.name}</div>
+  </div>`;
+}
+
+function strategyCard(c, opts) {
+  return `<div class="card strategy rarity-${slug(c.rarity)}${stateClasses(opts)}" data-uid="${c.uid}" title="${c.name} (${c.rarity})&#10;Energy Cost: ${c.energyCost}&#10;${c.effectText}">
+    <div class="card-head"><span class="card-name">${c.name}</span><span class="cost" title="Energy Cost">${c.energyCost}</span></div>
+    <div class="card-type">Strategy</div>
+    ${c.image ? `<img class="card-art" src="${c.image}" alt="">` : '<div class="card-art strategy-art">Strategy</div>'}
+    <div class="card-line effect">${c.effectText}</div>
+    <div class="card-line rarity">${c.rarity}</div>
   </div>`;
 }
 
@@ -255,7 +273,7 @@ function pokemonCard(c, opts) {
       <span>${c.strengthType} <b>${c.strengthValue}</b></span>
     </div>
     <div class="card-line">Speed: ${c.speedTier}</div>
-    ${c.innatePower ? `<div class="card-line keyword">${c.innatePower}</div>` : ''}
+    ${c.innatePower ? `<div class="card-line keyword" title="${INNATE_POWERS[c.innatePower] ?? ''}">${c.innatePower}</div>` : ''}
     ${c.effectText ? `<div class="card-line effect"><b>${c.effectTrigger}:</b> ${c.effectText}</div>` : ''}
     ${c.weatherToken ? `<div class="card-line weather">☁ ${c.weatherToken}</div>` : ''}
     <div class="card-line rarity">${c.rarity}</div>
@@ -289,7 +307,7 @@ function tooltip(c) {
     `Attack: ${c.attackType} ${inPlay ? attackOf(c) : c.attackValue}${inPlay && attackOf(c) !== c.attackValue ? ` (printed ${c.attackValue})` : ''}`,
     `Strength: ${c.strengthType} ${inPlay ? `${c.currentStrength}/${maxStrengthOf(c)}` : c.strengthValue}${inPlay && maxStrengthOf(c) !== c.strengthValue ? ` (printed ${c.strengthValue})` : ''}`,
     `Speed-Tier: ${c.speedTier}`,
-    c.innatePower && `Innate Power: ${c.innatePower}`,
+    c.innatePower && `Innate Power: ${c.innatePower}${INNATE_POWERS[c.innatePower] ? ` (${INNATE_POWERS[c.innatePower]})` : ''}`,
     c.effectText && `${c.effectTrigger}: ${c.effectText}`,
     c.weatherToken && `Weather Token: ${c.weatherToken}`,
     c.spent && 'Spent',
@@ -328,9 +346,11 @@ function controls(state) {
         return `<span class="hint">${t.name}'s Power: ${t.power.text}</span>
           <button data-action="use-power">Use Power (${t.power.cost})</button>${pass}`;
       }
+      const strategy = ui.strategy && me.hand.find((c) => c.uid === ui.strategy);
       const hint = ui.selectedPokemon ? 'Click a highlighted empty space to play it, or click the card again to cancel.'
         : ui.attacker ? 'Click a highlighted enemy Pokémon or Trainer to attack, or click your Pokémon again to cancel.'
-          : 'Play a Pokémon from your hand, attack with an Alert Pokémon, use a Trainer Power, or Pass.';
+          : strategy ? `${strategy.name}: click a highlighted target, or click the card again to cancel.`
+            : 'Play a card from your hand, attack with an Alert Pokémon, use a Trainer Power, or Pass.';
       return `<span class="hint">${hint}</span>${pass}`;
     }
     case 'gameOver':
@@ -374,11 +394,21 @@ function wire(root, state, { dispatch, newGame }) {
     redraw();
   });
 
-  // Hand clicks: mark for mulligan in Breakfast, or pick a Pokémon to play in Battle.
+  // Hand clicks: mark for mulligan in Breakfast; in Battle, pick a Pokémon to
+  // play, or play a Strategy Card (straight away, or after picking a target).
   on('.hand .card.selectable', (el) => {
     const uid = el.dataset.uid;
+    const c = state.players.player.hand.find((h) => h.uid === uid);
     if (state.phase === 'breakfast') {
       ui.mulligan.has(uid) ? ui.mulligan.delete(uid) : ui.mulligan.add(uid);
+    } else if (c.cardType === 'Strategy') {
+      const again = ui.strategy === uid;
+      clearSelection();
+      if (!again && !strategyTargets(state, 'player', uid).length) {
+        if (confirmExert(costPreview(state, 'player', uid).fromExert)) dispatch({ type: 'playStrategy', who: 'player', uid });
+        return;
+      }
+      ui.strategy = again ? null : uid;
     } else {
       const again = ui.selectedPokemon === uid;
       clearSelection();
@@ -414,7 +444,7 @@ function wire(root, state, { dispatch, newGame }) {
   };
   on('[data-action="use-power"]', () => usePower(undefined));
 
-  // Clicking a highlighted target: an attack, or a Power's target.
+  // Clicking a highlighted target: an attack, a Power's target, or a Strategy Card's.
   on('.attack-target, .power-target', (el) => {
     const zone = Number(el.dataset.zone);
     const isTrainer = el.classList.contains('trainer-space');
@@ -424,6 +454,11 @@ function wire(root, state, { dispatch, newGame }) {
     } else if (ui.power !== null) {
       const owner = el.dataset.owner;
       usePower(isTrainer ? { kind: 'trainer', owner, zone } : { kind: 'pokemon', owner, zone, space: Number(el.dataset.space) });
+    } else if (ui.strategy) {
+      const owner = el.dataset.owner;
+      const target = isTrainer ? { kind: 'trainer', owner, zone } : { kind: 'pokemon', owner, zone, space: Number(el.dataset.space) };
+      if (!confirmExert(costPreview(state, 'player', ui.strategy).fromExert)) return;
+      dispatch({ type: 'playStrategy', who: 'player', uid: ui.strategy, target });
     }
   });
 

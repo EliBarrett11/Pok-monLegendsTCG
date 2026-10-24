@@ -18,6 +18,7 @@
 //   kinds   ['pokemon'] (default) | ['pokemon', 'trainer'] | ['trainer']
 //   zone    'source': only the source's Zone, both sides of the arena
 //   filter  { pokemonType?, strengthType? }        Pokémon only
+//   damaged true: only cards below their maximum Strength
 //
 // PASSIVE      { aura?, triggers? }
 //   aura      { attack, strength, target: selector } continuous stat bonus,
@@ -35,7 +36,7 @@
 
 import {
   PLAYERS, opponentOf, log, whose, draw, canDraw, arenaPokemon, activeTrainers, cardAt, sameRef,
-  describeRef, summonSpaces, damage, heal, releaseDefeated, maxStrengthOf, inPlay,
+  describeRef, summonSpaces, damage, heal, releaseDefeated, maxStrengthOf, strengthOf, inPlay,
 } from './board.js';
 
 export function hasKeyword(card, keyword) {
@@ -63,16 +64,17 @@ export function candidates(state, ctx, selector, op = {}) {
   const inZone = (ref) => selector.zone !== 'source' || ref.zone === ctx.source.zone;
   const filter = { ...selector.filter, ...(op.strengthType ? { strengthType: op.strengthType } : {}) };
   const out = [];
+  const hurt = (card) => !selector.damaged || strengthOf(card) < maxStrengthOf(card);
   if (kinds.includes('pokemon')) {
     for (const { ref, card } of arenaPokemon(state)) {
-      if (!sides.includes(ref.owner) || !inZone(ref) || !passesFilter(card, filter)) continue;
+      if (!sides.includes(ref.owner) || !inZone(ref) || !passesFilter(card, filter) || !hurt(card)) continue;
       if (selector.mode === 'targeted' && ctx.source.kind === 'strategy' && hasKeyword(card, 'Agility')) continue;
       out.push(ref);
     }
   }
   if (kinds.includes('trainer') && !Object.keys(filter).length) {
-    for (const { ref } of activeTrainers(state)) {
-      if (sides.includes(ref.owner) && inZone(ref)) out.push(ref);
+    for (const { ref, card } of activeTrainers(state)) {
+      if (sides.includes(ref.owner) && inZone(ref) && hurt(card)) out.push(ref);
     }
   }
   return out;
@@ -83,12 +85,13 @@ export function targetedEffect(effects) {
   return effects.find((e) => e.target?.mode === 'targeted') ?? null;
 }
 
-// Whether these effects can be used now: every targeted effect needs a legal
-// target, and a draw needs a card to draw.
+// Whether a card or Power with these effects can be used now: a draw needs a
+// card to draw, and a targeted or area effect needs something to affect.
+// (Triggers don't ask; they just affect whatever is there.)
 export function canResolve(state, ctx, effects) {
   return effects.every((e) => {
     if (e.op === 'draw') return canDraw(state, ctx.who);
-    if (e.target?.mode === 'targeted') return candidates(state, ctx, e.target, e).length > 0;
+    if (e.target?.mode === 'targeted' || e.target?.mode === 'area') return candidates(state, ctx, e.target, e).length > 0;
     return true;
   });
 }
