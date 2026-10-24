@@ -225,8 +225,9 @@ function revealPanel(e, r) {
   } else {
     p.innerHTML = `Bought for $${e.cost}${e.to.kind === 'bag' ? ' · stored in the Bag' : ''}`;
   }
-  p.style.left = `${r.x + r.w / 2}px`;
-  p.style.top = `${r.y + r.h + 10}px`;
+  // Beside the card, so it never covers the caption.
+  p.style.left = `${r.x + r.w + 16}px`;
+  p.style.top = `${r.y + r.h / 2}px`;
   fxEl().append(p);
   return p;
 }

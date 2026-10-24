@@ -44,6 +44,8 @@ export function setCaption(text) {
     el.title = text;
     el.hidden = !text;
   }
+  const echo = document.querySelector('.prompt-caption');
+  if (echo) echo.textContent = text;
 }
 
 // The markup for one card, for the presenter's reveals.
@@ -690,7 +692,7 @@ const button = (action, label, { disabled = false, cls = '', extra = '' } = {}) 
 const primary = (action, label, disabled = false) => button(action, label, { disabled, cls: 'primary' });
 const idle = (label) => `<button class="primary" disabled>${label}</button>`;
 const waiting = {
-  get hint() { return `${caption ? `<b>${attr(caption)}</b><br><br>` : ''}<span class="muted">Waiting for the opponent…</span>`; },
+  get hint() { return `<b class="prompt-caption">${attr(caption)}</b><p class="muted">Waiting for the opponent…</p>`; },
   secondary: '',
   primary: idle('Waiting…'),
 };
