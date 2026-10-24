@@ -13,6 +13,7 @@ import {
 } from '../engine/game.js';
 import { heldBonus, weatherTotal, speedOf } from '../engine/board.js';
 import { INNATE_POWERS, WEATHER, SPEED_TIERS } from '../engine/cardData.js';
+import { SPEEDS, getSpeed, setSpeed } from './settings.js';
 
 export const STAGE = { width: 1920, height: 1080 };
 
@@ -23,6 +24,56 @@ const ui = {};
 let logOpen = false;
 // Cards drawn this render, by index, for the hover preview.
 let previews = [];
+// One element per card, by uid, kept across renders so a card can move
+// from place to place on screen (see adoptCards).
+const cardEls = new Map();
+// The line in the centre strip saying what the last action did.
+let caption = '';
+// Whether the settings menu is open.
+let settingsOpen = false;
+
+export function cardElements() {
+  return cardEls;
+}
+
+export function setCaption(text) {
+  caption = text;
+  const el = document.querySelector('.caption');
+  if (el) {
+    el.textContent = text;
+    el.title = text;
+    el.hidden = !text;
+  }
+}
+
+// The markup for one card, for the presenter's reveals.
+export function cardMarkup(c, size) {
+  return card(c, size);
+}
+
+// Swaps every freshly drawn card for the element already kept for its uid
+// (updated to match), so cards keep their identity between renders.
+function adoptCards(root) {
+  const placed = new Set();
+  for (const fresh of root.querySelectorAll('.card[data-uid]')) {
+    const uid = fresh.dataset.uid;
+    const kept = cardEls.get(uid);
+    if (placed.has(uid)) continue;
+    placed.add(uid);
+    if (!kept || kept === fresh) {
+      cardEls.set(uid, fresh);
+      continue;
+    }
+    for (const { name } of [...kept.attributes]) if (!fresh.hasAttribute(name)) kept.removeAttribute(name);
+    for (const { name, value } of [...fresh.attributes]) kept.setAttribute(name, value);
+    if (kept.innerHTML !== fresh.innerHTML) kept.innerHTML = fresh.innerHTML;
+    kept.onclick = null;
+    kept.onmouseenter = null;
+    kept.onmouseleave = null;
+    for (const a of kept.getAnimations()) a.cancel();
+    fresh.replaceWith(kept);
+  }
+}
 
 function resetUiFor(state) {
   if (ui.state === state) return;
@@ -130,8 +181,15 @@ export function render(root, state, actions) {
       ${c.primary}
       ${martPanel(state)}
       <div class="panel-foot">
-        <button data-action="toggle-log" class="secondary">${logOpen ? 'Hide' : 'Show'} match log</button>
+        <button data-action="toggle-log" class="secondary">${logOpen ? 'Hide' : 'Show'} log</button>
         <button data-action="new-game" class="secondary">New match</button>
+        <div class="settings-wrap">
+          <button data-action="settings" class="secondary" title="Settings">⚙ ${SPEEDS[getSpeed()].label}</button>
+          <div class="settings"${settingsOpen ? '' : ' hidden'}>
+            <div class="settings-title">Animation speed</div>
+            ${Object.entries(SPEEDS).map(([id, s]) => `<button data-speed="${id}" class="${id === getSpeed() ? 'chosen' : 'secondary'}">${s.label}</button>`).join('')}
+          </div>
+        </div>
       </div>
     </aside>
 
@@ -143,6 +201,7 @@ export function render(root, state, actions) {
     <div class="preview" hidden></div>
   `;
 
+  adoptCards(root);
   const logBody = root.querySelector('.log-body');
   logBody.scrollTop = logBody.scrollHeight;
   wire(root, state, actions);
@@ -160,10 +219,10 @@ function infoBar(state, who) {
     <div class="info-bar ${who}">
       <div class="info-text">
         <div class="info-line"><strong class="pname">${p.name}</strong>
-          ${who === 'ai' ? `<span>Hand <b>${p.hand.length}</b></span>` : ''}
-          <span>Draw <b>${p.drawPile.length}</b></span>
-          <span>Discard <b>${p.discard.length}</b></span>
-          <span>Released <b>${p.released.length}</b></span></div>
+          ${who === 'ai' ? `<span data-pile="ai-hand">Hand <b>${p.hand.length}</b></span>` : ''}
+          <span data-pile="${who}-draw">Draw <b>${p.drawPile.length}</b></span>
+          <span data-pile="${who}-discard">Discard <b>${p.discard.length}</b></span>
+          <span data-pile="${who}-released">Released <b>${p.released.length}</b></span></div>
         <div class="info-line">
           <span>Energy <b>${p.baseEnergy}</b></span>
           <span>Exert <b>${p.exertMax - p.exhaust.length}/${p.exertMax}</b></span>
@@ -198,6 +257,7 @@ function centreStrip(state) {
       <span class="phase">${state.round ? `Round ${state.round} · ` : ''}${PHASE_NAMES[state.phase]}</span>
       ${state.turn ? `<span class="turn ${state.turn}">${state.turn === 'player' ? 'Your turn' : "AI Opponent's turn"}</span>` : ''}
       ${state.initiative ? `<span class="initiative">Initiative: ${state.players[state.initiative].name}</span>` : ''}
+      <span class="caption-slot"><span class="caption" title="${attr(caption)}"${caption ? '' : ' hidden'}>${attr(caption)}</span></span>
       <span class="weather">${weather}</span>
     </section>`;
 }
@@ -213,7 +273,7 @@ function bagRow(state, who) {
     const cls = `bag-slot${item.inDelivery ? ' delivery' : ''}${usable.has(item.uid) ? ' usable' : ''}${ui.bag?.uid === item.uid ? ' selected' : ''}`;
     return `<div class="${cls}" data-uid="${item.uid}">${card(item, 'mini')}</div>`;
   }).join('');
-  return `<div class="bag"><span class="bag-label">Bag ${p.bag.length}/${BAG_SIZE}</span><div class="bag-slots">${slots}</div></div>`;
+  return `<div class="bag" data-pile="${who}-bag"><span class="bag-label">Bag ${p.bag.length}/${BAG_SIZE}</span><div class="bag-slots">${slots}</div></div>`;
 }
 
 // The shared PokéMart: 3 Items on sale and the deck count.
@@ -629,7 +689,11 @@ function showPreview(root, el) {
 const button = (action, label, { disabled = false, cls = '', extra = '' } = {}) => `<button data-action="${action}"${extra}${cls ? ` class="${cls}"` : ''}${disabled ? ' disabled' : ''}>${label}</button>`;
 const primary = (action, label, disabled = false) => button(action, label, { disabled, cls: 'primary' });
 const idle = (label) => `<button class="primary" disabled>${label}</button>`;
-const waiting = { hint: '<span class="muted">Waiting for the opponent…</span>', secondary: '', primary: idle('Waiting…') };
+const waiting = {
+  get hint() { return `${caption ? `<b>${attr(caption)}</b><br><br>` : ''}<span class="muted">Waiting for the opponent…</span>`; },
+  secondary: '',
+  primary: idle('Waiting…'),
+};
 
 function controls(state) {
   const me = state.players.player;
@@ -762,6 +826,16 @@ function wire(root, state, { dispatch, newGame }) {
   });
 
   on('[data-action="toggle-log"]', () => { logOpen = !logOpen; redraw(); });
+  // The settings menu updates in place (it works while actions are playing out).
+  const menu = root.querySelector('.settings');
+  on('[data-action="settings"]', () => { settingsOpen = !settingsOpen; menu.hidden = !settingsOpen; });
+  on('[data-speed]', (el) => {
+    setSpeed(el.dataset.speed);
+    settingsOpen = false;
+    menu.hidden = true;
+    root.querySelectorAll('[data-speed]').forEach((b) => { b.className = b === el ? 'chosen' : 'secondary'; });
+    root.querySelector('[data-action="settings"]').textContent = `⚙ ${SPEEDS[getSpeed()].label}`;
+  });
   on('[data-action="new-game"]', newGame);
   on('[data-action="flip"]', () => dispatch({ type: 'flipCoin' }));
   on('[data-action="lock-trainers"]', () => dispatch({ type: 'assignTrainers', who: 'player', order: [...ui.placing] }));

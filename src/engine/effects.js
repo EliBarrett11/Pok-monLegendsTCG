@@ -58,7 +58,7 @@
 import { WEATHER } from './cardData.js';
 import {
   PLAYERS, opponentOf, log, whose, draw, canDraw, arenaPokemon, activeTrainers, cardAt, sameRef, weatherCounts, weatherTotal,
-  describeRef, summonSpaces, damage, heal, releaseDefeated, maxStrengthOf, strengthOf, inPlay, heldBonus, toMart,
+  describeRef, summonSpaces, damage, heal, releaseDefeated, maxStrengthOf, strengthOf, inPlay, heldBonus, toMart, emit, info,
 } from './board.js';
 
 export function hasKeyword(card, keyword) {
@@ -192,6 +192,7 @@ const OPS = {
       card.attackBonus = (card.attackBonus ?? 0) + attack;
       card.strengthBonus = (card.strengthBonus ?? 0) + strength;
       card.currentStrength += strength;
+      emit(state, 'buff', { target: info(state, ref), attack, strength, source: ctx.label });
       const what = e.strengthType && !attack ? `${signed(strength)} ${e.strengthType}`
         : !strength ? `${signed(attack)} Attack` : `${signed(attack)}/${signed(strength)}`;
       log(state, `${ctx.label}: ${describeRef(state, ref)} gains ${what}.`);
@@ -208,6 +209,7 @@ const OPS = {
       const old = card.heldItem;
       const before = heldBonus(card, 'strength');
       card.heldItem = item;
+      emit(state, 'itemAttached', { who: ctx.who, item: { uid: item.uid, name: item.name }, target: info(state, ref) });
       if (old) toMart(state, old, `was replaced on ${what}`);
       log(state, `${ctx.label}: ${item.name} is now held by ${what}.`);
       if (ref.kind !== 'pokemon') continue;
@@ -220,6 +222,7 @@ const OPS = {
   ready(state, ctx, e, refs) {
     for (const ref of refs) {
       cardAt(state, ref).spent = false;
+      emit(state, 'ready', { target: info(state, ref) });
       log(state, `${ctx.label}: ${describeRef(state, ref)} becomes Active.`);
     }
   },
@@ -230,6 +233,7 @@ const OPS = {
     const zone = p.zones[ctx.source.zone];
     if (zone.location?.uid !== ctx.source.uid) return;
     p.released.push(zone.location);
+    emit(state, 'cardMoved', { uid: zone.location.uid, name: zone.location.name, owner: ctx.who, to: 'released' });
     log(state, `${ctx.label} goes to the Released Pile.`);
     zone.location = null;
     refreshAuras(state);   // its Weather Tokens stop counting
@@ -238,6 +242,7 @@ const OPS = {
   gainEnergy(state, ctx, e) {
     const p = state.players[ctx.who];
     p.baseEnergy += e.amount;
+    emit(state, 'energyGained', { who: ctx.who, amount: e.amount, source: ctx.label });
     log(state, `${ctx.label}: ${p.name} ${ctx.who === 'player' ? 'gain' : 'gains'} ${e.amount} extra Base Energy this Round (now ${p.baseEnergy}).`);
   },
 
@@ -286,6 +291,7 @@ function applyEffect(state, job, e) {
       if (!ctx.target) {
         // A trigger's target is chosen as it resolves; with none, nothing happens.
         if (!legal.length) {
+          emit(state, 'noTarget', { source: ctx.label });
           log(state, `${ctx.label}: no legal target, so nothing happens.`);
           return null;
         }
@@ -346,6 +352,7 @@ export function summon(state, who, card, zone, space) {
   p.hand = p.hand.filter((h) => h.uid !== card.uid);
   p.zones[zone].pokemon[space] = inPlay(card, { spent: !hasKeyword(card, 'Quick Attack') });
   const ref = { kind: 'pokemon', owner: who, zone, space, uid: card.uid };
+  emit(state, 'summoned', { who, target: { ...ref, name: card.name } });
   refreshAuras(state);
   fireTriggers(state, [{ type: 'summon', ref, card }]);
   questEvent(state, who, { type: 'summon', card, zone });
@@ -367,11 +374,13 @@ export function questEvent(state, who, event) {
     if (quest.inZone && event.zone !== zone) return;
     if (quest.filter && !(event.card && matchesCard(event.card, quest.filter))) return;
     loc.progress += 1;
+    emit(state, 'questProgress', { owner: who, zone, uid: loc.uid, name: loc.name, progress: loc.progress, count: quest.count });
     const label = `${whose(state, who)} ${loc.name}`;
     log(state, `${label} quest: ${quest.label} ${loc.progress}/${quest.count}.`);
     if (loc.progress < quest.count) return;
     loc.done = true;   // until its effect has resolved and it is released
     p.xp += loc.xp;
+    emit(state, 'questComplete', { owner: who, zone, uid: loc.uid, name: loc.name, xp: loc.xp });
     log(state, `${label} quest complete! ${p.name} ${who === 'player' ? 'gain' : 'gains'} ${loc.xp} XP (now ${p.xp}).`);
     const ctx = {
       who,
@@ -460,12 +469,14 @@ export function refreshAuras(state) {
       if (card.aura[uid]) continue;
       card.aura[uid] = bonus;
       card.currentStrength += bonus.strength;
+      emit(state, 'buff', { target: info(state, ref), attack: bonus.attack, strength: bonus.strength, source: `${bonus.name}'s Passive` });
       const what = bonus.attack ? `${signed(bonus.attack)}/${signed(bonus.strength)}` : `${signed(bonus.strength)} Strength`;
       log(state, `${whose(state, bonus.owner)} ${bonus.name}'s Passive: ${describeRef(state, ref)} gains ${what}.`);
     }
     for (const [uid, bonus] of Object.entries(card.aura)) {
       if (next[uid]) continue;
       delete card.aura[uid];
+      emit(state, 'buffLost', { target: info(state, ref), source: `${bonus.name}'s Passive` });
       card.currentStrength = Math.min(card.currentStrength, maxStrengthOf(card));
       const what = describeRef(state, ref);
       log(state, `${what[0].toUpperCase()}${what.slice(1)} loses the bonus from ${bonus.name}'s Passive.`);
@@ -507,12 +518,14 @@ function refreshWeather(state) {
   const before = state.weatherOn ?? [];
   for (const [type, w] of Object.entries(weather)) {
     for (const b of w.active) {
+      if (!before.includes(`${type} ${b.at}`)) emit(state, 'weatherChanged', { weather: type, at: b.at, on: true, count: w.count });
       if (!before.includes(`${type} ${b.at}`)) log(state, `Weather: ${w.icon} ${type} ${b.at} is now active (${type} ${w.count}). ${b.text}`);
     }
   }
   for (const key of before) {
     if (!now.includes(key)) {
       const [type] = key.split(' ');
+      emit(state, 'weatherChanged', { weather: type, at: Number(key.split(' ')[1]), on: false, count: weather[type].count });
       log(state, `Weather: ${WEATHER[type].icon} ${key} has ended (${type} ${weather[type].count}).`);
     }
   }

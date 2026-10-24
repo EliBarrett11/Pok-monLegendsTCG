@@ -159,7 +159,15 @@ button.secondary { background: var(--panel-2); color: var(--text); border: 1px s
 .turn { flex: none; padding: 2px 10px; border-radius: 4px; background: var(--accent); color: #1a1a1a; font-weight: 600; font-size: 14px; }
 .turn.ai { background: var(--pokemon); color: #fff; }
 .initiative { flex: none; font-size: 14px; }
-.weather { flex: 1; min-width: 0; display: flex; gap: 14px; justify-content: flex-end; overflow: hidden; }
+.weather { flex: 0 1 auto; max-width: 30%; min-width: 0; display: flex; gap: 14px; justify-content: flex-end; overflow: hidden; }
+
+/* Caption: what the last action did, in plain words */
+.caption-slot { flex: 1 0 40%; min-width: 0; display: flex; justify-content: center; }
+.caption {
+  max-width: 100%; padding: 4px 14px; border-radius: 6px; overflow: hidden; text-overflow: ellipsis;
+  background: #2a2412; border: 1px solid var(--accent); color: var(--text); font-weight: 600; font-size: 15px;
+}
+.caption[hidden] { display: none; }
 .weather-type { display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 14px; }
 .weather-type > b { flex: none; }
 .weather-effects { color: var(--muted); overflow: hidden; text-overflow: ellipsis; min-width: 0; margin-left: 4px; }
@@ -191,7 +199,55 @@ button.secondary { background: var(--panel-2); color: var(--text); border: 1px s
 .secondary-actions:empty { display: none; }
 button.primary { flex: none; width: 100%; height: 88px; font-size: 30px; border-radius: 12px; }
 .panel-foot { flex: none; display: flex; gap: 8px; }
-.panel-foot button { flex: 1; }
+.panel-foot button { font-size: 14px; padding: 8px 10px; white-space: nowrap; }
+.panel-foot > button { flex: 1; }
+
+/* Settings menu: sits above the input lock, so speed can change mid-animation */
+.settings-wrap { position: relative; z-index: 47; flex: none; }
+.settings {
+  position: absolute; right: 0; bottom: calc(100% + 8px); width: 220px; padding: 10px;
+  display: flex; flex-direction: column; gap: 6px;
+  background: var(--panel); border: 1px solid var(--accent); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+.settings[hidden] { display: none; }
+.settings-title { font-size: 13px; color: var(--muted); }
+.settings button.chosen { background: var(--accent); color: #1a1a1a; }
+
+/* Input lock: covers the stage while actions play out (a click skips) */
+#lock { position: absolute; inset: 0; z-index: 46; display: none; cursor: progress; }
+#stage.locked #lock { display: block; }
+#stage.ai-thinking .info-bar.ai .pname::after {
+  content: ' is thinking…'; font-weight: 400; font-size: 14px; color: var(--muted);
+}
+
+/* Effects layer: reveals, arrows, floating numbers, banners, cards in flight */
+#fx { position: absolute; inset: 0; z-index: 45; pointer-events: none; }
+#fx > .card { box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7); }
+.card.fx-revealed { box-shadow: 0 0 0 3px var(--accent), 0 20px 50px rgba(0, 0, 0, 0.8); }
+.fx-arrow { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: visible; }
+.card.fx-attacker { box-shadow: 0 0 0 3px #e0574f, 0 0 22px 6px rgba(224, 87, 79, 0.8); z-index: 5; }
+.card.fx-target { box-shadow: 0 0 0 3px #fff, 0 0 22px 6px rgba(255, 255, 255, 0.6); }
+.card.fx-power { box-shadow: 0 0 0 3px var(--accent), 0 0 28px 10px rgba(242, 193, 78, 0.9); }
+.fx-num {
+  position: absolute; font-size: 34px; font-weight: 900; white-space: nowrap;
+  text-shadow: 0 2px 0 #000, 0 0 8px #000, 0 0 2px #000;
+}
+.fx-num.damage { color: #ff5a4f; }
+.fx-num.heal, .fx-num.buff { color: #6ef0a8; }
+.fx-num.buff { font-size: 24px; }
+.fx-banner {
+  position: absolute; left: 780px; top: 380px; padding: 18px 48px; border-radius: 14px;
+  font-size: 44px; font-weight: 800; white-space: nowrap;
+  background: rgba(18, 22, 31, 0.92); border: 3px solid var(--accent); color: var(--accent);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+}
+.fx-banner.ai { border-color: var(--pokemon); color: #ff8a80; }
+.fx-panel {
+  position: absolute; transform: translateX(-50%); max-width: 420px; padding: 10px 16px; border-radius: 10px;
+  background: rgba(18, 22, 31, 0.95); border: 1px solid var(--line); font-size: 16px; text-align: center; line-height: 1.4;
+}
+.fx-panel .met { color: var(--select); font-weight: 700; }
+.fx-panel .unmet { color: var(--muted); font-weight: 700; }
 .gift-status { font-weight: 700; color: var(--muted); }
 .gift-status.met { color: var(--select); }
 .release-count { color: #e0574f; font-weight: 600; }

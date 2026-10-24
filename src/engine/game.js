@@ -9,7 +9,7 @@ import { buildDeck, buildTrainers, buildMartStock } from './cards.js';
 import { newEnergy, refreshEnergy, canPay, payCost, splitCost } from './energy.js';
 import {
   PLAYERS, opponentOf, log, whose, draw, arenaPokemon, cardAt, emptySpaces, summonSpaces, isFallen,
-  attackOf, damage, describeRef, sameRef, dropXp, weatherCounts, speedOf, release as releaseCards, earnDollars, toMart,
+  attackOf, damage, describeRef, sameRef, dropXp, weatherCounts, speedOf, release as releaseCards, earnDollars, toMart, emit, info,
 } from './board.js';
 import {
   summon, candidates, canResolve, targetedEffect, queueEffects, queueStep, run, refreshAuras, settle, fireTriggers,
@@ -75,6 +75,7 @@ export function createGame(seed = Date.now()) {
     stack: [],           // effects and steps still to resolve
     winner: null,
     log: [],
+    events: [],          // what the last action did, as structured events (see emit in board.js)
   };
   state.players = {
     player: newPlayer('You', 'player', state),
@@ -379,6 +380,7 @@ export function legalActions(state, who) {
 
 export function applyAction(prev, action) {
   const state = structuredClone(prev);
+  state.events = [];
   const handler = HANDLERS[action.type];
   if (!handler) throw new Error(`Unknown action: ${action.type}`);
   if (action.who && !legalActions(state, action.who).includes(action.type)) {
@@ -406,6 +408,7 @@ function matchOver(state) {
 }
 
 function endMatch(state, won) {
+  emit(state, 'matchOver', { winner: won });
   state.phase = 'gameOver';
   state.winner = won;
   state.turn = null;
@@ -428,6 +431,7 @@ const STEPS = {
   // A played Strategy Card reaches the Discard Pile once its effect is done.
   discard(state, { who, card }) {
     state.players[who].discard.push(card);
+    emit(state, 'cardMoved', { uid: card.uid, name: card.name, owner: who, to: 'discard' });
   },
 
   // After an attack's damage and any defeats: On Attack for the attacker and
@@ -449,6 +453,7 @@ const STEPS = {
     for (const who of PLAYERS) {
       const p = state.players[who];
       const n = p.hand.length;
+      for (const c of p.hand) emit(state, 'cardMoved', { uid: c.uid, name: c.name, owner: who, to: 'discard' });
       dropXp(p.hand);
       p.discard.push(...p.hand);
       p.hand = [];
@@ -473,12 +478,14 @@ const HANDLERS = {
       throw new Error('Each zone needs a different one of your Trainers');
     }
     p.pending = order;
+    emit(state, 'trainersLocked', { who });
     if (PLAYERS.every((w) => state.players[w].pending)) revealTrainers(state);
   },
 
   flipCoin(state) {
     const result = nextRandom(state) < 0.5 ? 'player' : 'ai';
     state.initiative = result;
+    emit(state, 'coinFlip', { winner: result });
     log(state, `Coin flip: ${state.players[result].name} ${result === 'player' ? 'win' : 'wins'} initiative for Round 1.`);
     startRound(state, 1);
   },
@@ -489,6 +496,7 @@ const HANDLERS = {
     if (state.round !== 1 && cardUids.length > 0) throw new Error('Mulligans are only allowed in Round 1');
     if (!cardUids.every((u) => p.hand.some((c) => c.uid === u))) throw new Error('Can only mulligan cards in your hand');
     p.pending = [...new Set(cardUids)];
+    emit(state, 'mulliganLocked', { who });
     if (PLAYERS.every((w) => state.players[w].pending)) resolveMulligans(state);
   },
 
@@ -502,6 +510,7 @@ const HANDLERS = {
     if (isFallen(state, who, zone)) throw new Error(`Zone ${zone + 1} has fallen on this side; no new Pokémon can go there`);
     if (!canPay(p, c.energyCost)) throw new Error(`Not enough Energy to play ${c.name}`);
     const paid = payCost(p, c.energyCost, state.round);
+    emit(state, 'cardPlayed', { who, uid: c.uid, name: c.name, cardType: c.cardType, to: { kind: 'pokemon', owner: who, zone, space } });
     log(state, `${p.name} played ${c.name} into Zone ${zone + 1}, Space ${space + 1}, paying ${describePayment(paid)}.`);
     queueStep(state, 'endTurn', { who, passed: false });
     summon(state, who, c, zone, space);
@@ -525,6 +534,15 @@ const HANDLERS = {
     questEvent(state, who, { type: 'attack', card: attacker, zone: from.zone });
     const name = `${whose(state, who)} ${attacker.name}`;
     const power = attackOf(attacker);
+    const hitsBack = target.kind === 'pokemon' && isAlert(state, cardAt(state, targetRef));
+    emit(state, 'attack', {
+      who,
+      attacker: { ...attackerRef, name: attacker.name },
+      target: info(state, targetRef),
+      amount: power,
+      trades: hitsBack,
+      back: hitsBack ? attackOf(cardAt(state, targetRef)) : 0,
+    });
     if (target.kind === 'trainer') {
       const before = cardAt(state, targetRef).strength;
       log(state, `${name} attacked ${describeRef(state, targetRef)} for ${power}. Strength ${before} → ${Math.max(0, before - power)}.`);
@@ -568,6 +586,7 @@ const HANDLERS = {
     }
     const paid = payCost(p, trainer.power.cost, state.round);
     trainer.powerUsedRound = state.round;
+    emit(state, 'powerUsed', { who, zone, uid: trainer.uid, name: trainer.name, text: trainer.power.text, target: info(state, target) });
     log(state, `${ctx.label} (${trainer.power.text}) Paid ${describePayment(paid)}.`);
     queueStep(state, 'endTurn', { who, passed: false });
     questEvent(state, who, { type: 'power', zone });
@@ -584,6 +603,7 @@ const HANDLERS = {
     if (!playableStrategies(state, who).includes(card)) throw new Error(`${card.name} cannot be played now`);
     const paid = payCost(p, card.energyCost, state.round);
     p.hand = p.hand.filter((c) => c !== card);   // out of hand while it resolves, so Quickdraw can't draw itself
+    emit(state, 'cardPlayed', { who, uid: card.uid, name: card.name, cardType: card.cardType, to: { kind: 'discard' }, target: info(state, target) });
     log(state, `${p.name} played ${card.name} (${card.effectText}) Paid ${describePayment(paid)}.`);
     queueStep(state, 'endTurn', { who, passed: false });
     queueStep(state, 'discard', { who, card });
@@ -622,6 +642,12 @@ const HANDLERS = {
     p.discard.push(...discarded);
     releaseCards(state, who, released);
     p.supporterRound = state.round;
+    for (const c of discarded) emit(state, 'cardMoved', { uid: c.uid, name: c.name, owner: who, to: 'discard' });
+    emit(state, 'cardPlayed', {
+      who, uid: card.uid, name: card.name, cardType: card.cardType, to: { kind: 'discard' }, target: info(state, target),
+      paid: { discard: discarded.map((c) => c.name), release: released.map((c) => c.name) },
+      gift: { met, challenge: card.gift.challengeText, bonus: card.gift.bonusText },
+    });
     const names = (cards) => cards.map((c) => c.name).join(', ');
     const payment = [discarded.length && `discarding ${names(discarded)}`, released.length && `releasing ${names(released)}`]
       .filter(Boolean).join(' and ');
@@ -645,9 +671,11 @@ const HANDLERS = {
     if (old) {
       const { progress, done, ...plain } = old;
       p.discard.push(plain);
+      emit(state, 'cardMoved', { uid: plain.uid, name: plain.name, owner: who, to: 'discard' });
       log(state, `${p.name} replaced ${old.name} in Zone ${zone + 1}; it goes to the Discard Pile and its quest progress (${progress}/${old.quest.count}) is lost.`);
     }
     p.zones[zone].location = { ...card, progress: 0 };
+    emit(state, 'cardPlayed', { who, uid: card.uid, name: card.name, cardType: card.cardType, to: { kind: 'location', owner: who, zone }, replaced: old?.name ?? null });
     log(state, `${p.name} played ${card.name} into Zone ${zone + 1}. Quest: ${card.quest.text} (Reward: ${card.xp} XP)`);
     queueStep(state, 'endTurn', { who, passed: false });
   },
@@ -663,6 +691,7 @@ const HANDLERS = {
       if (stat !== 'attack' && stat !== 'strength') throw new Error('Each XP point gives +1 Attack or +1 Strength');
     }
     p.xpChoice = spend;
+    emit(state, 'xpLocked', { who });
     if (PLAYERS.every((w) => state.players[w].xpChoice)) resolveXp(state);
   },
 
@@ -680,6 +709,7 @@ const HANDLERS = {
       p.dollars -= item.cost;
       state.mart.onSale[slot] = null;
       p.bag.push({ ...item, inDelivery: true });
+      emit(state, 'itemBought', { who, uid: item.uid, name: item.name, cost: item.cost, from: 'mart', slot });
       log(state, `${p.name} bought ${item.name} from the PokéMart for ${item.cost} PokéDollars (now ${p.dollars}). It is In Delivery until the next Breakfast.`);
     } else if (mode === 'buyHand') {
       const item = p.hand.find((c) => c.uid === uid);
@@ -690,6 +720,7 @@ const HANDLERS = {
       else if (then !== 'store') throw new Error('Use the Item now or store it in your Bag');
       p.dollars -= item.cost;
       p.hand = p.hand.filter((c) => c !== item);
+      emit(state, 'cardPlayed', { who, uid: item.uid, name: item.name, cardType: item.cardType, cost: item.cost, to: { kind: then === 'store' ? 'bag' : 'use' }, target: info(state, target) });
       log(state, `${p.name} bought ${item.name} from ${who === 'player' ? 'your' : 'their'} hand for ${item.cost} PokéDollars (now ${p.dollars}).`);
       if (then === 'store') {
         p.bag.push({ ...item, inDelivery: false });
@@ -704,6 +735,7 @@ const HANDLERS = {
       if (item.inDelivery) throw new Error(`${item.name} is still In Delivery`);
       checkItemTarget(state, who, item, target);
       p.bag = p.bag.filter((i) => i !== item);
+      emit(state, 'itemUsed', { who, uid: item.uid, name: item.name, from: 'bag', target: info(state, target) });
       useItem(state, who, item, target);
       return;
     } else {
@@ -720,19 +752,26 @@ const HANDLERS = {
     const job = state.stack.at(-1);
     if (pending.kind === 'freeSummon') {
       job.choice = { zone, space };
+      const card = state.players[pending.who].hand.find((c) => c.uid === pending.uid);
+      emit(state, 'choiceMade', { who: pending.who, kind: 'freeSummon', source: pending.label, uid: card.uid, name: card.name, summon: zone !== undefined && zone !== null, zone, space });
     } else if (pending.kind === 'target') {
       if (!target || !pending.options.some((r) => sameRef(r, target))) throw new Error('That is not a legal target');
       job.ctx.target = target;
+      emit(state, 'choiceMade', { who: pending.who, kind: 'target', source: pending.label, target: info(state, target) });
     }
     state.pending = null;
   },
 
   // A Battle turn's Action. The Phase ends when both players pass in a row.
   pass(state, { who }) {
+    emit(state, 'pass', { who });
     log(state, `${state.players[who].name} passed.`);
     endTurn(state, who, true);
   },
 };
+
+// Every Action type, for tests and tools.
+export const ACTION_TYPES = Object.keys(HANDLERS);
 
 function endTurn(state, who, passed) {
   state.passesInARow = passed ? state.passesInARow + 1 : 0;
@@ -741,6 +780,7 @@ function endTurn(state, who, passed) {
     startSupper(state);
   } else {
     state.turn = opponentOf(who);
+    emit(state, 'turnChanged', { who: state.turn });
   }
 }
 
@@ -751,16 +791,19 @@ function revealTrainers(state) {
       p.zones[zone].trainer = p.trainers.find((t) => t.uid === uid);
     });
     p.pending = null;
+    emit(state, 'trainersRevealed', { who, trainers: p.zones.map((z, zone) => ({ zone, uid: z.trainer.uid, name: z.trainer.name })) });
     const names = p.zones.map((z, i) => `Zone ${i + 1}: ${z.trainer.name}`).join(', ');
     log(state, `${p.name} revealed Trainers. ${names}.`);
   }
   state.phase = 'initiative';
+  emit(state, 'phaseChanged', { phase: 'initiative', round: 0 });
   log(state, 'Flip a coin to decide initiative for Round 1.');
 }
 
 function startRound(state, round) {
   state.round = round;
   if (round > 1) state.initiative = opponentOf(state.initiative);
+  emit(state, 'roundStarted', { round, initiative: state.initiative });
   log(state, `— Round ${round} — ${state.players[state.initiative].name} ${state.initiative === 'player' ? 'have' : 'has'} initiative.`);
   startBreakfast(state);
 }
@@ -772,12 +815,14 @@ function restockMart(state) {
   mart.deck.push(...mart.onSale.filter(Boolean));
   shuffle(state, mart.deck);
   mart.onSale = [0, 1, 2].map(() => mart.deck.shift() ?? null);
+  emit(state, 'martRestocked', { onSale: mart.onSale.map((i) => i?.uid ?? null) });
   const shown = mart.onSale.filter(Boolean).map((i) => `${i.name} ($${i.cost})`);
   log(state, `PokéMart restocked: ${shown.length ? shown.join(', ') : 'nothing left to sell'}.`);
 }
 
 function startBreakfast(state) {
   state.phase = 'breakfast';
+  emit(state, 'phaseChanged', { phase: 'breakfast', round: state.round });
   log(state, 'Breakfast Phase.');
   restockMart(state);
   for (const who of PLAYERS) {
@@ -794,6 +839,7 @@ function startBreakfast(state) {
     log(state, `${p.name}: ${p.baseEnergy} Base Energy, Exert ${p.exertMax - p.exhaust.length}/${p.exertMax}.`);
     const readied = p.zones.flatMap((z) => z.pokemon).filter((c) => c?.spent);
     readied.forEach((c) => { c.spent = false; });
+    for (const c of readied) emit(state, 'ready', { target: { owner: who, uid: c.uid, name: c.name } });
     if (readied.length) log(state, `${whose(state, who)} Spent Pokémon became Active: ${readied.map((c) => c.name).join(', ')}.`);
     const n = draw(state, who, HAND_SIZE).length;
     log(state, `${p.name} drew ${n} card${n === 1 ? '' : 's'}.`);
@@ -839,6 +885,7 @@ function resolveXp(state) {
       (per[c.name] ??= { attack: 0, strength: 0 })[stat] += 1;
     }
     p.xp -= spend.length;
+    emit(state, 'xpSpent', { who, total: spend.length, parts: Object.entries(per).map(([name, b]) => ({ name, ...b })) });
     const parts = Object.entries(per).map(([name, b]) =>
       `${name} ${[b.attack && `+${b.attack} Attack`, b.strength && `+${b.strength} Strength`].filter(Boolean).join(', ')}`);
     log(state, `${p.name} spent ${spend.length} XP: ${parts.join('; ')} (${p.xp} XP left).`);
@@ -852,7 +899,10 @@ function resolveMulligans(state) {
     const p = state.players[who];
     const chosen = p.pending;
     p.pending = null;
-    p.discard.push(...p.hand.filter((c) => chosen.includes(c.uid)));
+    const out = p.hand.filter((c) => chosen.includes(c.uid));
+    for (const c of out) emit(state, 'cardMoved', { uid: c.uid, name: c.name, owner: who, to: 'discard' });
+    emit(state, 'mulligan', { who, count: chosen.length });
+    p.discard.push(...out);
     p.hand = p.hand.filter((c) => !chosen.includes(c.uid));
     draw(state, who, chosen.length);
     log(state, chosen.length
@@ -865,6 +915,7 @@ function resolveMulligans(state) {
 function startBattle(state) {
   state.phase = 'battle';
   state.turn = state.initiative;
+  emit(state, 'phaseChanged', { phase: 'battle', round: state.round, turn: state.turn });
   state.passesInARow = 0;
   log(state, `Battle Phase. ${state.players[state.initiative].name} ${state.initiative === 'player' ? 'act' : 'acts'} first.`);
 }
@@ -872,6 +923,7 @@ function startBattle(state) {
 function startSupper(state) {
   state.phase = 'supper';
   state.turn = null;
+  emit(state, 'phaseChanged', { phase: 'supper', round: state.round });
   log(state, 'Supper Phase.');
   // On Supper: before hands are discarded.
   queueStep(state, 'supperDiscard');

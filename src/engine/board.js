@@ -20,6 +20,20 @@ export function log(state, message) {
   state.log.push(message);
 }
 
+// Alongside the text log, every action records what happened as structured
+// events, in order (state.events, reset by each applyAction), so the UI can
+// show it step by step. Each names the cards and places involved.
+export function emit(state, type, data = {}) {
+  (state.events ??= []).push({ type, ...data });
+}
+
+// A card's place and identity for an event: { kind, owner, zone, space?, uid, name }.
+export function info(state, ref) {
+  if (!ref) return null;
+  const card = cardAt(state, ref);
+  return { ...ref, uid: card?.uid ?? ref.uid, name: card?.name ?? ref.name };
+}
+
 // "Your" / "AI Opponent's" (or lower-case "your" mid-sentence).
 export function whose(state, who, capital = true) {
   if (who === 'player') return capital ? 'Your' : 'your';
@@ -36,12 +50,14 @@ export function draw(state, who, count) {
       if (!p.discard.length) break;
       p.drawPile = shuffle(state, p.discard);
       p.discard = [];
+      emit(state, 'shuffled', { who });
       log(state, `${p.name} shuffled ${who === 'player' ? 'your' : 'their'} Discard Pile to form a new Draw Pile.`);
     }
     const card = p.drawPile.shift();
     p.hand.push(card);
     drawn.push(card);
   }
+  if (drawn.length) emit(state, 'cardsDrawn', { who, uids: drawn.map((c) => c.uid), count: drawn.length });
   return drawn;
 }
 
@@ -200,13 +216,16 @@ export function damage(state, ref, amount) {
   if (ref.kind === 'trainer') {
     const before = card.strength;
     card.strength = Math.max(0, before - amount);
+    emit(state, 'damage', { target: info(state, ref), amount, before, after: card.strength });
     if (before > 0 && card.strength === 0) {
+      emit(state, 'trainerRemoved', { target: info(state, ref) });
       log(state, `${whose(state, ref.owner)} ${card.name} was removed. Zone ${ref.zone + 1} has fallen on ${ref.owner === 'player' ? 'your' : `${state.players[ref.owner].name}'s`} side.`);
     }
     return [before, card.strength];
   }
   const before = card.currentStrength;
   card.currentStrength -= amount;
+  emit(state, 'damage', { target: info(state, ref), amount, before, after: card.currentStrength });
   return [before, card.currentStrength];
 }
 
@@ -216,6 +235,7 @@ export function heal(state, ref, amount) {
   const key = ref.kind === 'trainer' ? 'strength' : 'currentStrength';
   const before = card[key];
   card[key] = Math.min(maxStrengthOf(card), before + amount);
+  emit(state, 'heal', { target: info(state, ref), amount: card[key] - before, before, after: card[key] });
   return [before, card[key]];
 }
 
@@ -227,6 +247,7 @@ export function releaseDefeated(state) {
   const defeated = arenaPokemon(state).filter(({ card }) => card.currentStrength <= 0);
   for (const { ref, card } of defeated) {
     const p = state.players[ref.owner];
+    emit(state, 'defeated', { target: info(state, ref) });
     p.zones[ref.zone].pokemon[ref.space] = null;
     log(state, `${whose(state, ref.owner)} ${card.name} was defeated and goes to the Released Pile.`);
     earnDollars(state, opponentOf(ref.owner), card.energyCost, `for defeating ${card.name}`);
@@ -241,6 +262,7 @@ export function earnDollars(state, who, amount, why) {
   if (!amount) return;
   const p = state.players[who];
   p.dollars = (p.dollars ?? 0) + amount;
+  emit(state, 'dollarsEarned', { who, amount });
   log(state, `${p.name} ${who === 'player' ? 'earn' : 'earns'} ${amount} PokéDollars ${why} (now ${p.dollars}).`);
 }
 
@@ -249,6 +271,7 @@ export function earnDollars(state, who, amount, why) {
 export function toMart(state, item, why) {
   const { inDelivery, ...plain } = item;
   state.mart.deck.push(plain);
+  emit(state, 'cardMoved', { uid: plain.uid, name: plain.name, to: 'mart' });
   shuffle(state, state.mart.deck);
   log(state, `${plain.name} ${why}, and goes to the PokéMart.`);
 }
@@ -263,5 +286,6 @@ export function release(state, who, cards) {
       toMart(state, lost, `was held by ${whose(state, who, false)} ${card.name}, which was Released: it is lost`);
     }
     p.released.push(card);
+    emit(state, 'cardMoved', { uid: card.uid, name: card.name, owner: who, to: 'released' });
   }
 }
