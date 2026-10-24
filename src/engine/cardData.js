@@ -31,8 +31,9 @@ function pokemon(name, energyCost, pokemonType, attackType, attackValue, strengt
     strengthType,
     strengthValue,
     speedTier,
-    effectTrigger: null,
+    effectTrigger: null,   // Trigger Word of its ability, if any
     effectText: null,
+    ability: null,         // the ability as data: { on, match, effects }
     rarity,
     innatePower: null,
     weatherToken: null,
@@ -40,8 +41,6 @@ function pokemon(name, energyCost, pokemonType, attackType, attackValue, strengt
   };
 }
 
-// Placeholder effect text: display only, implies no rules.
-const SAMPLE_EFFECT = { effectTrigger: 'Placeholder', effectText: 'Sample effect text. Does nothing yet.' };
 const QUICK_ATTACK = { innatePower: 'Quick Attack' };
 const AGILITY = { innatePower: 'Agility' };
 const SAMPLE_WEATHER = { weatherToken: 'Placeholder Weather' };
@@ -52,23 +51,55 @@ export const INNATE_POWERS = {
   Agility: "This Pokémon can't be chosen as a target by Strategy Cards. Area effects still affect it.",
 };
 
+// Effect Trigger Words → the event a Pokémon ability listens for (effects.js).
+export const TRIGGER_WORDS = {
+  'On Summon': 'summon',       // enters the arena: played, or summoned by an effect
+  'On Attack': 'attack',       // after its attack deals damage, if still in the arena
+  'On Defend': 'defend',       // after it is attacked by a Command and takes damage, if still in the arena
+  'On Defeated': 'defeated',   // when defeated by any cause, as it goes to the Released Pile
+  'On Breakfast': 'breakfast', // each Breakfast, after cards are drawn and Energy is gained
+  'On Supper': 'supper',       // each Supper, before hands are discarded
+};
+
+// A Pokémon ability: Trigger Word + Effect Text (shown) + effects (data).
+function ability(word, effectText, effects, match = {}) {
+  return { effectTrigger: word, effectText, ability: { on: TRIGGER_WORDS[word], match: { self: true, ...match }, effects } };
+}
+
+// PLACEHOLDER abilities, each on 2–3 placeholder Pokémon.
+const SUMMON_STRIKE = ability('On Summon', "Deal 1 damage to an opponent Pokémon in this Pokémon's Zone.", [
+  { op: 'damage', amount: 1, target: { mode: 'targeted', side: 'opponent', zone: 'source' } },
+]);
+const TRAINER_HUNTER = ability('On Attack', 'If this Pokémon attacked a Trainer, draw 1 card.', [
+  { op: 'draw', amount: 1 },
+], { targetKind: 'trainer' });
+const COUNTER = ability('On Defend', 'Deal 1 damage to the attacker.', [
+  { op: 'damage', amount: 1, target: { mode: 'event', role: 'attacker' } },
+]);
+const LAST_GIFT = ability('On Defeated', "Heal the friendly Trainer in this Pokémon's Zone 3 Strength.", [
+  { op: 'heal', amount: 3, target: { mode: 'area', side: 'friendly', kinds: ['trainer'], zone: 'source', damaged: true } },
+]);
+const EARLY_RISER = ability('On Breakfast', 'Gain 1 extra Base Energy this Round.', [
+  { op: 'gainEnergy', amount: 1 },
+]);
+
 // PLACEHOLDER Pokémon: invented names and stats (Cost 1–6, Attack 1–6, Strength 2–10).
 export const POKEMON_CARDS = [
-  pokemon('Emberkit',   1, 'Fire',     'Physical', 2, 'Hitpoints',       3,  'Swift',  'Common'),
-  pokemon('Puddlop',    1, 'Water',    'Special',  1, 'Hitpoints',       4,  'Steady', 'Common'),
-  pokemon('Sproutle',   1, 'Grass',    'Physical', 1, 'Defence',         4,  'Slow',   'Common', SAMPLE_EFFECT),
+  pokemon('Emberkit',   1, 'Fire',     'Physical', 2, 'Hitpoints',       3,  'Swift',  'Common', SUMMON_STRIKE),
+  pokemon('Puddlop',    1, 'Water',    'Special',  1, 'Hitpoints',       4,  'Steady', 'Common', LAST_GIFT),
+  pokemon('Sproutle',   1, 'Grass',    'Physical', 1, 'Defence',         4,  'Slow',   'Common', COUNTER),
   pokemon('Zappip',     1, 'Electric', 'Special',  2, 'Special Defence', 2,  'Swift',  'Common', QUICK_ATTACK),
-  pokemon('Pebblet',    2, 'Rock',     'Physical', 2, 'Defence',         5,  'Slow',   'Common'),
-  pokemon('Gustling',   2, 'Flying',   'Physical', 3, 'Hitpoints',       3,  'Swift',  'Uncommon', { ...AGILITY, ...SAMPLE_WEATHER }),
-  pokemon('Mothdust',   2, 'Bug',      'Special',  2, 'Special Defence', 4,  'Steady', 'Uncommon'),
-  pokemon('Frostail',   3, 'Water',    'Special',  3, 'Special Defence', 5,  'Steady', 'Uncommon', SAMPLE_EFFECT),
+  pokemon('Pebblet',    2, 'Rock',     'Physical', 2, 'Defence',         5,  'Slow',   'Common', COUNTER),
+  pokemon('Gustling',   2, 'Flying',   'Physical', 3, 'Hitpoints',       3,  'Swift',  'Uncommon', { ...AGILITY, ...SAMPLE_WEATHER, ...TRAINER_HUNTER }),
+  pokemon('Mothdust',   2, 'Bug',      'Special',  2, 'Special Defence', 4,  'Steady', 'Uncommon', LAST_GIFT),
+  pokemon('Frostail',   3, 'Water',    'Special',  3, 'Special Defence', 5,  'Steady', 'Uncommon', EARLY_RISER),
   pokemon('Brawlix',    3, 'Fighting', 'Physical', 4, 'Hitpoints',       5,  'Steady', 'Uncommon', QUICK_ATTACK),
-  pokemon('Toxifin',    3, 'Water',    'Special',  3, 'Defence',         6,  'Slow',   'Rare'),
-  pokemon('Shadepup',   4, 'Ghost',    'Special',  4, 'Special Defence', 6,  'Swift',  'Rare', { ...AGILITY, ...SAMPLE_EFFECT }),
-  pokemon('Ironhorn',   4, 'Steel',    'Physical', 3, 'Defence',         8,  'Slow',   'Rare'),
-  pokemon('Glimmeria',  5, 'Fairy',    'Special',  5, 'Special Defence', 7,  'Steady', 'Epic', { ...AGILITY, ...SAMPLE_WEATHER }),
-  pokemon('Duskfang',   5, 'Dark',     'Physical', 5, 'Hitpoints',       7,  'Swift',  'Epic', { ...QUICK_ATTACK, ...SAMPLE_EFFECT }),
-  pokemon('Quakemaw',   6, 'Ground',   'Physical', 6, 'Defence',         10, 'Slow',   'Legendary', SAMPLE_EFFECT),
+  pokemon('Toxifin',    3, 'Water',    'Special',  3, 'Defence',         6,  'Slow',   'Rare', LAST_GIFT),
+  pokemon('Shadepup',   4, 'Ghost',    'Special',  4, 'Special Defence', 6,  'Swift',  'Rare', { ...AGILITY, ...SUMMON_STRIKE }),
+  pokemon('Ironhorn',   4, 'Steel',    'Physical', 3, 'Defence',         8,  'Slow',   'Rare', COUNTER),
+  pokemon('Glimmeria',  5, 'Fairy',    'Special',  5, 'Special Defence', 7,  'Steady', 'Epic', { ...AGILITY, ...SAMPLE_WEATHER, ...EARLY_RISER }),
+  pokemon('Duskfang',   5, 'Dark',     'Physical', 5, 'Hitpoints',       7,  'Swift',  'Epic', { ...QUICK_ATTACK, ...TRAINER_HUNTER }),
+  pokemon('Quakemaw',   6, 'Ground',   'Physical', 6, 'Defence',         10, 'Slow',   'Legendary', SUMMON_STRIKE),
   pokemon('Mindrake',   6, 'Dragon',   'Special',  6, 'Hitpoints',       9,  'Steady', 'Legendary', SAMPLE_WEATHER),
 ];
 

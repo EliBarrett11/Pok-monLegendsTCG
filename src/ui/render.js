@@ -35,6 +35,9 @@ const key = (ref) => (ref.kind === 'trainer' ? `${ref.owner}:T${ref.zone}` : `${
 // Cards that can be clicked as the target of the current choice, as keys,
 // with the highlight to use: red for attacks, green for effects (either side).
 function targetKeys(state) {
+  if (state.pending?.who === 'player' && state.pending.kind === 'target') {
+    return { keys: new Set(state.pending.options.map(key)), cls: ' power-target' };
+  }
   if (ui.attacker) {
     const keys = legalTargets(state, 'player', ui.attacker).map((t) => key({ ...t, owner: 'ai' }));
     return { keys: new Set(keys), cls: ' attack-target' };
@@ -293,6 +296,7 @@ function boardPokemon(c, { alert, ...opts } = {}) {
       <span title="Current / maximum ${c.strengthType} (printed ${c.strengthValue})">Str <b>${c.currentStrength}</b>/<b class="${max > c.strengthValue ? 'buffed' : ''}">${max}</b></span>
     </div>
     <div class="card-line">${c.speedTier}</div>
+    ${c.effectTrigger ? `<div class="card-line" title="${c.effectText}"><b>${c.effectTrigger}</b></div>` : ''}
     ${c.spent ? '<div class="spent-badge">Spent</div>' : ''}
     ${alert ? '<div class="alert-badge">Alert</div>' : ''}
   </div>`;
@@ -316,6 +320,10 @@ function tooltip(c) {
 
 function controls(state) {
   const me = state.players.player;
+  // An ability waiting for my target, in any phase.
+  if (state.pending?.who === 'player' && state.pending.kind === 'target') {
+    return `<span class="hint"><b>${state.pending.label}:</b> ${state.pending.text ?? ''} Choose a highlighted target.</span>`;
+  }
   switch (state.phase) {
     case 'trainers': {
       if (me.pending) return '<span>Waiting for opponent…</span>';
@@ -448,7 +456,11 @@ function wire(root, state, { dispatch, newGame }) {
   on('.attack-target, .power-target', (el) => {
     const zone = Number(el.dataset.zone);
     const isTrainer = el.classList.contains('trainer-space');
-    if (ui.attacker) {
+    const owner = el.dataset.owner;
+    const ref = isTrainer ? { kind: 'trainer', owner, zone } : { kind: 'pokemon', owner, zone, space: Number(el.dataset.space) };
+    if (state.pending?.kind === 'target') {
+      dispatch({ type: 'resolveChoice', who: 'player', target: ref });
+    } else if (ui.attacker) {
       const target = isTrainer ? { kind: 'trainer', zone } : { kind: 'pokemon', zone, space: Number(el.dataset.space) };
       dispatch({ type: 'command', who: 'player', from: ui.attacker, target });
     } else if (ui.power !== null) {

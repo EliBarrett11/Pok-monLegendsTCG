@@ -23,7 +23,7 @@ The rules as settled while building the game, in match order. The code follows t
 | Strength-Type | Hitpoints, Defence or Special Defence |
 | Strength Value | number: the Pokémon's health |
 | Speed-Tier | Slow, Steady or Swift |
-| Effect Trigger Word + Effect Text | optional |
+| Effect Trigger Word + Effect Text | optional: the Pokémon's ability (section 8) |
 | Rarity-Tier | Common (grey), Uncommon (green), Rare (blue), Epic (purple), Legendary (orange) |
 | Innate Power Keyword | optional |
 | Weather Token | optional |
@@ -96,6 +96,7 @@ Every Round, each player:
 3. **Base Energy** is set to the Round number, with a maximum of 10. Unspent Base Energy does not carry over.
 4. **Exert maximum** goes up by 1 each Round, to a limit of 3 (Round 1 = 1, Round 2 = 2, Round 3 onward = 3). Unspent Exert carries over.
 5. **Draws 7 cards**, one at a time. If the Draw Pile is empty when a card needs drawing, shuffle the Discard Pile to form a new Draw Pile, then keep drawing. If both piles are empty, drawing stops and the player keeps a smaller hand.
+6. **On Breakfast** abilities fire (section 8).
 
 **Mulligan (Round 1 only):** each player may put any number of cards from their hand into their Discard Pile, then draw the same number from their Draw Pile. Both players choose in secret and reveal together.
 
@@ -125,6 +126,7 @@ Every Round, each player:
 
 ### 4.3 Supper Phase
 
+- **On Supper** abilities fire (section 8).
 - Each player puts all cards left in their hand into their Discard Pile.
 - Then the next Round begins.
 
@@ -187,11 +189,25 @@ Both players use these three for now (placeholders until the real Trainers arriv
 | **Misty** | 15 | **(1):** Deal 1 damage to an opponent Pokémon in Misty's Zone. | Friendly Water Pokémon in Misty's Zone gain +3 Strength. |
 | **Brock** | 15 | **(1):** Give a friendly Pokémon +2 Defence (Defence Strength-Type only). | Opponent Pokémon summoned to Brock's Zone take 1 damage. |
 
-## Reference cards (not yet implemented)
+## 8. Pokémon abilities
 
-Not in the game yet. The effect system (`src/engine/effects.js`) already handles them, and `tests/effects.test.js` runs them as data, so adding them later means adding card data rather than changing the engine.
+A Pokémon ability is an **Effect Trigger Word** plus **Effect Text**. It fires every time its condition is met.
 
-**Pokémon abilities:** an Effect Trigger Word (e.g. On Summon, On Defeated, On Attack) plus Effect Text. The ability triggers every time the condition is met. As data: a trigger `{ on: 'summon' | 'defeated' | 'attack', match: { self: true }, effects }`.
+| Trigger Word | Fires… |
+|---|---|
+| **On Summon** | when this Pokémon enters the arena, whether played or summoned by an effect (e.g. Ash's Power). |
+| **On Attack** | after this Pokémon's attack deals damage, if it's still in the arena. |
+| **On Defend** | after this Pokémon is attacked (by a Command) and takes damage, if it's still in the arena. Effect damage never triggers it. |
+| **On Defeated** | when this Pokémon is defeated by any cause, as it goes to the Released Pile. |
+| **On Breakfast** | at each Breakfast while it's in the arena, after cards are drawn and Energy is gained. |
+| **On Supper** | at each Supper while it's in the arena, before hands are discarded. |
+
+- **Choosing targets:** if an ability says to choose a target, its owner must pick one when it resolves (they can't decline). With no legal target, nothing happens.
+- **Order:** when several abilities or Passives trigger at the same moment, the player with initiative resolves theirs first, then the other player. Within each player, in zone order 1 → 2 → 3, then left to right. (In the build, a Trainer's Passive comes after the Pokémon in its zone.)
+- **Chains:** if an ability's result sets off another ability (e.g. its damage defeats a Pokémon with On Defeated), the new one resolves immediately, before anything still waiting.
+- **In a trade:** (1) both Pokémon deal their damage at once; (2) defeated Pokémon fire On Defeated and go to the Released Pile; (3) survivors fire On Attack / On Defend, in the order above. The attacker's On Attack and the target's On Defend can both fire.
+- **Winning** still happens immediately: a match that is won mid-resolution stops there.
+- **Extra Base Energy** from an ability can go above the limit of 10; it still doesn't carry over to the next Round.
 
 ## Open questions
 
@@ -200,7 +216,8 @@ Not in the game yet. The effect system (`src/engine/effects.js`) already handles
 - What do Item, Location and Supporter cards do, and how are they played?
 - Can a Command be anything other than an Attack?
 - What do Weather Tokens do?
-- When exactly does an "On Attack" ability trigger: before or after the attack's damage, and does it fire when the Pokémon is hit back? (The engine currently fires it after the attack's damage.)
+- **Trainer vs Pokémon order:** when a Trainer's Passive and a Pokémon in the same zone trigger at the same moment, which goes first? (The build puts the Trainer after the Pokémon in its zone.)
+- **On Supper:** no placeholder uses it yet; the hook is built and tested.
 - Does Rarity limit how many copies go in a deck?
 - Is there a hand size limit?
 
@@ -208,10 +225,21 @@ Not in the game yet. The effect system (`src/engine/effects.js`) already handles
 
 - Decks are 16 Pokémon, 8 Strategy (3 Quickdraw, 3 Hypervoice, 2 Recover), 8 Item, 4 Location and 4 Supporter cards. This mix is a stand-in, not a rule.
 - The 16 Pokémon are invented placeholders, one of each per deck, with the same list for both players. Stats: Energy Cost 1–6, Attack 1–6, Strength 2–10.
-- Placeholder art is a box tinted by Pokémon Type (striped blue for Strategy Cards). Effect and Weather text on placeholder Pokémon is sample text and does nothing.
+- Placeholder art is a box tinted by Pokémon Type (striped blue for Strategy Cards). Weather text on placeholder Pokémon is sample text and does nothing.
+- Placeholder abilities (section 8):
+
+| Ability | Pokémon |
+|---|---|
+| **On Summon:** Deal 1 damage to an opponent Pokémon in this Pokémon's Zone. | Emberkit, Shadepup, Quakemaw |
+| **On Attack:** If this Pokémon attacked a Trainer, draw 1 card. | Gustling, Duskfang |
+| **On Defend:** Deal 1 damage to the attacker. | Sproutle, Pebblet, Ironhorn |
+| **On Defeated:** Heal the friendly Trainer in this Pokémon's Zone 3 Strength (nothing if that Trainer has been removed). | Puddlop, Mothdust, Toxifin |
+| **On Breakfast:** Gain 1 extra Base Energy this Round. | Frostail, Glimmeria |
+
+  Zappip, Brawlix and Mindrake have no ability.
 - Innate Powers on placeholder Pokémon: **Quick Attack** on Zappip, Brawlix and Duskfang; **Agility** on Gustling, Shadepup and Glimmeria.
 - Strategy Card rarities are placeholders: Quickdraw Common, Hypervoice Uncommon, Recover Rare.
 - Item, Location and Supporter cards have only a name and Card-Type.
 - Both players use the same three Trainers: Ash, Misty and Brock (section 7.4), each with Strength 15.
 - To give every Trainer something to work with, three placeholder Pokémon are Water (Puddlop, Frostail, Toxifin), four cost 1, and five have Defence Strength-Type.
-- **The AI** places Trainers at random and only spends Base Energy (never Exert). On a Battle turn it scores every legal move and picks the best (ties at random), passing only when nothing else is legal. From the top: winning the match; bringing an enemy Trainer to 0; defeating an enemy Pokémon (by attack or Misty) without losing its own; attacking the weakest enemy Trainer; playing its most expensive affordable Pokémon, preferring zones where its own Passives boost it and avoiding the opponent's Brock zone; Brock's buff on its strongest Defence Pokémon, Ash's draw, Misty chip damage; other attacks; and last, trades that lose the attacker for nothing. It always takes Ash's free summon when there is room. Strategy Cards: Hypervoice only when you have Pokémon (scored by damage dealt and Pokémon defeated), Recover only on its own damaged Pokémon or Trainers (more when a Trainer is low), Quickdraw about as highly as Ash's draw. It tries moves on a copy of the game to score them, except draws (Ash, Quickdraw), so it never sees its own Draw Pile.
+- **The AI** places Trainers at random and only spends Base Energy (never Exert). On a Battle turn it scores every legal move and picks the best (ties at random), passing only when nothing else is legal. From the top: winning the match; bringing an enemy Trainer to 0; defeating an enemy Pokémon (by attack or Misty) without losing its own; attacking the weakest enemy Trainer; playing its most expensive affordable Pokémon, preferring zones where its own Passives boost it and avoiding the opponent's Brock zone; Brock's buff on its strongest Defence Pokémon, Ash's draw, Misty chip damage; other attacks; and last, trades that lose the attacker for nothing. It always takes Ash's free summon when there is room. Strategy Cards: Hypervoice only when you have Pokémon (scored by damage dealt and Pokémon defeated), Recover only on its own damaged Pokémon or Trainers (more when a Trainer is low), Quickdraw about as highly as Ash's draw. When one of its abilities needs a target, it picks a random legal one. It tries moves on a copy of the game to score them (abilities included), except draws (Ash, Quickdraw), so it never sees its own Draw Pile.

@@ -10,9 +10,11 @@ import { SPEED_TIERS } from './cardData.js';
 import { newEnergy, refreshEnergy, canPay, payCost, splitCost } from './energy.js';
 import {
   PLAYERS, opponentOf, log, whose, draw, arenaPokemon, cardAt, emptySpaces, summonSpaces, isFallen,
-  attackOf, damage, describeRef,
+  attackOf, damage, describeRef, sameRef,
 } from './board.js';
-import { summon, candidates, canResolve, targetedEffect, resolveEffects, refreshAuras, settle, fireTriggers } from './effects.js';
+import {
+  summon, candidates, canResolve, targetedEffect, queueEffects, queueStep, run, refreshAuras, settle, fireTriggers,
+} from './effects.js';
 
 export { PLAYERS, opponentOf, emptySpaces, summonSpaces, isFallen, attackOf };
 export { maxStrengthOf } from './board.js';
@@ -29,8 +31,9 @@ export const HAND_SIZE = 7;
 //   supper     - simultaneous: discard hands, then the next Round begins
 //   gameOver   - a player has won, or the match is a draw (winner stays null)
 //
-// state.pending holds a choice the player must make mid-Action (e.g. Ash's
-// free summon). While it is set, that player's only Action is resolveChoice.
+// state.pending holds a choice a player must make mid-resolution (a trigger's
+// target, Ash's free summon). While it is set, that player's only Action is
+// resolveChoice. state.stack holds what is still to resolve (see effects.js).
 
 function newPlayer(name, owner, state) {
   return {
@@ -61,6 +64,7 @@ export function createGame(seed = Date.now()) {
     turn: null,          // whose Battle turn it is
     passesInARow: 0,     // Battle ends at 2
     pending: null,       // a mid-Action choice
+    stack: [],           // effects and steps still to resolve
     winner: null,
     log: [],
   };
@@ -225,6 +229,7 @@ export function strategyTargets(state, who, uid) {
 
 export function legalActions(state, who) {
   const p = state.players[who];
+  if (state.pending) return state.pending.who === who ? ['resolveChoice'] : [];
   switch (state.phase) {
     case 'trainers':
       return p.pending ? [] : ['assignTrainers'];
@@ -233,7 +238,6 @@ export function legalActions(state, who) {
     case 'breakfast':
       return state.round === 1 && !p.pending ? ['mulligan'] : [];
     case 'battle':
-      if (state.pending) return state.pending.who === who ? ['resolveChoice'] : [];
       if (state.turn !== who) return [];
       return [
         'pass',
@@ -255,17 +259,24 @@ export function applyAction(prev, action) {
     throw new Error(`${action.who} cannot ${action.type} during ${state.phase}`);
   }
   handler(state, action);
-  if (state.phase === 'gameOver') return state;
+  run(state, STEPS, matchOver);
+  if (matchOver(state)) return state;
   refreshAuras(state);
-  const won = winner(state);
-  if (won) {
-    endMatch(state, won);
-    log(state, `${state.players[won].name} ${won === 'player' ? 'win' : 'wins'}! All 3 enemy Trainers are at 0 Strength.`);
-  } else if (isStuck(state)) {
+  if (isStuck(state)) {
     endMatch(state, null);
     log(state, 'Draw! Neither player has a Pokémon left, so nobody can win.');
   }
   return state;
+}
+
+// Checked between every effect: a win ends the match immediately.
+function matchOver(state) {
+  if (state.phase === 'gameOver') return true;
+  const won = winner(state);
+  if (!won) return false;
+  endMatch(state, won);
+  log(state, `${state.players[won].name} ${won === 'player' ? 'win' : 'wins'}! All 3 enemy Trainers are at 0 Strength.`);
+  return true;
 }
 
 function endMatch(state, won) {
@@ -273,6 +284,52 @@ function endMatch(state, won) {
   state.winner = won;
   state.turn = null;
   state.pending = null;
+  state.stack = [];
+}
+
+// The rest of an Action or Phase, queued under the effects it sets off so it
+// happens once they have all resolved.
+const STEPS = {
+  endTurn(state, { who, passed }) {
+    endTurn(state, who, passed);
+  },
+
+  // A played Strategy Card reaches the Discard Pile once its effect is done.
+  discard(state, { who, card }) {
+    state.players[who].discard.push(card);
+  },
+
+  // After an attack's damage and any defeats: On Attack for the attacker and
+  // On Defend for a Pokémon it hit, if each is still in the arena.
+  afterAttack(state, { attacker, target }) {
+    const still = (ref) => cardAt(state, ref)?.uid === ref.uid;
+    const events = [];
+    if (still(attacker)) events.push({ type: 'attack', ref: attacker, card: cardAt(state, attacker), target });
+    if (target.kind === 'pokemon' && still(target)) events.push({ type: 'defend', ref: target, card: cardAt(state, target), attacker });
+    fireTriggers(state, events);
+  },
+
+  afterBreakfast(state) {
+    if (state.round === 1) log(state, 'Mulligan: choose any cards to discard and redraw, or keep your hand.');
+    else endBreakfast(state);
+  },
+
+  supperDiscard(state) {
+    for (const who of PLAYERS) {
+      const p = state.players[who];
+      const n = p.hand.length;
+      p.discard.push(...p.hand);
+      p.hand = [];
+      log(state, `${p.name} discarded ${n} card${n === 1 ? '' : 's'} from ${who === 'player' ? 'your' : 'their'} hand.`);
+    }
+    log(state, 'Supper Phase ends.');
+    startRound(state, state.round + 1);
+  },
+};
+
+// The same event for every Pokémon in the arena (On Breakfast, On Supper).
+function everyPokemon(state, type) {
+  return arenaPokemon(state).map(({ ref, card }) => ({ type, ref: { ...ref, uid: card.uid }, card }));
 }
 
 const HANDLERS = {
@@ -314,9 +371,8 @@ const HANDLERS = {
     if (!canPay(p, c.energyCost)) throw new Error(`Not enough Energy to play ${c.name}`);
     const paid = payCost(p, c.energyCost, state.round);
     log(state, `${p.name} played ${c.name} into Zone ${zone + 1}, Space ${space + 1}, paying ${describePayment(paid)}.`);
+    queueStep(state, 'endTurn', { who, passed: false });
     summon(state, who, c, zone, space);
-    settle(state);
-    endTurn(state, who, false);
   },
 
   // Battle Action: Command an Alert Pokémon to Attack. Costs no Energy.
@@ -330,8 +386,10 @@ const HANDLERS = {
       t.kind === target?.kind && t.zone === target.zone && (t.kind === 'trainer' || t.space === target.space));
     if (!legal) throw new Error('That is not a legal target');
 
-    const attackerRef = { kind: 'pokemon', owner: who, ...from };
-    const targetRef = { ...target, owner: foe };
+    const attackerRef = { kind: 'pokemon', owner: who, zone: from.zone, space: from.space, uid: attacker.uid };
+    const targetRef = { ...target, owner: foe, uid: cardAt(state, { ...target, owner: foe }).uid };
+    queueStep(state, 'endTurn', { who, passed: false });
+    queueStep(state, 'afterAttack', { attacker: attackerRef, target: targetRef });
     const name = `${whose(state, who)} ${attacker.name}`;
     const power = attackOf(attacker);
     if (target.kind === 'trainer') {
@@ -351,9 +409,7 @@ const HANDLERS = {
       log(state, `${name} attacked ${what} for ${power}`
         + (trades ? `; ${defender.name} was Alert and hit back for ${back}.` : '.'));
     }
-    fireTriggers(state, { type: 'attack', ref: attackerRef, card: attacker, target: targetRef });
-    settle(state);
-    endTurn(state, who, false);
+    settle(state);   // defeats (and On Defeated) resolve before afterAttack
   },
 
   // Battle Action: use a Trainer's Power, once per Round, paying its cost.
@@ -370,7 +426,8 @@ const HANDLERS = {
     const paid = payCost(p, trainer.power.cost, state.round);
     trainer.powerUsedRound = state.round;
     log(state, `${ctx.label} (${trainer.power.text}) Paid ${describePayment(paid)}.`);
-    if (!resolveEffects(state, ctx, trainer.power.effects, 'endTurn')) endTurn(state, who, false);
+    queueStep(state, 'endTurn', { who, passed: false });
+    queueEffects(state, ctx, trainer.power.effects);
   },
 
   // Battle Action: play a Strategy Card from hand, paying its Energy Cost.
@@ -384,29 +441,24 @@ const HANDLERS = {
     const paid = payCost(p, card.energyCost, state.round);
     p.hand = p.hand.filter((c) => c !== card);   // out of hand while it resolves, so Quickdraw can't draw itself
     log(state, `${p.name} played ${card.name} (${card.effectText}) Paid ${describePayment(paid)}.`);
-    const pending = resolveEffects(state, strategyCtx(state, who, card, target), card.effects, 'endTurn');
-    p.discard.push(card);
-    if (!pending) endTurn(state, who, false);
+    queueStep(state, 'endTurn', { who, passed: false });
+    queueStep(state, 'discard', { who, card });
+    queueEffects(state, strategyCtx(state, who, card, target), card.effects);
   },
 
-  // Answers state.pending. For a free summon: { zone, space } to summon, or
-  // no zone to keep the card in hand.
-  resolveChoice(state, { who, zone, space }) {
+  // Answers state.pending, then resolving carries on.
+  //   freeSummon: { zone, space } to summon, or no zone to keep the card in hand
+  //   target:     { target } — one of state.pending.options
+  resolveChoice(state, { zone, space, target }) {
     const pending = state.pending;
-    const p = state.players[who];
+    const job = state.stack.at(-1);
     if (pending.kind === 'freeSummon') {
-      const card = p.hand.find((c) => c.uid === pending.uid);
-      if (zone === undefined || zone === null) {
-        log(state, `${pending.ctx.label}: ${state.players[who].name} kept ${card.name} in hand.`);
-      } else {
-        summon(state, who, card, zone, space);
-        log(state, `${pending.ctx.label}: ${card.name} was summoned for free into Zone ${zone + 1}, Space ${space + 1}.`);
-        settle(state);
-      }
+      job.choice = { zone, space };
+    } else if (pending.kind === 'target') {
+      if (!target || !pending.options.some((r) => sameRef(r, target))) throw new Error('That is not a legal target');
+      job.ctx.target = target;
     }
     state.pending = null;
-    const next = resolveEffects(state, pending.ctx, pending.rest, pending.then);
-    if (!next && pending.then === 'endTurn') endTurn(state, who, false);
   },
 
   // A Battle turn's Action. The Phase ends when both players pass in a row.
@@ -463,11 +515,9 @@ function startBreakfast(state) {
     const n = draw(state, who, HAND_SIZE).length;
     log(state, `${p.name} drew ${n} card${n === 1 ? '' : 's'}.`);
   }
-  if (state.round === 1) {
-    log(state, 'Mulligan: choose any cards to discard and redraw, or keep your hand.');
-  } else {
-    endBreakfast(state);
-  }
+  // On Breakfast: after cards are drawn and Energy is gained.
+  queueStep(state, 'afterBreakfast');
+  fireTriggers(state, everyPokemon(state, 'breakfast'));
 }
 
 function endBreakfast(state) {
@@ -501,13 +551,7 @@ function startSupper(state) {
   state.phase = 'supper';
   state.turn = null;
   log(state, 'Supper Phase.');
-  for (const who of PLAYERS) {
-    const p = state.players[who];
-    const n = p.hand.length;
-    p.discard.push(...p.hand);
-    p.hand = [];
-    log(state, `${p.name} discarded ${n} card${n === 1 ? '' : 's'} from ${who === 'player' ? 'your' : 'their'} hand.`);
-  }
-  log(state, 'Supper Phase ends.');
-  startRound(state, state.round + 1);
+  // On Supper: before hands are discarded.
+  queueStep(state, 'supperDiscard');
+  fireTriggers(state, everyPokemon(state, 'supper'));
 }

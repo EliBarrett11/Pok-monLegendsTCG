@@ -47,8 +47,10 @@ function toRound1Battle(seed) {
   for (const who of PLAYERS) s = applyAction(s, chooseAction(s, who));
   s = applyAction(s, { type: 'flipCoin' });
   for (const who of PLAYERS) s = applyAction(s, { type: 'mulligan', who, cardUids: [] });
-  // Plain Trainers, so these tests check playing Pokémon alone (Trainers have their own test).
+  // Plain Trainers and no abilities, so these tests check playing Pokémon alone
+  // (Trainers and abilities have their own tests).
   for (const who of PLAYERS) for (const t of s.players[who].trainers) { t.power = null; t.passive = null; }
+  for (const who of PLAYERS) for (const c of [...s.players[who].drawPile, ...s.players[who].hand, ...s.players[who].discard]) c.ability = null;
   return s;
 }
 

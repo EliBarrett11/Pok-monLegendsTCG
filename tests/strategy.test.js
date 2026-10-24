@@ -25,6 +25,7 @@ function match({ passives = false } = {}) {
     p.drawPile.push(...p.hand.splice(0));
     p.baseEnergy = 10;
     if (!passives) p.trainers.forEach((t) => { t.passive = { text: '' }; });
+    for (const c of p.drawPile) c.ability = null;   // abilities have their own test
   }
   s.turn = 'player';
   return s;

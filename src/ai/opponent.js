@@ -151,8 +151,13 @@ function summonScore(before, after, who, { uid, zone, space }) {
   return 20 + 2 * card.energyCost + 3 * bonus - 8 * hurt;
 }
 
-// Ash's free summon: always take it, into the best-scoring zone.
+// Choices mid-resolution: an ability's target is a random legal one;
+// Ash's free summon is always taken, into the best-scoring zone.
 function resolveChoice(state, who) {
+  if (state.pending.kind === 'target') {
+    const options = state.pending.options;
+    return { type: 'resolveChoice', who, target: options[Math.floor(random() * options.length)] };
+  }
   let best = null;
   const seen = new Set();
   for (const { zone, space } of summonSpaces(state, who)) {

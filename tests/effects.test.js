@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { createGame, applyAction, maxStrengthOf, PLAYERS } from '../src/engine/game.js';
 import { cardDefinition } from '../src/engine/cards.js';
-import { resolveEffects, candidates, canResolve, summon, settle } from '../src/engine/effects.js';
+import { resolveEffects, candidates, canResolve, summon, settle, run } from '../src/engine/effects.js';
 import { inPlay, damage } from '../src/engine/board.js';
 
 // Reference Strategy Cards, as they will appear in cardData.js.
@@ -24,7 +24,7 @@ function battle() {
 }
 let n = 0;
 function place(s, who, zone, space, id, extra = {}) {
-  const card = { ...inPlay({ ...cardDefinition(id), uid: `t${n++}` }, { spent: true }), ...extra };
+  const card = { ...inPlay({ ...cardDefinition(id), ability: null, uid: `t${n++}` }, { spent: true }), ...extra };
   s.players[who].zones[zone].pokemon[space] = card;
   return card;
 }
@@ -126,7 +126,8 @@ const tref = (owner, zone) => ({ kind: 'trainer', owner, zone });
   });
   const hand = s.players.player.hand.length;
   damage(s, pref('player', 0, 0), 10);
-  settle(s);
+  settle(s);   // queues On Defeated
+  run(s);
   assert.equal(s.players.player.hand.length, hand + 1, 'On Defeated fired after it left the arena');
 
   let t = battle();

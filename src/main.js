@@ -4,7 +4,7 @@ import { createGame, applyAction } from './engine/game.js';
 import { chooseAction } from './ai/opponent.js';
 import { render } from './ui/render.js';
 
-export const BUILD = 'Step 6 — Strategy Cards and Innate Powers';
+export const BUILD = 'Step 7 — Pokémon abilities';
 
 document.getElementById('build-tag').textContent = BUILD;
 

@@ -27,7 +27,8 @@ let nextUid = 0;
 // Puts a Pokémon straight into the arena. Active unless spent: true.
 function place(s, who, zone, space, id, { spent = false, strength } = {}) {
   const def = cardDefinition(id);
-  const card = { ...def, uid: `test-${nextUid++}`, currentStrength: strength ?? def.strengthValue, spent };
+  // No ability, so these tests check combat alone (abilities have their own test).
+  const card = { ...def, ability: null, uid: `test-${nextUid++}`, currentStrength: strength ?? def.strengthValue, spent };
   s.players[who].zones[zone].pokemon[space] = card;
   return card;
 }

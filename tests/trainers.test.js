@@ -23,6 +23,7 @@ function match({ player = ['ash', 'misty', 'brock'], ai = ['ash', 'misty', 'broc
     const p = s.players[who];
     p.drawPile.push(...p.hand.splice(0));
     p.baseEnergy = 10;
+    for (const c of p.drawPile) c.ability = null;   // abilities have their own test
   }
   s.turn = 'player';
   return s;
