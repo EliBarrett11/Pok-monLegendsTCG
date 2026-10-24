@@ -243,8 +243,8 @@ function infoBar(state, who) {
         <div class="info-line">
           <span class="energy" data-pile="${who}-energy">${icon('energy')} Energy <b>${p.baseEnergy}</b></span>
           <span>Exert <b>${p.exertMax - p.exhaust.length}/${p.exertMax}</b></span>
-          <span class="xp-pool">${icon('xp')} XP <b>${p.xp}</b></span></div>
-        <div class="info-line"><span class="dollars">${icon('dollar')} PokéDollars <b>$${p.dollars}</b></span>
+          <span class="xp-pool" data-pile="${who}-xp">${icon('xp')} XP <b>${p.xp}</b></span></div>
+        <div class="info-line"><span class="dollars" data-pile="${who}-dollars">${icon('dollar')} PokéDollars <b>$${p.dollars}</b></span>
           <span>Exhaust ${exhaust || '<b>0</b>'}</span></div>
       </div>
       ${who === 'ai' ? opponentHand(p.hand.length) : ''}
@@ -273,9 +273,11 @@ function centreStrip(state) {
   if (state.round) {
     const types = Object.entries(weatherState(state)).filter(([, w]) => w.count > 0);
     weather = types.length ? types.map(([type, w]) => {
-      const all = WEATHER[type].brackets.map((b) => `<span class="bracket${w.active.includes(b) ? ' on' : ''}${w.effective.includes(b) ? '' : ' replaced'}">${b.at}</span>`).join('');
+      // Icon, count and one pip per bracket (lit when reached); the effect text is in the tooltip.
+      const pips = WEATHER[type].brackets.map((b) => `<i class="pip${w.active.includes(b) ? ' on' : ''}${w.active.includes(b) && !w.effective.includes(b) ? ' replaced' : ''}" data-at="${b.at}"></i>`).join('');
       const effects = w.effective.map((b) => b.text).join(' ') || 'No effect yet.';
-      return `<span class="weather-type ${slug(type)}" title="${attr(`${type} ${w.count}: ${effects}`)}"><b>${weatherIcon(type)} ${type} ${w.count}</b>${all}<span class="weather-effects">${effects}</span></span>`;
+      const brackets = WEATHER[type].brackets.map((b) => `${b.at}: ${b.text}`).join('\n');
+      return `<span class="weather-type ${slug(type)}" title="${attr(`${type} ${w.count} — ${effects}\n\nBrackets:\n${brackets}`)}"><b>${weatherIcon(type)}${w.count}</b><span class="pips">${pips}</span></span>`;
     }).join('') : '<span class="weather-chip">No Weather</span>';
   }
   // Brass tabs above the bar, one centred on each zone column; a fallen zone says which side.

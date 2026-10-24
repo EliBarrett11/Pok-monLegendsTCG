@@ -5,7 +5,7 @@ import { chooseAction } from './ai/opponent.js';
 import { render, STAGE } from './ui/render.js';
 import { present, think, skip, resetFx } from './ui/present.js';
 
-export const BUILD = 'V3 — Hand, drag to play, targeting';
+export const BUILD = 'V4 — Combat and effect feedback';
 
 
 // The whole game is drawn on a fixed 1920×1080 stage, scaled uniformly to

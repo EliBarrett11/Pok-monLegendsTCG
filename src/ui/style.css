@@ -610,7 +610,7 @@ button.primary {
   color: rgba(255, 255, 255, 0.8); background: #555; font-family: var(--font-display);
 }
 .card.hand .card-art { height: 116px; font-size: 11px; }
-.card.board .card-art { height: 110px; font-size: 10px; border-width: 1.5px; }
+.card.board .card-art { height: 106px; font-size: 10px; border-width: 1.5px; }
 .card.mini .card-art { flex: 1; font-size: 6px; border-width: 1px; border-radius: 2px; }
 .card.full .card-art { height: 220px; font-size: 15px; border-width: 3px; border-radius: 6px; }
 .card-art > span { position: relative; }
@@ -645,7 +645,7 @@ button.primary {
 }
 .stat-left, .stat-right { display: flex; align-items: center; gap: 2px; min-width: 0; }
 .card.hand .stat-row { height: 21px; font-size: 13px; }
-.card.board .stat-row { height: 22px; font-size: 13.5px; }
+.card.board .stat-row { height: 25px; font-size: 19px; }
 .card.full .stat-row { height: 30px; font-size: 18px; }
 .stat {
   display: inline-flex; align-items: center; gap: 2px; padding: 0 5px 0 3px; border-radius: 1em; height: 1.45em;
@@ -660,10 +660,15 @@ button.primary {
 .speed { display: inline-flex; color: var(--brass-light); filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.9)); }
 .speed .icon { width: 0.9em; height: 0.9em; }
 .speed.buffed { color: var(--green-bright); }
-.card.board .stat { padding: 0 3px 0 2px; }
+.card.board .stat { padding: 0 4px 0 2px; height: 24px; gap: 1px; }
+/* Big, bold numbers on the board, readable at a glance at 1280×720; small icons. */
+.card.board .stat b { font-size: 19px; font-weight: 900; letter-spacing: -0.02em; text-shadow: 0 1px 0 #000, 0 0 3px rgba(0, 0, 0, 0.8); }
+.card.board .stat small { font-size: 11px; }
+.card.board .stat .icon { width: 11px; height: 11px; }
 /* At board size a card shows only its name, art, cost and stats; the preview has the rest. */
 .card.board .type-banner, .card.board .text-box { display: none; }
-.card.board .speed { display: none; }
+.card.board .speed { display: inline-flex; margin-left: 1px; }
+.card.board .speed .icon { width: 9px; height: 9px; }
 
 /* Rarity: a small polished gem, bottom centre */
 .gem {
@@ -715,7 +720,8 @@ button.primary {
 .card.unavailable { filter: grayscale(0.65) brightness(0.55); cursor: not-allowed; }
 /* Alert: a warm glow. Spent: dimmed and turned slightly. */
 .card.alert { box-shadow: inset 0 0 0 1px rgba(246, 221, 154, 0.5), 0 0 0 2px #ffb347, 0 0 16px 5px rgba(255, 170, 60, 0.7), var(--shadow-card); }
-.card.board.spent { filter: brightness(0.6) saturate(0.55); transform: rotate(5deg); }
+/* Spent: slightly desaturated and turned, with the SPENT tag; the art stays clearly visible. */
+.card.board.spent { filter: saturate(0.6) brightness(0.94); rotate: 4deg; }
 .card.mini.delivery { filter: saturate(0.4) brightness(0.75); }
 .card.pay-discard { outline: 3px solid #e8953a; outline-offset: -2px; }
 .card.pay-release { outline: 3px dashed var(--red-bright); outline-offset: -2px; filter: grayscale(0.6) brightness(0.8); }
@@ -792,3 +798,61 @@ button.primary {
 }
 .fx-panel .met { color: var(--green-bright); font-weight: 800; }
 .fx-panel .unmet { color: var(--cream-muted); font-weight: 800; }
+
+/* --- V4: weather pips ------------------------------------------------------------------- */
+.weather-type > b { font-size: 14px; }
+.pips { display: inline-flex; gap: 2px; margin-left: 3px; }
+.pip { width: 8px; height: 8px; border-radius: 50%; background: rgba(60, 36, 10, 0.3); box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.45); }
+.weather-type.rain .pip.on { background: radial-gradient(circle at 35% 30%, #cfe8ff, #2f74c0 60%); box-shadow: 0 0 4px rgba(80, 160, 255, 0.9); }
+.weather-type.sun .pip.on { background: radial-gradient(circle at 35% 30%, #fff1b8, #e0860c 60%); box-shadow: 0 0 4px rgba(255, 170, 40, 0.9); }
+.pip.on.replaced { opacity: 0.45; }
+
+/* --- V4: combat and effect feedback --------------------------------------------------------- */
+#particles { position: absolute; inset: 0; width: 1920px; height: 1080px; z-index: 45; pointer-events: none; }
+#fx { z-index: 45; }
+.fx-flash, .fx-wave, .fx-tint, .fx-shimmer, .fx-coin, .fx-xp, .fx-trigger { position: absolute; pointer-events: none; }
+.fx-flash { border-radius: 14px; mix-blend-mode: screen; }
+.fx-wave {
+  border-radius: 20px; mix-blend-mode: screen;
+  background: linear-gradient(100deg, transparent 0%, rgba(255, 214, 140, 0) 38%, rgba(255, 220, 150, 0.55) 50%, rgba(255, 214, 140, 0) 62%, transparent 100%) no-repeat;
+  background-size: 60% 100%;
+}
+.fx-tint { border-radius: 30px; mix-blend-mode: screen; background-size: 100% 220%; }
+.fx-tint.rain { background-image: linear-gradient(180deg, transparent, rgba(90, 160, 255, 0.35) 40%, rgba(150, 200, 255, 0.45) 50%, rgba(90, 160, 255, 0.35) 60%, transparent); }
+.fx-tint.sun { background-image: linear-gradient(180deg, transparent, rgba(255, 170, 60, 0.3) 40%, rgba(255, 210, 120, 0.42) 50%, rgba(255, 170, 60, 0.3) 60%, transparent); }
+.fx-shimmer {
+  border-radius: 8px; mix-blend-mode: screen; overflow: hidden;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 236, 170, 0.9) 48%, rgba(255, 255, 255, 0.95) 50%, rgba(255, 236, 170, 0.9) 52%, transparent 70%) no-repeat;
+  background-size: 50% 100%;
+}
+.fx-coin {
+  display: grid; place-items: center; border-radius: 50%; font-weight: 900; font-size: 12px; color: #5a3a08;
+  background: radial-gradient(circle at 35% 30%, #fff4c2, #f0c040 50%, #a87410); border: 1px solid #6b4a10;
+  box-shadow: 0 0 8px rgba(255, 210, 90, 0.8);
+}
+.fx-xp {
+  display: grid; place-items: center; white-space: nowrap; font-family: var(--font-display); font-weight: 800; font-size: 18px;
+  color: #e9dcff; text-shadow: 0 0 8px #8a5cff, 0 2px 2px #000;
+}
+.fx-trigger {
+  padding: 3px 12px; border-radius: 6px; white-space: nowrap; transform-origin: left center; z-index: 2;
+  background: var(--brass-plate); border: 1px solid var(--brass-dark); box-shadow: var(--bevel), 0 4px 10px rgba(0, 0, 0, 0.6);
+  font-family: var(--font-display); font-size: 14px; color: var(--ink);
+}
+.fx-trigger.left { translate: -100% 0; transform-origin: right center; }
+.fx-beam { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: visible; filter: drop-shadow(0 0 6px rgba(255, 210, 110, 0.95)); }
+/* Damage: a big red number on a splash. */
+.fx-num { isolation: isolate; }
+.fx-num.damage { font-size: 50px; color: #e8231a; text-shadow: 0 2px 0 #4a0a04, 0 0 2px #4a0a04; padding: 10px 18px; }
+.fx-num.damage::before {
+  content: ''; position: absolute; inset: -6px -10px; z-index: -1;
+  background: radial-gradient(circle, #fff8dc 0, #ffe08a 55%, #f0a030 100%);
+  clip-path: polygon(50% 0, 61% 22%, 84% 8%, 78% 33%, 100% 38%, 82% 55%, 96% 78%, 70% 74%, 62% 100%, 48% 80%, 30% 98%, 27% 74%, 2% 82%, 16% 58%, 0 36%, 24% 32%, 18% 8%, 40% 22%);
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.6));
+}
+.fx-num.heal { font-size: 40px; }
+.fx-banner.fallen {
+  top: 330px; font-size: 60px; padding: 18px 60px;
+  background: linear-gradient(#a33a2a, #5c1616); color: #ffe9d0; border-color: #2a0808;
+  text-shadow: 0 3px 4px rgba(0, 0, 0, 0.7), 0 0 20px rgba(255, 120, 80, 0.6);
+}

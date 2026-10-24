@@ -326,6 +326,12 @@ export function run(state, steps = {}, isOver = () => false) {
       state.stack.pop();
       continue;
     }
+    // A triggered ability or Passive says so once, as it starts to resolve.
+    if (job.ctx.event && !job.announced) {
+      job.announced = true;
+      const { source } = job.ctx;
+      emit(state, 'abilityTriggered', { who: job.ctx.who, source: { uid: source.uid, name: source.name, owner: source.owner, kind: source.kind }, word: job.ctx.word, label: job.ctx.label });
+    }
     if (applyEffect(state, job, job.effects[job.i]) === 'pause') return;
     job.i += 1;
     delete job.choice;
@@ -410,6 +416,7 @@ function sourceCtx(state, ref, card) {
     who: ref.owner,
     source: { kind: trainer ? 'trainer' : 'pokemon', owner: ref.owner, zone: ref.zone, space: ref.space, uid: card.uid, name: card.name },
     label: `${whose(state, ref.owner)} ${card.name}'s ${trainer ? 'Passive' : card.effectTrigger ?? 'ability'}`,
+    word: trainer ? 'Passive' : card.effectTrigger ?? 'Ability',
     text: trainer ? card.passive?.text : card.effectText,
   };
 }
