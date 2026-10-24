@@ -4,7 +4,7 @@
 import {
   ZONES, playablePokemon, costPreview, isAlert, legalTargets, canUsePower, powerTargets,
   summonSpaces, isFallen, attackOf, maxStrengthOf, playableStrategies, strategyTargets,
-  playableSupporters, supporterTargets, giftMet,
+  playableSupporters, supporterTargets, giftMet, playableLocations, locationSpaces, weatherCounts,
 } from '../engine/game.js';
 import { INNATE_POWERS } from '../engine/cardData.js';
 
@@ -23,9 +23,13 @@ function resetUiFor(state) {
   ui.power = null;             // zone of the player's Trainer whose Power is chosen
   ui.strategy = null;          // uid of a Strategy Card in hand waiting for a target
   ui.supporter = null;         // { uid, discard: [uids], release: [uids], picking } while paying for a Supporter
+  ui.location = null;          // uid of a Location Card in hand to play
+  ui.xpPlan = [];              // the XP step: [{ uid, stat }] planned before locking in
+  ui.xpPick = null;            // the XP step: uid of the Pokémon picked to buff
 }
 
 function clearSelection() {
+  ui.location = null;
   ui.selectedPokemon = null;
   ui.attacker = null;
   ui.power = null;
@@ -91,6 +95,7 @@ export function render(root, state, actions) {
         ${pileBar(them, true)}
         ${energyBar(them)}
         ${trainerRow(state, 'ai')}
+        ${locationRow(state, 'ai')}
         ${pokemonRow(state, 'ai')}
       </section>
 
@@ -99,12 +104,14 @@ export function render(root, state, actions) {
           ${state.round ? `Round ${state.round} · ` : ''}${PHASE_NAMES[state.phase]}
           ${state.turn ? `<span class="turn">${state.turn === 'player' ? 'Your turn' : "AI Opponent's turn"}</span>` : ''}
           ${state.initiative ? `<span class="initiative">Initiative: ${state.players[state.initiative].name}</span>` : ''}
+          ${weatherPanel(state)}
         </div>
         <div class="controls">${controls(state)}</div>
       </section>
 
       <section class="side player">
         ${pokemonRow(state, 'player')}
+        ${locationRow(state, 'player')}
         ${trainerRow(state, 'player')}
         ${pileBar(me, false)}
         ${energyBar(me)}
@@ -147,7 +154,46 @@ function energyBar(p) {
       <span>Base Energy: <strong>${p.baseEnergy}</strong></span>
       <span>Exert: <strong>${p.exertMax - p.exhaust.length}/${p.exertMax}</strong></span>
       <span>Exhaust: ${exhaust || '<strong>0</strong>'}</span>
+      <span class="xp-pool">XP: <strong>${p.xp}</strong></span>
     </div>`;
+}
+
+const WEATHER_ICONS = { Rain: '☔', Sun: '☀' };
+
+function weatherText(tokens) {
+  return Object.entries(tokens ?? {}).map(([type, n]) => `<span class="weather-chip">${WEATHER_ICONS[type] ?? '☁'} ${n} ${type}</span>`).join(' ');
+}
+
+// Weather Tokens in play, both sides combined.
+function weatherPanel(state) {
+  if (!state.round) return '';
+  const counts = weatherCounts(state);
+  return `<span class="weather-panel" title="Weather Tokens in play (Locations and Pokémon, both sides)">Weather: ${
+    Object.keys(counts).length ? weatherText(counts) : '<span class="weather-chip">none</span>'}</span>`;
+}
+
+function locationRow(state, who) {
+  const p = state.players[who];
+  const open = who === 'player' && ui.location ? locationSpaces(state, 'player') : [];
+  return `<div class="location-row">${p.zones.map((z, zone) => {
+    const target = open.includes(zone);
+    return `<div class="location-space${target ? ' target' : ''}" data-owner="${who}" data-zone="${zone}">
+      ${z.location ? locationCard(z.location) : `<span class="empty">${target ? 'Click to play here' : 'Location Space'}</span>`}
+    </div>`;
+  }).join('')}</div>`;
+}
+
+// A Location: in a Location space it shows its quest progress.
+function locationCard(c, opts = {}) {
+  const inPlay = c.progress !== undefined;
+  return `<div class="card location rarity-${slug(c.rarity)}${stateClasses(opts)}" data-uid="${c.uid}" title="${c.name} (${c.rarity})&#10;Quest: ${c.quest.text}&#10;Reward: ${c.xp} XP&#10;${c.effectText}">
+    ${payBadge(opts)}
+    <div class="card-head"><span class="card-name">${c.name}</span><span class="xp-reward" title="XP Reward">${c.xp} XP</span></div>
+    <div class="card-type">Location · ${weatherText(c.weatherTokens)}</div>
+    ${!inPlay ? (c.image ? `<img class="card-art" src="${c.image}" alt="">` : '<div class="card-art location-art">Location</div>') : ''}
+    <div class="card-line quest"><b>Quest:</b> ${c.quest.text}${inPlay ? ` <span class="progress">${c.quest.label} ${c.progress}/${c.quest.count}</span>` : ''}</div>
+    <div class="card-line effect"><b>Reward:</b> ${c.effectText}</div>
+  </div>`;
 }
 
 function trainerRow(state, who) {
@@ -202,13 +248,18 @@ function pokemonRow(state, who) {
 
 function handCards(state) {
   const me = state.players.player;
-  const mulligan = state.phase === 'breakfast' && state.round === 1 && !me.pending;
+  const xpStep = state.phase === 'breakfast' && state.xpStep && !me.xpChoice;
+  const mulligan = state.phase === 'breakfast' && !state.xpStep && state.round === 1 && !me.pending;
   const myTurn = isMyBattleTurn(state);
   const playable = myTurn
-    ? [...playablePokemon(state, 'player'), ...playableStrategies(state, 'player'), ...playableSupporters(state, 'player')]
-      .map((c) => c.uid) : [];
+    ? [...playablePokemon(state, 'player'), ...playableStrategies(state, 'player'), ...playableSupporters(state, 'player'),
+      ...playableLocations(state, 'player')].map((c) => c.uid) : [];
   return me.hand.map((c) => {
     if (mulligan) return card(c, { selectable: true, selected: ui.mulligan.has(c.uid) });
+    if (xpStep) {
+      if (c.cardType !== 'Pokémon') return card(c);
+      return card(c, { selectable: true, selected: ui.xpPick === c.uid, plan: plannedXp(c.uid) });
+    }
     if (state.pending?.uid === c.uid) return card(c, { selected: true });
     if (ui.supporter) {
       // Paying for a Supporter: every other card can be marked Discard or Release.
@@ -216,9 +267,9 @@ function handCards(state) {
       const pay = ui.supporter.discard.includes(c.uid) ? 'discard' : ui.supporter.release.includes(c.uid) ? 'release' : null;
       return card(c, { selectable: !ui.supporter.picking, pay });
     }
-    if (myTurn && ['Pokémon', 'Strategy', 'Supporter'].includes(c.cardType)) {
+    if (myTurn && ['Pokémon', 'Strategy', 'Supporter', 'Location'].includes(c.cardType)) {
       return playable.includes(c.uid)
-        ? card(c, { selectable: true, selected: ui.selectedPokemon === c.uid || ui.strategy === c.uid })
+        ? card(c, { selectable: true, selected: [ui.selectedPokemon, ui.strategy, ui.location].includes(c.uid) })
         : card(c, { unavailable: true });
     }
     return card(c);
@@ -263,6 +314,7 @@ function card(c, opts = {}) {
   if (c.cardType === 'Pokémon') return pokemonCard(c, opts);
   if (c.cardType === 'Strategy') return strategyCard(c, opts);
   if (c.cardType === 'Supporter') return supporterCard(c, opts);
+  if (c.cardType === 'Location') return locationCard(c, opts);
   return `<div class="card type-${slug(c.cardType)}${stateClasses(opts)}" data-uid="${c.uid}">
     ${payBadge(opts)}
     <div class="card-type">${c.cardType}</div>
@@ -315,20 +367,31 @@ function art(c) {
 }
 
 // Full Pokémon card, with every field.
+// XP planned for a card during the XP step, before locking in.
+function plannedXp(uid) {
+  const plan = { attack: 0, strength: 0 };
+  for (const p of ui.xpPlan) if (p.uid === uid) plan[p.stat] += 1;
+  return plan;
+}
+
 function pokemonCard(c, opts) {
+  // XP already on the card in hand, plus any still being planned (shown in green).
+  const xpAtk = (c.xp?.attack ?? 0) + (opts.plan?.attack ?? 0);
+  const xpStr = (c.xp?.strength ?? 0) + (opts.plan?.strength ?? 0);
+  const xpTag = (n) => (n ? ` <span class="xp-tag">(+${n} XP)</span>` : '');
   return `<div class="card pokemon rarity-${slug(c.rarity)}${stateClasses(opts)}" data-uid="${c.uid}" title="${tooltip(c)}">
     ${payBadge(opts)}
     <div class="card-head"><span class="card-name">${c.name}</span><span class="cost" title="Energy Cost">${c.energyCost}</span></div>
     <div class="card-type">Pokémon · ${c.pokemonType}</div>
     ${art(c)}
     <div class="stats">
-      <span>${c.attackType} <b>${c.attackValue}</b></span>
-      <span>${c.strengthType} <b>${c.strengthValue}</b></span>
+      <span>${c.attackType} <b class="${xpAtk ? 'buffed' : ''}">${c.attackValue + xpAtk}</b>${xpTag(xpAtk)}</span>
+      <span>${c.strengthType} <b class="${xpStr ? 'buffed' : ''}">${c.strengthValue + xpStr}</b>${xpTag(xpStr)}</span>
     </div>
     <div class="card-line">Speed: ${c.speedTier}</div>
     ${c.innatePower ? `<div class="card-line keyword" title="${INNATE_POWERS[c.innatePower] ?? ''}">${c.innatePower}</div>` : ''}
     ${c.effectText ? `<div class="card-line effect"><b>${c.effectTrigger}:</b> ${c.effectText}</div>` : ''}
-    ${c.weatherToken ? `<div class="card-line weather">☁ ${c.weatherToken}</div>` : ''}
+    ${c.weatherTokens ? `<div class="card-line weather">Weather: ${weatherText(c.weatherTokens)}</div>` : ''}
     <div class="card-line rarity">${c.rarity}</div>
   </div>`;
 }
@@ -363,7 +426,7 @@ function tooltip(c) {
     `Speed-Tier: ${c.speedTier}`,
     c.innatePower && `Innate Power: ${c.innatePower}${INNATE_POWERS[c.innatePower] ? ` (${INNATE_POWERS[c.innatePower]})` : ''}`,
     c.effectText && `${c.effectTrigger}: ${c.effectText}`,
-    c.weatherToken && `Weather Token: ${c.weatherToken}`,
+    c.weatherTokens && `Weather Tokens: ${Object.entries(c.weatherTokens).map(([t, n]) => `${n} ${t}`).join(', ')}`,
     c.spent && 'Spent',
   ].filter(Boolean).join('\n').replace(/"/g, '&quot;');
 }
@@ -383,6 +446,17 @@ function controls(state) {
     case 'initiative':
       return '<button data-action="flip">Flip coin</button>';
     case 'breakfast': {
+      if (state.xpStep) {
+        if (me.xpChoice) return '<span>Waiting for opponent…</span>';
+        const left = me.xp - ui.xpPlan.length;
+        const pick = ui.xpPick && me.hand.find((c) => c.uid === ui.xpPick);
+        return `<span class="hint"><b>Spend XP</b> (${left} of ${me.xp} left): each point gives a Pokémon in hand +1 Attack or +1 Strength.
+          ${pick ? `${pick.name}:` : 'Click a Pokémon in your hand.'}</span>
+          ${pick ? `<button data-action="xp-attack" ${left ? '' : 'disabled'}>+1 Attack</button>
+            <button data-action="xp-strength" ${left ? '' : 'disabled'}>+1 Strength</button>` : ''}
+          <button data-action="xp-undo" class="secondary" ${ui.xpPlan.length ? '' : 'disabled'}>Undo</button>
+          <button data-action="xp-lock">Lock in${ui.xpPlan.length ? ` (${ui.xpPlan.length} XP)` : ' (keep XP)'}</button>`;
+      }
       if (me.pending) return '<span>Waiting for opponent…</span>';
       const n = ui.mulligan.size;
       return `<span class="hint">Click cards in your hand to mark them for mulligan.</span>
@@ -416,7 +490,8 @@ function controls(state) {
           <button data-action="use-power">Use Power (${t.power.cost})</button>${pass}`;
       }
       const strategy = ui.strategy && me.hand.find((c) => c.uid === ui.strategy);
-      const hint = ui.selectedPokemon ? 'Click a highlighted empty space to play it, or click the card again to cancel.'
+      const hint = ui.location ? 'Click one of your highlighted Location spaces (playing on a Location replaces it), or click the card again to cancel.'
+        : ui.selectedPokemon ? 'Click a highlighted empty space to play it, or click the card again to cancel.'
         : ui.attacker ? 'Click a highlighted enemy Pokémon or Trainer to attack, or click your Pokémon again to cancel.'
           : strategy ? `${strategy.name}: click a highlighted target, or click the card again to cancel.`
             : 'Play a card from your hand, attack with an Alert Pokémon, use a Trainer Power, or Pass.';
@@ -447,6 +522,21 @@ function wire(root, state, { dispatch, newGame }) {
   on('[data-action="mulligan"]', () => dispatch({ type: 'mulligan', who: 'player', cardUids: [...ui.mulligan] }));
   on('[data-action="keep-card"]', () => dispatch({ type: 'resolveChoice', who: 'player' }));
 
+  // XP step: plan points on Pokémon in hand, undo, then lock in.
+  const planXp = (stat) => { ui.xpPlan.push({ uid: ui.xpPick, stat }); redraw(); };
+  on('[data-action="xp-attack"]', () => planXp('attack'));
+  on('[data-action="xp-strength"]', () => planXp('strength'));
+  on('[data-action="xp-undo"]', () => { ui.xpPlan.pop(); redraw(); });
+  on('[data-action="xp-lock"]', () => dispatch({ type: 'spendXp', who: 'player', spend: [...ui.xpPlan] }));
+
+  // Location: pick the card, then one of your Location spaces.
+  on('.player .location-space.target', (el) => {
+    const zone = Number(el.dataset.zone);
+    const old = state.players.player.zones[zone].location;
+    if (old && !confirm(`Replace ${old.name}? It goes to your Discard Pile and its quest progress (${old.progress}/${old.quest.count}) is lost.`)) return;
+    dispatch({ type: 'playLocation', who: 'player', uid: ui.location, zone });
+  });
+
   // Trainer placement: select from the tray, then click a space. Click a placed one to take it back.
   on('.tray .card', (el) => {
     ui.selectedTrainer = ui.selectedTrainer === el.dataset.uid ? null : el.dataset.uid;
@@ -468,7 +558,9 @@ function wire(root, state, { dispatch, newGame }) {
   on('.hand .card.selectable', (el) => {
     const uid = el.dataset.uid;
     const c = state.players.player.hand.find((h) => h.uid === uid);
-    if (state.phase === 'breakfast') {
+    if (state.phase === 'breakfast' && state.xpStep) {
+      ui.xpPick = ui.xpPick === uid ? null : uid;
+    } else if (state.phase === 'breakfast') {
       ui.mulligan.has(uid) ? ui.mulligan.delete(uid) : ui.mulligan.add(uid);
     } else if (ui.supporter) {
       // Paying: the Supporter itself cancels; other cards cycle Discard → Release → none.
@@ -489,6 +581,10 @@ function wire(root, state, { dispatch, newGame }) {
           release.push(uid);
         }
       }
+    } else if (c.cardType === 'Location') {
+      const again = ui.location === uid;
+      clearSelection();
+      ui.location = again ? null : uid;
     } else if (c.cardType === 'Supporter') {
       clearSelection();
       ui.supporter = { uid, discard: [], release: [], picking: false };

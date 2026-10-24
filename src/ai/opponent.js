@@ -10,7 +10,7 @@
 import {
   applyAction, legalActions, playablePokemon, summonSpaces, alertPokemon, legalTargets,
   usablePowers, powerTargets, playableStrategies, strategyTargets, opponentOf, maxStrengthOf, attackOf,
-  playableSupporters, supporterTargets, giftMet,
+  playableSupporters, supporterTargets, giftMet, playableLocations, locationSpaces,
 } from '../engine/game.js';
 
 // Where the AI's random choices come from. Tests pass a seeded generator
@@ -22,6 +22,7 @@ export function chooseAction(state, who = 'ai', { rng = Math.random } = {}) {
   const legal = legalActions(state, who);
   if (legal.includes('assignTrainers')) return assignTrainers(state, who);
   if (legal.includes('mulligan')) return mulligan(state, who);
+  if (legal.includes('spendXp')) return spendXp(state, who);
   if (legal.includes('resolveChoice')) return resolveChoice(state, who);
   if (legal.includes('pass')) return bestMove(state, who) ?? { type: 'pass', who };
   return null;
@@ -75,6 +76,15 @@ function candidateMoves(state, who) {
     if (targets.length) targets.forEach((target) => moves.push({ ...move, target }));
     else if (!card.effects.some((e) => e.target?.mode === 'targeted')) moves.push(move);
   }
+  // Locations: only into empty Location spaces; it never replaces one.
+  const seenLocation = new Set();
+  for (const card of playableLocations(state, who)) {
+    if (seenLocation.has(card.id)) continue;
+    seenLocation.add(card.id);
+    for (const zone of locationSpaces(state, who)) {
+      if (!p.zones[zone].location) moves.push({ type: 'playLocation', who, uid: card.uid, zone });
+    }
+  }
   return moves;
 }
 
@@ -105,7 +115,9 @@ function bestMove(state, who) {
 }
 
 const value = (cards) => cards.reduce((sum, c) => sum + (c.energyCost ?? 0) + (c.attackValue ?? 0), 0);
-const newlyReleased = (before, after, who) => after.players[who].released.slice(before.players[who].released.length);
+// Pokémon newly in the Released Pile (defeated), not other Released cards.
+const newlyReleased = (before, after, who) => after.players[who].released.slice(before.players[who].released.length)
+  .filter((c) => c.cardType === 'Pokémon');
 
 // Higher is better. Roughly, from the top:
 //   1000 wins the match · 100 per enemy Trainer brought to 0 ·
@@ -120,6 +132,7 @@ function scoreMove(state, who, move) {
   if (strategy?.id === 'quickdraw') return 16;
   const supporter = move.type === 'playSupporter' ? state.players[who].hand.find((c) => c.uid === move.uid) : null;
   if (supporter) return supporterScore(state, who, move, supporter);
+  if (move.type === 'playLocation') return locationScore(state, who, move);
 
   const after = applyAction({ ...state, log: [] }, move);
   if (after.winner === who) return 1000;
@@ -128,7 +141,7 @@ function scoreMove(state, who, move) {
   const removed = enemyTrainers(state).filter((str, i) => str > 0 && enemyTrainers(after)[i] === 0).length;
   const enemyLost = newlyReleased(state, after, foe);
   const ownLost = newlyReleased(state, after, who);
-  let score = 100 * removed;
+  let score = 100 * removed + 5 * (after.players[who].xp - state.players[who].xp);   // quests completed
 
   if (move.type === 'command') {
     if (move.target.kind === 'trainer') {
@@ -170,6 +183,29 @@ function scoreMove(state, who, move) {
     return score + 15 + maxStrengthOf(target);
   }
   return score + 15;
+}
+
+// Locations: worth more for more XP, and a zone-tied quest more where it
+// already has Pokémon to complete it.
+function locationScore(state, who, { uid, zone }) {
+  const p = state.players[who];
+  const card = p.hand.find((c) => c.uid === uid);
+  const here = p.zones[zone].pokemon.filter(Boolean).length;
+  return 14 + 2 * card.xp + (card.quest.inZone ? 3 * here : 0);
+}
+
+// Breakfast XP: all of it on the cheapest Pokémon in hand it can afford this
+// Round with Base Energy, each point Attack or Strength at random. With no
+// affordable Pokémon it keeps the XP.
+function spendXp(state, who) {
+  const p = state.players[who];
+  const affordable = p.hand.filter((c) => c.cardType === 'Pokémon' && c.energyCost <= p.baseEnergy);
+  if (!affordable.length) return { type: 'spendXp', who, spend: [] };
+  const cheapest = Math.min(...affordable.map((c) => c.energyCost));
+  const options = affordable.filter((c) => c.energyCost === cheapest);
+  const card = options[Math.floor(random() * options.length)];
+  const spend = Array.from({ length: p.xp }, () => ({ uid: card.uid, stat: random() < 0.5 ? 'attack' : 'strength' }));
+  return { type: 'spendXp', who, spend };
 }
 
 // Supporters cost cards: each paid card counts against it (a released one more).

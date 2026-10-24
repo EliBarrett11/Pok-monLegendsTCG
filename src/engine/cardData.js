@@ -36,14 +36,14 @@ function pokemon(name, energyCost, pokemonType, attackType, attackValue, strengt
     ability: null,         // the ability as data: { on, match, effects }
     rarity,
     innatePower: null,
-    weatherToken: null,
+    weatherTokens: null,   // e.g. { Sun: 1 }: counted while it is in the arena
     ...extras,
   };
 }
 
 const QUICK_ATTACK = { innatePower: 'Quick Attack' };
 const AGILITY = { innatePower: 'Agility' };
-const SAMPLE_WEATHER = { weatherToken: 'Placeholder Weather' };
+const ONE_SUN = { weatherTokens: { Sun: 1 } };
 
 // Innate Powers: keywords the rules check directly (see effects.js).
 export const INNATE_POWERS = {
@@ -90,17 +90,17 @@ export const POKEMON_CARDS = [
   pokemon('Sproutle',   1, 'Grass',    'Physical', 1, 'Defence',         4,  'Slow',   'Common', COUNTER),
   pokemon('Zappip',     1, 'Electric', 'Special',  2, 'Special Defence', 2,  'Swift',  'Common', QUICK_ATTACK),
   pokemon('Pebblet',    2, 'Rock',     'Physical', 2, 'Defence',         5,  'Slow',   'Common', COUNTER),
-  pokemon('Gustling',   2, 'Flying',   'Physical', 3, 'Hitpoints',       3,  'Swift',  'Uncommon', { ...AGILITY, ...SAMPLE_WEATHER, ...TRAINER_HUNTER }),
+  pokemon('Gustling',   2, 'Flying',   'Physical', 3, 'Hitpoints',       3,  'Swift',  'Uncommon', { ...AGILITY, ...TRAINER_HUNTER }),
   pokemon('Mothdust',   2, 'Bug',      'Special',  2, 'Special Defence', 4,  'Steady', 'Uncommon', LAST_GIFT),
   pokemon('Frostail',   3, 'Water',    'Special',  3, 'Special Defence', 5,  'Steady', 'Uncommon', EARLY_RISER),
-  pokemon('Brawlix',    3, 'Fighting', 'Physical', 4, 'Hitpoints',       5,  'Steady', 'Uncommon', QUICK_ATTACK),
+  pokemon('Brawlix',    3, 'Fire',     'Physical', 4, 'Hitpoints',       5,  'Steady', 'Uncommon', QUICK_ATTACK),
   pokemon('Toxifin',    3, 'Water',    'Special',  3, 'Defence',         6,  'Slow',   'Rare', LAST_GIFT),
   pokemon('Shadepup',   4, 'Ghost',    'Special',  4, 'Special Defence', 6,  'Swift',  'Rare', { ...AGILITY, ...SUMMON_STRIKE }),
   pokemon('Ironhorn',   4, 'Steel',    'Physical', 3, 'Defence',         8,  'Slow',   'Rare', COUNTER),
-  pokemon('Glimmeria',  5, 'Fairy',    'Special',  5, 'Special Defence', 7,  'Steady', 'Epic', { ...AGILITY, ...SAMPLE_WEATHER, ...EARLY_RISER }),
+  pokemon('Glimmeria',  5, 'Fairy',    'Special',  5, 'Special Defence', 7,  'Steady', 'Epic', { ...AGILITY, ...ONE_SUN, ...EARLY_RISER }),
   pokemon('Duskfang',   5, 'Dark',     'Physical', 5, 'Hitpoints',       7,  'Swift',  'Epic', { ...QUICK_ATTACK, ...TRAINER_HUNTER }),
-  pokemon('Quakemaw',   6, 'Ground',   'Physical', 6, 'Defence',         10, 'Slow',   'Legendary', SUMMON_STRIKE),
-  pokemon('Mindrake',   6, 'Dragon',   'Special',  6, 'Hitpoints',       9,  'Steady', 'Legendary', SAMPLE_WEATHER),
+  pokemon('Quakemaw',   6, 'Fire',     'Physical', 6, 'Defence',         10, 'Slow',   'Legendary', SUMMON_STRIKE),
+  pokemon('Mindrake',   6, 'Dragon',   'Special',  6, 'Hitpoints',       9,  'Steady', 'Legendary'),
 ];
 
 // --- Trainers ---------------------------------------------------------------
@@ -228,10 +228,43 @@ export const SUPPORTER_CARDS = [
   }),
 ];
 
+// --- Location Cards ---------------------------------------------------------
+//
+// Played as a Battle Action (no Energy) into the Location space of one of
+// your zones. Its Weather Tokens count while it is in play. Its quest counts
+// your own actions from the moment it is played:
+//   quest: { text, label, on: 'summon' | 'attack' | 'power', filter?, inZone?, count }
+//     filter  a card condition (matchesCard) on the summoned / attacking Pokémon
+//     inZone  only events in this Location's zone (your side)
+// When the quest is completed you gain `xp`, `effects` resolve (the
+// Location's Zone is the source Zone), then the Location is Released.
+
+export const WEATHER_TYPES = ['Rain', 'Sun'];
+
+function location(name, rarity, weatherTokens, quest, xp, effectText, effects) {
+  const id = name.toLowerCase().replace(/\s+/g, '-');
+  return { id, name, cardType: 'Location', image: null, weatherTokens, quest, xp, effectText, effects, rarity };
+}
+
+export const LOCATION_CARDS = [
+  location('Tidal Cove', 'Common', { Rain: 2 },
+    { text: 'Summon 2 Water Pokémon.', label: 'Water Pokémon summoned', on: 'summon', filter: { pokemonType: 'Water' }, count: 2 },
+    2, 'Draw 2 cards.', [{ op: 'draw', amount: 2 }]),
+  location('Sunbaked Plateau', 'Uncommon', { Sun: 2 },
+    { text: 'Attack 3 times with Pokémon in this Zone.', label: 'Attacks', on: 'attack', inZone: true, count: 3 },
+    3, 'Friendly Pokémon in this Zone gain +1 Attack.', [
+      { op: 'buff', attack: 1, strength: 0, target: { mode: 'area', side: 'friendly', zone: 'source' } },
+    ]),
+  location('Old Training Hall', 'Uncommon', { Rain: 1, Sun: 1 },
+    { text: 'Use 3 Trainer Powers.', label: 'Powers used', on: 'power', count: 3 },
+    2, 'Heal all friendly Trainers 2 Strength.', [
+      { op: 'heal', amount: 2, target: { mode: 'area', side: 'friendly', kinds: ['trainer'], damaged: true } },
+    ]),
+];
+
 // PLACEHOLDER non-Pokémon cards: name and Card-Type only, for now.
 export const OTHER_CARDS = [
   ...Array.from({ length: 8 }, (_, i) => ({ id: `item-${i + 1}`, name: `Item ${i + 1}`, cardType: 'Item' })),
-  ...Array.from({ length: 4 }, (_, i) => ({ id: `location-${i + 1}`, name: `Location ${i + 1}`, cardType: 'Location' })),
 ];
 
 // Each deck: card id → number of copies. PLACEHOLDER: one of every card above.
@@ -243,4 +276,7 @@ export const PLACEHOLDER_DECKLIST = {
   'field-researcher': 2,
   'veteran-coach': 1,
   'field-medic': 1,
+  'tidal-cove': 2,
+  'sunbaked-plateau': 1,
+  'old-training-hall': 1,
 };

@@ -133,9 +133,39 @@ export function strengthOf(c) {
   return c.cardType === 'Trainer' ? c.strength : c.currentStrength;
 }
 
-// A Pokémon card as it enters the arena.
+// A Pokémon card as it enters the arena. XP spent on it in hand
+// ({ attack, strength }) becomes a permanent buff.
 export function inPlay(card, { spent }) {
-  return { ...card, currentStrength: card.strengthValue, spent, attackBonus: 0, strengthBonus: 0, aura: {} };
+  const { xp = { attack: 0, strength: 0 }, ...rest } = card;
+  return {
+    ...rest,
+    currentStrength: card.strengthValue + xp.strength,
+    spent,
+    attackBonus: xp.attack,
+    strengthBonus: xp.strength,
+    aura: {},
+  };
+}
+
+// XP buffs only last while the card is in hand or once it's played: a card
+// leaving the hand any other way loses them.
+export function dropXp(cards) {
+  for (const c of cards) delete c.xp;
+}
+
+// --- Weather --------------------------------------------------------------------
+
+// Weather Tokens in play, per type: every Location on both sides plus every
+// Pokémon in the arena that carries a token. Worked out fresh each time, so
+// tokens stop counting the moment their card leaves play.
+export function weatherCounts(state) {
+  const counts = {};
+  const add = (tokens) => Object.entries(tokens ?? {}).forEach(([type, n]) => { counts[type] = (counts[type] ?? 0) + n; });
+  for (const who of PLAYERS) {
+    for (const z of state.players[who].zones) add(z.location?.weatherTokens);
+  }
+  for (const { card } of arenaPokemon(state)) add(card.weatherTokens);
+  return counts;
 }
 
 // --- Damage, healing, defeat ------------------------------------------------------

@@ -7,7 +7,8 @@ The rules as settled while building the game, in match order. The code follows t
 - **Deck:** 40 cards.
 - **Card types:** Pokémon, Strategy, Item, Location, Supporter.
 - **Trainers:** each player has 3 Trainers, kept outside the 40-card deck. Each Trainer has its own **Trainer Strength**, a **Power** and a **Passive** (section 7).
-- **Piles:** each player has a Draw Pile, a hand, a Discard Pile and a **Released Pile**. The Draw Pile is shuffled before the match. Defeated Pokémon go to the Released Pile, which is never shuffled back into the Draw Pile.
+- **Piles:** each player has a Draw Pile, a hand, a Discard Pile and a **Released Pile**. The Draw Pile is shuffled before the match. Defeated Pokémon, Released cards and completed Locations go to the Released Pile, which is never shuffled back into the Draw Pile.
+- **XP:** each player has an XP pool, starting at 0. XP can be stored indefinitely (section 4.1.1).
 
 ### 1.1 Pokémon cards
 
@@ -26,7 +27,7 @@ The rules as settled while building the game, in match order. The code follows t
 | Effect Trigger Word + Effect Text | optional: the Pokémon's ability (section 8) |
 | Rarity-Tier | Common (grey), Uncommon (green), Rare (blue), Epic (purple), Legendary (orange) |
 | Innate Power Keyword | optional |
-| Weather Token | optional |
+| Weather Tokens | optional: one or more types with counts, e.g. 1 Sun (section 1.6) |
 
 - A Pokémon in play tracks its **current Strength** separately from its printed Strength Value. It starts equal to the Strength Value. Damage stays between Rounds.
 - A Pokémon in play is either **Active** or **Spent**. Newly played Pokémon arrive Spent; at Breakfast all Spent Pokémon become Active.
@@ -85,11 +86,42 @@ Keyword abilities on Pokémon that always apply.
 | **Veteran Coach** | Release 1 | Friendly Pokémon in a chosen Zone gain +1/+1 (permanent). Only a Zone where you have at least one Pokémon can be chosen (a fallen zone is fine); Pokémon summoned there later don't get it. | a Swift-Tier Pokémon | +2/+2 instead. |
 | **Field Medic** | Discard 1, Release 1 | Heal a friendly Trainer 4 Strength. Only a damaged friendly Trainer can be chosen. | a Water Pokémon | Also heal all friendly Pokémon in that Trainer's Zone 2 Strength. |
 
+### 1.5 Location Cards
+
+| Field | Values |
+|---|---|
+| Name | |
+| Card-Type | Location |
+| Weather Tokens | one or more types with counts, e.g. "2 Rain" or "1 Rain, 1 Sun" |
+| Quest | what you must do to complete it |
+| XP Reward | XP gained when the quest is completed |
+| Effect Text | what happens when the quest is completed |
+| Rarity-Tier | as for Pokémon |
+| Image | card art |
+
+- Each zone on each player's side has **one Location space** (up to 3 Locations per player).
+- **Play a Location Card** is a Battle Phase Action (it uses your 1 Action) but costs no Energy. Play it into the Location space of one of your zones, but not a fallen zone.
+- If that space already has a Location, you may **replace** it: the old one goes to your Discard Pile and its quest progress is lost.
+- If a zone falls after a Location is placed there, the Location stays and its quest keeps counting.
+- **Quests:** playing a Location starts its quest. Progress counts only your own actions from that moment, carries over between Rounds, and is tracked separately for each Location (two Locations with the same quest both count the same event). A quest can be tied to the Location's zone or not.
+- **Completing a quest:** you gain its XP Reward, its Effect resolves immediately, then the Location goes to your Released Pile.
+
+| Card | Weather | Quest | XP | Effect |
+|---|---|---|---|---|
+| **Tidal Cove** | 2 Rain | Summon 2 Water Pokémon (any summon, including Ash's free summon). | 2 | Draw 2 cards. |
+| **Sunbaked Plateau** | 2 Sun | Attack 3 times with Pokémon in this Zone. | 3 | Friendly Pokémon in this Zone gain +1 Attack (a one-off permanent buff to the Pokémon there now). |
+| **Old Training Hall** | 1 Rain, 1 Sun | Use 3 Trainer Powers. | 2 | Heal all friendly Trainers 2 Strength. |
+
+### 1.6 Weather Tokens
+
+- The game keeps a **combined count per Weather type** across both players' Locations and any Pokémon in the arena that carry a Weather Token. Tokens stop counting the moment their card leaves play (a card in hand doesn't count).
+- Weather effects: *not yet defined* (next step).
+
 ## 2. The Battle Arena
 
 - Each player has a horizontal row of **9 Pokémon Spaces**.
 - The row is split into **3 equal zones** of 3 Pokémon Spaces each.
-- Behind the Pokémon Spaces, each zone has **1 Trainer Space**.
+- Behind the Pokémon Spaces, each zone has **1 Trainer Space** and **1 Location space** on each side.
 - **Zones run across both sides:** my Zone 1 and the opponent's Zone 1 are the same zone. "X's Zone" means that whole zone, both sides, unless a card says "friendly" or "opponent".
 - **Fallen zones:** when a Trainer is removed (section 7.3), its zone falls on that player's side. Pokémon already there stay and keep fighting, but that player can't play new Pokémon (or, later, Locations) into that zone. The opponent's side of the zone is unaffected.
 
@@ -122,8 +154,16 @@ Every Round, each player:
 4. **Exert maximum** goes up by 1 each Round, to a limit of 3 (Round 1 = 1, Round 2 = 2, Round 3 onward = 3). Unspent Exert carries over.
 5. **Draws 7 cards**, one at a time. If the Draw Pile is empty when a card needs drawing, shuffle the Discard Pile to form a new Draw Pile, then keep drawing. If both piles are empty, drawing stops and the player keeps a smaller hand.
 6. **On Breakfast** abilities fire (section 8).
+7. **XP step** (after the mulligan in Round 1): see 4.1.1.
 
 **Mulligan (Round 1 only):** each player may put any number of cards from their hand into their Discard Pile, then draw the same number from their Draw Pile. Both players choose in secret and reveal together.
+
+#### 4.1.1 Spending XP
+
+- Each player may spend any amount of their XP. Each point gives one Pokémon card in hand **+1 Attack or +1 Strength**. No limit per card.
+- Both players choose in secret and lock in, like the mulligan. (A player with no XP, or no Pokémon in hand, has nothing to choose and skips it.)
+- XP buffs become permanent once the Pokémon is played; a Strength buff raises current and maximum Strength.
+- If the Pokémon leaves your hand without being played (discarded at Supper, or used to pay a Supporter), the buff and the XP are lost.
 
 ### 4.2 Battle Phase
 
@@ -135,6 +175,7 @@ Every Round, each player:
   - **Use a Trainer Power:** pay its cost (section 5); each Trainer's Power can be used once per Round, and not if it has no legal target. See 7.2.
   - **Play a Strategy Card:** on any of your turns, pay its Energy Cost (section 5). Its effect resolves immediately, then the card goes to your Discard Pile. A Strategy Card can't be played if it has no legal target (or, for an area card, nothing to affect). Cards drawn during Battle go into your hand and can be played this Round; they're discarded at Supper with the rest of your hand.
   - **Play a Supporter Card:** on any of your turns, once per Round, pay its Card-Cost in cards (section 1.4). Its effect, with any Gift Bonus, resolves immediately, then the card goes to your Discard Pile.
+  - **Play a Location Card:** no Energy; into one of your Location spaces outside a fallen zone, replacing any Location there (section 1.5).
 - Passing doesn't lock a player out: if one player passes and the other takes an Action, the first player gets another turn.
 - The Battle Phase ends when **both players Pass consecutively**.
 
@@ -239,9 +280,10 @@ A Pokémon ability is an **Effect Trigger Word** plus **Effect Text**. It fires 
 
 - **Stalled matches:** healing (Recover) can keep up with the only damage left, so a match can go on forever while a Pokémon is still in play (about 1 in 30 AI-vs-AI matches before Supporters; none in the latest 60, as Released cards now thin decks out). Should there be a Round limit or a "no progress" draw? (For now the AI-vs-AI test stops matches at Round 100 and reports them as stalled.)
 - **Quick Attack and Ash:** Ash's Power says the free summon "arrives Spent". The build lets Quick Attack win (the Pokémon arrives Active), because every summon follows the same rules. Is that right?
-- What do Item and Location cards do, and how are they played?
+- What do Item cards do, and how are they played?
+- **Quest timing:** when a quest completes during an Action that also sets off abilities (e.g. a summon that triggers Brock), the build resolves the quest's effect first. Is that right?
 - Can a Command be anything other than an Attack?
-- What do Weather Tokens do?
+- What do Weather Tokens do? (Next step.)
 - **Trainer vs Pokémon order:** when a Trainer's Passive and a Pokémon in the same zone trigger at the same moment, which goes first? (The build puts the Trainer after the Pokémon in its zone.)
 - **On Supper:** no placeholder uses it yet; the hook is built and tested.
 - Does Rarity limit how many copies go in a deck?
@@ -249,9 +291,11 @@ A Pokémon ability is an **Effect Trigger Word** plus **Effect Text**. It fires 
 
 ## Placeholders in the current build
 
-- Decks are 16 Pokémon, 8 Strategy (3 Quickdraw, 3 Hypervoice, 2 Recover), 8 Item, 4 Location and 4 Supporter (2 Field Researcher, 1 Veteran Coach, 1 Field Medic) cards. This mix is a stand-in, not a rule.
+- Decks are 16 Pokémon, 8 Strategy (3 Quickdraw, 3 Hypervoice, 2 Recover), 8 Item, 4 Location (2 Tidal Cove, 1 Sunbaked Plateau, 1 Old Training Hall) and 4 Supporter (2 Field Researcher, 1 Veteran Coach, 1 Field Medic) cards. This mix is a stand-in, not a rule.
 - The 16 Pokémon are invented placeholders, one of each per deck, with the same list for both players. Stats: Energy Cost 1–6, Attack 1–6, Strength 2–10.
-- Placeholder art is a box tinted by Pokémon Type (striped blue for Strategy Cards). Weather text on placeholder Pokémon is sample text and does nothing.
+- Placeholder art is a box tinted by Pokémon Type (striped for Strategy, Supporter and Location Cards).
+- Fire Pokémon: Emberkit, plus Brawlix and Quakemaw (retyped from Fighting and Ground). Glimmeria carries a Weather Token of 1 Sun; no other placeholder Pokémon has one.
+- Location rarities are placeholders: Tidal Cove Common, Sunbaked Plateau and Old Training Hall Uncommon.
 - Placeholder abilities (section 8):
 
 | Ability | Pokémon |
@@ -265,7 +309,7 @@ A Pokémon ability is an **Effect Trigger Word** plus **Effect Text**. It fires 
   Zappip, Brawlix and Mindrake have no ability.
 - Innate Powers on placeholder Pokémon: **Quick Attack** on Zappip, Brawlix and Duskfang; **Agility** on Gustling, Shadepup and Glimmeria.
 - Strategy Card rarities are placeholders: Quickdraw Common, Hypervoice Uncommon, Recover Rare. So are the Supporters': Field Researcher Common, Veteran Coach Uncommon, Field Medic Rare.
-- Item and Location cards have only a name and Card-Type.
+- Item cards have only a name and Card-Type.
 - Both players use the same three Trainers: Ash, Misty and Brock (section 7.4), each with Strength 15.
 - To give every Trainer something to work with, three placeholder Pokémon are Water (Puddlop, Frostail, Toxifin), four cost 1, and five have Defence Strength-Type.
-- **The AI** places Trainers at random and only spends Base Energy (never Exert). On a Battle turn it scores every legal move and picks the best (ties at random), passing only when nothing else is legal. From the top: winning the match; bringing an enemy Trainer to 0; defeating an enemy Pokémon (by attack or Misty) without losing its own; attacking the weakest enemy Trainer; playing its most expensive affordable Pokémon, preferring zones where its own Passives boost it and avoiding the opponent's Brock zone; Brock's buff on its strongest Defence Pokémon, Ash's draw, Misty chip damage; other attacks; and last, trades that lose the attacker for nothing. It always takes Ash's free summon when there is room. Strategy Cards: Hypervoice only when you have Pokémon (scored by damage dealt and Pokémon defeated), Recover only on its own damaged Pokémon or Trainers (more when a Trainer is low), Quickdraw about as highly as Ash's draw. Supporters: it pays with random cards from its hand, but puts a card that meets the Gift Challenge in when it has one; it scores them by what they gain (Field Researcher like a draw, Veteran Coach by stats gained, Field Medic by Strength healed) minus the cards paid, a Released card counting double. When one of its abilities needs a target, it picks a random legal one. It tries moves on a copy of the game to score them (abilities included), except draws (Ash, Quickdraw), so it never sees its own Draw Pile.
+- **The AI** places Trainers at random and only spends Base Energy (never Exert). On a Battle turn it scores every legal move and picks the best (ties at random), passing only when nothing else is legal. From the top: winning the match; bringing an enemy Trainer to 0; defeating an enemy Pokémon (by attack or Misty) without losing its own; attacking the weakest enemy Trainer; playing its most expensive affordable Pokémon, preferring zones where its own Passives boost it and avoiding the opponent's Brock zone; Brock's buff on its strongest Defence Pokémon, Ash's draw, Misty chip damage; other attacks; and last, trades that lose the attacker for nothing. It always takes Ash's free summon when there is room. Strategy Cards: Hypervoice only when you have Pokémon (scored by damage dealt and Pokémon defeated), Recover only on its own damaged Pokémon or Trainers (more when a Trainer is low), Quickdraw about as highly as Ash's draw. Supporters: it pays with random cards from its hand, but puts a card that meets the Gift Challenge in when it has one; it scores them by what they gain (Field Researcher like a draw, Veteran Coach by stats gained, Field Medic by Strength healed) minus the cards paid, a Released card counting double. Locations: it only plays into empty Location spaces and never replaces one. XP: it spends all of it on the cheapest Pokémon in hand it can afford this Round with Base Energy, splitting points between Attack and Strength at random; with no affordable Pokémon it keeps the XP. When one of its abilities needs a target, it picks a random legal one. It tries moves on a copy of the game to score them (abilities included), except draws (Ash, Quickdraw), so it never sees its own Draw Pile.

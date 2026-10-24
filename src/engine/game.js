@@ -10,14 +10,14 @@ import { SPEED_TIERS } from './cardData.js';
 import { newEnergy, refreshEnergy, canPay, payCost, splitCost } from './energy.js';
 import {
   PLAYERS, opponentOf, log, whose, draw, arenaPokemon, cardAt, emptySpaces, summonSpaces, isFallen,
-  attackOf, damage, describeRef, sameRef,
+  attackOf, damage, describeRef, sameRef, dropXp, weatherCounts,
 } from './board.js';
 import {
   summon, candidates, canResolve, targetedEffect, queueEffects, queueStep, run, refreshAuras, settle, fireTriggers,
-  matchesCard,
+  matchesCard, questEvent,
 } from './effects.js';
 
-export { PLAYERS, opponentOf, emptySpaces, summonSpaces, isFallen, attackOf };
+export { PLAYERS, opponentOf, emptySpaces, summonSpaces, isFallen, attackOf, weatherCounts };
 export { maxStrengthOf } from './board.js';
 
 export const ZONES = 3;
@@ -44,10 +44,14 @@ function newPlayer(name, owner, state) {
     discard: [],
     released: [],        // defeated Pokémon and Released cards; never shuffled back
     supporterRound: null, // the Round this player last played a Supporter (1 per Round)
+    xp: 0,               // stored indefinitely; spent at Breakfast on Pokémon in hand
+    xpChoice: null,      // the XP step: this player's locked-in spending, revealed together
     trainers: buildTrainers(owner),
     // The Battle Arena row: 3 zones, each with 1 Trainer Space and 3 Pokémon Spaces.
+    // Each zone also has 1 Location space on each side.
     zones: Array.from({ length: ZONES }, () => ({
       trainer: null,
+      location: null,
       pokemon: Array(SPACES_PER_ZONE).fill(null),
     })),
     // Choices made in secret during a simultaneous step, revealed together.
@@ -220,6 +224,18 @@ export function playableStrategies(state, who) {
     && canResolve(state, strategyCtx(state, who, c), c.effects));
 }
 
+// --- Location Cards ---
+
+// The zones whose Location space this player may play into: not fallen.
+export function locationSpaces(state, who) {
+  return [0, 1, 2].filter((zone) => !isFallen(state, who, zone));
+}
+
+export function playableLocations(state, who) {
+  if (!locationSpaces(state, who).length) return [];
+  return state.players[who].hand.filter((c) => c.cardType === 'Location');
+}
+
 // --- Supporter Cards ---
 
 // Whether the paid cards meet a Supporter's Gift Bonus Challenge: at least
@@ -275,6 +291,7 @@ export function legalActions(state, who) {
     case 'initiative':
       return ['flipCoin'];
     case 'breakfast':
+      if (state.xpStep) return p.xpChoice ? [] : ['spendXp'];
       return state.round === 1 && !p.pending ? ['mulligan'] : [];
     case 'battle':
       if (state.turn !== who) return [];
@@ -285,6 +302,7 @@ export function legalActions(state, who) {
         ...(usablePowers(state, who).length ? ['usePower'] : []),
         ...(playableStrategies(state, who).length ? ['playStrategy'] : []),
         ...(playableSupporters(state, who).length ? ['playSupporter'] : []),
+        ...(playableLocations(state, who).length ? ['playLocation'] : []),
       ];
     default:
       return [];
@@ -351,13 +369,14 @@ const STEPS = {
 
   afterBreakfast(state) {
     if (state.round === 1) log(state, 'Mulligan: choose any cards to discard and redraw, or keep your hand.');
-    else endBreakfast(state);
+    else startXpStep(state);
   },
 
   supperDiscard(state) {
     for (const who of PLAYERS) {
       const p = state.players[who];
       const n = p.hand.length;
+      dropXp(p.hand);
       p.discard.push(...p.hand);
       p.hand = [];
       log(state, `${p.name} discarded ${n} card${n === 1 ? '' : 's'} from ${who === 'player' ? 'your' : 'their'} hand.`);
@@ -430,6 +449,7 @@ const HANDLERS = {
     const targetRef = { ...target, owner: foe, uid: cardAt(state, { ...target, owner: foe }).uid };
     queueStep(state, 'endTurn', { who, passed: false });
     queueStep(state, 'afterAttack', { attacker: attackerRef, target: targetRef });
+    questEvent(state, who, { type: 'attack', card: attacker, zone: from.zone });
     const name = `${whose(state, who)} ${attacker.name}`;
     const power = attackOf(attacker);
     if (target.kind === 'trainer') {
@@ -467,6 +487,7 @@ const HANDLERS = {
     trainer.powerUsedRound = state.round;
     log(state, `${ctx.label} (${trainer.power.text}) Paid ${describePayment(paid)}.`);
     queueStep(state, 'endTurn', { who, passed: false });
+    questEvent(state, who, { type: 'power', zone });
     queueEffects(state, ctx, trainer.power.effects);
   },
 
@@ -514,6 +535,7 @@ const HANDLERS = {
     const discarded = take(discard);
     const released = take(release);
     p.hand = p.hand.filter((c) => c !== card && !paid.includes(c.uid));
+    dropXp([...discarded, ...released]);
     p.discard.push(...discarded);
     p.released.push(...released);
     p.supporterRound = state.round;
@@ -525,6 +547,40 @@ const HANDLERS = {
     queueStep(state, 'endTurn', { who, passed: false });
     queueStep(state, 'discard', { who, card });
     queueEffects(state, ctx, effects);
+  },
+
+  // Battle Action: play a Location Card into the Location space of one of
+  // your zones (not a fallen zone). No Energy. A Location already there is
+  // replaced: it goes to the Discard Pile and its quest progress is lost.
+  playLocation(state, { who, uid, zone }) {
+    const p = state.players[who];
+    const card = p.hand.find((c) => c.uid === uid);
+    if (!card || card.cardType !== 'Location') throw new Error('Choose a Location Card from your hand');
+    if (!locationSpaces(state, who).includes(zone)) throw new Error(`Zone ${zone + 1} has fallen on this side; no Location can go there`);
+    const old = p.zones[zone].location;
+    p.hand = p.hand.filter((c) => c !== card);
+    if (old) {
+      const { progress, done, ...plain } = old;
+      p.discard.push(plain);
+      log(state, `${p.name} replaced ${old.name} in Zone ${zone + 1}; it goes to the Discard Pile and its quest progress (${progress}/${old.quest.count}) is lost.`);
+    }
+    p.zones[zone].location = { ...card, progress: 0 };
+    log(state, `${p.name} played ${card.name} into Zone ${zone + 1}. Quest: ${card.quest.text} (Reward: ${card.xp} XP)`);
+    queueStep(state, 'endTurn', { who, passed: false });
+  },
+
+  // Breakfast XP step: spend: [{ uid, stat: 'attack' | 'strength' }], one
+  // entry per XP point, on Pokémon in hand. Locked in secret; both reveal together.
+  spendXp(state, { who, spend = [] }) {
+    const p = state.players[who];
+    if (spend.length > p.xp) throw new Error(`Only ${p.xp} XP to spend`);
+    for (const { uid, stat } of spend) {
+      const c = p.hand.find((h) => h.uid === uid);
+      if (!c || c.cardType !== 'Pokémon') throw new Error('XP can only go on Pokémon cards in your hand');
+      if (stat !== 'attack' && stat !== 'strength') throw new Error('Each XP point gives +1 Attack or +1 Strength');
+    }
+    p.xpChoice = spend;
+    if (PLAYERS.every((w) => state.players[w].xpChoice)) resolveXp(state);
   },
 
   // Answers state.pending, then resolving carries on.
@@ -606,6 +662,44 @@ function endBreakfast(state) {
   startBattle(state);
 }
 
+// --- The XP step (Breakfast, after drawing and any mulligan) ---
+
+// A player with no XP or no Pokémon in hand has nothing to choose and skips it.
+function startXpStep(state) {
+  state.xpStep = true;
+  for (const who of PLAYERS) {
+    const p = state.players[who];
+    p.xpChoice = p.xp > 0 && p.hand.some((c) => c.cardType === 'Pokémon') ? null : [];
+  }
+  if (PLAYERS.every((w) => state.players[w].xpChoice)) {
+    resolveXp(state);
+  } else {
+    log(state, 'Spend XP: each point gives one Pokémon card in hand +1 Attack or +1 Strength.');
+  }
+}
+
+function resolveXp(state) {
+  for (const who of PLAYERS) {
+    const p = state.players[who];
+    const spend = p.xpChoice;
+    p.xpChoice = null;
+    if (!spend.length) continue;
+    const per = {};
+    for (const { uid, stat } of spend) {
+      const c = p.hand.find((h) => h.uid === uid);
+      c.xp ??= { attack: 0, strength: 0 };
+      c.xp[stat] += 1;
+      (per[c.name] ??= { attack: 0, strength: 0 })[stat] += 1;
+    }
+    p.xp -= spend.length;
+    const parts = Object.entries(per).map(([name, b]) =>
+      `${name} ${[b.attack && `+${b.attack} Attack`, b.strength && `+${b.strength} Strength`].filter(Boolean).join(', ')}`);
+    log(state, `${p.name} spent ${spend.length} XP: ${parts.join('; ')} (${p.xp} XP left).`);
+  }
+  state.xpStep = false;
+  endBreakfast(state);
+}
+
 function resolveMulligans(state) {
   for (const who of PLAYERS) {
     const p = state.players[who];
@@ -618,7 +712,7 @@ function resolveMulligans(state) {
       ? `${p.name} mulliganed ${chosen.length} card${chosen.length === 1 ? '' : 's'}.`
       : `${p.name} kept ${who === 'player' ? 'your' : 'their'} hand.`);
   }
-  endBreakfast(state);
+  startXpStep(state);
 }
 
 function startBattle(state) {

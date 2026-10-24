@@ -11,6 +11,7 @@
 //                Strength-Type can be chosen, and area versions skip others
 //   mayPlayFree  { filter }                        the card just drawn may be summoned for free
 //   gainEnergy   { amount }                        extra Base Energy this Round (may pass 10)
+//   releaseLocation {}                             the source Location goes to the Released Pile
 //
 // SELECTOR     { mode, side, kinds, zone, filter }
 //   mode    'targeted' (the player chooses one) | 'area' (all that match) |
@@ -175,9 +176,20 @@ const OPS = {
       card.attackBonus = (card.attackBonus ?? 0) + attack;
       card.strengthBonus = (card.strengthBonus ?? 0) + strength;
       card.currentStrength += strength;
-      const what = e.strengthType && !attack ? `${signed(strength)} ${e.strengthType}` : `${signed(attack)}/${signed(strength)}`;
+      const what = e.strengthType && !attack ? `${signed(strength)} ${e.strengthType}`
+        : !strength ? `${signed(attack)} Attack` : `${signed(attack)}/${signed(strength)}`;
       log(state, `${ctx.label}: ${describeRef(state, ref)} gains ${what}.`);
     }
+  },
+
+  // A completed quest's Location leaves play once its effect is done.
+  releaseLocation(state, ctx) {
+    const p = state.players[ctx.who];
+    const zone = p.zones[ctx.source.zone];
+    if (zone.location?.uid !== ctx.source.uid) return;
+    p.released.push(zone.location);
+    log(state, `${ctx.label} goes to the Released Pile.`);
+    zone.location = null;
   },
 
   gainEnergy(state, ctx, e) {
@@ -293,7 +305,39 @@ export function summon(state, who, card, zone, space) {
   const ref = { kind: 'pokemon', owner: who, zone, space, uid: card.uid };
   refreshAuras(state);
   fireTriggers(state, [{ type: 'summon', ref, card }]);
+  questEvent(state, who, { type: 'summon', card, zone });
   return ref;
+}
+
+// --- Quests ---------------------------------------------------------------------
+
+// One of `who`'s own actions: { type: 'summon' | 'attack' | 'power', card?, zone? }.
+// Every one of their Locations whose quest it fits moves on by 1, each
+// counting separately. A completed quest gives its XP, then its effect and
+// the Location's release are queued to resolve next.
+export function questEvent(state, who, event) {
+  const p = state.players[who];
+  p.zones.forEach((z, zone) => {
+    const loc = z.location;
+    const quest = loc?.quest;
+    if (!quest || loc.done || quest.on !== event.type) return;
+    if (quest.inZone && event.zone !== zone) return;
+    if (quest.filter && !(event.card && matchesCard(event.card, quest.filter))) return;
+    loc.progress += 1;
+    const label = `${whose(state, who)} ${loc.name}`;
+    log(state, `${label} quest: ${quest.label} ${loc.progress}/${quest.count}.`);
+    if (loc.progress < quest.count) return;
+    loc.done = true;   // until its effect has resolved and it is released
+    p.xp += loc.xp;
+    log(state, `${label} quest complete! ${p.name} ${who === 'player' ? 'gain' : 'gains'} ${loc.xp} XP (now ${p.xp}).`);
+    const ctx = {
+      who,
+      source: { kind: 'location', owner: who, zone, uid: loc.uid, name: loc.name },
+      label,
+      text: loc.effectText,
+    };
+    queueEffects(state, ctx, [...loc.effects, { op: 'releaseLocation' }]);
+  });
 }
 
 // --- Passives -------------------------------------------------------------------

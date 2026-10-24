@@ -276,7 +276,7 @@ function seededRandom(seed) {
       s = applyAction(s, chooseAction(s, who, { rng }) ?? { type: 'flipCoin' });
       for (const w of PLAYERS) {
         const p = s.players[w];
-        const inArena = p.zones.flatMap((z) => z.pokemon).filter(Boolean).length;
+        const inArena = p.zones.flatMap((z) => [...z.pokemon, z.location]).filter(Boolean).length;
         assert.equal(p.hand.length + p.drawPile.length + p.discard.length + p.released.length + inArena, 40, 'no cards lost');
       }
     }

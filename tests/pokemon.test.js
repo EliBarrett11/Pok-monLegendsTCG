@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { createGame, applyAction, legalActions, playablePokemon, costPreview, emptySpaces, PLAYERS, opponentOf } from '../src/engine/game.js';
 import { chooseAction } from '../src/ai/opponent.js';
-import { POKEMON_CARDS, POKEMON_TYPES, ATTACK_TYPES, STRENGTH_TYPES, SPEED_TIERS, RARITIES } from '../src/engine/cardData.js';
+import { WEATHER_TYPES, POKEMON_CARDS, POKEMON_TYPES, ATTACK_TYPES, STRENGTH_TYPES, SPEED_TIERS, RARITIES } from '../src/engine/cardData.js';
 
 // --- Card format ------------------------------------------------------------
 
@@ -21,9 +21,11 @@ for (const c of POKEMON_CARDS) {
   assert.ok(c.attackValue >= 1 && c.attackValue <= 6, `${c.name} attack`);
   assert.ok(c.strengthValue >= 2 && c.strengthValue <= 10, `${c.name} strength`);
   assert.ok('image' in c);
-  for (const field of ['effectTrigger', 'effectText', 'innatePower', 'weatherToken']) {
+  for (const field of ['effectTrigger', 'effectText', 'innatePower']) {
     assert.ok(c[field] === null || typeof c[field] === 'string', `${c.name} ${field}`);
   }
+  assert.ok(c.weatherTokens === null
+    || Object.entries(c.weatherTokens).every(([type, n]) => WEATHER_TYPES.includes(type) && n >= 1), `${c.name} weather`);
   assert.equal(c.effectTrigger === null, c.effectText === null, 'trigger word and effect text go together');
 }
 assert.equal(POKEMON_TYPES.length, 18);
