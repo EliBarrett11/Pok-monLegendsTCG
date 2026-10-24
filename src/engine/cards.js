@@ -1,12 +1,12 @@
 // Builds decks and Trainers from the card definitions in cardData.js.
 
-import { POKEMON_CARDS, STRATEGY_CARDS, OTHER_CARDS, PLACEHOLDER_DECKLIST, TRAINER_CARDS } from './cardData.js';
+import { POKEMON_CARDS, STRATEGY_CARDS, SUPPORTER_CARDS, OTHER_CARDS, PLACEHOLDER_DECKLIST, TRAINER_CARDS } from './cardData.js';
 
 export const CARD_TYPES = ['Pokémon', 'Strategy', 'Item', 'Location', 'Supporter'];
 
 export const DECK_SIZE = 40;
 
-const DEFINITIONS = Object.fromEntries([...POKEMON_CARDS, ...STRATEGY_CARDS, ...OTHER_CARDS].map((c) => [c.id, c]));
+const DEFINITIONS = Object.fromEntries([...POKEMON_CARDS, ...STRATEGY_CARDS, ...SUPPORTER_CARDS, ...OTHER_CARDS].map((c) => [c.id, c]));
 
 export function cardDefinition(id) {
   const def = DEFINITIONS[id];

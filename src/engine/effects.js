@@ -18,7 +18,10 @@
 //   side    'friendly' | 'opponent' | 'any'       relative to whoever owns the effect
 //   kinds   ['pokemon'] (default) | ['pokemon', 'trainer'] | ['trainer']
 //   zone    'source': only the source's Zone, both sides of the arena
-//   filter  { pokemonType?, strengthType? }        Pokémon only
+//           'target': only the Zone of the target chosen for this card
+//   pick    'zone' (with mode 'targeted'): the player chooses a Zone that has
+//           a matching card; the effect applies to every matching card there
+//   filter  a card condition (see matchesCard)     Pokémon only
 //   damaged true: only cards below their maximum Strength
 //
 // PASSIVE      { aura?, triggers? }
@@ -64,9 +67,23 @@ function sidesFor(ctx, side) {
   return PLAYERS;
 }
 
-function passesFilter(card, filter = {}) {
-  return Object.entries(filter).every(([field, value]) => card[field] === value);
+// A general card condition over any printed field, e.g.
+//   { cardType: 'Pokémon', speedTier: 'Swift' }
+//   { pokemonType: ['Water', 'Ice'] }          any of these
+//   { energyCost: { min: 3 } }                  a range (min and/or max)
+// Every field must match.
+export function matchesCard(card, condition = {}) {
+  return Object.entries(condition).every(([field, want]) => {
+    const value = card[field];
+    if (Array.isArray(want)) return want.includes(value);
+    if (want && typeof want === 'object') {
+      return typeof value === 'number' && (want.min === undefined || value >= want.min) && (want.max === undefined || value <= want.max);
+    }
+    return value === want;
+  });
 }
+
+const passesFilter = matchesCard;
 
 // Every card a selector could apply to, as refs. `op` adds the stat rule:
 // a Strength-Type buff only fits Pokémon of that Strength-Type.
@@ -75,9 +92,15 @@ export function candidates(state, ctx, selector, op = {}) {
     const ref = ctx.event?.[selector.role ?? 'ref'];
     return ref && cardAt(state, ref)?.uid === ref.uid ? [ref] : [];
   }
+  if (selector.pick === 'zone') {
+    // The Zones that have at least one card the effect would apply to.
+    const cards = candidates(state, ctx, { ...selector, pick: undefined, mode: 'area' }, op);
+    return [...new Set(cards.map((r) => r.zone))].sort().map((zone) => ({ kind: 'zone', owner: ctx.who, zone }));
+  }
   const kinds = selector.kinds ?? ['pokemon'];
   const sides = sidesFor(ctx, selector.side ?? 'any');
-  const inZone = (ref) => selector.zone !== 'source' || ref.zone === ctx.source.zone;
+  const inZone = (ref) => (selector.zone === 'source' ? ref.zone === ctx.source.zone
+    : selector.zone === 'target' ? ref.zone === ctx.target?.zone : true);
   const filter = { ...selector.filter, ...(op.strengthType ? { strengthType: op.strengthType } : {}) };
   const out = [];
   const hurt = (card) => !selector.damaged || strengthOf(card) < maxStrengthOf(card);
@@ -103,10 +126,11 @@ export function targetedEffect(effects) {
 
 // Whether a card or Power with these effects can be used now: a draw needs a
 // card to draw, and a targeted or area effect needs something to affect.
-// (Triggers don't ask; they just affect whatever is there.)
+// (Triggers don't ask; they just affect whatever is there.) ctx.willDiscard
+// counts cards a cost puts in the Discard Pile first, which a draw can reshuffle.
 export function canResolve(state, ctx, effects) {
   return effects.every((e) => {
-    if (e.op === 'draw') return canDraw(state, ctx.who);
+    if (e.op === 'draw') return canDraw(state, ctx.who) || ctx.willDiscard > 0;
     if (e.target?.mode === 'targeted' || e.target?.mode === 'area') return candidates(state, ctx, e.target, e).length > 0;
     return true;
   });
@@ -214,7 +238,9 @@ function applyEffect(state, job, e) {
         return 'pause';
       }
       if (!legal.some((r) => sameRef(r, ctx.target))) throw new Error('That is not a legal target');
-      refs = [ctx.target];
+      refs = e.target.pick === 'zone'
+        ? candidates(state, ctx, { ...e.target, pick: undefined, mode: 'area', zone: 'target' }, e)
+        : [ctx.target];
     } else {
       refs = legal;
     }

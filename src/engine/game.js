@@ -14,6 +14,7 @@ import {
 } from './board.js';
 import {
   summon, candidates, canResolve, targetedEffect, queueEffects, queueStep, run, refreshAuras, settle, fireTriggers,
+  matchesCard,
 } from './effects.js';
 
 export { PLAYERS, opponentOf, emptySpaces, summonSpaces, isFallen, attackOf };
@@ -41,7 +42,8 @@ function newPlayer(name, owner, state) {
     drawPile: shuffle(state, buildDeck(owner)),
     hand: [],
     discard: [],
-    released: [],        // defeated Pokémon; never shuffled back
+    released: [],        // defeated Pokémon and Released cards; never shuffled back
+    supporterRound: null, // the Round this player last played a Supporter (1 per Round)
     trainers: buildTrainers(owner),
     // The Battle Arena row: 3 zones, each with 1 Trainer Space and 3 Pokémon Spaces.
     zones: Array.from({ length: ZONES }, () => ({
@@ -218,6 +220,43 @@ export function playableStrategies(state, who) {
     && canResolve(state, strategyCtx(state, who, c), c.effects));
 }
 
+// --- Supporter Cards ---
+
+// Whether the paid cards meet a Supporter's Gift Bonus Challenge: at least
+// one of them (discarded or released) matches it.
+export function giftMet(supporterCard, paidCards) {
+  return Boolean(supporterCard.gift) && paidCards.some((c) => matchesCard(c, supporterCard.gift.challenge));
+}
+
+function supporterCtx(state, who, card, target, willDiscard = 0) {
+  return {
+    who,
+    source: { kind: 'supporter', owner: who, uid: card.uid, name: card.name },
+    label: `${whose(state, who)} ${card.name}`,
+    target,
+    willDiscard,
+  };
+}
+
+// Supporters in hand this player could play now: none played yet this Round,
+// enough other cards in hand to pay the Card-Cost exactly, and something for
+// the effect to affect.
+export function playableSupporters(state, who) {
+  const p = state.players[who];
+  if (p.supporterRound === state.round) return [];
+  return p.hand.filter((c) => c.cardType === 'Supporter'
+    && p.hand.length - 1 >= c.cardCost.discard + c.cardCost.release
+    && canResolve(state, supporterCtx(state, who, c, undefined, c.cardCost.discard), c.effects));
+}
+
+// Legal targets for a Supporter in hand, as refs (a Zone pick gives
+// { kind: 'zone', owner, zone }). Empty if it needs none.
+export function supporterTargets(state, who, uid) {
+  const card = state.players[who].hand.find((c) => c.uid === uid);
+  const e = targetedEffect(card.effects);
+  return e ? candidates(state, supporterCtx(state, who, card), e.target, e) : [];
+}
+
 // Legal targets for a Strategy Card in hand, as refs. Empty if it needs none.
 export function strategyTargets(state, who, uid) {
   const card = state.players[who].hand.find((c) => c.uid === uid);
@@ -245,6 +284,7 @@ export function legalActions(state, who) {
         ...(canCommand(state, who) ? ['command'] : []),
         ...(usablePowers(state, who).length ? ['usePower'] : []),
         ...(playableStrategies(state, who).length ? ['playStrategy'] : []),
+        ...(playableSupporters(state, who).length ? ['playSupporter'] : []),
       ];
     default:
       return [];
@@ -444,6 +484,47 @@ const HANDLERS = {
     queueStep(state, 'endTurn', { who, passed: false });
     queueStep(state, 'discard', { who, card });
     queueEffects(state, strategyCtx(state, who, card, target), card.effects);
+  },
+
+  // Battle Action: play a Supporter Card, paying its Card-Cost with other
+  // cards from hand: `discard` and `release` are their uids, exactly as many
+  // as the cost says. The cost is paid first; then the effect (with the Gift
+  // Bonus if a paid card meets the Challenge) resolves, then the Supporter is
+  // discarded. target: a ref from supporterTargets(), for one that needs it.
+  playSupporter(state, { who, uid, discard = [], release = [], target }) {
+    const p = state.players[who];
+    const card = p.hand.find((c) => c.uid === uid);
+    if (!card || card.cardType !== 'Supporter') throw new Error('Choose a Supporter Card from your hand');
+    if (!playableSupporters(state, who).includes(card)) throw new Error(`${card.name} cannot be played now`);
+    const paid = [...discard, ...release];
+    if (discard.length !== card.cardCost.discard || release.length !== card.cardCost.release) {
+      throw new Error(`${card.name} costs exactly Discard ${card.cardCost.discard}, Release ${card.cardCost.release}`);
+    }
+    if (new Set(paid).size !== paid.length || paid.includes(uid) || !paid.every((u) => p.hand.some((c) => c.uid === u))) {
+      throw new Error('Pay with different cards from your hand, other than the Supporter itself');
+    }
+    const met = giftMet(card, p.hand.filter((c) => paid.includes(c.uid)));
+    const effects = met ? card.gift.effects : card.effects;
+    const e = targetedEffect(effects);
+    const ctx = supporterCtx(state, who, card, target);
+    if (e && !candidates(state, ctx, e.target, e).some((r) => sameRef(r, target ?? {}))) throw new Error('That is not a legal target');
+
+    // Pay: the Supporter leaves the hand while it resolves; cost cards go to their piles first.
+    const take = (uids) => uids.map((u) => p.hand.find((c) => c.uid === u));
+    const discarded = take(discard);
+    const released = take(release);
+    p.hand = p.hand.filter((c) => c !== card && !paid.includes(c.uid));
+    p.discard.push(...discarded);
+    p.released.push(...released);
+    p.supporterRound = state.round;
+    const names = (cards) => cards.map((c) => c.name).join(', ');
+    const payment = [discarded.length && `discarding ${names(discarded)}`, released.length && `releasing ${names(released)}`]
+      .filter(Boolean).join(' and ');
+    log(state, `${p.name} played ${card.name} (${card.effectText}), ${payment}. Gift Challenge (${card.gift.challengeText}) `
+      + (met ? `met: ${card.gift.bonusText}` : 'not met.'));
+    queueStep(state, 'endTurn', { who, passed: false });
+    queueStep(state, 'discard', { who, card });
+    queueEffects(state, ctx, effects);
   },
 
   // Answers state.pending, then resolving carries on.

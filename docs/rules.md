@@ -60,6 +60,31 @@ Keyword abilities on Pokémon that always apply.
 - **Quick Attack:** this Pokémon is summoned Active instead of Spent, so it can be Alert and Commanded the Round it arrives (by the normal Alert rules).
 - **Agility:** this Pokémon can't be chosen as a target by Strategy Cards. Area effects (e.g. Hypervoice) still affect it. Trainer Powers and attacks can still target it.
 
+### 1.4 Supporter Cards
+
+| Field | Values |
+|---|---|
+| Name | |
+| Card-Type | Supporter |
+| Card-Cost | a number of cards to **Discard** and/or **Release** |
+| Effect Text | what it does |
+| Gift Bonus Challenge | a condition on the paid cards |
+| Gift Bonus | what happens if the challenge is met: an enhanced effect, or an extra one |
+| Rarity-Tier | as for Pokémon |
+| Image | card art |
+
+- **Supporters cost cards, not Energy.** The Card-Cost is paid exactly, with cards from your hand other than the Supporter itself. Discarded cards go to the Discard Pile; Released cards go to the Released Pile and are gone for the match (never reshuffled).
+- **Gift Bonus Challenge:** a condition that can refer to anything printed on a card (Card-Type, Pokémon Type, Speed-Tier, Rarity, Energy Cost, and so on). It's met if at least one paid card, discarded or released, matches it. Then the Gift Bonus applies.
+- **Order:** the cost is paid first (so a draw can reshuffle a card just discarded to pay), then the effect, with any Gift Bonus, resolves, then the Supporter goes to your Discard Pile.
+- **Once per Round:** each player may play only **one Supporter Card per Round**.
+- A Supporter can't be played if you don't have enough other cards in hand to pay, or if it has no legal target.
+
+| Card | Card-Cost | Effect | Gift Bonus Challenge | Gift Bonus |
+|---|---|---|---|---|
+| **Field Researcher** | Discard 1 | Draw 2 cards. | a Strategy Card | Draw 1 more card. |
+| **Veteran Coach** | Release 1 | Friendly Pokémon in a chosen Zone gain +1/+1 (permanent). Only a Zone where you have at least one Pokémon can be chosen (a fallen zone is fine); Pokémon summoned there later don't get it. | a Swift-Tier Pokémon | +2/+2 instead. |
+| **Field Medic** | Discard 1, Release 1 | Heal a friendly Trainer 4 Strength. Only a damaged friendly Trainer can be chosen. | a Water Pokémon | Also heal all friendly Pokémon in that Trainer's Zone 2 Strength. |
+
 ## 2. The Battle Arena
 
 - Each player has a horizontal row of **9 Pokémon Spaces**.
@@ -109,6 +134,7 @@ Every Round, each player:
   - **Command an Alert Pokémon:** choose one of your Alert Pokémon and a legal target. A Command is always an Attack, and costs no Energy. See 4.2.1.
   - **Use a Trainer Power:** pay its cost (section 5); each Trainer's Power can be used once per Round, and not if it has no legal target. See 7.2.
   - **Play a Strategy Card:** on any of your turns, pay its Energy Cost (section 5). Its effect resolves immediately, then the card goes to your Discard Pile. A Strategy Card can't be played if it has no legal target (or, for an area card, nothing to affect). Cards drawn during Battle go into your hand and can be played this Round; they're discarded at Supper with the rest of your hand.
+  - **Play a Supporter Card:** on any of your turns, once per Round, pay its Card-Cost in cards (section 1.4). Its effect, with any Gift Bonus, resolves immediately, then the card goes to your Discard Pile.
 - Passing doesn't lock a player out: if one player passes and the other takes an Action, the first player gets another turn.
 - The Battle Phase ends when **both players Pass consecutively**.
 
@@ -211,9 +237,9 @@ A Pokémon ability is an **Effect Trigger Word** plus **Effect Text**. It fires 
 
 ## Open questions
 
-- **Stalled matches:** healing (Recover) can keep up with the only damage left, so a match can go on forever while a Pokémon is still in play (about 1 in 30 AI-vs-AI matches). Should there be a Round limit or a "no progress" draw? (For now the AI-vs-AI test stops matches at Round 100 and reports them as stalled.)
+- **Stalled matches:** healing (Recover) can keep up with the only damage left, so a match can go on forever while a Pokémon is still in play (about 1 in 30 AI-vs-AI matches before Supporters; none in the latest 60, as Released cards now thin decks out). Should there be a Round limit or a "no progress" draw? (For now the AI-vs-AI test stops matches at Round 100 and reports them as stalled.)
 - **Quick Attack and Ash:** Ash's Power says the free summon "arrives Spent". The build lets Quick Attack win (the Pokémon arrives Active), because every summon follows the same rules. Is that right?
-- What do Item, Location and Supporter cards do, and how are they played?
+- What do Item and Location cards do, and how are they played?
 - Can a Command be anything other than an Attack?
 - What do Weather Tokens do?
 - **Trainer vs Pokémon order:** when a Trainer's Passive and a Pokémon in the same zone trigger at the same moment, which goes first? (The build puts the Trainer after the Pokémon in its zone.)
@@ -223,7 +249,7 @@ A Pokémon ability is an **Effect Trigger Word** plus **Effect Text**. It fires 
 
 ## Placeholders in the current build
 
-- Decks are 16 Pokémon, 8 Strategy (3 Quickdraw, 3 Hypervoice, 2 Recover), 8 Item, 4 Location and 4 Supporter cards. This mix is a stand-in, not a rule.
+- Decks are 16 Pokémon, 8 Strategy (3 Quickdraw, 3 Hypervoice, 2 Recover), 8 Item, 4 Location and 4 Supporter (2 Field Researcher, 1 Veteran Coach, 1 Field Medic) cards. This mix is a stand-in, not a rule.
 - The 16 Pokémon are invented placeholders, one of each per deck, with the same list for both players. Stats: Energy Cost 1–6, Attack 1–6, Strength 2–10.
 - Placeholder art is a box tinted by Pokémon Type (striped blue for Strategy Cards). Weather text on placeholder Pokémon is sample text and does nothing.
 - Placeholder abilities (section 8):
@@ -238,8 +264,8 @@ A Pokémon ability is an **Effect Trigger Word** plus **Effect Text**. It fires 
 
   Zappip, Brawlix and Mindrake have no ability.
 - Innate Powers on placeholder Pokémon: **Quick Attack** on Zappip, Brawlix and Duskfang; **Agility** on Gustling, Shadepup and Glimmeria.
-- Strategy Card rarities are placeholders: Quickdraw Common, Hypervoice Uncommon, Recover Rare.
-- Item, Location and Supporter cards have only a name and Card-Type.
+- Strategy Card rarities are placeholders: Quickdraw Common, Hypervoice Uncommon, Recover Rare. So are the Supporters': Field Researcher Common, Veteran Coach Uncommon, Field Medic Rare.
+- Item and Location cards have only a name and Card-Type.
 - Both players use the same three Trainers: Ash, Misty and Brock (section 7.4), each with Strength 15.
 - To give every Trainer something to work with, three placeholder Pokémon are Water (Puddlop, Frostail, Toxifin), four cost 1, and five have Defence Strength-Type.
-- **The AI** places Trainers at random and only spends Base Energy (never Exert). On a Battle turn it scores every legal move and picks the best (ties at random), passing only when nothing else is legal. From the top: winning the match; bringing an enemy Trainer to 0; defeating an enemy Pokémon (by attack or Misty) without losing its own; attacking the weakest enemy Trainer; playing its most expensive affordable Pokémon, preferring zones where its own Passives boost it and avoiding the opponent's Brock zone; Brock's buff on its strongest Defence Pokémon, Ash's draw, Misty chip damage; other attacks; and last, trades that lose the attacker for nothing. It always takes Ash's free summon when there is room. Strategy Cards: Hypervoice only when you have Pokémon (scored by damage dealt and Pokémon defeated), Recover only on its own damaged Pokémon or Trainers (more when a Trainer is low), Quickdraw about as highly as Ash's draw. When one of its abilities needs a target, it picks a random legal one. It tries moves on a copy of the game to score them (abilities included), except draws (Ash, Quickdraw), so it never sees its own Draw Pile.
+- **The AI** places Trainers at random and only spends Base Energy (never Exert). On a Battle turn it scores every legal move and picks the best (ties at random), passing only when nothing else is legal. From the top: winning the match; bringing an enemy Trainer to 0; defeating an enemy Pokémon (by attack or Misty) without losing its own; attacking the weakest enemy Trainer; playing its most expensive affordable Pokémon, preferring zones where its own Passives boost it and avoiding the opponent's Brock zone; Brock's buff on its strongest Defence Pokémon, Ash's draw, Misty chip damage; other attacks; and last, trades that lose the attacker for nothing. It always takes Ash's free summon when there is room. Strategy Cards: Hypervoice only when you have Pokémon (scored by damage dealt and Pokémon defeated), Recover only on its own damaged Pokémon or Trainers (more when a Trainer is low), Quickdraw about as highly as Ash's draw. Supporters: it pays with random cards from its hand, but puts a card that meets the Gift Challenge in when it has one; it scores them by what they gain (Field Researcher like a draw, Veteran Coach by stats gained, Field Medic by Strength healed) minus the cards paid, a Released card counting double. When one of its abilities needs a target, it picks a random legal one. It tries moves on a copy of the game to score them (abilities included), except draws (Ash, Quickdraw), so it never sees its own Draw Pile.

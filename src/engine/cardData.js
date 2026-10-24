@@ -185,11 +185,53 @@ export const STRATEGY_CARDS = [
   ]),
 ];
 
+// --- Supporter Cards --------------------------------------------------------
+//
+// Played as a Battle Action for a Card-Cost: exactly `discard` cards to the
+// Discard Pile and `release` cards to the Released Pile, from the hand (not
+// the Supporter itself). If at least one paid card matches the Gift Bonus
+// Challenge (any printed field; see matchesCard in effects.js), the Gift
+// Bonus applies: `gift.effects` resolves instead of `effects`.
+
+function supporter(name, rarity, cardCost, effectText, effects, gift) {
+  const id = name.toLowerCase().replace(/\s+/g, '-');
+  return { id, name, cardType: 'Supporter', cardCost, image: null, effectText, rarity, effects, gift };
+}
+
+export const SUPPORTER_CARDS = [
+  supporter('Field Researcher', 'Common', { discard: 1, release: 0 }, 'Draw 2 cards.', [
+    { op: 'draw', amount: 2 },
+  ], {
+    challengeText: 'a Strategy Card',
+    challenge: { cardType: 'Strategy' },
+    bonusText: 'Draw 1 more card.',
+    effects: [{ op: 'draw', amount: 3 }],
+  }),
+  supporter('Veteran Coach', 'Uncommon', { discard: 0, release: 1 }, 'Friendly Pokémon in a chosen Zone gain +1/+1.', [
+    { op: 'buff', attack: 1, strength: 1, target: { mode: 'targeted', pick: 'zone', side: 'friendly' } },
+  ], {
+    challengeText: 'a Swift-Tier Pokémon',
+    challenge: { cardType: 'Pokémon', speedTier: 'Swift' },
+    bonusText: '+2/+2 instead.',
+    effects: [{ op: 'buff', attack: 2, strength: 2, target: { mode: 'targeted', pick: 'zone', side: 'friendly' } }],
+  }),
+  supporter('Field Medic', 'Rare', { discard: 1, release: 1 }, 'Heal a friendly Trainer 4 Strength.', [
+    { op: 'heal', amount: 4, target: { mode: 'targeted', side: 'friendly', kinds: ['trainer'], damaged: true } },
+  ], {
+    challengeText: 'a Water Pokémon',
+    challenge: { cardType: 'Pokémon', pokemonType: 'Water' },
+    bonusText: "Also heal all friendly Pokémon in that Trainer's Zone 2 Strength.",
+    effects: [
+      { op: 'heal', amount: 4, target: { mode: 'targeted', side: 'friendly', kinds: ['trainer'], damaged: true } },
+      { op: 'heal', amount: 2, target: { mode: 'area', side: 'friendly', zone: 'target' } },
+    ],
+  }),
+];
+
 // PLACEHOLDER non-Pokémon cards: name and Card-Type only, for now.
 export const OTHER_CARDS = [
   ...Array.from({ length: 8 }, (_, i) => ({ id: `item-${i + 1}`, name: `Item ${i + 1}`, cardType: 'Item' })),
   ...Array.from({ length: 4 }, (_, i) => ({ id: `location-${i + 1}`, name: `Location ${i + 1}`, cardType: 'Location' })),
-  ...Array.from({ length: 4 }, (_, i) => ({ id: `supporter-${i + 1}`, name: `Supporter ${i + 1}`, cardType: 'Supporter' })),
 ];
 
 // Each deck: card id → number of copies. PLACEHOLDER: one of every card above.
@@ -198,4 +240,7 @@ export const PLACEHOLDER_DECKLIST = {
   quickdraw: 3,
   hypervoice: 3,
   recover: 2,
+  'field-researcher': 2,
+  'veteran-coach': 1,
+  'field-medic': 1,
 };

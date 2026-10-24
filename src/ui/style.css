@@ -246,6 +246,27 @@ button.secondary { background: var(--panel-2); color: var(--text); margin-top: 0
 .card.strategy { width: 132px; border-width: 2px; border-style: solid; padding: 0.35rem; gap: 0.25rem; }
 .strategy-art { background: repeating-linear-gradient(45deg, #2c4a7a, #2c4a7a 6px, #34558a 6px, #34558a 12px); }
 
+/* Supporter Cards */
+.card.supporter { width: 140px; border-width: 2px; border-style: solid; padding: 0.35rem; gap: 0.25rem; }
+.supporter-art { background: repeating-linear-gradient(45deg, #6a4a2c, #6a4a2c 6px, #7a5634 6px, #7a5634 12px); }
+.card-cost { color: var(--accent); font-weight: 700; text-transform: none; }
+.card-line.gift { color: var(--select); }
+
+/* Paying a Supporter's Card-Cost: Discard (back via reshuffles) vs Release (gone for the match) */
+.card { position: relative; }
+.card.pay-discard { outline: 3px solid var(--supporter); outline-offset: 1px; }
+.card.pay-release { outline: 3px dashed #e0574f; outline-offset: 1px; filter: grayscale(0.6) brightness(0.8); }
+.pay-badge {
+  position: absolute; top: -0.6rem; left: 50%; transform: translateX(-50%); white-space: nowrap; z-index: 1;
+  padding: 0.05rem 0.4rem; border-radius: 3px; font-size: 0.6rem; font-weight: 700; text-transform: uppercase;
+}
+.pay-badge.discard { background: var(--supporter); color: #1a1a1a; }
+.pay-badge.release { background: #e0574f; color: #fff; }
+.gift-status { font-weight: 700; color: var(--muted); }
+.release-count { color: #e0574f; font-weight: 600; }
+.gift-status.met { color: var(--select); }
+.zone.zone-target { cursor: pointer; border: 2px solid var(--select); box-shadow: 0 0 10px rgba(95, 212, 160, 0.5); }
+
 /* Effect targets, either side (Powers, Strategy Cards) */
 .power-target { cursor: pointer; border: 2px solid var(--select) !important; background: #1f3a33 !important; }
 

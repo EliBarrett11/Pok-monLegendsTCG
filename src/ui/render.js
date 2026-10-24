@@ -4,6 +4,7 @@
 import {
   ZONES, playablePokemon, costPreview, isAlert, legalTargets, canUsePower, powerTargets,
   summonSpaces, isFallen, attackOf, maxStrengthOf, playableStrategies, strategyTargets,
+  playableSupporters, supporterTargets, giftMet,
 } from '../engine/game.js';
 import { INNATE_POWERS } from '../engine/cardData.js';
 
@@ -21,6 +22,7 @@ function resetUiFor(state) {
   ui.attacker = null;          // { zone, space } of the player's chosen Alert Pokémon
   ui.power = null;             // zone of the player's Trainer whose Power is chosen
   ui.strategy = null;          // uid of a Strategy Card in hand waiting for a target
+  ui.supporter = null;         // { uid, discard: [uids], release: [uids], picking } while paying for a Supporter
 }
 
 function clearSelection() {
@@ -28,9 +30,21 @@ function clearSelection() {
   ui.attacker = null;
   ui.power = null;
   ui.strategy = null;
+  ui.supporter = null;
 }
 
-const key = (ref) => (ref.kind === 'trainer' ? `${ref.owner}:T${ref.zone}` : `${ref.owner}:P${ref.zone}${ref.space}`);
+// The Supporter being paid for, and the hand cards chosen so far.
+function supporterChoice(state) {
+  if (!ui.supporter) return null;
+  const hand = state.players.player.hand;
+  const card = hand.find((c) => c.uid === ui.supporter.uid);
+  const paid = hand.filter((c) => [...ui.supporter.discard, ...ui.supporter.release].includes(c.uid));
+  const exact = ui.supporter.discard.length === card.cardCost.discard && ui.supporter.release.length === card.cardCost.release;
+  return { card, paid, exact, gift: giftMet(card, paid) };
+}
+
+const key = (ref) => (ref.kind === 'trainer' ? `${ref.owner}:T${ref.zone}`
+  : ref.kind === 'zone' ? `${ref.owner}:Z${ref.zone}` : `${ref.owner}:P${ref.zone}${ref.space}`);
 
 // Cards that can be clicked as the target of the current choice, as keys,
 // with the highlight to use: red for attacks, green for effects (either side).
@@ -44,6 +58,7 @@ function targetKeys(state) {
   }
   if (ui.power !== null) return { keys: new Set(powerTargets(state, 'player', ui.power).map(key)), cls: ' power-target' };
   if (ui.strategy) return { keys: new Set(strategyTargets(state, 'player', ui.strategy).map(key)), cls: ' power-target' };
+  if (ui.supporter?.picking) return { keys: new Set(supporterTargets(state, 'player', ui.supporter.uid).map(key)), cls: ' power-target' };
   return { keys: new Set(), cls: '' };
 }
 
@@ -142,7 +157,7 @@ function trainerRow(state, who) {
     let content = '<span class="empty">Trainer Space</span>';
     let cls = 'trainer-space';
     if (zone.trainer) {
-      const usable = who === 'player' && isMyBattleTurn(state) && canUsePower(state, 'player', i);
+      const usable = who === 'player' && isMyBattleTurn(state) && !ui.supporter && canUsePower(state, 'player', i);
       content = trainerCard(state, zone.trainer, { selectable: usable, selected: who === 'player' && ui.power === i });
       if (zone.trainer.strength <= 0) cls += ' down';
       if (targets.keys.has(key({ kind: 'trainer', owner: who, zone: i }))) cls += targets.cls;
@@ -162,11 +177,12 @@ function pokemonRow(state, who) {
   const p = state.players[who];
   const placing = who === 'player' ? placingSpaces(state) : new Set();
   const targets = targetKeys(state);
-  const myTurn = isMyBattleTurn(state);
+  const myTurn = isMyBattleTurn(state) && !ui.supporter;
   return `<div class="pokemon-row">${p.zones.map((zone, z) => {
     const fallen = zone.trainer && isFallen(state, who, z);
+    const zoneTarget = targets.keys.has(key({ kind: 'zone', owner: who, zone: z }));
     return `
-    <div class="zone${fallen ? ' fallen' : ''}">
+    <div class="zone${fallen ? ' fallen' : ''}${zoneTarget ? ' zone-target' : ''}" data-owner="${who}" data-zone="${z}">
       <div class="zone-label">Zone ${z + 1}${fallen ? ' · Fallen: no new Pokémon' : ''}</div>
       <div class="spaces">${zone.pokemon.map((c, s) => {
         let cls = 'pokemon-space';
@@ -189,11 +205,18 @@ function handCards(state) {
   const mulligan = state.phase === 'breakfast' && state.round === 1 && !me.pending;
   const myTurn = isMyBattleTurn(state);
   const playable = myTurn
-    ? [...playablePokemon(state, 'player'), ...playableStrategies(state, 'player')].map((c) => c.uid) : [];
+    ? [...playablePokemon(state, 'player'), ...playableStrategies(state, 'player'), ...playableSupporters(state, 'player')]
+      .map((c) => c.uid) : [];
   return me.hand.map((c) => {
     if (mulligan) return card(c, { selectable: true, selected: ui.mulligan.has(c.uid) });
     if (state.pending?.uid === c.uid) return card(c, { selected: true });
-    if (myTurn && (c.cardType === 'Pokémon' || c.cardType === 'Strategy')) {
+    if (ui.supporter) {
+      // Paying for a Supporter: every other card can be marked Discard or Release.
+      if (c.uid === ui.supporter.uid) return card(c, { selectable: true, selected: true });
+      const pay = ui.supporter.discard.includes(c.uid) ? 'discard' : ui.supporter.release.includes(c.uid) ? 'release' : null;
+      return card(c, { selectable: !ui.supporter.picking, pay });
+    }
+    if (myTurn && ['Pokémon', 'Strategy', 'Supporter'].includes(c.cardType)) {
       return playable.includes(c.uid)
         ? card(c, { selectable: true, selected: ui.selectedPokemon === c.uid || ui.strategy === c.uid })
         : card(c, { unavailable: true });
@@ -225,21 +248,47 @@ function slug(text) {
   return text.normalize('NFD').replace(/[^a-z]/gi, '').toLowerCase();
 }
 
-function stateClasses({ selectable, selected, unavailable }) {
-  return `${selectable ? ' selectable' : ''}${selected ? ' selected' : ''}${unavailable ? ' unavailable' : ''}`;
+function stateClasses({ selectable, selected, unavailable, pay }) {
+  return `${selectable ? ' selectable' : ''}${selected ? ' selected' : ''}${unavailable ? ' unavailable' : ''}${pay ? ` pay-${pay}` : ''}`;
+}
+
+// Marks a hand card chosen to pay a Supporter's Card-Cost.
+function payBadge({ pay }) {
+  if (pay === 'discard') return '<div class="pay-badge discard">Discard</div>';
+  if (pay === 'release') return '<div class="pay-badge release">Release · gone for the match</div>';
+  return '';
 }
 
 function card(c, opts = {}) {
   if (c.cardType === 'Pokémon') return pokemonCard(c, opts);
   if (c.cardType === 'Strategy') return strategyCard(c, opts);
+  if (c.cardType === 'Supporter') return supporterCard(c, opts);
   return `<div class="card type-${slug(c.cardType)}${stateClasses(opts)}" data-uid="${c.uid}">
+    ${payBadge(opts)}
     <div class="card-type">${c.cardType}</div>
     <div class="card-name">${c.name}</div>
   </div>`;
 }
 
+function costText({ discard, release }) {
+  return [discard && `Discard ${discard}`, release && `Release ${release}`].filter(Boolean).join(', ');
+}
+
+function supporterCard(c, opts) {
+  return `<div class="card supporter rarity-${slug(c.rarity)}${stateClasses(opts)}" data-uid="${c.uid}" title="${c.name} (${c.rarity})&#10;Card-Cost: ${costText(c.cardCost)}&#10;${c.effectText}&#10;Gift Bonus Challenge: ${c.gift.challengeText}&#10;Gift Bonus: ${c.gift.bonusText}">
+    ${payBadge(opts)}
+    <div class="card-head"><span class="card-name">${c.name}</span></div>
+    <div class="card-type">Supporter · <span class="card-cost">${costText(c.cardCost)}</span></div>
+    ${c.image ? `<img class="card-art" src="${c.image}" alt="">` : '<div class="card-art supporter-art">Supporter</div>'}
+    <div class="card-line effect">${c.effectText}</div>
+    <div class="card-line gift"><b>Gift:</b> ${c.gift.challengeText} → ${c.gift.bonusText}</div>
+    <div class="card-line rarity">${c.rarity}</div>
+  </div>`;
+}
+
 function strategyCard(c, opts) {
   return `<div class="card strategy rarity-${slug(c.rarity)}${stateClasses(opts)}" data-uid="${c.uid}" title="${c.name} (${c.rarity})&#10;Energy Cost: ${c.energyCost}&#10;${c.effectText}">
+    ${payBadge(opts)}
     <div class="card-head"><span class="card-name">${c.name}</span><span class="cost" title="Energy Cost">${c.energyCost}</span></div>
     <div class="card-type">Strategy</div>
     ${c.image ? `<img class="card-art" src="${c.image}" alt="">` : '<div class="card-art strategy-art">Strategy</div>'}
@@ -268,6 +317,7 @@ function art(c) {
 // Full Pokémon card, with every field.
 function pokemonCard(c, opts) {
   return `<div class="card pokemon rarity-${slug(c.rarity)}${stateClasses(opts)}" data-uid="${c.uid}" title="${tooltip(c)}">
+    ${payBadge(opts)}
     <div class="card-head"><span class="card-name">${c.name}</span><span class="cost" title="Energy Cost">${c.energyCost}</span></div>
     <div class="card-type">Pokémon · ${c.pokemonType}</div>
     ${art(c)}
@@ -346,6 +396,17 @@ function controls(state) {
       }
       if (state.turn !== 'player' || state.pending) return '<span>Waiting for opponent…</span>';
       const pass = '<button data-action="pass">Pass</button>';
+      const paying = supporterChoice(state);
+      if (paying) {
+        const { card: c, exact, gift } = paying;
+        const cancel = '<button data-action="cancel-supporter" class="secondary">Cancel</button>';
+        if (ui.supporter.picking) return `<span class="hint">${c.name}: click a highlighted target.</span>${cancel}`;
+        return `<span class="hint"><b>${c.name}</b>: click hand cards to pay (click again: Discard → Release → none).
+          ${[c.cardCost.discard && `Discard ${ui.supporter.discard.length}/${c.cardCost.discard}`,
+    c.cardCost.release && `<span class="release-count">Release ${ui.supporter.release.length}/${c.cardCost.release}</span>`].filter(Boolean).join(' · ')} ·
+          Gift (${c.gift.challengeText}): <span class="gift-status ${gift ? 'met' : ''}">${gift ? '✓ met' : 'not met'}</span></span>
+          <button data-action="confirm-supporter" ${exact ? '' : 'disabled'}>Confirm</button>${cancel}`;
+      }
       if (ui.power !== null) {
         const t = me.zones[ui.power].trainer;
         if (powerTargets(state, 'player', ui.power).length) {
@@ -409,6 +470,28 @@ function wire(root, state, { dispatch, newGame }) {
     const c = state.players.player.hand.find((h) => h.uid === uid);
     if (state.phase === 'breakfast') {
       ui.mulligan.has(uid) ? ui.mulligan.delete(uid) : ui.mulligan.add(uid);
+    } else if (ui.supporter) {
+      // Paying: the Supporter itself cancels; other cards cycle Discard → Release → none.
+      if (uid === ui.supporter.uid) {
+        ui.supporter = null;
+      } else {
+        const sup = state.players.player.hand.find((h) => h.uid === ui.supporter.uid);
+        const { discard, release } = ui.supporter;
+        const room = (list, n) => list.length < n;
+        if (discard.includes(uid)) {
+          discard.splice(discard.indexOf(uid), 1);
+          if (room(release, sup.cardCost.release)) release.push(uid);
+        } else if (release.includes(uid)) {
+          release.splice(release.indexOf(uid), 1);
+        } else if (room(discard, sup.cardCost.discard)) {
+          discard.push(uid);
+        } else if (room(release, sup.cardCost.release)) {
+          release.push(uid);
+        }
+      }
+    } else if (c.cardType === 'Supporter') {
+      clearSelection();
+      ui.supporter = { uid, discard: [], release: [], picking: false };
     } else if (c.cardType === 'Strategy') {
       const again = ui.strategy === uid;
       clearSelection();
@@ -424,6 +507,22 @@ function wire(root, state, { dispatch, newGame }) {
     }
     redraw();
   });
+
+  // Supporter: Confirm the payment, then pick a target if it needs one.
+  const playSupporter = (target) => {
+    const { uid, discard, release } = ui.supporter;
+    dispatch({ type: 'playSupporter', who: 'player', uid, discard: [...discard], release: [...release], target });
+  };
+  on('[data-action="cancel-supporter"]', () => { ui.supporter = null; redraw(); });
+  on('[data-action="confirm-supporter"]', () => {
+    if (supporterTargets(state, 'player', ui.supporter.uid).length) {
+      ui.supporter.picking = true;
+      redraw();
+    } else {
+      playSupporter(undefined);
+    }
+  });
+  on('.zone.zone-target', (el) => playSupporter({ kind: 'zone', owner: el.dataset.owner, zone: Number(el.dataset.zone) }));
 
   // Command: pick one of your Alert Pokémon, then a highlighted target.
   // (While a Power is picking a target, a click on a target card goes to the Power.)
@@ -467,10 +566,10 @@ function wire(root, state, { dispatch, newGame }) {
       const owner = el.dataset.owner;
       usePower(isTrainer ? { kind: 'trainer', owner, zone } : { kind: 'pokemon', owner, zone, space: Number(el.dataset.space) });
     } else if (ui.strategy) {
-      const owner = el.dataset.owner;
-      const target = isTrainer ? { kind: 'trainer', owner, zone } : { kind: 'pokemon', owner, zone, space: Number(el.dataset.space) };
       if (!confirmExert(costPreview(state, 'player', ui.strategy).fromExert)) return;
-      dispatch({ type: 'playStrategy', who: 'player', uid: ui.strategy, target });
+      dispatch({ type: 'playStrategy', who: 'player', uid: ui.strategy, target: ref });
+    } else if (ui.supporter?.picking) {
+      playSupporter(ref);
     }
   });
 

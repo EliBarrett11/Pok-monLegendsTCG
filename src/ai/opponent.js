@@ -9,7 +9,8 @@
 
 import {
   applyAction, legalActions, playablePokemon, summonSpaces, alertPokemon, legalTargets,
-  usablePowers, powerTargets, playableStrategies, strategyTargets, opponentOf, maxStrengthOf,
+  usablePowers, powerTargets, playableStrategies, strategyTargets, opponentOf, maxStrengthOf, attackOf,
+  playableSupporters, supporterTargets, giftMet,
 } from '../engine/game.js';
 
 // Where the AI's random choices come from. Tests pass a seeded generator
@@ -63,7 +64,35 @@ function candidateMoves(state, who) {
     if (targets.length) targets.forEach((target) => moves.push({ type: 'playStrategy', who, uid: card.uid, target }));
     else if (!card.effects.some((e) => e.target?.mode === 'targeted')) moves.push({ type: 'playStrategy', who, uid: card.uid });
   }
+  // Supporters: one payment each (random cards, but meeting the Gift when it can).
+  const seenSupporter = new Set();
+  for (const card of playableSupporters(state, who)) {
+    if (seenSupporter.has(card.id)) continue;
+    seenSupporter.add(card.id);
+    const payment = choosePayment(state, who, card);
+    const targets = supporterTargets(state, who, card.uid);
+    const move = { type: 'playSupporter', who, uid: card.uid, ...payment };
+    if (targets.length) targets.forEach((target) => moves.push({ ...move, target }));
+    else if (!card.effects.some((e) => e.target?.mode === 'targeted')) moves.push(move);
+  }
   return moves;
+}
+
+// Random cards from hand (not the Supporter), with one that meets the Gift
+// Challenge first if there is one; it fills a Discard slot before a Release slot.
+function choosePayment(state, who, card) {
+  const others = state.players[who].hand.filter((c) => c.uid !== card.uid);
+  for (let i = others.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [others[i], others[j]] = [others[j], others[i]];
+  }
+  const gifted = others.findIndex((c) => giftMet(card, [c]));
+  if (gifted > 0) others.unshift(...others.splice(gifted, 1));
+  const { discard, release } = card.cardCost;
+  const uids = others.map((c) => c.uid);
+  return discard
+    ? { discard: uids.slice(0, discard), release: uids.slice(discard, discard + release) }
+    : { discard: [], release: uids.slice(0, release) };
 }
 
 function bestMove(state, who) {
@@ -75,7 +104,7 @@ function bestMove(state, who) {
   return best?.move ?? null;
 }
 
-const value = (cards) => cards.reduce((sum, c) => sum + c.energyCost + c.attackValue, 0);
+const value = (cards) => cards.reduce((sum, c) => sum + (c.energyCost ?? 0) + (c.attackValue ?? 0), 0);
 const newlyReleased = (before, after, who) => after.players[who].released.slice(before.players[who].released.length);
 
 // Higher is better. Roughly, from the top:
@@ -89,6 +118,8 @@ function scoreMove(state, who, move) {
   if (trainer?.id === 'ash') return 12;
   const strategy = move.type === 'playStrategy' ? state.players[who].hand.find((c) => c.uid === move.uid) : null;
   if (strategy?.id === 'quickdraw') return 16;
+  const supporter = move.type === 'playSupporter' ? state.players[who].hand.find((c) => c.uid === move.uid) : null;
+  if (supporter) return supporterScore(state, who, move, supporter);
 
   const after = applyAction({ ...state, log: [] }, move);
   if (after.winner === who) return 1000;
@@ -139,6 +170,21 @@ function scoreMove(state, who, move) {
     return score + 15 + maxStrengthOf(target);
   }
   return score + 15;
+}
+
+// Supporters cost cards: each paid card counts against it (a released one more).
+function supporterScore(state, who, move, card) {
+  const paid = state.players[who].hand.filter((c) => [...move.discard, ...move.release].includes(c.uid));
+  const cost = 2 * move.discard.length + 4 * move.release.length;
+  const gift = giftMet(card, paid);
+  if (card.id === 'field-researcher') return 14 + (gift ? 5 : 0) - cost;   // a draw: not tried, no peeking
+  const after = applyAction({ ...state, log: [] }, move);
+  const mine = (s) => s.players[who].zones.flatMap((z) => z.pokemon).filter(Boolean);
+  const stats = (s) => mine(s).reduce((sum, c) => sum + attackOf(c) + maxStrengthOf(c) + c.currentStrength, 0);
+  const trainers = (s) => s.players[who].zones.reduce((sum, z) => sum + z.trainer.strength, 0);
+  const gained = (stats(after) - stats(state)) + (trainers(after) - trainers(state));
+  const danger = move.target?.kind === 'trainer' && state.players[who].zones[move.target.zone].trainer.strength <= 6 ? 15 : 0;
+  return 6 + 2 * gained + danger - cost;
 }
 
 // Playing a Pokémon: pricier is better; Passive bonuses help; Brock damage hurts.
