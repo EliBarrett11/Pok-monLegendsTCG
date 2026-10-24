@@ -541,14 +541,14 @@ const HANDLERS = {
       if (trades) defender.spent = true;
       log(state, `${name} attacked ${what} for ${power}`
         + (trades ? `; ${defender.name} was Alert and hit back for ${back}.` : '.'));
-      // Lucky Coin: the holder dealt the combat damage that defeated an opponent Pokémon.
+      // Amulet Coin: the holder dealt the combat damage that defeated an opponent Pokémon.
       const coins = [];
       if (defender.currentStrength <= 0) coins.push([who, attacker]);
       if (trades && attacker.currentStrength <= 0) coins.push([foe, defender]);
       settle(state);   // defeats (and On Defeated) resolve before afterAttack
       for (const [owner, holder] of coins) {
         const bonus = holder.heldItem?.held?.luckyCoin;
-        if (bonus) earnDollars(state, owner, bonus, `from ${holder.name}'s Lucky Coin`);
+        if (bonus) earnDollars(state, owner, bonus, `from ${holder.name}'s Amulet Coin`);
       }
       return;
     }

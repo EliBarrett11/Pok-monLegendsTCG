@@ -44,9 +44,9 @@ const targetKeys = (s, who, from) => legalTargets(s, who, from).map(key).sort();
 // Swift beats Steady across both sides; once the Swift ones are Spent, Steady is Alert.
 {
   const s = battle();
-  const mine = place(s, 'player', 0, 0, 'emberkit');        // Swift
-  const theirs = place(s, 'ai', 0, 0, 'brawlix');           // Steady
-  const slow = place(s, 'ai', 0, 1, 'pebblet');             // Slow
+  const mine = place(s, 'player', 0, 0, 'growlithe');        // Swift
+  const theirs = place(s, 'ai', 0, 0, 'magmar');           // Steady
+  const slow = place(s, 'ai', 0, 1, 'geodude');             // Slow
   assert.ok(isAlert(s, mine));
   assert.ok(!isAlert(s, theirs), 'Steady is not Alert while a Swift Pokémon is Active');
   assert.deepEqual(alertPokemon(s, 'ai'), []);
@@ -61,11 +61,11 @@ const targetKeys = (s, who, from) => legalTargets(s, who, from).map(key).sort();
 // Alert is recalculated after an Action: attacking makes the attacker Spent.
 {
   let s = battle();
-  place(s, 'player', 0, 0, 'emberkit');                     // Swift
-  place(s, 'ai', 1, 1, 'brawlix');                           // Steady
+  place(s, 'player', 0, 0, 'growlithe');                     // Swift
+  place(s, 'ai', 1, 1, 'magmar');                           // Steady
   s = command(s, 'player', { zone: 0, space: 0 }, pk(1, 1));
   assert.equal(at(s, 'player', 0, 0).spent, true);
-  assert.equal(alertPokemon(s, 'ai').length, 1, 'Brawlix is Alert after the Swift attacker is Spent');
+  assert.equal(alertPokemon(s, 'ai').length, 1, 'Magmar is Alert after the Swift attacker is Spent');
   assert.ok(legalActions(s, 'ai').includes('command'));
 }
 
@@ -73,11 +73,11 @@ const targetKeys = (s, who, from) => legalTargets(s, who, from).map(key).sort();
 
 {
   const s = battle();
-  place(s, 'player', 0, 0, 'emberkit');                     // Physical
-  place(s, 'player', 0, 1, 'zappip');                       // Special
-  place(s, 'ai', 0, 0, 'pebblet');                          // Defence
-  place(s, 'ai', 1, 0, 'puddlop');                          // Hitpoints
-  place(s, 'ai', 2, 2, 'mothdust', { spent: true });       // Special Defence, Spent
+  place(s, 'player', 0, 0, 'growlithe');                     // Physical
+  place(s, 'player', 0, 1, 'shinx');                       // Special
+  place(s, 'ai', 0, 0, 'geodude');                          // Defence
+  place(s, 'ai', 1, 0, 'horsea');                          // Hitpoints
+  place(s, 'ai', 2, 2, 'metapod', { spent: true });       // Special Defence, Spent
   assert.deepEqual(targetKeys(s, 'player', { zone: 0, space: 0 }), ['P00'], 'Physical must hit the Defence Pokémon');
   assert.deepEqual(targetKeys(s, 'player', { zone: 0, space: 1 }), ['P22'], 'Special must hit the Special Defence one, even when Spent');
   assert.throws(() => command(s, 'player', { zone: 0, space: 0 }, pk(1, 0)), /legal target/);
@@ -87,9 +87,9 @@ const targetKeys = (s, who, from) => legalTargets(s, who, from).map(key).sort();
 // No guards: any enemy Pokémon or any Trainer above 0 Strength.
 {
   const s = battle();
-  place(s, 'player', 0, 0, 'emberkit');
-  place(s, 'ai', 1, 0, 'puddlop');                           // Hitpoints
-  place(s, 'ai', 2, 0, 'zappip');                            // Special Defence: no effect on a Physical attacker
+  place(s, 'player', 0, 0, 'growlithe');
+  place(s, 'ai', 1, 0, 'horsea');                           // Hitpoints
+  place(s, 'ai', 2, 0, 'shinx');                            // Special Defence: no effect on a Physical attacker
   assert.deepEqual(targetKeys(s, 'player', { zone: 0, space: 0 }), ['P10', 'P20', 'T0', 'T1', 'T2']);
   s.players.ai.zones[1].trainer.strength = 0;
   assert.deepEqual(targetKeys(s, 'player', { zone: 0, space: 0 }), ['P10', 'P20', 'T0', 'T2'], 'a Trainer at 0 cannot be targeted');
@@ -98,10 +98,10 @@ const targetKeys = (s, who, from) => legalTargets(s, who, from).map(key).sort();
 // Only your own Alert Pokémon can be Commanded, only on your turn, for no Energy.
 {
   const s = battle();
-  place(s, 'player', 0, 0, 'emberkit');                     // Swift
-  place(s, 'player', 0, 1, 'brawlix');                       // Steady: Active but not Alert
-  place(s, 'player', 0, 2, 'gustling', { spent: true });     // Swift but Spent
-  place(s, 'ai', 0, 0, 'puddlop');
+  place(s, 'player', 0, 0, 'growlithe');                     // Swift
+  place(s, 'player', 0, 1, 'magmar');                       // Steady: Active but not Alert
+  place(s, 'player', 0, 2, 'pidgey', { spent: true });     // Swift but Spent
+  place(s, 'ai', 0, 0, 'horsea');
   assert.throws(() => command(s, 'player', { zone: 0, space: 1 }, tr(0)), /Alert/);
   assert.throws(() => command(s, 'player', { zone: 0, space: 2 }, tr(0)), /Alert/);
   assert.throws(() => command(s, 'ai', { zone: 0, space: 0 }, tr(0)), /cannot/);
@@ -117,33 +117,33 @@ const targetKeys = (s, who, from) => legalTargets(s, who, from).map(key).sort();
 // Alert vs Alert: both deal damage at once, both become Spent; excess is lost.
 {
   let s = battle();
-  place(s, 'player', 0, 0, 'duskfang');                      // Swift, Physical 5, HP 7
-  place(s, 'ai', 1, 2, 'gustling');                          // Swift, Physical 3, HP 3
+  place(s, 'player', 0, 0, 'absol');                      // Swift, Physical 5, HP 7
+  place(s, 'ai', 1, 2, 'pidgey');                          // Swift, Physical 3, HP 3
   s = command(s, 'player', { zone: 0, space: 0 }, pk(1, 2));
   assert.equal(at(s, 'player', 0, 0).currentStrength, 4, 'took 3 back');
   assert.equal(at(s, 'player', 0, 0).spent, true);
-  assert.equal(at(s, 'ai', 1, 2), null, 'Gustling defeated');
+  assert.equal(at(s, 'ai', 1, 2), null, 'Pidgey defeated');
   assert.equal(s.players.ai.released.length, 1);
-  assert.equal(s.players.ai.released[0].name, 'Gustling');
-  assert.ok(!s.players.ai.discard.some((c) => c.name === 'Gustling'), 'not the Discard Pile');
-  assert.ok(s.log.some((l) => l.includes('Gustling was Alert and hit back for 3')));
-  assert.ok(s.log.some((l) => l.includes('Gustling was defeated')));
+  assert.equal(s.players.ai.released[0].name, 'Pidgey');
+  assert.ok(!s.players.ai.discard.some((c) => c.name === 'Pidgey'), 'not the Discard Pile');
+  assert.ok(s.log.some((l) => l.includes('Pidgey was Alert and hit back for 3')));
+  assert.ok(s.log.some((l) => l.includes('Pidgey was defeated')));
 }
 
 // Non-Alert target (Active but slower, or Spent): no damage back; it stays as it was.
 {
   let s = battle();
-  place(s, 'player', 0, 0, 'emberkit');                      // Swift, Physical 2
-  place(s, 'ai', 0, 0, 'brawlix');                           // Steady: Active, not Alert
-  place(s, 'ai', 0, 1, 'duskfang', { spent: true });         // Swift but Spent
+  place(s, 'player', 0, 0, 'growlithe');                      // Swift, Physical 2
+  place(s, 'ai', 0, 0, 'magmar');                           // Steady: Active, not Alert
+  place(s, 'ai', 0, 1, 'absol', { spent: true });         // Swift but Spent
   s = command(s, 'player', { zone: 0, space: 0 }, pk(0, 0));
   assert.equal(at(s, 'ai', 0, 0).currentStrength, 3);
   assert.equal(at(s, 'ai', 0, 0).spent, false, 'only the attacker becomes Spent');
   assert.equal(at(s, 'player', 0, 0).currentStrength, 3, 'no damage back');
 
   let t = battle();
-  place(t, 'player', 0, 0, 'emberkit');
-  place(t, 'ai', 0, 1, 'duskfang', { spent: true });
+  place(t, 'player', 0, 0, 'growlithe');
+  place(t, 'ai', 0, 1, 'absol', { spent: true });
   t = command(t, 'player', { zone: 0, space: 0 }, pk(0, 1));
   assert.equal(at(t, 'ai', 0, 1).currentStrength, 5);
   assert.equal(at(t, 'player', 0, 0).currentStrength, 3, 'a Spent target never hits back');
@@ -152,8 +152,8 @@ const targetKeys = (s, who, from) => legalTargets(s, who, from).map(key).sort();
 // Double defeat in one trade.
 {
   let s = battle();
-  place(s, 'player', 2, 1, 'emberkit', { strength: 2 });   // Swift, Physical 2
-  place(s, 'ai', 0, 0, 'emberkit', { strength: 1 });
+  place(s, 'player', 2, 1, 'growlithe', { strength: 2 });   // Swift, Physical 2
+  place(s, 'ai', 0, 0, 'growlithe', { strength: 1 });
   s = command(s, 'player', { zone: 2, space: 1 }, pk(0, 0));
   assert.equal(at(s, 'player', 2, 1), null);
   assert.equal(at(s, 'ai', 0, 0), null);
@@ -164,8 +164,8 @@ const targetKeys = (s, who, from) => legalTargets(s, who, from).map(key).sort();
 // Damage stays between Rounds.
 {
   let s = battle();
-  place(s, 'player', 0, 0, 'emberkit');
-  place(s, 'ai', 0, 0, 'ironhorn');                          // Defence 8, Slow
+  place(s, 'player', 0, 0, 'growlithe');
+  place(s, 'ai', 0, 0, 'lairon');                          // Defence 8, Slow
   s = command(s, 'player', { zone: 0, space: 0 }, pk(0, 0));
   s = applyAction(s, { type: 'pass', who: 'ai' });
   s = applyAction(s, { type: 'pass', who: 'player' });
@@ -177,9 +177,9 @@ const targetKeys = (s, who, from) => legalTargets(s, who, from).map(key).sort();
 // The Released Pile is never shuffled back into the Draw Pile.
 {
   let s = battle();
-  place(s, 'player', 0, 0, 'emberkit', { strength: 1 });
-  place(s, 'ai', 0, 0, 'duskfang');
-  s = command(s, 'player', { zone: 0, space: 0 }, pk(0, 0));  // Emberkit is defeated in the trade
+  place(s, 'player', 0, 0, 'growlithe', { strength: 1 });
+  place(s, 'ai', 0, 0, 'absol');
+  s = command(s, 'player', { zone: 0, space: 0 }, pk(0, 0));  // Growlithe is defeated in the trade
   const p = s.players.player;
   assert.equal(p.released.length, 1);
   p.discard.push(...p.drawPile.splice(0), ...p.hand.splice(0));  // force a reshuffle at Breakfast
@@ -198,7 +198,7 @@ const targetKeys = (s, who, from) => legalTargets(s, who, from).map(key).sort();
 // Trainer Strength stops at 0; the win triggers on the third Trainer reaching 0.
 {
   let s = battle();
-  place(s, 'player', 0, 0, 'brawlix');                       // Physical 4
+  place(s, 'player', 0, 0, 'magmar');                       // Physical 4
   const enemyTrainers = s.players.ai.zones.map((z) => z.trainer);
   enemyTrainers[0].strength = 0;
   enemyTrainers[1].strength = 3;
@@ -213,7 +213,7 @@ const targetKeys = (s, who, from) => legalTargets(s, who, from).map(key).sort();
 }
 {
   let s = battle();
-  place(s, 'player', 0, 0, 'brawlix');
+  place(s, 'player', 0, 0, 'magmar');
   s.players.ai.zones[0].trainer.strength = 0;
   s = command(s, 'player', { zone: 0, space: 0 }, tr(1));
   assert.equal(s.players.ai.zones[1].trainer.strength, 11);
@@ -227,8 +227,8 @@ const targetKeys = (s, who, from) => legalTargets(s, who, from).map(key).sort();
     const p = s.players[who];
     for (const pile of ['hand', 'drawPile', 'discard']) p[pile] = p[pile].filter((c) => c.cardType !== 'Pokémon');
   }
-  place(s, 'player', 0, 0, 'emberkit', { strength: 2 });
-  place(s, 'ai', 0, 0, 'emberkit', { strength: 2 });
+  place(s, 'player', 0, 0, 'growlithe', { strength: 2 });
+  place(s, 'ai', 0, 0, 'growlithe', { strength: 2 });
   s = command(s, 'player', { zone: 0, space: 0 }, pk(0, 0));
   assert.equal(s.phase, 'gameOver');
   assert.equal(s.winner, null);
@@ -242,8 +242,8 @@ const targetKeys = (s, who, from) => legalTargets(s, who, from).map(key).sort();
   const s = battle();
   s.turn = 'ai';
   s.players.ai.hand = [];
-  place(s, 'ai', 0, 0, 'emberkit');
-  place(s, 'player', 1, 1, 'pebblet');                       // Defence: the only legal target
+  place(s, 'ai', 0, 0, 'growlithe');
+  place(s, 'player', 1, 1, 'geodude');                       // Defence: the only legal target
   const action = chooseAction(s, 'ai');
   assert.equal(action.type, 'command');
   assert.deepEqual(action.target, pk(1, 1));

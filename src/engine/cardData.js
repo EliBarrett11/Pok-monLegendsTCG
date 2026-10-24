@@ -85,22 +85,22 @@ const EARLY_RISER = ability('On Breakfast', 'Gain 1 extra Base Energy this Round
 
 // PLACEHOLDER Pokémon: invented names and stats (Cost 1–6, Attack 1–6, Strength 2–10).
 export const POKEMON_CARDS = [
-  pokemon('Emberkit',   1, 'Fire',     'Physical', 2, 'Hitpoints',       3,  'Swift',  'Common', SUMMON_STRIKE),
-  pokemon('Puddlop',    1, 'Water',    'Special',  1, 'Hitpoints',       4,  'Steady', 'Common', LAST_GIFT),
-  pokemon('Sproutle',   1, 'Grass',    'Physical', 1, 'Defence',         4,  'Slow',   'Common', COUNTER),
-  pokemon('Zappip',     1, 'Electric', 'Special',  2, 'Special Defence', 2,  'Swift',  'Common', QUICK_ATTACK),
-  pokemon('Pebblet',    2, 'Rock',     'Physical', 2, 'Defence',         5,  'Slow',   'Common', COUNTER),
-  pokemon('Gustling',   2, 'Flying',   'Physical', 3, 'Hitpoints',       3,  'Swift',  'Uncommon', { ...AGILITY, ...TRAINER_HUNTER }),
-  pokemon('Mothdust',   2, 'Bug',      'Special',  2, 'Special Defence', 4,  'Steady', 'Uncommon', LAST_GIFT),
-  pokemon('Frostail',   3, 'Water',    'Special',  3, 'Special Defence', 5,  'Steady', 'Uncommon', EARLY_RISER),
-  pokemon('Brawlix',    3, 'Fire',     'Physical', 4, 'Hitpoints',       5,  'Steady', 'Uncommon', QUICK_ATTACK),
-  pokemon('Toxifin',    3, 'Water',    'Special',  3, 'Defence',         6,  'Slow',   'Rare', LAST_GIFT),
-  pokemon('Shadepup',   4, 'Ghost',    'Special',  4, 'Special Defence', 6,  'Swift',  'Rare', { ...AGILITY, ...SUMMON_STRIKE }),
-  pokemon('Ironhorn',   4, 'Steel',    'Physical', 3, 'Defence',         8,  'Slow',   'Rare', COUNTER),
-  pokemon('Glimmeria',  5, 'Fairy',    'Special',  5, 'Special Defence', 7,  'Steady', 'Epic', { ...AGILITY, ...ONE_SUN, ...EARLY_RISER }),
-  pokemon('Duskfang',   5, 'Dark',     'Physical', 5, 'Hitpoints',       7,  'Swift',  'Epic', { ...QUICK_ATTACK, ...TRAINER_HUNTER }),
-  pokemon('Quakemaw',   6, 'Fire',     'Physical', 6, 'Defence',         10, 'Slow',   'Legendary', SUMMON_STRIKE),
-  pokemon('Mindrake',   6, 'Dragon',   'Special',  6, 'Hitpoints',       9,  'Steady', 'Legendary'),
+  pokemon('Growlithe',   1, 'Fire',     'Physical', 2, 'Hitpoints',       3,  'Swift',  'Common', SUMMON_STRIKE),
+  pokemon('Horsea',    1, 'Water',    'Special',  1, 'Hitpoints',       4,  'Steady', 'Common', LAST_GIFT),
+  pokemon('Sewaddle',   1, 'Grass',    'Physical', 1, 'Defence',         4,  'Slow',   'Common', COUNTER),
+  pokemon('Shinx',     1, 'Electric', 'Special',  2, 'Special Defence', 2,  'Swift',  'Common', QUICK_ATTACK),
+  pokemon('Geodude',    2, 'Rock',     'Physical', 2, 'Defence',         5,  'Slow',   'Common', COUNTER),
+  pokemon('Pidgey',   2, 'Flying',   'Physical', 3, 'Hitpoints',       3,  'Swift',  'Uncommon', { ...AGILITY, ...TRAINER_HUNTER }),
+  pokemon('Metapod',   2, 'Bug',      'Special',  2, 'Special Defence', 4,  'Steady', 'Uncommon', LAST_GIFT),
+  pokemon('Goldeen',   3, 'Water',    'Special',  3, 'Special Defence', 5,  'Steady', 'Uncommon', EARLY_RISER),
+  pokemon('Magmar',    3, 'Fire',     'Physical', 4, 'Hitpoints',       5,  'Steady', 'Uncommon', QUICK_ATTACK),
+  pokemon('Quagsire',    3, 'Water',    'Special',  3, 'Defence',         6,  'Slow',   'Rare', LAST_GIFT),
+  pokemon('Dusclops',   4, 'Ghost',    'Special',  4, 'Special Defence', 6,  'Swift',  'Rare', { ...AGILITY, ...SUMMON_STRIKE }),
+  pokemon('Lairon',   4, 'Steel',    'Physical', 3, 'Defence',         8,  'Slow',   'Rare', COUNTER),
+  pokemon('Sylveon',  5, 'Fairy',    'Special',  5, 'Special Defence', 7,  'Steady', 'Epic', { ...AGILITY, ...ONE_SUN, ...EARLY_RISER }),
+  pokemon('Absol',   5, 'Dark',     'Physical', 5, 'Hitpoints',       7,  'Swift',  'Epic', { ...QUICK_ATTACK, ...TRAINER_HUNTER }),
+  pokemon('Blaziken',   6, 'Fire',     'Physical', 6, 'Defence',         10, 'Slow',   'Legendary', SUMMON_STRIKE),
+  pokemon('Dragonite',   6, 'Dragon',   'Special',  6, 'Hitpoints',       9,  'Steady', 'Legendary'),
 ];
 
 // --- Trainers ---------------------------------------------------------------
@@ -199,7 +199,7 @@ function supporter(name, rarity, cardCost, effectText, effects, gift) {
 }
 
 export const SUPPORTER_CARDS = [
-  supporter('Field Researcher', 'Common', { discard: 1, release: 0 }, 'Draw 2 cards.', [
+  supporter('Tracey', 'Common', { discard: 1, release: 0 }, 'Draw 2 cards.', [
     { op: 'draw', amount: 2 },
   ], {
     challengeText: 'a Strategy Card',
@@ -207,7 +207,7 @@ export const SUPPORTER_CARDS = [
     bonusText: 'Draw 1 more card.',
     effects: [{ op: 'draw', amount: 3 }],
   }),
-  supporter('Veteran Coach', 'Uncommon', { discard: 0, release: 1 }, 'Friendly Pokémon in a chosen Zone gain +1/+1.', [
+  supporter('Professor Oak', 'Uncommon', { discard: 0, release: 1 }, 'Friendly Pokémon in a chosen Zone gain +1/+1.', [
     { op: 'buff', attack: 1, strength: 1, target: { mode: 'targeted', pick: 'zone', side: 'friendly' } },
   ], {
     challengeText: 'a Swift-Tier Pokémon',
@@ -215,7 +215,7 @@ export const SUPPORTER_CARDS = [
     bonusText: '+2/+2 instead.',
     effects: [{ op: 'buff', attack: 2, strength: 2, target: { mode: 'targeted', pick: 'zone', side: 'friendly' } }],
   }),
-  supporter('Field Medic', 'Rare', { discard: 1, release: 1 }, 'Heal a friendly Trainer 4 Strength.', [
+  supporter('Mallow', 'Rare', { discard: 1, release: 1 }, 'Heal a friendly Trainer 4 Strength.', [
     { op: 'heal', amount: 4, target: { mode: 'targeted', side: 'friendly', kinds: ['trainer'], damaged: true } },
   ], {
     challengeText: 'a Water Pokémon',
@@ -287,15 +287,15 @@ function location(name, rarity, weatherTokens, quest, xp, effectText, effects) {
 }
 
 export const LOCATION_CARDS = [
-  location('Tidal Cove', 'Common', { Rain: 2 },
+  location('Cerulean Cape', 'Common', { Rain: 2 },
     { text: 'Summon 2 Water Pokémon.', label: 'Water Pokémon summoned', on: 'summon', filter: { pokemonType: 'Water' }, count: 2 },
     2, 'Draw 2 cards.', [{ op: 'draw', amount: 2 }]),
-  location('Sunbaked Plateau', 'Uncommon', { Sun: 2 },
+  location('Floaroma Meadow', 'Uncommon', { Sun: 2 },
     { text: 'Attack 3 times with Pokémon in this Zone.', label: 'Attacks', on: 'attack', inZone: true, count: 3 },
     3, 'Friendly Pokémon in this Zone gain +1 Attack.', [
       { op: 'buff', attack: 1, strength: 0, target: { mode: 'area', side: 'friendly', zone: 'source' } },
     ]),
-  location('Old Training Hall', 'Uncommon', { Rain: 1, Sun: 1 },
+  location('Shalour City', 'Uncommon', { Rain: 1, Sun: 1 },
     { text: 'Use 3 Trainer Powers.', label: 'Powers used', on: 'power', count: 3 },
     2, 'Heal all friendly Trainers 2 Strength.', [
       { op: 'heal', amount: 2, target: { mode: 'area', side: 'friendly', kinds: ['trainer'], damaged: true } },
@@ -327,17 +327,17 @@ function heldItem(name, cost, rarity, effectText, held) {
 
 // PLACEHOLDER Items.
 export const ITEM_CARDS = [
-  heldItem('Power Band', 3, 'Common', 'Holder gains +2 Attack.', { attack: 2 }),
-  heldItem('Iron Shell', 3, 'Common', 'Holder gains +3 Strength.', { strength: 3 }),
-  heldItem('Swift Feather', 4, 'Uncommon', "Holder's Speed-Tier is one higher (Slow → Steady → Swift).", { speedUp: 1 }),
-  heldItem('Lucky Coin', 2, 'Uncommon', 'When the holder deals the damage that defeats an opponent Pokémon, gain 2 extra PokéDollars.', { luckyCoin: 2 }),
+  heldItem('Black Belt', 3, 'Common', 'Holder gains +2 Attack.', { attack: 2 }),
+  heldItem('Rocky Helmet', 3, 'Common', 'Holder gains +3 Strength.', { strength: 3 }),
+  heldItem('Oran Berry', 4, 'Uncommon', "Holder's Speed-Tier is one higher (Slow → Steady → Swift).", { speedUp: 1 }),
+  heldItem('Amulet Coin', 2, 'Uncommon', 'When the holder deals the damage that defeats an opponent Pokémon, gain 2 extra PokéDollars.', { luckyCoin: 2 }),
   item('Potion', 'Consumed', 2, 'Common', 'Heal a friendly Pokémon in the arena 4 Strength.', {
     effects: [{ op: 'heal', amount: 4, target: { mode: 'targeted', side: 'friendly', damaged: true } }],
   }),
-  item('Wake-Up Tonic', 'Consumed', 3, 'Uncommon', 'A friendly Spent Pokémon in the arena becomes Active.', {
+  item('Rose Incense', 'Consumed', 3, 'Uncommon', 'A friendly Spent Pokémon in the arena becomes Active.', {
     effects: [{ op: 'ready', target: { mode: 'targeted', side: 'friendly', filter: { spent: true } } }],
   }),
-  item('Energy Drink', 'Consumed', 4, 'Rare', 'Gain 2 Base Energy this Round.', {
+  item('Miracle Seed', 'Consumed', 4, 'Rare', 'Gain 2 Base Energy this Round.', {
     effects: [{ op: 'gainEnergy', amount: 2 }],
   }),
 ];
@@ -348,19 +348,19 @@ export const OTHER_CARDS = [];
 // Each deck: card id → number of copies. PLACEHOLDER: one of every card above.
 export const PLACEHOLDER_DECKLIST = {
   ...Object.fromEntries([...POKEMON_CARDS, ...OTHER_CARDS].map((c) => [c.id, 1])),
-  'power-band': 2,
-  'iron-shell': 2,
-  'swift-feather': 1,
-  'lucky-coin': 1,
+  'black-belt': 2,
+  'rocky-helmet': 2,
+  'oran-berry': 1,
+  'amulet-coin': 1,
   potion: 1,
-  'energy-drink': 1,
+  'miracle-seed': 1,
   quickdraw: 3,
   hypervoice: 3,
   recover: 2,
-  'field-researcher': 2,
-  'veteran-coach': 1,
-  'field-medic': 1,
-  'tidal-cove': 2,
-  'sunbaked-plateau': 1,
-  'old-training-hall': 1,
+  'tracey': 2,
+  'professor-oak': 1,
+  'mallow': 1,
+  'cerulean-cape': 2,
+  'floaroma-meadow': 1,
+  'shalour-city': 1,
 };

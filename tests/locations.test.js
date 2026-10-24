@@ -82,19 +82,19 @@ for (const c of LOCATION_CARDS) {
   assert.ok(c.quest.text && c.quest.on && c.quest.count >= 1);
 }
 assert.deepEqual(LOCATION_CARDS.map((c) => [c.name, c.weatherTokens, c.xp]), [
-  ['Tidal Cove', { Rain: 2 }, 2], ['Sunbaked Plateau', { Sun: 2 }, 3], ['Old Training Hall', { Rain: 1, Sun: 1 }, 2],
+  ['Cerulean Cape', { Rain: 2 }, 2], ['Floaroma Meadow', { Sun: 2 }, 3], ['Shalour City', { Rain: 1, Sun: 1 }, 2],
 ]);
-assert.equal(PLACEHOLDER_DECKLIST['tidal-cove'], 2);
-assert.equal(PLACEHOLDER_DECKLIST['sunbaked-plateau'], 1);
-assert.equal(PLACEHOLDER_DECKLIST['old-training-hall'], 1);
+assert.equal(PLACEHOLDER_DECKLIST['cerulean-cape'], 2);
+assert.equal(PLACEHOLDER_DECKLIST['floaroma-meadow'], 1);
+assert.equal(PLACEHOLDER_DECKLIST['shalour-city'], 1);
 {
   const deck = createGame(1).players.player.drawPile;
   assert.equal(deck.length, 40);
   assert.deepEqual(deck.filter((c) => c.cardType === 'Location').map((c) => c.id).sort(),
-    ['old-training-hall', 'sunbaked-plateau', 'tidal-cove', 'tidal-cove']);
+    ['cerulean-cape', 'cerulean-cape', 'floaroma-meadow', 'shalour-city']);
 }
 assert.ok(POKEMON_CARDS.filter((c) => c.pokemonType === 'Fire').length >= 3, 'some Fire Pokémon');
-assert.deepEqual(POKEMON_CARDS.filter((c) => c.weatherTokens).map((c) => [c.name, c.weatherTokens]), [['Glimmeria', { Sun: 1 }]]);
+assert.deepEqual(POKEMON_CARDS.filter((c) => c.weatherTokens).map((c) => [c.name, c.weatherTokens]), [['Sylveon', { Sun: 1 }]]);
 
 // --- Playing Locations ----------------------------------------------------------
 
@@ -102,20 +102,20 @@ assert.deepEqual(POKEMON_CARDS.filter((c) => c.weatherTokens).map((c) => [c.name
 // discarded and its progress lost.
 {
   let s = match();
-  s = place(s, 'player', 'tidal-cove', 0);
+  s = place(s, 'player', 'cerulean-cape', 0);
   assert.equal(s.players.player.baseEnergy, 10, 'no Energy');
   assert.equal(s.turn, 'ai');
-  assert.equal(loc(s, 'player', 0).name, 'Tidal Cove');
+  assert.equal(loc(s, 'player', 0).name, 'Cerulean Cape');
   assert.equal(loc(s, 'player', 0).progress, 0);
-  s = play(s, 'player', 'puddlop', 1, 0);
+  s = play(s, 'player', 'horsea', 1, 0);
   assert.equal(loc(s, 'player', 0).progress, 1);
   const old = loc(s, 'player', 0).uid;
-  s = place(s, 'player', 'old-training-hall', 0);
-  assert.equal(loc(s, 'player', 0).name, 'Old Training Hall');
+  s = place(s, 'player', 'shalour-city', 0);
+  assert.equal(loc(s, 'player', 0).name, 'Shalour City');
   const discarded = s.players.player.discard.find((c) => c.uid === old);
   assert.ok(discarded, 'the old Location goes to the Discard Pile');
   assert.equal(discarded.progress, undefined, 'progress lost');
-  assert.ok(s.log.some((l) => l.includes('replaced Tidal Cove in Zone 1') && l.includes('progress (1/2) is lost')));
+  assert.ok(s.log.some((l) => l.includes('replaced Cerulean Cape in Zone 1') && l.includes('progress (1/2) is lost')));
   // Replayed later, it starts again from 0.
   s.players.player.hand.push(...s.players.player.discard.splice(s.players.player.discard.indexOf(discarded), 1));
   s = applyAction(onTurn(s, 'player'), { type: 'playLocation', who: 'player', uid: old, zone: 2 });
@@ -125,14 +125,14 @@ assert.deepEqual(POKEMON_CARDS.filter((c) => c.weatherTokens).map((c) => [c.name
 // Not into a fallen zone; a Location already there stays and keeps counting.
 {
   let s = match();
-  s = place(s, 'player', 'sunbaked-plateau', 0);
-  s = play(s, 'player', 'emberkit', 0, 0);
+  s = place(s, 'player', 'floaroma-meadow', 0);
+  s = play(s, 'player', 'growlithe', 0, 0);
   trainer(s, 'player', 0).strength = 0;              // Zone 1 falls on your side
   assert.deepEqual(locationSpaces(s, 'player'), [1, 2]);
-  const uid = give(s, 'player', 'tidal-cove');
+  const uid = give(s, 'player', 'cerulean-cape');
   onTurn(s, 'player');
   assert.throws(() => applyAction(s, { type: 'playLocation', who: 'player', uid, zone: 0 }), /fallen/);
-  assert.equal(loc(s, 'player', 0).name, 'Sunbaked Plateau', 'it stays');
+  assert.equal(loc(s, 'player', 0).name, 'Floaroma Meadow', 'it stays');
   ready(s, 'player', 0, 0);
   s = command(s, 'player', { zone: 0, space: 0 }, { kind: 'trainer', zone: 0 });
   assert.equal(loc(s, 'player', 0).progress, 1, 'and keeps counting');
@@ -140,38 +140,38 @@ assert.deepEqual(POKEMON_CARDS.filter((c) => c.weatherTokens).map((c) => [c.name
 
 // --- Quests -------------------------------------------------------------------
 
-// Tidal Cove: summon 2 Water Pokémon (Ash's free summon counts). Then +2 XP,
+// Cerulean Cape: summon 2 Water Pokémon (Ash's free summon counts). Then +2 XP,
 // draw 2, and the Location is Released.
 {
   let s = match();
-  s = play(s, 'player', 'toxifin', 1, 0);           // before the Location: doesn't count
-  s = place(s, 'player', 'tidal-cove', 2);
-  s = play(s, 'ai', 'toxifin', 0, 0);                // the opponent's: doesn't count
-  s = play(s, 'player', 'emberkit', 0, 0);           // not Water
+  s = play(s, 'player', 'quagsire', 1, 0);           // before the Location: doesn't count
+  s = place(s, 'player', 'cerulean-cape', 2);
+  s = play(s, 'ai', 'quagsire', 0, 0);                // the opponent's: doesn't count
+  s = play(s, 'player', 'growlithe', 0, 0);           // not Water
   assert.equal(loc(s, 'player', 2).progress, 0);
-  s = play(s, 'player', 'frostail', 0, 1);
+  s = play(s, 'player', 'goldeen', 0, 1);
   assert.equal(loc(s, 'player', 2).progress, 1);
   s.players.player.hand = [];
-  stackTop(s, 'player', 'puddlop');
-  s = power(s, 'player', 0);                          // Ash draws Puddlop (1-cost Water)
+  stackTop(s, 'player', 'horsea');
+  s = power(s, 'player', 0);                          // Ash draws Horsea (1-cost Water)
   s = applyAction(s, { type: 'resolveChoice', who: 'player', zone: 2, space: 0 });
   const q = s.players.player;
   assert.equal(q.xp, 2);
   assert.equal(q.hand.length, 2, 'drew 2');
   assert.equal(loc(s, 'player', 2), null);
-  assert.equal(q.released.at(-1).name, 'Tidal Cove');
-  assert.ok(s.log.some((l) => l.includes('Your Tidal Cove quest complete! You gain 2 XP (now 2).')));
-  assert.ok(s.log.some((l) => l.includes('Your Tidal Cove goes to the Released Pile.')));
+  assert.equal(q.released.at(-1).name, 'Cerulean Cape');
+  assert.ok(s.log.some((l) => l.includes('Your Cerulean Cape quest complete! You gain 2 XP (now 2).')));
+  assert.ok(s.log.some((l) => l.includes('Your Cerulean Cape goes to the Released Pile.')));
 }
 
-// Sunbaked Plateau: 3 attacks with Pokémon in this Zone; others don't count.
+// Floaroma Meadow: 3 attacks with Pokémon in this Zone; others don't count.
 // Then +3 XP and +1 Attack for friendly Pokémon there now; then Released.
 {
   let s = match();
-  s = place(s, 'player', 'sunbaked-plateau', 1);
-  s = play(s, 'player', 'gustling', 1, 0);           // in the zone
-  s = play(s, 'player', 'zappip', 1, 1);
-  s = play(s, 'player', 'emberkit', 0, 0);           // another zone
+  s = place(s, 'player', 'floaroma-meadow', 1);
+  s = play(s, 'player', 'pidgey', 1, 0);           // in the zone
+  s = play(s, 'player', 'shinx', 1, 1);
+  s = play(s, 'player', 'growlithe', 0, 0);           // another zone
   const attack = (zone, space) => {
     ready(s, 'player', zone, space);
     s = command(s, 'player', { zone, space }, { kind: 'trainer', zone: 0 });
@@ -186,22 +186,22 @@ assert.deepEqual(POKEMON_CARDS.filter((c) => c.weatherTokens).map((c) => [c.name
   attack(1, 0);
   assert.equal(s.players.player.xp, 3);
   assert.equal(loc(s, 'player', 1), null);
-  assert.equal(attackOf(at(s, 'player', 1, 0)), 4, 'Gustling 3 + 1');
-  assert.equal(attackOf(at(s, 'player', 1, 1)), 3, 'Zappip 2 + 1');
+  assert.equal(attackOf(at(s, 'player', 1, 0)), 4, 'Pidgey 3 + 1');
+  assert.equal(attackOf(at(s, 'player', 1, 1)), 3, 'Shinx 2 + 1');
   assert.equal(attackOf(at(s, 'player', 0, 0)), 2, 'other zone: no buff');
-  s = play(s, 'player', 'brawlix', 1, 2);
+  s = play(s, 'player', 'magmar', 1, 2);
   assert.equal(attackOf(at(s, 'player', 1, 2)), 4, 'a one-off: later Pokémon get nothing');
 }
 
-// Old Training Hall: 3 Trainer Powers. Then +2 XP and heal friendly Trainers 2.
+// Shalour City: 3 Trainer Powers. Then +2 XP and heal friendly Trainers 2.
 {
   let s = match();
-  s = place(s, 'player', 'old-training-hall', 0);
+  s = place(s, 'player', 'shalour-city', 0);
   trainer(s, 'player', 0).strength = 10;
   trainer(s, 'player', 1).strength = 14;
   trainer(s, 'ai', 0).strength = 10;
-  s = play(s, 'ai', 'puddlop', 1, 0);
-  s = play(s, 'player', 'pebblet', 2, 0);
+  s = play(s, 'ai', 'horsea', 1, 0);
+  s = play(s, 'player', 'geodude', 2, 0);
   s = power(s, 'player', 1, pref('ai', 1, 0));       // Misty
   s = power(s, 'player', 2, pref('player', 2, 0));   // Brock
   assert.equal(loc(s, 'player', 0).progress, 2);
@@ -217,14 +217,14 @@ assert.deepEqual(POKEMON_CARDS.filter((c) => c.weatherTokens).map((c) => [c.name
 // Two Locations with the same quest both count the same event.
 {
   let s = match();
-  s = place(s, 'player', 'tidal-cove', 0);
-  s = place(s, 'player', 'tidal-cove', 1);
-  s = play(s, 'player', 'puddlop', 2, 0);
+  s = place(s, 'player', 'cerulean-cape', 0);
+  s = place(s, 'player', 'cerulean-cape', 1);
+  s = play(s, 'player', 'horsea', 2, 0);
   assert.equal(loc(s, 'player', 0).progress, 1);
   assert.equal(loc(s, 'player', 1).progress, 1);
-  s = play(s, 'player', 'toxifin', 2, 1);
+  s = play(s, 'player', 'quagsire', 2, 1);
   assert.equal(s.players.player.xp, 4, 'both completed');
-  assert.equal(s.players.player.released.filter((c) => c.id === 'tidal-cove').length, 2);
+  assert.equal(s.players.player.released.filter((c) => c.id === 'cerulean-cape').length, 2);
 }
 
 // --- Weather Tokens -------------------------------------------------------------
@@ -232,22 +232,22 @@ assert.deepEqual(POKEMON_CARDS.filter((c) => c.weatherTokens).map((c) => [c.name
 {
   let s = match();
   assert.deepEqual(weatherCounts(s), {});
-  s = place(s, 'player', 'tidal-cove', 0);           // Rain 2
-  s = place(s, 'player', 'old-training-hall', 1);    // Rain 1, Sun 1
-  s = place(s, 'ai', 'sunbaked-plateau', 2);         // Sun 2
-  give(s, 'player', 'glimmeria');
+  s = place(s, 'player', 'cerulean-cape', 0);           // Rain 2
+  s = place(s, 'player', 'shalour-city', 1);    // Rain 1, Sun 1
+  s = place(s, 'ai', 'floaroma-meadow', 2);         // Sun 2
+  give(s, 'player', 'sylveon');
   assert.deepEqual(weatherCounts(s), { Rain: 3, Sun: 3 }, 'combined across both players; a card in hand doesn\'t count');
-  s = play(s, 'player', 'glimmeria', 2, 0);          // Sun 1 while in the arena
+  s = play(s, 'player', 'sylveon', 2, 0);          // Sun 1 while in the arena
   assert.deepEqual(weatherCounts(s), { Rain: 3, Sun: 4 });
-  // Glimmeria defeated: its token stops counting.
-  s = play(s, 'ai', 'duskfang', 2, 1);               // Quick Attack: Active, Swift
+  // Sylveon defeated: its token stops counting.
+  s = play(s, 'ai', 'absol', 2, 1);               // Quick Attack: Active, Swift
   at(s, 'player', 2, 0).currentStrength = 1;
   s = command(s, 'ai', { zone: 2, space: 1 }, { kind: 'pokemon', zone: 2, space: 0 });
   assert.equal(at(s, 'player', 2, 0), null);
   assert.deepEqual(weatherCounts(s), { Rain: 3, Sun: 3 });
   // A completed Location leaves play: its tokens stop counting.
-  s = play(s, 'player', 'puddlop', 0, 0);
-  s = play(s, 'player', 'toxifin', 0, 1);
+  s = play(s, 'player', 'horsea', 0, 0);
+  s = play(s, 'player', 'quagsire', 0, 1);
   assert.equal(loc(s, 'player', 0), null);
   assert.deepEqual(weatherCounts(s), { Rain: 1, Sun: 3 });
 }
@@ -259,13 +259,13 @@ assert.deepEqual(POKEMON_CARDS.filter((c) => c.weatherTokens).map((c) => [c.name
 {
   let s = match();
   s.players.player.xp = 3;
-  stackTop(s, 'player', 'emberkit');
+  stackTop(s, 'player', 'growlithe');
   s = nextRound(s);
   assert.equal(s.phase, 'breakfast');
   assert.equal(s.xpStep, true);
   assert.deepEqual(legalActions(s, 'player'), ['spendXp']);
   assert.deepEqual(legalActions(s, 'ai'), [], 'no XP: skipped');
-  const ember = s.players.player.hand.find((c) => c.id === 'emberkit');
+  const ember = s.players.player.hand.find((c) => c.id === 'growlithe');
   const item = s.players.player.hand.find((c) => c.cardType !== 'Pokémon');
   assert.throws(() => applyAction(s, { type: 'spendXp', who: 'player', spend: Array(4).fill({ uid: ember.uid, stat: 'attack' }) }), /Only 3 XP/);
   if (item) assert.throws(() => applyAction(s, { type: 'spendXp', who: 'player', spend: [{ uid: item.uid, stat: 'attack' }] }), /Pokémon/);
@@ -273,7 +273,7 @@ assert.deepEqual(POKEMON_CARDS.filter((c) => c.weatherTokens).map((c) => [c.name
   assert.equal(s.phase, 'battle');
   assert.equal(s.players.player.xp, 1, 'unspent XP is stored');
   assert.deepEqual(s.players.player.hand.find((c) => c.uid === ember.uid).xp, { attack: 1, strength: 1 });
-  assert.ok(s.log.some((l) => l.includes('You spent 2 XP: Emberkit +1 Attack, +1 Strength (1 XP left).')));
+  assert.ok(s.log.some((l) => l.includes('You spent 2 XP: Growlithe +1 Attack, +1 Strength (1 XP left).')));
   s = applyAction(onTurn(s, 'player'), { type: 'playPokemon', who: 'player', uid: ember.uid, zone: 0, space: 0 });
   assert.deepEqual(stats(at(s, 'player', 0, 0)), [3, 4, 4], 'permanent once played: current and maximum Strength');
   s = nextRound(s);
@@ -286,17 +286,17 @@ assert.deepEqual(POKEMON_CARDS.filter((c) => c.weatherTokens).map((c) => [c.name
   let s = match();
   s.players.player.xp = 1;
   s.players.ai.xp = 2;
-  stackTop(s, 'player', 'emberkit');
-  stackTop(s, 'ai', 'zappip');
-  s.players.ai.drawPile.forEach((c) => { if (c.cardType === 'Pokémon' && c.id !== 'zappip') c.energyCost = 9; });
+  stackTop(s, 'player', 'growlithe');
+  stackTop(s, 'ai', 'shinx');
+  s.players.ai.drawPile.forEach((c) => { if (c.cardType === 'Pokémon' && c.id !== 'shinx') c.energyCost = 9; });
   s = nextRound(s);
   s = applyAction(s, chooseAction(s, 'ai'));
-  const zap = s.players.ai.hand.find((c) => c.id === 'zappip');
+  const zap = s.players.ai.hand.find((c) => c.id === 'shinx');
   assert.equal(zap.xp, undefined, 'hidden until both lock in');
   assert.equal(s.players.ai.xp, 2);
-  const ember = s.players.player.hand.find((c) => c.id === 'emberkit');
+  const ember = s.players.player.hand.find((c) => c.id === 'growlithe');
   s = applyAction(s, { type: 'spendXp', who: 'player', spend: [{ uid: ember.uid, stat: 'strength' }] });
-  const zapAfter = s.players.ai.hand.find((c) => c.id === 'zappip');
+  const zapAfter = s.players.ai.hand.find((c) => c.id === 'shinx');
   assert.equal(zapAfter.xp.attack + zapAfter.xp.strength, 2, 'the AI spent all its XP on its cheapest affordable Pokémon');
   assert.equal(s.players.ai.xp, 0);
 }
@@ -307,8 +307,8 @@ assert.deepEqual(POKEMON_CARDS.filter((c) => c.weatherTokens).map((c) => [c.name
   for (const who of PLAYERS) s = applyAction(s, chooseAction(s, who));
   s = applyAction(s, { type: 'flipCoin' });
   s.players.player.xp = 1;
-  s.players.player.hand.push(...s.players.player.drawPile.filter((c) => c.id === 'emberkit').splice(0, 1));
-  s.players.player.drawPile = s.players.player.drawPile.filter((c) => c.id !== 'emberkit');
+  s.players.player.hand.push(...s.players.player.drawPile.filter((c) => c.id === 'growlithe').splice(0, 1));
+  s.players.player.drawPile = s.players.player.drawPile.filter((c) => c.id !== 'growlithe');
   for (const who of PLAYERS) s = applyAction(s, { type: 'mulligan', who, cardUids: [] });
   assert.equal(s.xpStep, true);
   assert.deepEqual(legalActions(s, 'player'), ['spendXp']);
@@ -318,9 +318,9 @@ assert.deepEqual(POKEMON_CARDS.filter((c) => c.weatherTokens).map((c) => [c.name
 {
   let s = match();
   s.players.player.xp = 2;
-  stackTop(s, 'player', 'mindrake');
+  stackTop(s, 'player', 'dragonite');
   s = nextRound(s);
-  const mind = s.players.player.hand.find((c) => c.id === 'mindrake');
+  const mind = s.players.player.hand.find((c) => c.id === 'dragonite');
   s = applyAction(s, { type: 'spendXp', who: 'player', spend: [{ uid: mind.uid, stat: 'attack' }, { uid: mind.uid, stat: 'attack' }] });
   s = nextRound(s);                                  // Supper discards it
   const gone = s.players.player.discard.find((c) => c.uid === mind.uid)
@@ -333,12 +333,12 @@ assert.deepEqual(POKEMON_CARDS.filter((c) => c.weatherTokens).map((c) => [c.name
 {
   let s = match();
   s.players.player.xp = 1;
-  stackTop(s, 'player', 'mindrake');
+  stackTop(s, 'player', 'dragonite');
   s = nextRound(s);
-  const mind = s.players.player.hand.find((c) => c.id === 'mindrake');
+  const mind = s.players.player.hand.find((c) => c.id === 'dragonite');
   s = applyAction(s, { type: 'spendXp', who: 'player', spend: [{ uid: mind.uid, stat: 'strength' }] });
   s.players.player.supporterRound = null;
-  const researcher = give(s, 'player', 'field-researcher');
+  const researcher = give(s, 'player', 'tracey');
   s = applyAction(onTurn(s, 'player'), { type: 'playSupporter', who: 'player', uid: researcher, discard: [mind.uid] });
   const paid = [...s.players.player.discard, ...s.players.player.hand].find((c) => c.uid === mind.uid);
   assert.equal(paid.xp, undefined);
@@ -349,14 +349,14 @@ assert.deepEqual(POKEMON_CARDS.filter((c) => c.weatherTokens).map((c) => [c.name
 // Locations only into empty spaces; never replaces.
 {
   let s = match();
-  s = place(s, 'ai', 'tidal-cove', 0);
-  s = place(s, 'ai', 'tidal-cove', 1);
+  s = place(s, 'ai', 'cerulean-cape', 0);
+  s = place(s, 'ai', 'cerulean-cape', 1);
   onTurn(s, 'ai');
   s.players.ai.hand = [];
-  give(s, 'ai', 'sunbaked-plateau');
+  give(s, 'ai', 'floaroma-meadow');
   s.players.ai.trainers.forEach((t) => { t.power = { ...t.power, cost: 99 }; });
   assert.deepEqual(chooseAction(s, 'ai'), { type: 'playLocation', who: 'ai', uid: s.players.ai.hand[0].uid, zone: 2 });
-  s = place(s, 'ai', 'old-training-hall', 2);
+  s = place(s, 'ai', 'shalour-city', 2);
   onTurn(s, 'ai');
   assert.ok(playableLocations(s, 'ai').length, 'replacing would be legal...');
   assert.deepEqual(chooseAction(s, 'ai'), { type: 'pass', who: 'ai' }, '...but the AI never replaces');
@@ -368,8 +368,8 @@ assert.deepEqual(POKEMON_CARDS.filter((c) => c.weatherTokens).map((c) => [c.name
   s.players.ai.xp = 2;
   s.players.ai.drawPile.forEach((c) => { if (c.cardType === 'Pokémon') c.energyCost = 9; });
   s.players.player.xp = 1;
-  stackTop(s, 'player', 'emberkit');
-  stackTop(s, 'ai', 'mindrake');
+  stackTop(s, 'player', 'growlithe');
+  stackTop(s, 'ai', 'dragonite');
   s = nextRound(s);
   assert.deepEqual(chooseAction(s, 'ai'), { type: 'spendXp', who: 'ai', spend: [] });
 }

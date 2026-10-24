@@ -102,12 +102,12 @@ assert.ok(POKEMON_CARDS.filter((c) => c.innatePower === 'Agility').length >= 2);
 {
   let s = match();
   const p = s.players.player;
-  p.drawPile.unshift(...p.drawPile.splice(p.drawPile.findIndex((c) => c.id === 'emberkit'), 1));
+  p.drawPile.unshift(...p.drawPile.splice(p.drawPile.findIndex((c) => c.id === 'growlithe'), 1));
   s = strategy(s, 'player', give(s, 'player', 'quickdraw'));
   s = applyAction(s, { type: 'pass', who: 'ai' });
-  const ember = s.players.player.hand.find((c) => c.id === 'emberkit');
+  const ember = s.players.player.hand.find((c) => c.id === 'growlithe');
   s = applyAction(s, { type: 'playPokemon', who: 'player', uid: ember.uid, zone: 0, space: 0 });
-  assert.equal(at(s, 'player', 0, 0).name, 'Emberkit');
+  assert.equal(at(s, 'player', 0, 0).name, 'Growlithe');
   const left = s.players.player.hand.map((c) => c.uid);
   s = applyAction(s, { type: 'pass', who: 'ai' });
   s = applyAction(s, { type: 'pass', who: 'player' });
@@ -151,27 +151,27 @@ assert.ok(POKEMON_CARDS.filter((c) => c.innatePower === 'Agility').length >= 2);
 // 2 damage to every opponent Pokémon, Agility included; friendly ones untouched.
 {
   let s = match();
-  s = play(s, 'ai', 'pebblet', 0, 0);                // 5 → 3
-  s = play(s, 'ai', 'gustling', 1, 1);               // Agility, 3 → 1
-  s = play(s, 'ai', 'zappip', 2, 2);                 // 2 → defeated
-  s = play(s, 'player', 'emberkit', 0, 0);
+  s = play(s, 'ai', 'geodude', 0, 0);                // 5 → 3
+  s = play(s, 'ai', 'pidgey', 1, 1);               // Agility, 3 → 1
+  s = play(s, 'ai', 'shinx', 2, 2);                 // 2 → defeated
+  s = play(s, 'player', 'growlithe', 0, 0);
   const trainers = s.players.ai.zones.map((z) => z.trainer.strength);
   s.players.player.baseEnergy = 3;
   s = strategy(s, 'player', give(s, 'player', 'hypervoice'));
   assert.equal(at(s, 'ai', 0, 0).currentStrength, 3);
   assert.equal(at(s, 'ai', 1, 1).currentStrength, 1, 'area effects still hit Agility');
   assert.equal(at(s, 'ai', 2, 2), null);
-  assert.equal(s.players.ai.released.at(-1).name, 'Zappip');
+  assert.equal(s.players.ai.released.at(-1).name, 'Shinx');
   assert.equal(at(s, 'player', 0, 0).currentStrength, 3);
   assert.deepEqual(s.players.ai.zones.map((z) => z.trainer.strength), trainers, 'Trainers are not Pokémon');
   assert.equal(s.players.player.baseEnergy, 0);
-  assert.ok(s.log.some((l) => l.includes("Your Hypervoice: 2 damage to AI Opponent's Gustling")));
+  assert.ok(s.log.some((l) => l.includes("Your Hypervoice: 2 damage to AI Opponent's Pidgey")));
 }
 
 // Needs at least one opponent Pokémon.
 {
   let s = match();
-  s = play(s, 'player', 'emberkit', 0, 0);
+  s = play(s, 'player', 'growlithe', 0, 0);
   s.turn = 'player';
   const uid = give(s, 'player', 'hypervoice');
   assert.ok(!playableStrategies(s, 'player').some((c) => c.uid === uid));
@@ -183,9 +183,9 @@ assert.ok(POKEMON_CARDS.filter((c) => c.innatePower === 'Agility').length >= 2);
 // Heals 5, capped at maximum Strength; any damaged Pokémon or Trainer, either side.
 {
   let s = match();
-  s = play(s, 'player', 'ironhorn', 0, 0);           // 8
-  s = play(s, 'ai', 'pebblet', 1, 0);                // 5
-  s = play(s, 'player', 'emberkit', 0, 1);           // undamaged
+  s = play(s, 'player', 'lairon', 0, 0);           // 8
+  s = play(s, 'ai', 'geodude', 1, 0);                // 5
+  s = play(s, 'player', 'growlithe', 0, 1);           // undamaged
   at(s, 'player', 0, 0).currentStrength = 1;
   at(s, 'ai', 1, 0).currentStrength = 4;
   s.players.player.zones[2].trainer.strength = 13;
@@ -207,7 +207,7 @@ assert.ok(POKEMON_CARDS.filter((c) => c.innatePower === 'Agility').length >= 2);
   assert.equal(t.players.player.zones[2].trainer.strength, 15, "capped at the Trainer's starting Strength");
 
   let u = match();
-  u = play(u, 'ai', 'pebblet', 1, 0);
+  u = play(u, 'ai', 'geodude', 1, 0);
   at(u, 'ai', 1, 0).currentStrength = 1;
   u = strategy(u, 'player', give(u, 'player', 'recover'), pref('ai', 1, 0));
   assert.equal(at(u, 'ai', 1, 0).currentStrength, 5, "can heal the opponent's Pokémon");
@@ -216,7 +216,7 @@ assert.ok(POKEMON_CARDS.filter((c) => c.innatePower === 'Agility').length >= 2);
 // Respects a buffed maximum.
 {
   let s = match({ passives: true });
-  s = play(s, 'player', 'puddlop', 1, 0);            // Misty: 4 + 3 = 7
+  s = play(s, 'player', 'horsea', 1, 0);            // Misty: 4 + 3 = 7
   at(s, 'player', 1, 0).currentStrength = 1;
   s = strategy(s, 'player', give(s, 'player', 'recover'), pref('player', 1, 0));
   assert.equal(at(s, 'player', 1, 0).currentStrength, 6);
@@ -226,8 +226,8 @@ assert.ok(POKEMON_CARDS.filter((c) => c.innatePower === 'Agility').length >= 2);
 // Unplayable with no legal target: nothing damaged, or only Agility Pokémon damaged.
 {
   let s = match();
-  s = play(s, 'player', 'gustling', 0, 0);           // Agility
-  s = play(s, 'player', 'emberkit', 0, 1);
+  s = play(s, 'player', 'pidgey', 0, 0);           // Agility
+  s = play(s, 'player', 'growlithe', 0, 1);
   s.turn = 'player';
   const uid = give(s, 'player', 'recover');
   assert.deepEqual(strategyTargets(s, 'player', uid), []);
@@ -244,9 +244,9 @@ assert.ok(POKEMON_CARDS.filter((c) => c.innatePower === 'Agility').length >= 2);
 
 {
   let s = match();
-  s = play(s, 'ai', 'gustling', 1, 0);               // Agility, in Misty's Zone
+  s = play(s, 'ai', 'pidgey', 1, 0);               // Agility, in Misty's Zone
   assert.deepEqual(powerTargets(s, 'player', 1), [pref('ai', 1, 0)], 'Trainer Powers can still target it');
-  s = play(s, 'player', 'emberkit', 0, 0);
+  s = play(s, 'player', 'growlithe', 0, 0);
   at(s, 'player', 0, 0).spent = false;
   s.turn = 'player';
   assert.ok(legalTargets(s, 'player', { zone: 0, space: 0 }).some((t) => t.kind === 'pokemon' && t.zone === 1), 'attacks can still target it');
@@ -257,17 +257,17 @@ assert.ok(POKEMON_CARDS.filter((c) => c.innatePower === 'Agility').length >= 2);
 // Arrives Active, and is Alert by the normal rules.
 {
   let s = match();
-  s = play(s, 'player', 'zappip', 0, 0);             // Swift, Quick Attack
+  s = play(s, 'player', 'shinx', 0, 0);             // Swift, Quick Attack
   const zap = at(s, 'player', 0, 0);
   assert.equal(zap.spent, false, 'Active, not Spent');
   assert.ok(isAlert(s, zap), 'the only Active Pokémon: Alert');
-  s = play(s, 'player', 'emberkit', 0, 1);           // no Quick Attack
+  s = play(s, 'player', 'growlithe', 0, 1);           // no Quick Attack
   assert.equal(at(s, 'player', 0, 1).spent, true);
 
-  s = play(s, 'ai', 'brawlix', 1, 0);                // Steady, Quick Attack
-  const brawlix = at(s, 'ai', 1, 0);
-  assert.equal(brawlix.spent, false);
-  assert.ok(!isAlert(s, brawlix), 'Active but not Alert: a Swift Pokémon is Active');
+  s = play(s, 'ai', 'magmar', 1, 0);                // Steady, Quick Attack
+  const magmar = at(s, 'ai', 1, 0);
+  assert.equal(magmar.spent, false);
+  assert.ok(!isAlert(s, magmar), 'Active but not Alert: a Swift Pokémon is Active');
   s = applyAction(s, { type: 'command', who: 'player', from: { zone: 0, space: 0 }, target: { kind: 'trainer', zone: 2 } });
   assert.ok(isAlert(s, at(s, 'ai', 1, 0)), 'Alert once the Swift one is Spent');
   assert.ok(legalActions(s, 'ai').includes('command'), 'can be Commanded the Round it arrived');
@@ -277,7 +277,7 @@ assert.ok(POKEMON_CARDS.filter((c) => c.innatePower === 'Agility').length >= 2);
 {
   let s = match();
   const p = s.players.player;
-  p.drawPile.unshift(...p.drawPile.splice(p.drawPile.findIndex((c) => c.id === 'zappip'), 1));
+  p.drawPile.unshift(...p.drawPile.splice(p.drawPile.findIndex((c) => c.id === 'shinx'), 1));
   s = applyAction(s, { type: 'usePower', who: 'player', zone: 0 });
   s = applyAction(s, { type: 'resolveChoice', who: 'player', zone: 1, space: 1 });
   assert.equal(at(s, 'player', 1, 1).spent, false);
@@ -288,7 +288,7 @@ assert.ok(POKEMON_CARDS.filter((c) => c.innatePower === 'Agility').length >= 2);
 // Recover only on its own damaged cards.
 {
   let s = match();
-  s = play(s, 'player', 'ironhorn', 0, 0);
+  s = play(s, 'player', 'lairon', 0, 0);
   at(s, 'player', 0, 0).currentStrength = 1;         // only YOUR card is damaged
   s.turn = 'ai';
   s.players.ai.baseEnergy = 3;
@@ -307,8 +307,8 @@ assert.ok(POKEMON_CARDS.filter((c) => c.innatePower === 'Agility').length >= 2);
   s.players.ai.trainers.forEach((t) => { t.power = { ...t.power, cost: 99 }; });
   give(s, 'ai', 'hypervoice');
   assert.deepEqual(chooseAction(s, 'ai'), { type: 'pass', who: 'ai' });
-  s = play(s, 'player', 'zappip', 0, 0);
-  s = play(s, 'player', 'emberkit', 0, 1);
+  s = play(s, 'player', 'shinx', 0, 0);
+  s = play(s, 'player', 'growlithe', 0, 1);
   s.turn = 'ai';
   s.players.ai.baseEnergy = 3;
   assert.equal(chooseAction(s, 'ai').type, 'playStrategy');

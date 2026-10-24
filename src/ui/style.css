@@ -341,3 +341,16 @@ button.secondary { background: var(--panel-2); color: var(--text); margin-top: 0
 .card.item { width: 132px; border-width: 2px; border-style: solid; padding: 0.35rem; gap: 0.25rem; }
 .item-art { background: repeating-linear-gradient(45deg, #6a2c5a, #6a2c5a 6px, #7a3468 6px, #7a3468 12px); }
 .card-line.held { color: #f0a7e0; font-weight: 600; }
+
+/* Card art: a background layer over the placeholder box (see art() in render.js) */
+.card-art { position: relative; overflow: hidden; height: 92px; flex: none; }
+.card-art > span { position: relative; }
+.art-img { position: absolute; inset: 0; background-size: cover; background-position: center 30%; background-repeat: no-repeat; }
+.trainer-art { background: repeating-linear-gradient(45deg, #6a5a2c, #6a5a2c 6px, #7a6834 6px, #7a6834 12px); }
+.card-art.strip { height: 40px; }
+.card-art.thumb { width: 30px; height: 42px; border-radius: 3px; font-size: 0.45rem; }
+.card-art.portrait { width: 52px; height: 72px; border-radius: 4px; font-size: 0.5rem; }
+.card.trainer { flex-direction: row; align-items: flex-start; gap: 0.4rem; }
+.trainer-text { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; flex: 1; }
+.bag-slot { flex-direction: row; align-items: center; gap: 0.3rem; width: 120px; }
+.mart-item { display: flex; gap: 0.35rem; width: 200px; }

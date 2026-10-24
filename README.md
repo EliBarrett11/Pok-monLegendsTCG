@@ -17,7 +17,7 @@ A browser version of Elliott's custom card game, played against an AI opponent. 
 | `src/ai/` | The AI opponent's decision-making. |
 | `src/ui/` | Drawing the board and handling clicks. |
 | `docs/rules.md` | The game's rules, written as they're settled. |
-| `assets/` | Card art and other images. |
+| `assets/cards/` | Card art: `<card id>.jpg`, e.g. `growlithe.jpg`, `professor-oak.jpg`. Cards without a file keep the placeholder look. |
 
 No build step: plain HTML, CSS and JavaScript modules. Working rules for each session are in `CLAUDE.md`.
 
@@ -31,10 +31,11 @@ No build step: plain HTML, CSS and JavaScript modules. Working rules for each se
 - **Step 5** — Effect system and Trainers: a data-driven effect system (`src/engine/effects.js`) designed for Trainers, Strategy Cards, Pokémon abilities and Innate Powers. Ash, Misty and Brock replace the placeholder Trainers, with Powers (a Battle Action, once per Round) and zone Passives. Trainers at 0 Strength are removed and their zone falls on that side. The AI now scores its moves instead of choosing at random.
 - **Step 6** — Strategy Cards and Innate Powers: the "Play a Strategy Card" Action with Quickdraw, Hypervoice and Recover (mostly card data on the effect system), replacing the placeholder Strategy cards in each deck. Quick Attack (summoned Active) and Agility (can't be targeted by Strategy Cards) on placeholder Pokémon. The AI plays Strategy Cards with basic sense.
 - **Step 7** — Pokémon abilities: On Summon, On Attack, On Defend, On Defeated, On Breakfast and On Supper, as card data on the effect system. Resolution now runs through one stack, so chained abilities resolve immediately, simultaneous triggers follow the initiative/zone order rule, and an ability can pause for your target choice. Five placeholder abilities on 13 placeholder Pokémon.
-- **Step 8** — Supporter Cards: the "Play a Supporter Card" Action, paid in cards (Discard and/or Release) with a Gift Bonus Challenge checked by a general card-matching condition. Field Researcher, Veteran Coach and Field Medic replace the placeholder Supporters. One Supporter per Round.
+- **Step 8** — Supporter Cards: the "Play a Supporter Card" Action, paid in cards (Discard and/or Release) with a Gift Bonus Challenge checked by a general card-matching condition. Tracey, Professor Oak and Mallow replace the placeholder Supporters. One Supporter per Round.
 - **Step 9** — Locations, quests and XP: the "Play a Location Card" Action (no Energy; one Location space per zone, replacing allowed), quests as data (summon / attack / Power events, optional filter and zone) that give XP and resolve an effect when completed. Weather Tokens are counted and shown (effects come next). XP is spent at Breakfast on Pokémon in hand, in secret like the mulligan.
 - **Step 10** — Weather effects: Rain and Sun as data, with brackets at 2 / 4 / 6 / 8 tokens ("instead" / "also"). Continuous stat effects on both sides (Attack floored at 0, switching off never defeats), and timed effects at Breakfast and Supper that resolve before same-moment abilities. The Weather panel shows counts, active brackets and effects; Weather-modified stats are tagged on cards.
 - **Step 11** — Items, PokéDollars, the Bag and the PokéMart: PokéDollars earned for every opponent Pokémon defeated; the "Open Bag" Action (buy from hand then use or store, buy from the shared PokéMart with In Delivery, or use from the Bag); Held Items that stay with their Pokémon card until it is Released, and Consumed Items. Seven placeholder Items as data.
+- **Step 12** — Card names and art: the placeholder Pokémon, Supporters, Locations and Items take their real names (stats, effects, costs and copies unchanged), and card art from `assets/cards/<card id>.jpg` shows wherever a card appears: hand, arena, Trainer Spaces, Location spaces, Bag, PokéMart and selection screens. Cards without an image keep the placeholder look; new image files just work.
 
 Add `?seed=123` to the URL to replay the same shuffle and coin flip.
 

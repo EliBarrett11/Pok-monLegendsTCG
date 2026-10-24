@@ -33,7 +33,7 @@ The rules as settled while building the game, in match order. The code follows t
 
 - A Pokémon in play tracks its **current Strength** separately from its printed Strength Value. It starts equal to the Strength Value. Damage stays between Rounds.
 - A Pokémon in play is either **Active** or **Spent**. Newly played Pokémon arrive Spent; at Breakfast all Spent Pokémon become Active.
-- **Alert:** an Active Pokémon is Alert if its Speed-Tier equals the highest Speed-Tier among *all* Active Pokémon in the arena, both sides combined. Order: **Swift > Steady > Slow**. A Held Item (Swift Feather) can raise a Pokémon's Speed-Tier. Alert is recalculated after every Action. Example: my Swift and the opponent's Steady Pokémon are both Active → only mine is Alert; once all Swift Pokémon are Spent, Steady Pokémon become Alert.
+- **Alert:** an Active Pokémon is Alert if its Speed-Tier equals the highest Speed-Tier among *all* Active Pokémon in the arena, both sides combined. Order: **Swift > Steady > Slow**. A Held Item (Oran Berry) can raise a Pokémon's Speed-Tier. Alert is recalculated after every Action. Example: my Swift and the opponent's Steady Pokémon are both Active → only mine is Alert; once all Swift Pokémon are Spent, Steady Pokémon become Alert.
 - Only Alert Pokémon can be Commanded.
 - Pokémon Types have no combat effect. Strength-Types matter only for attack targeting (section 4.2) and Strength-Type buffs (section 7.1).
 
@@ -84,9 +84,9 @@ Keyword abilities on Pokémon that always apply.
 
 | Card | Card-Cost | Effect | Gift Bonus Challenge | Gift Bonus |
 |---|---|---|---|---|
-| **Field Researcher** | Discard 1 | Draw 2 cards. | a Strategy Card | Draw 1 more card. |
-| **Veteran Coach** | Release 1 | Friendly Pokémon in a chosen Zone gain +1/+1 (permanent). Only a Zone where you have at least one Pokémon can be chosen (a fallen zone is fine); Pokémon summoned there later don't get it. | a Swift-Tier Pokémon | +2/+2 instead. |
-| **Field Medic** | Discard 1, Release 1 | Heal a friendly Trainer 4 Strength. Only a damaged friendly Trainer can be chosen. | a Water Pokémon | Also heal all friendly Pokémon in that Trainer's Zone 2 Strength. |
+| **Tracey** | Discard 1 | Draw 2 cards. | a Strategy Card | Draw 1 more card. |
+| **Professor Oak** | Release 1 | Friendly Pokémon in a chosen Zone gain +1/+1 (permanent). Only a Zone where you have at least one Pokémon can be chosen (a fallen zone is fine); Pokémon summoned there later don't get it. | a Swift-Tier Pokémon | +2/+2 instead. |
+| **Mallow** | Discard 1, Release 1 | Heal a friendly Trainer 4 Strength. Only a damaged friendly Trainer can be chosen. | a Water Pokémon | Also heal all friendly Pokémon in that Trainer's Zone 2 Strength. |
 
 ### 1.5 Location Cards
 
@@ -110,9 +110,9 @@ Keyword abilities on Pokémon that always apply.
 
 | Card | Weather | Quest | XP | Effect |
 |---|---|---|---|---|
-| **Tidal Cove** | 2 Rain | Summon 2 Water Pokémon (any summon, including Ash's free summon). | 2 | Draw 2 cards. |
-| **Sunbaked Plateau** | 2 Sun | Attack 3 times with Pokémon in this Zone. | 3 | Friendly Pokémon in this Zone gain +1 Attack (a one-off permanent buff to the Pokémon there now). |
-| **Old Training Hall** | 1 Rain, 1 Sun | Use 3 Trainer Powers. | 2 | Heal all friendly Trainers 2 Strength. |
+| **Cerulean Cape** | 2 Rain | Summon 2 Water Pokémon (any summon, including Ash's free summon). | 2 | Draw 2 cards. |
+| **Floaroma Meadow** | 2 Sun | Attack 3 times with Pokémon in this Zone. | 3 | Friendly Pokémon in this Zone gain +1 Attack (a one-off permanent buff to the Pokémon there now). |
+| **Shalour City** | 1 Rain, 1 Sun | Use 3 Trainer Powers. | 2 | Heal all friendly Trainers 2 Strength. |
 
 ### 1.6 Weather Tokens
 
@@ -161,13 +161,13 @@ Weather types are data (`WEATHER` in `src/engine/cardData.js`), so real Weather 
 
 | Item | Type | Cost | Effect |
 |---|---|---|---|
-| **Power Band** | Held | 3 | Holder gains +2 Attack. |
-| **Iron Shell** | Held | 3 | Holder gains +3 Strength. |
-| **Swift Feather** | Held | 4 | Holder's Speed-Tier is one higher (Slow → Steady → Swift; no effect on Swift). |
-| **Lucky Coin** | Held | 2 | When the holder deals the combat damage that defeats an opponent Pokémon (its attack, or damage it trades back), gain 2 extra PokéDollars. |
+| **Black Belt** | Held | 3 | Holder gains +2 Attack. |
+| **Rocky Helmet** | Held | 3 | Holder gains +3 Strength. |
+| **Oran Berry** | Held | 4 | Holder's Speed-Tier is one higher (Slow → Steady → Swift; no effect on Swift). |
+| **Amulet Coin** | Held | 2 | When the holder deals the combat damage that defeats an opponent Pokémon (its attack, or damage it trades back), gain 2 extra PokéDollars. |
 | **Potion** | Consumed | 2 | Heal a damaged friendly Pokémon in the arena 4 Strength (capped at maximum). |
-| **Wake-Up Tonic** | Consumed | 3 | A friendly Spent Pokémon in the arena becomes Active. |
-| **Energy Drink** | Consumed | 4 | Gain 2 Base Energy this Round (can go above 10; doesn't carry over). |
+| **Rose Incense** | Consumed | 3 | A friendly Spent Pokémon in the arena becomes Active. |
+| **Miracle Seed** | Consumed | 4 | Gain 2 Base Energy this Round (can go above 10; doesn't carry over). |
 
 ## 2. The Battle Arena
 
@@ -344,26 +344,26 @@ A Pokémon ability is an **Effect Trigger Word** plus **Effect Text**. It fires 
 
 ## Placeholders in the current build
 
-- Decks are 16 Pokémon, 8 Strategy (3 Quickdraw, 3 Hypervoice, 2 Recover), 8 Item (2 Power Band, 2 Iron Shell, 1 Swift Feather, 1 Lucky Coin, 1 Potion, 1 Energy Drink; Wake-Up Tonic is PokéMart only), 4 Location (2 Tidal Cove, 1 Sunbaked Plateau, 1 Old Training Hall) and 4 Supporter (2 Field Researcher, 1 Veteran Coach, 1 Field Medic) cards. This mix is a stand-in, not a rule.
+- Decks are 16 Pokémon, 8 Strategy (3 Quickdraw, 3 Hypervoice, 2 Recover), 8 Item (2 Black Belt, 2 Rocky Helmet, 1 Oran Berry, 1 Amulet Coin, 1 Potion, 1 Miracle Seed; Rose Incense is PokéMart only), 4 Location (2 Cerulean Cape, 1 Floaroma Meadow, 1 Shalour City) and 4 Supporter (2 Tracey, 1 Professor Oak, 1 Mallow) cards. This mix is a stand-in, not a rule.
 - The 16 Pokémon are invented placeholders, one of each per deck, with the same list for both players. Stats: Energy Cost 1–6, Attack 1–6, Strength 2–10.
-- Placeholder art is a box tinted by Pokémon Type (striped for Strategy, Supporter and Location Cards).
-- Fire Pokémon: Emberkit, plus Brawlix and Quakemaw (retyped from Fighting and Ground). Glimmeria carries a Weather Token of 1 Sun; no other placeholder Pokémon has one.
+- Card art comes from `assets/cards/<card id>.jpg` (the id is the card name in lowercase with hyphens, e.g. `professor-oak.jpg`). A card without a file shows a placeholder box, tinted by Pokémon Type or striped by Card-Type. The Trainers (ash.jpg, misty.jpg, brock.jpg) have no art yet.
+- Fire Pokémon: Growlithe, plus Magmar and Blaziken (retyped from Fighting and Ground). Sylveon carries a Weather Token of 1 Sun; no other placeholder Pokémon has one.
 - Rain and Sun (section 1.6) are placeholder Weather types.
-- Location rarities are placeholders: Tidal Cove Common, Sunbaked Plateau and Old Training Hall Uncommon.
+- Location rarities are placeholders: Cerulean Cape Common, Floaroma Meadow and Shalour City Uncommon.
 - Placeholder abilities (section 8):
 
 | Ability | Pokémon |
 |---|---|
-| **On Summon:** Deal 1 damage to an opponent Pokémon in this Pokémon's Zone. | Emberkit, Shadepup, Quakemaw |
-| **On Attack:** If this Pokémon attacked a Trainer, draw 1 card. | Gustling, Duskfang |
-| **On Defend:** Deal 1 damage to the attacker. | Sproutle, Pebblet, Ironhorn |
-| **On Defeated:** Heal the friendly Trainer in this Pokémon's Zone 3 Strength (nothing if that Trainer has been removed). | Puddlop, Mothdust, Toxifin |
-| **On Breakfast:** Gain 1 extra Base Energy this Round. | Frostail, Glimmeria |
+| **On Summon:** Deal 1 damage to an opponent Pokémon in this Pokémon's Zone. | Growlithe, Dusclops, Blaziken |
+| **On Attack:** If this Pokémon attacked a Trainer, draw 1 card. | Pidgey, Absol |
+| **On Defend:** Deal 1 damage to the attacker. | Sewaddle, Geodude, Lairon |
+| **On Defeated:** Heal the friendly Trainer in this Pokémon's Zone 3 Strength (nothing if that Trainer has been removed). | Horsea, Metapod, Quagsire |
+| **On Breakfast:** Gain 1 extra Base Energy this Round. | Goldeen, Sylveon |
 
-  Zappip, Brawlix and Mindrake have no ability.
-- Innate Powers on placeholder Pokémon: **Quick Attack** on Zappip, Brawlix and Duskfang; **Agility** on Gustling, Shadepup and Glimmeria.
-- Strategy Card rarities are placeholders: Quickdraw Common, Hypervoice Uncommon, Recover Rare. So are the Supporters': Field Researcher Common, Veteran Coach Uncommon, Field Medic Rare.
+  Shinx, Magmar and Dragonite have no ability.
+- Innate Powers on placeholder Pokémon: **Quick Attack** on Shinx, Magmar and Absol; **Agility** on Pidgey, Dusclops and Sylveon.
+- Strategy Card rarities are placeholders: Quickdraw Common, Hypervoice Uncommon, Recover Rare. So are the Supporters': Tracey Common, Professor Oak Uncommon, Mallow Rare.
 - The 7 Items (section 1.7) are placeholders, including their rarities.
 - Both players use the same three Trainers: Ash, Misty and Brock (section 7.4), each with Strength 15.
-- To give every Trainer something to work with, three placeholder Pokémon are Water (Puddlop, Frostail, Toxifin), four cost 1, and five have Defence Strength-Type.
-- **The AI** places Trainers at random and only spends Base Energy (never Exert). On a Battle turn it scores every legal move and picks the best (ties at random), passing only when nothing else is legal. From the top: winning the match; bringing an enemy Trainer to 0; defeating an enemy Pokémon (by attack or Misty) without losing its own; attacking the weakest enemy Trainer; playing its most expensive affordable Pokémon, preferring zones where its own Passives boost it and avoiding the opponent's Brock zone; Brock's buff on its strongest Defence Pokémon, Ash's draw, Misty chip damage; other attacks; and last, trades that lose the attacker for nothing. It always takes Ash's free summon when there is room. Strategy Cards: Hypervoice only when you have Pokémon (scored by damage dealt and Pokémon defeated), Recover only on its own damaged Pokémon or Trainers (more when a Trainer is low), Quickdraw about as highly as Ash's draw. Supporters: it pays with random cards from its hand, but puts a card that meets the Gift Challenge in when it has one; it scores them by what they gain (Field Researcher like a draw, Veteran Coach by stats gained, Field Medic by Strength healed) minus the cards paid, a Released card counting double. Locations: it only plays into empty Location spaces and never replaces one. XP: it spends all of it on the cheapest Pokémon in hand it can afford this Round with Base Energy, splitting points between Attack and Strength at random; with no affordable Pokémon it keeps the XP. Open Bag: an Item bought from hand is used straight away if it has a legal target, otherwise stored; it sometimes buys from the PokéMart when its Bag has room; Held Items go on a random Pokémon of its own in the arena, preferring one without an Item. When one of its abilities needs a target, it picks a random legal one. It tries moves on a copy of the game to score them (abilities included), except draws (Ash, Quickdraw), so it never sees its own Draw Pile.
+- To give every Trainer something to work with, three placeholder Pokémon are Water (Horsea, Goldeen, Quagsire), four cost 1, and five have Defence Strength-Type.
+- **The AI** places Trainers at random and only spends Base Energy (never Exert). On a Battle turn it scores every legal move and picks the best (ties at random), passing only when nothing else is legal. From the top: winning the match; bringing an enemy Trainer to 0; defeating an enemy Pokémon (by attack or Misty) without losing its own; attacking the weakest enemy Trainer; playing its most expensive affordable Pokémon, preferring zones where its own Passives boost it and avoiding the opponent's Brock zone; Brock's buff on its strongest Defence Pokémon, Ash's draw, Misty chip damage; other attacks; and last, trades that lose the attacker for nothing. It always takes Ash's free summon when there is room. Strategy Cards: Hypervoice only when you have Pokémon (scored by damage dealt and Pokémon defeated), Recover only on its own damaged Pokémon or Trainers (more when a Trainer is low), Quickdraw about as highly as Ash's draw. Supporters: it pays with random cards from its hand, but puts a card that meets the Gift Challenge in when it has one; it scores them by what they gain (Tracey like a draw, Professor Oak by stats gained, Mallow by Strength healed) minus the cards paid, a Released card counting double. Locations: it only plays into empty Location spaces and never replaces one. XP: it spends all of it on the cheapest Pokémon in hand it can afford this Round with Base Energy, splitting points between Attack and Strength at random; with no affordable Pokémon it keeps the XP. Open Bag: an Item bought from hand is used straight away if it has a legal target, otherwise stored; it sometimes buys from the PokéMart when its Bag has room; Held Items go on a random Pokémon of its own in the arena, preferring one without an Item. When one of its abilities needs a target, it picks a random legal one. It tries moves on a copy of the game to score them (abilities included), except draws (Ash, Quickdraw), so it never sees its own Draw Pile.

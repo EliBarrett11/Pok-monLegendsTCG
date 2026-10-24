@@ -130,7 +130,7 @@ function bagScore(state, who, move) {
   if (move.then === 'store') return 5;
   const item = (move.mode === 'buyHand' ? p.hand : p.bag).find((i) => i.uid === move.uid);
   const price = move.mode === 'buyHand' ? item.cost / 2 : 0;
-  if (item.id === 'energy-drink') {
+  if (item.id === 'miracle-seed') {
     const wants = p.hand.some((c) => (c.cardType === 'Pokémon' || c.cardType === 'Strategy')
       && c.energyCost > p.baseEnergy && c.energyCost <= p.baseEnergy + 2);
     return (wants ? 14 : 3) - price;
@@ -140,7 +140,7 @@ function bagScore(state, who, move) {
   const stats = (s) => mine(s).reduce((sum, c) => sum + attackOf(c) + maxStrengthOf(c) + c.currentStrength, 0);
   const gained = stats(after) - stats(state);
   const readied = mine(state).filter((c) => c.spent).length - mine(after).filter((c) => c.spent).length;
-  const special = item.itemType === 'Held' && !item.held.attack && !item.held.strength ? 6 : 0;   // Swift Feather, Lucky Coin
+  const special = item.itemType === 'Held' && !item.held.attack && !item.held.strength ? 6 : 0;   // Oran Berry, Amulet Coin
   return 6 + 2 * gained + 8 * readied + special - price;
 }
 
@@ -270,7 +270,7 @@ function supporterScore(state, who, move, card) {
   const paid = state.players[who].hand.filter((c) => [...move.discard, ...move.release].includes(c.uid));
   const cost = 2 * move.discard.length + 4 * move.release.length;
   const gift = giftMet(card, paid);
-  if (card.id === 'field-researcher') return 14 + (gift ? 5 : 0) - cost;   // a draw: not tried, no peeking
+  if (card.id === 'tracey') return 14 + (gift ? 5 : 0) - cost;   // a draw: not tried, no peeking
   const after = applyAction({ ...state, log: [] }, move);
   const mine = (s) => s.players[who].zones.flatMap((z) => z.pokemon).filter(Boolean);
   const stats = (s) => mine(s).reduce((sum, c) => sum + attackOf(c) + maxStrengthOf(c) + c.currentStrength, 0);

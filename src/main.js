@@ -4,7 +4,7 @@ import { createGame, applyAction } from './engine/game.js';
 import { chooseAction } from './ai/opponent.js';
 import { render } from './ui/render.js';
 
-export const BUILD = 'Step 11 — Items, Bag and PokéMart';
+export const BUILD = 'Step 12 — Card names and art';
 
 document.getElementById('build-tag').textContent = BUILD;
 

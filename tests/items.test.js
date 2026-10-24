@@ -76,14 +76,14 @@ for (const c of ITEM_CARDS) {
   assert.ok('image' in c);
 }
 assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
-  ['Power Band', 'Held', 3], ['Iron Shell', 'Held', 3], ['Swift Feather', 'Held', 4], ['Lucky Coin', 'Held', 2],
-  ['Potion', 'Consumed', 2], ['Wake-Up Tonic', 'Consumed', 3], ['Energy Drink', 'Consumed', 4],
+  ['Black Belt', 'Held', 3], ['Rocky Helmet', 'Held', 3], ['Oran Berry', 'Held', 4], ['Amulet Coin', 'Held', 2],
+  ['Potion', 'Consumed', 2], ['Rose Incense', 'Consumed', 3], ['Miracle Seed', 'Consumed', 4],
 ]);
 {
   const s = createGame(1);
   const items = s.players.player.drawPile.filter((c) => c.cardType === 'Item').map((c) => c.id).sort();
-  assert.deepEqual(items, ['energy-drink', 'iron-shell', 'iron-shell', 'lucky-coin', 'potion', 'power-band', 'power-band', 'swift-feather']);
-  assert.equal(PLACEHOLDER_DECKLIST['wake-up-tonic'], undefined, 'Wake-Up Tonic: PokéMart only');
+  assert.deepEqual(items, ['amulet-coin', 'black-belt', 'black-belt', 'miracle-seed', 'oran-berry', 'potion', 'rocky-helmet', 'rocky-helmet']);
+  assert.equal(PLACEHOLDER_DECKLIST['rose-incense'], undefined, 'Rose Incense: PokéMart only');
   assert.deepEqual(martIds(s), ITEM_CARDS.map((c) => c.id).sort(), 'PokéMart: one of each Item');
   assert.equal(s.players.player.dollars, 0);
   assert.deepEqual(s.players.player.bag, []);
@@ -95,18 +95,18 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
 {
   // My attack.
   let s = match();
-  s = play(s, 'player', 'duskfang', 0, 0);           // Quick Attack: Active
-  s = play(s, 'ai', 'pebblet', 1, 0);                // cost 2
+  s = play(s, 'player', 'absol', 0, 0);           // Quick Attack: Active
+  s = play(s, 'ai', 'geodude', 1, 0);                // cost 2
   at(s, 'ai', 1, 0).currentStrength = 1;
   at(s, 'ai', 1, 0).attackBonus = 5;                 // a buffed card still pays its printed cost
   s = act(s, 'player', { type: 'command', from: { zone: 0, space: 0 }, target: { kind: 'pokemon', zone: 1, space: 0 } });
   assert.equal(s.players.player.dollars, 2);
-  assert.ok(logged(s, 'You earn 2 PokéDollars for defeating Pebblet (now 2).'));
+  assert.ok(logged(s, 'You earn 2 PokéDollars for defeating Geodude (now 2).'));
 
   // Damage traded back by my Pokémon.
   let t = match();
-  t = play(t, 'player', 'gustling', 0, 0);           // Swift
-  t = play(t, 'ai', 'zappip', 1, 0);                 // Swift, Quick Attack, cost 1
+  t = play(t, 'player', 'pidgey', 0, 0);           // Swift
+  t = play(t, 'ai', 'shinx', 1, 0);                 // Swift, Quick Attack, cost 1
   ready(t, 'player', 0, 0);
   at(t, 'ai', 1, 0).currentStrength = 9;             // survives
   at(t, 'ai', 1, 0).spent = false;
@@ -114,21 +114,21 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
   t.players.ai.zones[1].pokemon[0].attackValue = 0;
   at(t, 'player', 0, 0).attackValue = 9;
   t = act(t, 'ai', { type: 'command', from: { zone: 1, space: 0 }, target: { kind: 'pokemon', zone: 0, space: 0 } });
-  assert.equal(t.players.ai.zones[1].pokemon[0], null, 'defeated by the damage Gustling traded back');
+  assert.equal(t.players.ai.zones[1].pokemon[0], null, 'defeated by the damage Pidgey traded back');
   assert.equal(t.players.player.dollars, 1);
 
   // Effects (Misty's Power) and Weather (Sun 8).
   let u = match();
-  u = play(u, 'ai', 'mothdust', 1, 0);               // cost 2
+  u = play(u, 'ai', 'metapod', 1, 0);               // cost 2
   at(u, 'ai', 1, 0).currentStrength = 1;
   u = act(u, 'player', { type: 'usePower', zone: 1, target: pref('ai', 1, 0) });
   assert.equal(u.players.player.dollars, 2);
-  u = play(u, 'player', 'puddlop', 2, 0);            // cost 1, mine
+  u = play(u, 'player', 'horsea', 2, 0);            // cost 1, mine
   at(u, 'player', 2, 0).currentStrength = 1;
   u.players.ai.zones[2].location = { uid: 'sun', name: 'Sun test', cardType: 'Location', weatherTokens: { Sun: 8 }, quest: null };
   refreshAuras(u);
   u = nextRound(u);
-  assert.equal(u.players.player.zones[2].pokemon[0], null, 'my Puddlop defeated by Weather');
+  assert.equal(u.players.player.zones[2].pokemon[0], null, 'my Horsea defeated by Weather');
   assert.equal(u.players.ai.dollars, 1, 'the opponent earns');
 }
 
@@ -137,7 +137,7 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
 // Unusable until bought; discarded at Supper like any other card.
 {
   let s = match();
-  s = play(s, 'player', 'emberkit', 0, 0);
+  s = play(s, 'player', 'growlithe', 0, 0);
   at(s, 'player', 0, 0).currentStrength = 1;
   const potion = give(s, 'player', 'potion');
   onTurn(s, 'player');
@@ -151,7 +151,7 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
 // Buy from hand, then use it now...
 {
   let s = match();
-  s = play(s, 'player', 'ironhorn', 0, 0);
+  s = play(s, 'player', 'lairon', 0, 0);
   at(s, 'player', 0, 0).currentStrength = 2;
   const potion = give(s, 'player', 'potion');
   s.players.player.dollars = 5;
@@ -168,14 +168,14 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
 // ...or store it, and use it from the Bag on a later turn.
 {
   let s = match();
-  const band = give(s, 'player', 'power-band');
+  const band = give(s, 'player', 'black-belt');
   s.players.player.dollars = 3;
   s = bag(s, 'player', { mode: 'buyHand', uid: band, then: 'store' });
   assert.deepEqual(s.players.player.bag.map((i) => [i.uid, i.inDelivery]), [[band, false]]);
-  s = play(s, 'player', 'emberkit', 0, 0);
+  s = play(s, 'player', 'growlithe', 0, 0);
   s = bag(s, 'player', { mode: 'useBag', uid: band, target: pref('player', 0, 0) });
   assert.equal(s.players.player.bag.length, 0);
-  assert.equal(at(s, 'player', 0, 0).heldItem.name, 'Power Band');
+  assert.equal(at(s, 'player', 0, 0).heldItem.name, 'Black Belt');
   assert.equal(attackOf(at(s, 'player', 0, 0)), 4, '+2 Attack');
 }
 
@@ -198,7 +198,7 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
   let s = match();
   assert.equal(s.mart.onSale.filter(Boolean).length, 3);
   assert.equal(s.mart.deck.length, 4);
-  const slot = s.mart.onSale.findIndex((i) => i.id !== 'energy-drink');
+  const slot = s.mart.onSale.findIndex((i) => i.id !== 'miracle-seed');
   const item = s.mart.onSale[slot];
   s.players.player.dollars = 10;
   s = bag(s, 'player', { mode: 'buyMart', slot });
@@ -235,15 +235,15 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
   const slot = s.mart.onSale.findIndex(Boolean);
   s = bag(s, 'player', { mode: 'buyMart', slot });
   assert.equal(s.players.player.bag.length, BAG_SIZE);
-  s = play(s, 'player', 'emberkit', 0, 0);
-  const band = give(s, 'player', 'power-band');
+  s = play(s, 'player', 'growlithe', 0, 0);
+  const band = give(s, 'player', 'black-belt');
   onTurn(s, 'player');
   const opts = openBagOptions(s, 'player');
   assert.ok(!opts.some((o) => o.mode === 'buyMart'), 'full: no PokéMart');
   assert.ok(!opts.some((o) => o.then === 'store'), 'full: no storing');
   assert.throws(() => bag(s, 'player', { mode: 'buyHand', uid: band, then: 'store' }), /full/);
   s = bag(s, 'player', { mode: 'buyHand', uid: band, then: 'use', target: pref('player', 0, 0) });
-  assert.equal(at(s, 'player', 0, 0).heldItem.name, 'Power Band');
+  assert.equal(at(s, 'player', 0, 0).heldItem.name, 'Black Belt');
   assert.equal(s.players.player.bag.length, BAG_SIZE, 'Bag contents kept');
   s = nextRound(s);
   assert.equal(s.players.player.bag.length, BAG_SIZE, 'never discarded at Supper');
@@ -255,16 +255,16 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
 // reshuffle, back into the hand, and applies once it is in the arena.
 {
   let s = match();
-  const shell = give(s, 'player', 'iron-shell');
-  const iron = give(s, 'player', 'ironhorn');
+  const shell = give(s, 'player', 'rocky-helmet');
+  const iron = give(s, 'player', 'lairon');
   s.players.player.dollars = 3;
   assert.ok(itemTargets(s, 'player', s.players.player.hand.find((c) => c.uid === shell)).some((r) => r.kind === 'hand'));
   s = bag(s, 'player', { mode: 'buyHand', uid: shell, then: 'use', target: href('player', iron) });
-  assert.equal(s.players.player.hand.find((c) => c.uid === iron).heldItem.name, 'Iron Shell');
+  assert.equal(s.players.player.hand.find((c) => c.uid === iron).heldItem.name, 'Rocky Helmet');
   s = nextRound(s);                                  // Supper: discarded, Held Item and all
   const p = s.players.player;
   const where = () => [...p.hand, ...p.discard, ...p.drawPile].find((c) => c.uid === iron);
-  assert.equal(where().heldItem.name, 'Iron Shell');
+  assert.equal(where().heldItem.name, 'Rocky Helmet');
   // Force a reshuffle of the Discard Pile into the Draw Pile, and draw it back.
   const ironCard = [...p.hand, ...p.drawPile].find((c) => c.uid === iron) ?? where();
   [p.hand, p.drawPile, p.discard].forEach((pile) => { const i = pile.indexOf(ironCard); if (i >= 0) pile.splice(i, 1); });
@@ -273,37 +273,37 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
   const back = s.players.player.hand.find((c) => c.uid === iron)
     ?? s.players.player.drawPile.find((c) => c.uid === iron);
   assert.ok(logged(s, 'You shuffled your Discard Pile'));
-  assert.equal(back.heldItem.name, 'Iron Shell', 'still held after the reshuffle');
+  assert.equal(back.heldItem.name, 'Rocky Helmet', 'still held after the reshuffle');
   if (!s.players.player.hand.includes(back)) {
     s.players.player.drawPile.splice(s.players.player.drawPile.indexOf(back), 1);
     s.players.player.hand.push(back);
   }
   s = act(s, 'player', { type: 'playPokemon', uid: iron, zone: 1, space: 0 });
   const placed = at(s, 'player', 1, 0);
-  assert.deepEqual([placed.currentStrength, maxStrengthOf(placed)], [11, 11], 'Ironhorn 8 + 3, current and maximum');
+  assert.deepEqual([placed.currentStrength, maxStrengthOf(placed)], [11, 11], 'Lairon 8 + 3, current and maximum');
 }
 
 // Lost only when its Pokémon is Released: defeated, or paid as a Released Supporter cost.
 {
   let s = match();
-  s = play(s, 'ai', 'emberkit', 1, 0);
-  const lucky = give(s, 'ai', 'lucky-coin');
+  s = play(s, 'ai', 'growlithe', 1, 0);
+  const lucky = give(s, 'ai', 'amulet-coin');
   s.players.ai.dollars = 2;
   s = bag(s, 'ai', { mode: 'buyHand', uid: lucky, then: 'use', target: pref('ai', 1, 0) });
   at(s, 'ai', 1, 0).currentStrength = 1;
   s = act(s, 'player', { type: 'usePower', zone: 1, target: pref('ai', 1, 0) });
   assert.equal(s.players.ai.released.at(-1).heldItem, undefined);
   assert.ok(s.mart.deck.some((c) => c.uid === lucky), 'to the PokéMart');
-  assert.ok(logged(s, 'Lucky Coin was held by AI Opponent\'s Emberkit, which was Released: it is lost, and goes to the PokéMart.'));
+  assert.ok(logged(s, 'Amulet Coin was held by AI Opponent\'s Growlithe, which was Released: it is lost, and goes to the PokéMart.'));
   assert.ok(![...s.players.ai.drawPile, ...s.players.ai.discard, ...s.players.ai.hand].some((c) => c.uid === lucky), 'never back to the deck');
 
   let t = match();
-  const band = give(t, 'player', 'power-band');
-  const zap = give(t, 'player', 'zappip');
+  const band = give(t, 'player', 'black-belt');
+  const zap = give(t, 'player', 'shinx');
   t.players.player.dollars = 3;
   t = bag(t, 'player', { mode: 'buyHand', uid: band, then: 'use', target: href('player', zap) });
-  const coach = give(t, 'player', 'veteran-coach');
-  t = play(t, 'player', 'emberkit', 0, 0);
+  const coach = give(t, 'player', 'professor-oak');
+  t = play(t, 'player', 'growlithe', 0, 0);
   t = act(t, 'player', { type: 'playSupporter', uid: coach, release: [zap], target: { kind: 'zone', owner: 'player', zone: 0 } });
   assert.ok(t.mart.deck.some((c) => c.uid === band), 'Released as a Supporter payment: lost');
 }
@@ -311,66 +311,66 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
 // One Held Item per Pokémon: a new one sends the old one to the PokéMart.
 {
   let s = match();
-  s = play(s, 'player', 'pebblet', 0, 0);            // 2/5
+  s = play(s, 'player', 'geodude', 0, 0);            // 2/5
   at(s, 'player', 0, 0).currentStrength = 7;
-  const shell = give(s, 'player', 'iron-shell');
+  const shell = give(s, 'player', 'rocky-helmet');
   s.players.player.dollars = 10;
   at(s, 'player', 0, 0).currentStrength = 5;
   s = bag(s, 'player', { mode: 'buyHand', uid: shell, then: 'use', target: pref('player', 0, 0) });
   assert.deepEqual([at(s, 'player', 0, 0).currentStrength, maxStrengthOf(at(s, 'player', 0, 0))], [8, 8]);
-  const band = give(s, 'player', 'power-band');
+  const band = give(s, 'player', 'black-belt');
   s = bag(s, 'player', { mode: 'buyHand', uid: band, then: 'use', target: pref('player', 0, 0) });
-  const pebblet = at(s, 'player', 0, 0);
-  assert.equal(pebblet.heldItem.name, 'Power Band');
-  assert.equal(attackOf(pebblet), 4);
-  assert.deepEqual([pebblet.currentStrength, maxStrengthOf(pebblet)], [5, 5], 'Iron Shell gone: like losing a Passive');
+  const geodude = at(s, 'player', 0, 0);
+  assert.equal(geodude.heldItem.name, 'Black Belt');
+  assert.equal(attackOf(geodude), 4);
+  assert.deepEqual([geodude.currentStrength, maxStrengthOf(geodude)], [5, 5], 'Rocky Helmet gone: like losing a Passive');
   assert.ok(s.mart.deck.some((c) => c.uid === shell));
-  assert.ok(logged(s, 'Iron Shell was replaced on your Pebblet'));
+  assert.ok(logged(s, 'Rocky Helmet was replaced on your Geodude'));
 }
 
-// Swift Feather: one Speed-Tier higher, changing who is Alert.
+// Oran Berry: one Speed-Tier higher, changing who is Alert.
 {
   let s = match();
-  s = play(s, 'player', 'mothdust', 0, 0);           // Steady
-  s = play(s, 'ai', 'emberkit', 0, 0);               // Swift
+  s = play(s, 'player', 'metapod', 0, 0);           // Steady
+  s = play(s, 'ai', 'growlithe', 0, 0);               // Swift
   ready(s, 'player', 0, 0);
   ready(s, 'ai', 0, 0);
   assert.ok(!isAlert(s, at(s, 'player', 0, 0)));
-  const feather = give(s, 'player', 'swift-feather');
+  const feather = give(s, 'player', 'oran-berry');
   s.players.player.dollars = 4;
   s = bag(s, 'player', { mode: 'buyHand', uid: feather, then: 'use', target: pref('player', 0, 0) });
-  assert.ok(isAlert(s, at(s, 'player', 0, 0)), 'Steady → Swift: Alert alongside Emberkit');
+  assert.ok(isAlert(s, at(s, 'player', 0, 0)), 'Steady → Swift: Alert alongside Growlithe');
   assert.ok(isAlert(s, at(s, 'ai', 0, 0)));
 
   let t = match();
-  t = play(t, 'player', 'zappip', 0, 0);             // Swift already
-  const f2 = give(t, 'player', 'swift-feather');
+  t = play(t, 'player', 'shinx', 0, 0);             // Swift already
+  const f2 = give(t, 'player', 'oran-berry');
   t.players.player.dollars = 4;
   t = bag(t, 'player', { mode: 'buyHand', uid: f2, then: 'use', target: pref('player', 0, 0) });
   assert.ok(isAlert(t, at(t, 'player', 0, 0)), 'no effect on Swift, but no harm');
 }
 
-// Lucky Coin: +2 when the holder's combat damage defeats an opponent Pokémon, in a trade too.
+// Amulet Coin: +2 when the holder's combat damage defeats an opponent Pokémon, in a trade too.
 {
   let s = match();
-  s = play(s, 'player', 'duskfang', 0, 0);           // Swift, Quick Attack: Active
-  const coin = give(s, 'player', 'lucky-coin');
+  s = play(s, 'player', 'absol', 0, 0);           // Swift, Quick Attack: Active
+  const coin = give(s, 'player', 'amulet-coin');
   s.players.player.dollars = 2;
   s = bag(s, 'player', { mode: 'buyHand', uid: coin, then: 'use', target: pref('player', 0, 0) });
-  s = play(s, 'ai', 'pebblet', 1, 0);
+  s = play(s, 'ai', 'geodude', 1, 0);
   at(s, 'ai', 1, 0).currentStrength = 1;
   s = act(s, 'player', { type: 'command', from: { zone: 0, space: 0 }, target: { kind: 'pokemon', zone: 1, space: 0 } });
-  assert.equal(s.players.player.dollars, 2 + 2, 'cost 2 + Lucky Coin 2');
-  assert.ok(logged(s, "You earn 2 PokéDollars from Duskfang's Lucky Coin"));
+  assert.equal(s.players.player.dollars, 2 + 2, 'cost 2 + Amulet Coin 2');
+  assert.ok(logged(s, "You earn 2 PokéDollars from Absol's Amulet Coin"));
 
   // In a trade: the holder is attacked while Alert and its hit back defeats the attacker.
   let t = match();
-  t = play(t, 'player', 'gustling', 0, 0);           // Swift
-  const c2 = give(t, 'player', 'lucky-coin');
+  t = play(t, 'player', 'pidgey', 0, 0);           // Swift
+  const c2 = give(t, 'player', 'amulet-coin');
   t.players.player.dollars = 2;
   t = bag(t, 'player', { mode: 'buyHand', uid: c2, then: 'use', target: pref('player', 0, 0) });
   ready(t, 'player', 0, 0);
-  t = play(t, 'ai', 'zappip', 1, 0);                 // Swift, Quick Attack, cost 1, Strength 2
+  t = play(t, 'ai', 'shinx', 1, 0);                 // Swift, Quick Attack, cost 1, Strength 2
   at(t, 'player', 0, 0).currentStrength = 9;
   t = act(t, 'ai', { type: 'command', from: { zone: 1, space: 0 }, target: { kind: 'pokemon', zone: 0, space: 0 } });
   assert.equal(t.players.ai.zones[1].pokemon[0], null);
@@ -378,11 +378,11 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
 
   // Effect damage doesn't count.
   let u = match();
-  u = play(u, 'player', 'pebblet', 1, 0);
-  const c3 = give(u, 'player', 'lucky-coin');
+  u = play(u, 'player', 'geodude', 1, 0);
+  const c3 = give(u, 'player', 'amulet-coin');
   u.players.player.dollars = 2;
   u = bag(u, 'player', { mode: 'buyHand', uid: c3, then: 'use', target: pref('player', 1, 0) });
-  u = play(u, 'ai', 'zappip', 1, 0);
+  u = play(u, 'ai', 'shinx', 1, 0);
   at(u, 'ai', 1, 0).currentStrength = 1;
   u = act(u, 'player', { type: 'usePower', zone: 1, target: pref('ai', 1, 0) });
   assert.equal(u.players.player.dollars, 1, 'Misty defeated it, not the holder');
@@ -393,9 +393,9 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
 // Potion: damaged friendly Pokémon in the arena only; capped at maximum.
 {
   let s = match();
-  s = play(s, 'player', 'emberkit', 0, 0);
-  s = play(s, 'player', 'ironhorn', 0, 1);
-  s = play(s, 'ai', 'pebblet', 0, 0);
+  s = play(s, 'player', 'growlithe', 0, 0);
+  s = play(s, 'player', 'lairon', 0, 1);
+  s = play(s, 'ai', 'geodude', 0, 0);
   at(s, 'player', 0, 0).currentStrength = 2;
   at(s, 'ai', 0, 0).currentStrength = 1;
   const potion = give(s, 'player', 'potion');
@@ -405,14 +405,14 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
   assert.equal(at(s, 'player', 0, 0).currentStrength, 3, 'capped at 3');
 }
 
-// Wake-Up Tonic (from the PokéMart): a Spent Pokémon becomes Active, and can be Alert.
+// Rose Incense (from the PokéMart): a Spent Pokémon becomes Active, and can be Alert.
 {
   let s = match();
-  s = play(s, 'player', 'emberkit', 0, 0);           // Spent
-  s = play(s, 'ai', 'mothdust', 0, 0);
+  s = play(s, 'player', 'growlithe', 0, 0);           // Spent
+  s = play(s, 'ai', 'metapod', 0, 0);
   ready(s, 'ai', 0, 0);
-  assert.ok(isAlert(s, at(s, 'ai', 0, 0)), 'Mothdust is Alert while Emberkit is Spent');
-  const tonic = { ...cardDefinition('wake-up-tonic'), uid: 'tonic', inDelivery: false };
+  assert.ok(isAlert(s, at(s, 'ai', 0, 0)), 'Metapod is Alert while Growlithe is Spent');
+  const tonic = { ...cardDefinition('rose-incense'), uid: 'tonic', inDelivery: false };
   s.players.player.bag.push(tonic);
   s = bag(s, 'player', { mode: 'useBag', uid: 'tonic', target: pref('player', 0, 0) });
   assert.equal(at(s, 'player', 0, 0).spent, false);
@@ -421,10 +421,10 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
   assert.ok(s.mart.deck.some((c) => c.uid === 'tonic'));
 }
 
-// Energy Drink: +2 Base Energy this Round, past 10, not carried over.
+// Miracle Seed: +2 Base Energy this Round, past 10, not carried over.
 {
   let s = match();
-  const drink = give(s, 'player', 'energy-drink');
+  const drink = give(s, 'player', 'miracle-seed');
   s.players.player.dollars = 4;
   onTurn(s, 'player');
   s = applyAction(s, { type: 'openBag', who: 'player', mode: 'buyHand', uid: drink, then: 'use' });
@@ -438,9 +438,9 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
 // Buys from hand and uses straight away when it has a target; stores otherwise.
 {
   let s = match();
-  s = play(s, 'ai', 'emberkit', 0, 0);
-  s = play(s, 'ai', 'pebblet', 0, 1);
-  const band = give(s, 'ai', 'power-band');
+  s = play(s, 'ai', 'growlithe', 0, 0);
+  s = play(s, 'ai', 'geodude', 0, 1);
+  const band = give(s, 'ai', 'black-belt');
   s.players.ai.dollars = 3;
   s.mart.onSale = [null, null, null];
   onTurn(s, 'ai');
@@ -452,12 +452,12 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
   assert.equal(move.target.kind, 'pokemon', 'on a Pokémon in the arena');
 
   // Prefers a Pokémon without a Held Item.
-  at(s, 'ai', 0, 0).heldItem = { ...cardDefinition('iron-shell'), uid: 'x' };
+  at(s, 'ai', 0, 0).heldItem = { ...cardDefinition('rocky-helmet'), uid: 'x' };
   for (let i = 0; i < 10; i++) assert.deepEqual(chooseAction(s, 'ai').target, pref('ai', 0, 1));
 
   // With no target (no Pokémon in the arena), it stores the Item.
   let t = match();
-  const shell = give(t, 'ai', 'iron-shell');
+  const shell = give(t, 'ai', 'rocky-helmet');
   t.players.ai.dollars = 3;
   t.mart.onSale = [null, null, null];
   onTurn(t, 'ai');

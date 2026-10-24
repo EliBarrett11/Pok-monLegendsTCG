@@ -69,8 +69,8 @@ for (const [type, def] of Object.entries(WEATHER)) {
 
 {
   const s = match();
-  const pud = place(s, 'player', 2, 0, 'puddlop');   // Water 1/4
-  const ember = place(s, 'player', 2, 1, 'emberkit'); // Fire 2/3
+  const pud = place(s, 'player', 2, 0, 'horsea');   // Water 1/4
+  const ember = place(s, 'player', 2, 1, 'growlithe'); // Fire 2/3
   weather(s, { Rain: 1 });
   assert.deepEqual(stats(pud), [1, 4, 4], 'below 2: nothing');
   weather(s, { Rain: 2 });
@@ -96,9 +96,9 @@ for (const [type, def] of Object.entries(WEATHER)) {
 
 {
   const s = match();
-  const ember = place(s, 'player', 0, 0, 'emberkit'); // Fire 2/3
-  const pud = place(s, 'ai', 1, 0, 'puddlop');        // Water 1/4, opponent's side
-  const weak = place(s, 'ai', 1, 1, 'frostail', { attackValue: 0 });   // Water with 0 Attack
+  const ember = place(s, 'player', 0, 0, 'growlithe'); // Fire 2/3
+  const pud = place(s, 'ai', 1, 0, 'horsea');        // Water 1/4, opponent's side
+  const weak = place(s, 'ai', 1, 1, 'goldeen', { attackValue: 0 });   // Water with 0 Attack
   weather(s, { Sun: 2 });
   assert.equal(attackOf(ember), 3, 'Sun 2: Fire +1 Attack');
   weather(s, { Sun: 4 });
@@ -115,9 +115,9 @@ for (const [type, def] of Object.entries(WEATHER)) {
 
 {
   const s = match();
-  const mine = place(s, 'player', 0, 0, 'puddlop');
-  const theirs = place(s, 'ai', 0, 0, 'puddlop');
-  const ember = place(s, 'ai', 0, 1, 'emberkit');
+  const mine = place(s, 'player', 0, 0, 'horsea');
+  const theirs = place(s, 'ai', 0, 0, 'horsea');
+  const ember = place(s, 'ai', 0, 1, 'growlithe');
   weather(s, { Rain: 6, Sun: 6 });
   // Water: Rain 4 (+1/+1) and Sun 6 (−1 Attack). Fire: Sun 4 (+2) and Rain 6 (−1).
   assert.deepEqual(stats(mine), [1, 5, 5]);
@@ -132,8 +132,8 @@ for (const [type, def] of Object.entries(WEATHER)) {
 
 {
   const s = match();
-  const hurt = place(s, 'player', 0, 0, 'puddlop');
-  const full = place(s, 'player', 0, 1, 'toxifin');  // Water 3/6
+  const hurt = place(s, 'player', 0, 0, 'horsea');
+  const full = place(s, 'player', 0, 1, 'quagsire');  // Water 3/6
   weather(s, { Rain: 4 });
   assert.deepEqual(stats(full), [4, 7, 7], 'gaining Strength raises current and maximum');
   hurt.currentStrength = 1;
@@ -149,9 +149,9 @@ for (const [type, def] of Object.entries(WEATHER)) {
 // On Breakfast abilities; a defeated one triggers On Defeated as normal.
 {
   let s = match({ abilities: true });
-  place(s, 'player', 0, 0, 'emberkit');              // Fire: untouched
-  const frost = place(s, 'player', 0, 1, 'frostail');   // Water, On Breakfast
-  const pud = place(s, 'ai', 1, 0, 'puddlop');          // Water, On Defeated: heal Trainer in its zone 3
+  place(s, 'player', 0, 0, 'growlithe');              // Fire: untouched
+  const frost = place(s, 'player', 0, 1, 'goldeen');   // Water, On Breakfast
+  const pud = place(s, 'ai', 1, 0, 'horsea');          // Water, On Defeated: heal Trainer in its zone 3
   pud.currentStrength = 1;
   s.players.ai.zones[1].trainer.strength = 10;
   weather(s, { Sun: 8 });
@@ -160,11 +160,11 @@ for (const [type, def] of Object.entries(WEATHER)) {
   assert.equal(p.zones[0].pokemon[0].currentStrength, 3, 'Fire untouched');
   assert.equal(p.zones[0].pokemon[1].currentStrength, frost.currentStrength - 1);
   assert.equal(s.players.ai.zones[1].pokemon[0], null, 'defeated by Weather');
-  assert.equal(s.players.ai.released.at(-1).name, 'Puddlop');
+  assert.equal(s.players.ai.released.at(-1).name, 'Horsea');
   assert.equal(s.players.ai.zones[1].trainer.strength, 13, 'On Defeated fired');
   const drew = logIndex(s, 'You drew 7 cards');
-  const sun = logIndex(s, 'Weather (☀ Sun 8): 1 damage to your Frostail');
-  const ability = logIndex(s, "Your Frostail's On Breakfast");
+  const sun = logIndex(s, 'Weather (☀ Sun 8): 1 damage to your Goldeen');
+  const ability = logIndex(s, "Your Goldeen's On Breakfast");
   assert.ok(drew >= 0 && sun > drew, 'after cards are drawn');
   assert.ok(ability > sun, 'Weather resolves before same-moment abilities');
 }
@@ -175,11 +175,11 @@ for (const [type, def] of Object.entries(WEATHER)) {
 // hands are discarded.
 {
   let s = match();
-  const pud = place(s, 'player', 0, 0, 'puddlop', {
+  const pud = place(s, 'player', 0, 0, 'horsea', {
     effectTrigger: 'On Supper', effectText: 'Draw 1.', ability: { on: 'supper', match: { self: true }, effects: [{ op: 'draw', amount: 1 }] },
   });
-  const theirs = place(s, 'ai', 0, 0, 'toxifin');
-  const ember = place(s, 'player', 0, 1, 'emberkit');
+  const theirs = place(s, 'ai', 0, 0, 'quagsire');
+  const ember = place(s, 'player', 0, 1, 'growlithe');
   weather(s, { Rain: 8 });                           // Water at Rain 4+: +1/+1
   pud.currentStrength = 1;                           // 1/5
   theirs.currentStrength = 6;                        // 6/7: capped at 7
@@ -188,9 +188,9 @@ for (const [type, def] of Object.entries(WEATHER)) {
   assert.equal(s.players.player.zones[0].pokemon[0].currentStrength, 3);
   assert.equal(s.players.ai.zones[0].pokemon[0].currentStrength, 7, 'capped, opponent\'s side too');
   assert.equal(s.players.player.zones[0].pokemon[1].currentStrength, 1, 'not Water');
-  const rain = logIndex(s, 'Weather (☔ Rain 8): healed your Puddlop');
+  const rain = logIndex(s, 'Weather (☔ Rain 8): healed your Horsea');
   assert.ok(rain >= 0);
-  assert.ok(rain < logIndex(s, "Your Puddlop's On Supper"), 'before same-moment abilities');
+  assert.ok(rain < logIndex(s, "Your Horsea's On Supper"), 'before same-moment abilities');
   assert.ok(rain < logIndex(s, 'You discarded'), 'before hands are discarded');
 }
 
@@ -206,10 +206,10 @@ for (const [type, def] of Object.entries(WEATHER)) {
     return p.hand.at(-1).uid;
   };
   const act = (who, action) => { s.turn = who; s.passesInARow = 0; s.players[who].baseEnergy = 10; s = applyAction(s, { who, ...action }); };
-  act('player', { type: 'playLocation', uid: give('player', 'tidal-cove'), zone: 0 });
-  act('ai', { type: 'playLocation', uid: give('ai', 'tidal-cove'), zone: 0 });
+  act('player', { type: 'playLocation', uid: give('player', 'cerulean-cape'), zone: 0 });
+  act('ai', { type: 'playLocation', uid: give('ai', 'cerulean-cape'), zone: 0 });
   assert.equal(weatherState(s).Rain.count, 4);
-  act('player', { type: 'playPokemon', uid: give('player', 'frostail'), zone: 1, space: 0 });
+  act('player', { type: 'playPokemon', uid: give('player', 'goldeen'), zone: 1, space: 0 });
   assert.deepEqual(stats(s.players.player.zones[1].pokemon[0]), [4, 6, 6], 'summoned into Rain 4');
 }
 

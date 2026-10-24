@@ -211,7 +211,7 @@ function bagRow(state, who) {
     if (!item) return '<div class="bag-slot empty"></div>';
     const cls = `bag-slot${item.inDelivery ? ' delivery' : ''}${usable.has(item.uid) ? ' usable' : ''}${ui.bag?.uid === item.uid ? ' selected' : ''}`;
     return `<div class="${cls}" data-uid="${item.uid}" title="${item.name} (${item.itemType}, $${item.cost})&#10;${item.effectText}">
-      <b>${item.name}</b>${item.inDelivery ? '<span class="delivery-badge">In Delivery</span>' : ''}</div>`;
+      ${art(item, 'thumb')}<div><b>${item.name}</b>${item.inDelivery ? '<span class="delivery-badge">In Delivery</span>' : ''}</div></div>`;
   }).join('');
   return `<div class="bag"><span class="bag-label">Bag ${p.bag.length}/${BAG_SIZE}</span>${slots}</div>`;
 }
@@ -223,7 +223,7 @@ function martPanel(state) {
     ? openBagOptions(state, 'player').filter((o) => o.mode === 'buyMart').map((o) => o.slot) : []);
   const slots = state.mart.onSale.map((item, slot) => (item
     ? `<div class="mart-item${buyable.has(slot) ? ' buyable' : ''}" data-slot="${slot}" title="${item.name} (${item.itemType})&#10;${item.effectText}">
-        <b>${item.name}</b> <span class="price">$${item.cost}</span><div class="card-line">${item.itemType}: ${item.effectText}</div></div>`
+        ${art(item, 'thumb')}<div><b>${item.name}</b> <span class="price">$${item.cost}</span><div class="card-line">${item.itemType}: ${item.effectText}</div></div></div>`
     : '<div class="mart-item sold">Sold</div>')).join('');
   return `<div class="mart"><span class="mart-label">PokéMart <span class="hint">(deck ${state.mart.deck.length})</span></span>${slots}</div>`;
 }
@@ -246,7 +246,7 @@ function locationCard(c, opts = {}) {
     ${payBadge(opts)}
     <div class="card-head"><span class="card-name">${c.name}</span><span class="xp-reward" title="XP Reward">${c.xp} XP</span></div>
     <div class="card-type">Location · ${weatherText(c.weatherTokens)}</div>
-    ${!inPlay ? (c.image ? `<img class="card-art" src="${c.image}" alt="">` : '<div class="card-art location-art">Location</div>') : ''}
+    ${art(c, inPlay ? 'strip' : '')}
     <div class="card-line quest"><b>Quest:</b> ${c.quest.text}${inPlay ? ` <span class="progress">${c.quest.label} ${c.progress}/${c.quest.count}</span>` : ''}</div>
     <div class="card-line effect"><b>Reward:</b> ${c.effectText}</div>
   </div>`;
@@ -346,7 +346,7 @@ function itemCard(c, opts) {
     ${payBadge(opts)}
     <div class="card-head"><span class="card-name">${c.name}</span><span class="price" title="PokéDollar Cost">$${c.cost}</span></div>
     <div class="card-type">Item · ${c.itemType}</div>
-    ${c.image ? `<img class="card-art" src="${c.image}" alt="">` : '<div class="card-art item-art">Item</div>'}
+    ${art(c)}
     <div class="card-line effect">${c.effectText}</div>
     <div class="card-line rarity">${c.rarity}</div>
   </div>`;
@@ -413,7 +413,7 @@ function supporterCard(c, opts) {
     ${payBadge(opts)}
     <div class="card-head"><span class="card-name">${c.name}</span></div>
     <div class="card-type">Supporter · <span class="card-cost">${costText(c.cardCost)}</span></div>
-    ${c.image ? `<img class="card-art" src="${c.image}" alt="">` : '<div class="card-art supporter-art">Supporter</div>'}
+    ${art(c)}
     <div class="card-line effect">${c.effectText}</div>
     <div class="card-line gift"><b>Gift:</b> ${c.gift.challengeText} → ${c.gift.bonusText}</div>
     <div class="card-line rarity">${c.rarity}</div>
@@ -425,7 +425,7 @@ function strategyCard(c, opts) {
     ${payBadge(opts)}
     <div class="card-head"><span class="card-name">${c.name}</span><span class="cost" title="Energy Cost">${c.energyCost}</span></div>
     <div class="card-type">Strategy</div>
-    ${c.image ? `<img class="card-art" src="${c.image}" alt="">` : '<div class="card-art strategy-art">Strategy</div>'}
+    ${art(c)}
     <div class="card-line effect">${c.effectText}</div>
     <div class="card-line rarity">${c.rarity}</div>
   </div>`;
@@ -435,17 +435,33 @@ function trainerCard(state, t, opts = {}) {
   const used = t.powerUsedRound === state.round;
   const removed = t.strength <= 0;
   return `<div class="card trainer${stateClasses(opts)}" data-uid="${t.uid}">
-    <div class="card-head"><span class="card-name">${t.name}</span>
-      <span class="trainer-strength">${removed ? 'Removed' : `Strength ${t.strength}/${t.maxStrength}`}</span></div>
-    <div class="card-line power-line${used ? ' used' : ''}"><b>Power (${t.power.cost}):</b> ${t.power.text}${used ? ' <i>Used this Round</i>' : ''}</div>
-    <div class="card-line"><b>Passive:</b> ${t.passive.text}</div>
+    ${art(t, 'portrait')}
+    <div class="trainer-text">
+      <div class="card-head"><span class="card-name">${t.name}</span>
+        <span class="trainer-strength">${removed ? 'Removed' : `Strength ${t.strength}/${t.maxStrength}`}</span></div>
+      <div class="card-line power-line${used ? ' used' : ''}"><b>Power (${t.power.cost}):</b> ${t.power.text}${used ? ' <i>Used this Round</i>' : ''}</div>
+      <div class="card-line"><b>Passive:</b> ${t.passive.text}</div>
+    </div>
   </div>`;
 }
 
-function art(c) {
-  return c.image
-    ? `<img class="card-art" src="${c.image}" alt="">`
-    : `<div class="card-art ptype-${slug(c.pokemonType)}">${c.pokemonType}</div>`;
+// Card art: assets/cards/<card id>.jpg (or a card's own `image`). It is a
+// background layer over the placeholder box, so a missing file just leaves
+// the placeholder showing (no broken-image icon), and a file added to the
+// folder later shows up without any code change.
+function artUrl(c) {
+  return c.image ?? `assets/cards/${c.id}.jpg`;
+}
+
+// Placeholder look per Card-Type: tinted by Pokémon Type, striped for the rest.
+function placeholder(c) {
+  if (c.cardType === 'Pokémon') return [`ptype-${slug(c.pokemonType)}`, c.pokemonType];
+  return [`${slug(c.cardType)}-art`, c.cardType];
+}
+
+function art(c, extra = '') {
+  const [cls, label] = placeholder(c);
+  return `<div class="card-art ${cls}${extra ? ` ${extra}` : ''}"><span>${label}</span><div class="art-img" style="background-image:url('${artUrl(c)}')"></div></div>`;
 }
 
 // Full Pokémon card, with every field.
@@ -486,6 +502,7 @@ function boardPokemon(c, { alert, ...opts } = {}) {
   const max = maxStrengthOf(c);
   return `<div class="card pokemon board rarity-${slug(c.rarity)}${c.spent ? ' spent' : ''}${alert ? ' alert' : ''}${stateClasses(opts)}" title="${tooltip(c)}">
     <div class="card-head"><span class="card-name">${c.name}</span><span class="cost">${c.energyCost}</span></div>
+    ${art(c, 'strip')}
     <div class="card-type">${c.pokemonType}</div>
     <div class="stats">
       <span title="${c.attackType} (printed ${c.attackValue})">${c.attackType === 'Physical' ? 'Phys' : 'Spec'} <b class="${atk > c.attackValue ? 'buffed' : atk < c.attackValue ? 'nerfed' : ''}">${atk}</b>${weatherTags(c, 'attack')}</span>

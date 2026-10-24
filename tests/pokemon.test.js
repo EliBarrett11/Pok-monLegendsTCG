@@ -76,12 +76,12 @@ const pass = (s) => applyAction(s, { type: 'pass', who: s.turn });
 {
   let s = toRound1Battle(2);
   const me = s.turn;
-  const [ember] = setHand(s, me, ['emberkit', 'power-band']);
+  const [ember] = setHand(s, me, ['growlithe', 'black-belt']);
   assert.deepEqual(legalActions(s, me), ['pass', 'playPokemon']);
   assert.deepEqual(costPreview(s, me, ember), { fromBase: 1, fromExert: 0 });
   s = play(s, me, ember, 1, 2);
   const placed = s.players[me].zones[1].pokemon[2];
-  assert.equal(placed.name, 'Emberkit');
+  assert.equal(placed.name, 'Growlithe');
   assert.equal(placed.spent, true, 'arrives Spent');
   assert.equal(placed.currentStrength, 3);
   assert.equal(placed.strengthValue, 3, 'printed value kept separately');
@@ -89,16 +89,16 @@ const pass = (s) => applyAction(s, { type: 'pass', who: s.turn });
   assert.equal(s.players[me].exhaust.length, 0);
   assert.ok(!s.players[me].hand.some((c) => c.uid === ember), 'left the hand');
   assert.equal(s.turn, opponentOf(me), 'the play used the turn');
-  assert.ok(s.log.at(-1).includes('played Emberkit into Zone 2, Space 3, paying 1 Base Energy'));
+  assert.ok(s.log.at(-1).includes('played Growlithe into Zone 2, Space 3, paying 1 Base Energy'));
 }
 
 // Exert covers only the shortfall, and becomes Exhaust.
 {
   let s = toRound1Battle(3);
   const me = s.turn;
-  const [pebblet] = setHand(s, me, ['pebblet']);  // cost 2; Round 1 has 1 Base + 1 Exert
-  assert.deepEqual(costPreview(s, me, pebblet), { fromBase: 1, fromExert: 1 });
-  s = play(s, me, pebblet, 0, 0);
+  const [geodude] = setHand(s, me, ['geodude']);  // cost 2; Round 1 has 1 Base + 1 Exert
+  assert.deepEqual(costPreview(s, me, geodude), { fromBase: 1, fromExert: 1 });
+  s = play(s, me, geodude, 0, 0);
   const p = s.players[me];
   assert.equal(p.baseEnergy, 0);
   assert.deepEqual(p.exhaust.map((x) => [x.position, x.recoversRound]), [[1, 3]]);
@@ -109,22 +109,22 @@ const pass = (s) => applyAction(s, { type: 'pass', who: s.turn });
 {
   let s = toRound1Battle(4);
   const me = s.turn;
-  const [frostail, emberkit, item] = setHand(s, me, ['frostail', 'emberkit', 'potion']);
-  assert.ok(!playablePokemon(s, me).some((c) => c.uid === frostail), 'cost 3 > 1 Base + 1 Exert');
-  assert.throws(() => play(s, me, frostail, 0, 0), /Not enough Energy/);
+  const [goldeen, growlithe, item] = setHand(s, me, ['goldeen', 'growlithe', 'potion']);
+  assert.ok(!playablePokemon(s, me).some((c) => c.uid === goldeen), 'cost 3 > 1 Base + 1 Exert');
+  assert.throws(() => play(s, me, goldeen, 0, 0), /Not enough Energy/);
   assert.throws(() => play(s, me, item, 0, 0), /Pokémon/);
   assert.throws(() => play(s, me, 'nope', 0, 0), /Pokémon/);
-  assert.throws(() => play(s, me, emberkit, 3, 0), /empty/);
-  assert.throws(() => play(s, opponentOf(me), emberkit, 0, 0), /cannot/);
+  assert.throws(() => play(s, me, growlithe, 3, 0), /empty/);
+  assert.throws(() => play(s, opponentOf(me), growlithe, 0, 0), /cannot/);
   s.players[me].zones[0].pokemon[0] = { name: 'Blocker' };
-  assert.throws(() => play(s, me, emberkit, 0, 0), /empty/);
+  assert.throws(() => play(s, me, growlithe, 0, 0), /empty/);
 }
 
 // A full arena can't take another Pokémon.
 {
   const s = toRound1Battle(5);
   const me = s.turn;
-  setHand(s, me, ['emberkit']);
+  setHand(s, me, ['growlithe']);
   s.players[me].zones.forEach((z) => { z.pokemon = z.pokemon.map(() => ({ name: 'Blocker', spent: true })); });
   assert.equal(emptySpaces(s, me).length, 0);
   assert.deepEqual(legalActions(s, me), ['pass']);
@@ -136,7 +136,7 @@ const pass = (s) => applyAction(s, { type: 'pass', who: s.turn });
   let s = toRound1Battle(6);
   const first = s.turn;
   const second = opponentOf(first);
-  const [sprout] = setHand(s, second, ['sproutle']);
+  const [sprout] = setHand(s, second, ['sewaddle']);
   s = pass(s);
   s = play(s, second, sprout, 2, 1);
   assert.equal(s.phase, 'battle');
@@ -146,10 +146,10 @@ const pass = (s) => applyAction(s, { type: 'pass', who: s.turn });
   s.players[second].zones[2].pokemon[1].currentStrength = 1;
   s = pass(s);
   assert.equal(s.round, 2);
-  const sproutle = s.players[second].zones[2].pokemon[1];
-  assert.equal(sproutle.spent, false, 'Active again at Breakfast');
-  assert.equal(sproutle.currentStrength, 1, 'current Strength carries over');
-  assert.ok(s.log.some((l) => l.includes('Spent Pokémon became Active: Sproutle')));
+  const sewaddle = s.players[second].zones[2].pokemon[1];
+  assert.equal(sewaddle.spent, false, 'Active again at Breakfast');
+  assert.equal(sewaddle.currentStrength, 1, 'current Strength carries over');
+  assert.ok(s.log.some((l) => l.includes('Spent Pokémon became Active: Sewaddle')));
 }
 
 // --- AI ---------------------------------------------------------------------
@@ -158,13 +158,13 @@ const pass = (s) => applyAction(s, { type: 'pass', who: s.turn });
 for (let seed = 1; seed <= 20; seed++) {
   let s = toRound1Battle(seed);
   s.turn = 'ai';
-  setHand(s, 'ai', ['emberkit', 'puddlop', 'pebblet', 'power-band']);
+  setHand(s, 'ai', ['growlithe', 'horsea', 'geodude', 'black-belt']);
   const action = chooseAction(s, 'ai');
   assert.equal(action.type, 'playPokemon');
   s = applyAction(s, action);
   const placed = s.players.ai.zones.flatMap((z) => z.pokemon).filter(Boolean);
   assert.equal(placed.length, 1);
-  assert.equal(placed[0].energyCost, 1, 'Pebblet would need Exert');
+  assert.equal(placed[0].energyCost, 1, 'Geodude would need Exert');
   assert.equal(s.players.ai.exhaust.length, 0);
 }
 
@@ -172,10 +172,10 @@ for (let seed = 1; seed <= 20; seed++) {
 {
   const s = toRound1Battle(7);
   s.turn = 'ai';
-  setHand(s, 'ai', ['pebblet', 'power-band']);
-  assert.ok(playablePokemon(s, 'ai').length, 'Pebblet is affordable with Exert...');
+  setHand(s, 'ai', ['geodude', 'black-belt']);
+  assert.ok(playablePokemon(s, 'ai').length, 'Geodude is affordable with Exert...');
   assert.deepEqual(chooseAction(s, 'ai'), { type: 'pass', who: 'ai' }, '...but the AI will not use Exert');
-  setHand(s, 'ai', ['power-band']);
+  setHand(s, 'ai', ['black-belt']);
   assert.deepEqual(chooseAction(s, 'ai'), { type: 'pass', who: 'ai' });
   assert.equal(chooseAction(s, 'player'), null, 'nothing to do off-turn');
 }
