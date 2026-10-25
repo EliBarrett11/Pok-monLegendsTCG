@@ -1,0 +1,114 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: Cinzel; font-weight: 800; src: url(../fonts/fontsource-cinzel-5.3.0/files/cinzel-latin-800-normal.woff2); }
+@font-face { font-family: Cinzel; font-weight: 700; src: url(../fonts/fontsource-cinzel-5.3.0/files/cinzel-latin-700-normal.woff2); }
+@font-face { font-family: Alegreya; font-weight: 400; src: url(../fonts/fontsource-alegreya-sans-5.3.0/files/alegreya-sans-latin-400-normal.woff2); }
+@font-face { font-family: Alegreya; font-weight: 800; src: url(../fonts/fontsource-alegreya-sans-5.3.0/files/alegreya-sans-latin-800-normal.woff2); }
+:root { --brass: #d6ad5c; --parch: 246,234,204; --ink: #2b1d10; --wood: url(A/ui/frame-pokemon.jpg); }
+* { box-sizing: border-box; margin: 0; }
+body { width: 1760px; height: 1000px; background: #1a0f08 url(A/ui/table.jpg) center/cover; font-family: Alegreya, sans-serif;
+  display: flex; align-items: center; justify-content: center; gap: 70px; }
+.cards { display: flex; gap: 60px; }
+img { display: block; }
+
+/* ---- the card: a thick carved wooden frame ---- */
+.card { --w: 400px; width: var(--w); aspect-ratio: 5/7; position: relative; border-radius: calc(var(--w)*.05);
+  background: var(--wood) center/170%; padding: calc(var(--w)*.065) calc(var(--w)*.06) calc(var(--w)*.06);
+  box-shadow: 0 22px 46px rgba(0,0,0,.75), 0 0 0 1px #120a04,
+    inset 0 2px 0 rgba(255,225,170,.35), inset 0 -3px 6px rgba(0,0,0,.55), inset 0 0 0 calc(var(--w)*.012) rgba(0,0,0,.18); }
+/* carved groove around the art window */
+.window { position: relative; width: 100%; height: 100%; border-radius: calc(var(--w)*.022); overflow: hidden;
+  box-shadow: 0 0 0 calc(var(--w)*.006) #2a1806, 0 0 0 calc(var(--w)*.012) var(--brass), 0 0 0 calc(var(--w)*.016) #3a2608,
+    0 calc(var(--w)*.006) calc(var(--w)*.02) calc(var(--w)*.012) rgba(0,0,0,.55); }
+.art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 32%; }
+.window::after { content: ''; position: absolute; inset: 0; box-shadow: inset 0 0 calc(var(--w)*.05) rgba(0,0,0,.6); pointer-events: none; }
+
+/* wooden header bar: part of the frame, carrying cost (left) and type (right) */
+.header { position: absolute; left: 0; right: 0; top: 0; height: calc(var(--w)*.16); z-index: 2;
+  background: var(--wood) center/170%; border-radius: calc(var(--w)*.05) calc(var(--w)*.05) 0 0;
+  -webkit-mask: linear-gradient(#000 70%, transparent);
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,.4); }
+.nameplate { position: absolute; z-index: 3; top: calc(var(--w)*.028); left: 50%; transform: translateX(-50%);
+  width: 58%; padding: calc(var(--w)*.016) 0; text-align: center; border-radius: calc(var(--w)*.012);
+  background: linear-gradient(rgba(var(--parch),1), rgba(222,200,150,1)); font-family: Cinzel; font-weight: 800;
+  font-size: calc(var(--w)*.062); color: var(--ink); letter-spacing: .02em;
+  box-shadow: 0 0 0 2px var(--brass), 0 0 0 3px #3a2608, inset 0 1px 0 #fff, inset 0 -2px 4px rgba(120,80,30,.35), 0 3px 6px rgba(0,0,0,.5); }
+
+/* wooden footer bar: carries attack, rarity, strength */
+.footer { position: absolute; left: 0; right: 0; bottom: 0; height: calc(var(--w)*.2); z-index: 2;
+  background: var(--wood) center/170%; border-radius: 0 0 calc(var(--w)*.05) calc(var(--w)*.05);
+  -webkit-mask: linear-gradient(to top, #000 62%, transparent); }
+
+/* carved sockets: a recessed well in the wood that each icon sits in */
+.socket { position: absolute; z-index: 4; display: grid; place-items: center; }
+.socket::before { content: ''; position: absolute; inset: 9%; border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, rgba(0,0,0,.15), rgba(0,0,0,.6) 70%), var(--wood) center/400%;
+  box-shadow: inset 0 calc(var(--w)*.008) calc(var(--w)*.018) rgba(0,0,0,.85), 0 1px 0 rgba(255,225,170,.35), 0 0 0 calc(var(--w)*.004) rgba(214,173,92,.55); }
+.socket img { position: relative; width: 100%; height: 100%; filter: drop-shadow(0 calc(var(--w)*.006) calc(var(--w)*.008) rgba(0,0,0,.75)); }
+.num { position: absolute; inset: 0; display: grid; place-items: center; font-family: Cinzel; font-weight: 800; color: #fff;
+  -webkit-text-stroke: calc(var(--w)*.006) #1a0d04; paint-order: stroke fill; text-shadow: 0 2px 6px rgba(0,0,0,.95); }
+
+.cost  { top: calc(var(--w)*-.03); left: calc(var(--w)*-.035); width: calc(var(--w)*.25); height: calc(var(--w)*.25); }
+.cost .num { font-size: calc(var(--w)*.1); padding-top: 6%; }
+.type  { top: calc(var(--w)*-.025); right: calc(var(--w)*-.03); width: calc(var(--w)*.22); height: calc(var(--w)*.22); }
+.speed { top: calc(var(--w)*.2); left: calc(var(--w)*-.035); width: calc(var(--w)*.17); height: calc(var(--w)*.17); }
+.atk, .str { bottom: calc(var(--w)*-.035); width: calc(var(--w)*.25); height: calc(var(--w)*.25); }
+.atk { left: calc(var(--w)*-.035); } .str { right: calc(var(--w)*-.035); }
+.atk .num, .str .num { font-size: calc(var(--w)*.1); }
+.rarity { bottom: calc(var(--w)*.0); left: 50%; transform: translateX(-50%); width: calc(var(--w)*.15); height: calc(var(--w)*.15); }
+
+.text { position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; padding: calc(var(--w)*.09) calc(var(--w)*.15) calc(var(--w)*.15);
+  background: linear-gradient(to top, rgba(var(--parch),.95), rgba(var(--parch),.9) 62%, rgba(var(--parch),0));
+  color: var(--ink); font-size: calc(var(--w)*.045); line-height: 1.22; text-align: center; }
+.text .kw { font-weight: 800; display: block; }
+.text .rem { font-style: italic; color: #5b4630; font-size: .92em; display: block; margin-top: .2em; }
+
+/* board size */
+.board { --w: 180px; }
+.board .text { display: none; }
+.board .nameplate { width: 66%; font-size: calc(var(--w)*.075); }
+.board .rarity { display: none; }
+.board .atk, .board .str, .board .cost { width: calc(var(--w)*.32); height: calc(var(--w)*.32); }
+.board .atk .num, .board .str .num, .board .cost .num { font-size: calc(var(--w)*.14); }
+.board .type { width: calc(var(--w)*.27); height: calc(var(--w)*.27); }
+.board .speed { width: calc(var(--w)*.22); height: calc(var(--w)*.22); top: calc(var(--w)*.24); }
+.glow { box-shadow: 0 0 0 2px #ffd36b, 0 0 28px 8px rgba(255,190,70,.75), 0 18px 40px rgba(0,0,0,.7); }
+.badge { position: absolute; z-index: 5; font-family: Cinzel; font-weight: 800; color: #fff; border-radius: 20px; padding: 1px 8px;
+  font-size: 12px; border: 1px solid var(--brass); box-shadow: 0 2px 6px rgba(0,0,0,.7); }
+.alert { top: 44%; left: 50%; transform: translateX(-50%); background: linear-gradient(#f6c24a, #b8781a); color: #2b1600; }
+.burn { top: 40%; right: 14px; background: radial-gradient(circle at 40% 30%, #ffd36b, #e2531c 60%, #7a1606); }
+.side { display: flex; flex-direction: column; gap: 22px; align-items: center; }
+.label { font-family: Cinzel; font-weight: 700; color: #f3dca2; font-size: 16px; letter-spacing: .08em; text-shadow: 0 2px 6px #000; }
+.row { display: flex; gap: 40px; }
+</style></head><body>
+
+<div class="cards" id="cards"></div>
+<div class="side"><div class="label">ON THE BOARD</div><div class="row" id="board"></div></div>
+
+<script>
+const I = (n) => `A/ui/icons/${n}.webp`;
+const C = [
+  { id: 'arcanine', name: 'Arcanine', cost: 4, type: 'fire', speed: 'swift', rarity: 'rare', atkT: 'physical', atk: 5, strT: 'hitpoints', str: 5,
+    kw: 'Overrun · Scorch 1', rem: 'Leftover damage from a knockout hits that Zone\'s Trainer. Its attacks apply Burn 1.' },
+  { id: 'lapras', name: 'Lapras', cost: 4, type: 'water', speed: 'steady', rarity: 'rare', atkT: 'special', atk: 5, strT: 'hitpoints', str: 7,
+    kw: 'On Summon', rem: 'Heal all friendly Pokémon in this Pokémon\'s Zone 2.' },
+];
+const card = (c, cls = '', badges = '', str = c.str, sc = '') => `
+<div class="card ${cls}">
+  <div class="window"><img class="art" src="A/cards/${c.id}.jpg">
+    <div class="text"><span class="kw">${c.kw}</span><span class="rem">${c.rem}</span></div>${badges}</div>
+  <div class="header"></div><div class="footer"></div>
+  <div class="nameplate">${c.name}</div>
+  <div class="socket cost"><img src="${I('energy')}"><div class="num">${c.cost}</div></div>
+  <div class="socket type"><img src="${I('type-' + c.type)}"></div>
+  <div class="socket speed"><img src="${I('speed-' + c.speed)}"></div>
+  <div class="socket rarity"><img src="${I('rarity-' + c.rarity)}"></div>
+  <div class="socket atk"><img src="${I('attack-' + c.atkT)}"><div class="num">${c.atk}</div></div>
+  <div class="socket str"><img src="${I('strength-' + c.strT)}"><div class="num" style="${sc}">${str}</div></div>
+</div>`;
+document.getElementById('cards').innerHTML = C.map((c) => card(c)).join('');
+document.getElementById('board').innerHTML = card(C[0], 'board glow', '<div class="badge alert">ALERT</div>')
+  + card(C[1], 'board', '<div class="badge burn">🔥2</div>', 4, 'color:#ff9a8a');
+</script>
+</body></html>
