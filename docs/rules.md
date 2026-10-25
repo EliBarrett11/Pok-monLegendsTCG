@@ -4,7 +4,7 @@ The rules as settled while building the game, in match order. The code follows t
 
 ## 1. Components
 
-- **Deck:** 40 cards.
+- **Deck:** 40 cards. **Copy limits** per card, by Rarity-Tier: Common 3, Rare 2, Epic 1, Legendary 1, and **at most one Legendary card in a deck**. A deck that breaks these can't be used (`deckProblems` in `src/engine/cards.js`).
 - **Card types:** Pokémon, Strategy, Item, Location, Supporter.
 - **Trainers:** each player has 3 Trainers, kept outside the 40-card deck. Each Trainer has its own **Trainer Strength**, a **Power** and a **Passive** (section 7).
 - **Piles:** each player has a Draw Pile, a hand, a Discard Pile and a **Released Pile**. The Draw Pile is shuffled before the match. Defeated Pokémon, Released cards and completed Locations go to the Released Pile, which is never shuffled back into the Draw Pile.
@@ -27,7 +27,7 @@ The rules as settled while building the game, in match order. The code follows t
 | Strength Value | number: the Pokémon's health |
 | Speed-Tier | Slow, Steady or Swift |
 | Effect Trigger Word + Effect Text | optional: the Pokémon's ability (section 8) |
-| Rarity-Tier | Common (grey), Uncommon (green), Rare (blue), Epic (purple), Legendary (orange) |
+| Rarity-Tier | Common, Rare, Epic or Legendary (four tiers, each with its own icon) |
 | Innate Power Keyword | optional |
 | Weather Tokens | optional: one or more types with counts, e.g. 1 Sun (section 1.6) |
 
@@ -429,22 +429,22 @@ A Pokémon ability is an **Effect Trigger Word** plus **Effect Text**. It fires 
 | Sewaddle | 1 | Grass | Physical 2 | Defence 6 | Slow | Common |
 | Shinx | 1 | Electric | Special 3 | Special Defence 4 | Swift | Common |
 | Geodude | 2 | Rock | Physical 3 | Defence 7 | Slow | Common |
-| Pidgey | 2 | Flying | Physical 4 | Hitpoints 5 | Swift | Uncommon |
-| Metapod | 2 | Bug | Special 3 | Special Defence 6 | Steady | Uncommon |
-| Goldeen | 3 | Water | Special 4 | Special Defence 7 | Steady | Uncommon |
-| Magmar | 3 | Fire | Physical 5 | Hitpoints 7 | Steady | Uncommon |
+| Pidgey | 2 | Flying | Physical 4 | Hitpoints 5 | Swift | Rare |
+| Metapod | 2 | Bug | Special 3 | Special Defence 6 | Steady | Rare |
+| Goldeen | 3 | Water | Special 4 | Special Defence 7 | Steady | Rare |
+| Magmar | 3 | Fire | Physical 5 | Hitpoints 7 | Steady | Rare |
 | Quagsire | 3 | Water | Special 4 | Defence 8 | Slow | Rare |
 | Dusclops | 4 | Ghost | Special 5 | Special Defence 8 | Swift | Rare |
 | Lairon | 4 | Steel | Physical 4 | Defence 10 | Slow | Rare |
 | Sylveon | 5 | Fairy | Special 6 | Special Defence 9 | Steady | Epic |
 | Absol | 5 | Dark | Physical 6 | Hitpoints 9 | Swift | Epic |
 | Blaziken | 6 | Fire | Physical 7 | Defence 12 | Slow | Legendary |
-| Dragonite | 6 | Dragon | Special 7 | Hitpoints 11 | Steady | Legendary |
+| Dragonite | 6 | Dragon | Special 7 | Hitpoints 11 | Steady | Epic |
 
 - Card art comes from `assets/cards/<card id>.jpg` (the id is the card name in lowercase with hyphens, e.g. `professor-oak.jpg`). A card without a file shows a placeholder box, tinted by Pokémon Type or striped by Card-Type. The Trainers have art too (ash.jpg, misty.jpg, brock.jpg).
 - Fire Pokémon: Growlithe, plus Magmar and Blaziken (retyped from Fighting and Ground). Sylveon carries a Weather Token of 1 Sun; no other placeholder Pokémon has one.
 - Rain and Sun (section 1.6) are placeholder Weather types.
-- Location rarities are placeholders: Cerulean Cape Common, Floaroma Meadow and Shalour City Uncommon.
+- Location rarities are placeholders: Cerulean Cape Common, Floaroma Meadow and Shalour City Rare.
 - Placeholder abilities (section 8):
 
 | Ability | Pokémon |
@@ -457,7 +457,8 @@ A Pokémon ability is an **Effect Trigger Word** plus **Effect Text**. It fires 
 
   Shinx, Magmar and Dragonite have no ability.
 - Innate Powers on placeholder Pokémon: **Quick Attack** on Shinx, Magmar and Absol; **Agility** on Pidgey, Dusclops and Sylveon.
-- Strategy Card rarities are placeholders: Quickdraw Common, Hypervoice Uncommon, Recover Rare. So are the Supporters': Tracey Common, Professor Oak Uncommon, Mallow Rare.
+- Strategy Card rarities are placeholders: Quickdraw Common, Hypervoice Common, Recover Rare. So are the Supporters': Tracey Common, Professor Oak Rare, Mallow Rare.
+- **Four Rarity tiers (V7):** placeholder cards from the old fifth tier became Common if the deck holds 2–3 copies (Hypervoice) or Rare if it holds 1 (Pidgey, Metapod, Goldeen, Magmar, Professor Oak, Floaroma Meadow, Shalour City, Oran Berry, Amulet Coin; Rose Incense, PokéMart only, too). **Dragonite changed from Legendary to Epic**, so the placeholder deck keeps to one Legendary card (Blaziken).
 - The 7 Items (section 1.7) are placeholders, including their rarities.
 - Both players use the same three Trainers: Ash, Misty and Brock (section 7.4), each with Strength 15.
 - To give every Trainer something to work with, three placeholder Pokémon are Water (Horsea, Goldeen, Quagsire), four cost 1, and five have Defence Strength-Type.

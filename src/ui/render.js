@@ -21,6 +21,7 @@ import { INNATE_POWERS, WEATHER, SPEED_TIERS } from '../engine/cardData.js';
 import { SPEEDS, getSpeed, setSpeed, speedFactor } from './settings.js';
 import { wireInteractions } from './interact.js';
 import { icon, statIcon, speedIcon, weatherIcon } from './icons.js';
+import { cardIcon, iconName } from './cardIcons.js';
 
 export const STAGE = { width: 1920, height: 1080 };
 
@@ -903,9 +904,9 @@ function weatherTags(c, stat) {
     .map(([type, n]) => `<span class="wx-tag" title="${type}">${weatherIcon(type)}${n > 0 ? '+' : '−'}${Math.abs(n)}</span>`).join('');
 }
 
-// Weather Tokens and a Held Item, as small icon badges on the card's frame.
+// Weather Tokens and a Held Item, as small badges down the right of the art.
 function frameBadges(c) {
-  const weather = Object.entries(c.weatherTokens ?? {}).map(([type, n]) =>
+  const weather = c.cardType === 'Location' ? [] : Object.entries(c.weatherTokens ?? {}).map(([type, n]) =>
     `<span class="frame-badge ${slug(type)}" title="${n} ${type} Weather Token${n === 1 ? '' : 's'}">${weatherIcon(type)}${n > 1 ? `<b>${n}</b>` : ''}</span>`);
   const held = c.heldItem ? [`<span class="frame-badge held" title="Held Item: ${attr(c.heldItem.name)}. ${attr(c.heldItem.effectText)}">${icon('held')}</span>`] : [];
   return [...weather, ...held];
@@ -916,9 +917,19 @@ function keywordHelp(k) {
   const text = INNATE_POWERS[k.key] ?? '';
   return k.amount === undefined ? text : text.replace(/\bX\b/g, k.amount);
 }
-const keywordTags = (c) => keywordSummary(c).map((k) => `<b class="keyword" title="${attr(`${keywordLabel(k)}: ${keywordHelp(k)}`)}">${keywordLabel(k)}</b>`).join(', ');
+// Short reminder text for the card face (the preview and inspect explain in full).
+const KEYWORD_SHORT = {
+  'Quick Attack': 'Arrives Active.',
+  Agility: "Strategy Cards can't target it.",
+  Scorch: 'Its attacks apply Burn X.',
+  Overrun: "Leftover damage from a knockout hits that Zone's Trainer.",
+  Regenerate: 'Heals X at each Breakfast.',
+  Shell: 'Takes X less from each hit (at least 1).',
+};
+const keywordShort = (k) => (KEYWORD_SHORT[k.key] ?? '').replace(/\bX\b/g, k.amount);
+const keywordTags = (c) => keywordSummary(c).map((k) => `<b class="keyword" title="${attr(`${keywordLabel(k)}: ${keywordHelp(k)}`)}">${keywordLabel(k)}</b>`).join(' · ');
 
-// Keywords as chips over a board card's art (its text box is hidden at that size).
+// Keywords as chips on a board card (its rules panel is hidden at that size).
 function keywordChips(c) {
   if (c.cardType !== 'Pokémon') return '';
   const chips = keywordSummary(c).map((k) => `<span class="kw-chip" title="${attr(`${keywordLabel(k)}: ${keywordHelp(k)}`)}">${keywordLabel(k)}</span>`).join('');
@@ -932,49 +943,76 @@ function burnToken(c) {
   return `<div class="burn-token" title="${attr(`Burn ${n}: takes ${n} damage at Supper, then Burn goes down by 1. Douse removes it; healing doesn't.`)}">${icon('flame')}<b>${n}</b></div>`;
 }
 
+// Retain: a small red bookmark (cards in hand).
+function retainMark(c) {
+  if (c.currentStrength !== undefined || c.cardType === 'Trainer' || !hasRetain(c)) return '';
+  return `<div class="retain-ribbon" title="${attr(c.retain ? 'Retain: stays in your hand at Supper.' : 'Retain (granted): stays in your hand at Supper until it leaves your hand.')}"><span>Retain</span></div>`;
+}
+
 const trend = (now, printed) => (now > printed ? 'buffed' : now < printed ? 'nerfed' : '');
 const chip = (cls, text) => `<span class="chip ${cls}">${text}</span>`;
-const statBadge = (cls, iconHtml, value, title) => `<span class="stat ${cls}" title="${attr(title)}">${iconHtml}${value}</span>`;
+const num = (n, cls = '') => `<b class="num${cls ? ` ${cls}` : ''}">${n}</b>`;
 
-// What a card shows on its face, by Card-Type: the cost in the top-left
-// corner, the type banner, the text box, the stat badges along the bottom,
-// icon badges on the frame and status chips over the art.
+// Card text: keywords bold, reminder text italic. Keywords inside other text
+// (Burn 2, Retain, Douse…) are bolded where they appear.
+const KEYWORD_WORDS = /\b(Retain|Douse[ds]?|Burn \d+|Search|Return|Overrun|Scorch \d+|Shell \d+|Regenerate \d+|Quick Attack|Agility|Free summon|this Round)\b/g;
+const boldKeywords = (text) => attr(text ?? '').replace(KEYWORD_WORDS, '<b>$1</b>');
+const kw = (html) => `<span class="kw">${html}</span>`;
+const body = (html) => `<span class="body">${html}</span>`;
+const rem = (html) => `<span class="rem">${html}</span>`;
+
+// What a card shows on its face, by Card-Type: the art fills the card, the
+// name on a banner across the top, a corner value top-left (Energy crystal,
+// PokéDollar coin, Card-Cost or Weather), the rules text in a panel at the
+// bottom, the rarity icon bottom centre; Pokémon add their Type (top right),
+// Speed (left edge), Attack and Strength icons (bottom corners, with the
+// number on the icon). Small badges (status, Burn, Held Item, Retain, quest
+// progress) never cover the name, icons or numbers.
 function face(c, opts) {
   const inPlay = c.currentStrength !== undefined;
+  const full = opts.size === 'full';
+  const energy = (n, cls, title) => cardIcon('energy', { cls: 'cost', inner: num(n, cls), title });
   switch (c.cardType) {
     case 'Pokémon': {
-      let left;
-      let right;
+      let atk;
+      let str;
       if (inPlay) {
-        const atk = attackOf(c);
+        const a = attackOf(c);
         const max = maxStrengthOf(c);
         const hurt = c.currentStrength < max;
-        left = statBadge('atk', statIcon(c.attackType), `<b class="${trend(atk, c.attackValue)}">${atk}</b>`, `${c.attackType} Attack ${atk}`);
-        right = statBadge('str', statIcon(c.strengthType),
-          `<b class="${hurt ? 'hurt' : trend(max, c.strengthValue)}">${c.currentStrength}</b>${hurt || max !== c.strengthValue ? `<small class="${trend(max, c.strengthValue)}">/${max}</small>` : ''}`,
-          `${c.strengthType}: ${c.currentStrength} of ${max}`);
+        atk = cardIcon(iconName.attack(c.attackType), { cls: 'atk stat', inner: num(a, trend(a, c.attackValue)), title: `${c.attackType} Attack ${a}` });
+        str = cardIcon(iconName.strength(c.strengthType), {
+          cls: 'str stat', inner: num(c.currentStrength, hurt ? 'hurt' : trend(max, c.strengthValue)),
+          title: `${c.strengthType}: ${c.currentStrength} of ${max}`,
+        });
       } else {
         // XP already on the card in hand, plus any still being planned.
         const xpAtk = (c.xp?.attack ?? 0) + (opts.plan?.attack ?? 0);
         const xpStr = (c.xp?.strength ?? 0) + (opts.plan?.strength ?? 0);
-        left = statBadge('atk', statIcon(c.attackType), `<b class="${xpAtk ? 'buffed' : ''}">${c.attackValue + xpAtk}</b>`, `${c.attackType} Attack${xpAtk ? ` (+${xpAtk} XP)` : ''}`);
-        right = statBadge('str', statIcon(c.strengthType), `<b class="${xpStr ? 'buffed' : ''}">${c.strengthValue + xpStr}</b>`, `${c.strengthType}${xpStr ? ` (+${xpStr} XP)` : ''}`);
+        atk = cardIcon(iconName.attack(c.attackType), { cls: 'atk stat', inner: num(c.attackValue + xpAtk, xpAtk ? 'buffed' : ''), title: `${c.attackType} Attack${xpAtk ? ` (+${xpAtk} XP)` : ''}` });
+        str = cardIcon(iconName.strength(c.strengthType), { cls: 'str stat', inner: num(c.strengthValue + xpStr, xpStr ? 'buffed' : ''), title: `${c.strengthType}${xpStr ? ` (+${xpStr} XP)` : ''}` });
       }
       const speed = SPEED_TIERS[speedOf(c)];
-      left += `<span class="speed${speed !== c.speedTier ? ' buffed' : ''}" title="Speed-Tier: ${speed}">${speedIcon(speed)}</span>`;
       const reduced = opts.costNow !== undefined && !inPlay;
+      const kws = keywordSummary(c);
+      const text = [
+        kws.length ? kw(keywordTags(c)) : '',
+        kws.length && full ? rem(kws.map((k) => attr(keywordShort(k))).filter(Boolean).join(' ')) : '',
+        c.effectText ? `${kw(attr(c.effectTrigger))}${rem(boldKeywords(c.effectText))}` : '',
+      ].join('');
       return {
         kind: 'pokemon',
-        cost: reduced
-          ? `<span class="gem-cost reduced" title="${attr(`Energy Cost ${c.energyCost}; ${opts.costNow} in its cheapest Zone now (cost reduction)`)}">${opts.costNow}</span>`
-          : `<span class="gem-cost" title="Energy Cost">${c.energyCost}</span>`,
-        type: `Pokémon · ${c.pokemonType}`,
-        text: [keywordTags(c), c.effectText && `<b>${c.effectTrigger}:</b> ${c.effectText}`].filter(Boolean).join(' '),
-        left,
-        right,
+        corner: reduced
+          ? energy(opts.costNow, 'buffed', `Energy Cost ${c.energyCost}; ${opts.costNow} in its cheapest Zone now (cost reduction)`)
+          : energy(c.energyCost, '', `Energy Cost ${c.energyCost}`),
+        type: cardIcon(iconName.type(c.pokemonType), { cls: 'type', title: `${c.pokemonType} Type` }),
+        speed: cardIcon(iconName.speed(speed), { cls: `speed${speed !== c.speedTier ? ' raised' : ''}`, title: speed === c.speedTier ? speed : `${speed} (printed ${c.speedTier})` }),
+        atk,
+        str,
+        text,
         badges: frameBadges(c),
         status: [opts.alert && chip('alert', 'Alert'), c.spent && chip('spent', 'Spent')],
-        art: [`ptype-${slug(c.pokemonType)}`, c.pokemonType],
+        ph: c.pokemonType,
       };
     }
     case 'Trainer': {
@@ -982,41 +1020,39 @@ function face(c, opts) {
       const out = c.strength <= 0;
       return {
         kind: 'trainer',
-        type: 'Trainer',
-        text: `<b>Power (${c.power.cost}):</b> ${c.power.text} <b>Passive:</b> ${c.passive.text}`,
-        left: statBadge('power', icon('power'), `<b>${c.power.cost}</b>`, `Power cost ${c.power.cost}`),
-        right: statBadge('str', icon('hitpoints'), `<b class="${c.strength < c.maxStrength ? 'hurt' : ''}">${c.strength}</b><small>/${c.maxStrength}</small>`, `Strength ${c.strength} of ${c.maxStrength}`),
+        corner: energy(c.power.cost, '', `Power cost ${c.power.cost}`),
+        str: cardIcon('strength-hitpoints', { cls: 'str stat', inner: num(c.strength, c.strength < c.maxStrength ? 'hurt' : ''), title: `Trainer Strength ${c.strength} of ${c.maxStrength}` }),
+        text: `${kw(`Power (${c.power.cost})`)}${body(boldKeywords(c.power.text))}${kw('Passive')}${body(boldKeywords(c.passive.text))}`,
         status: [used && !out && chip('used', 'Power used'), out && chip('spent', 'Removed')],
       };
     }
-    case 'Location':
+    case 'Location': {
+      const tokens = Object.entries(c.weatherTokens ?? {});
       return {
         kind: 'location',
-        type: 'Location',
-        text: `<b>Quest:</b> ${c.quest.text} <b>Reward:</b> ${c.effectText}`,
-        left: statBadge('xp', icon('xp'), `<b>${c.xp}</b>`, `XP Reward ${c.xp}`),
-        right: inPlayLocation(c) ? statBadge('quest', icon('quest'), `<b>${questNow(c)}</b><small>/${c.quest.count}</small>`, questTitle(c)) : '',
-        badges: frameBadges(c),
+        corner: tokens.length ? `<div class="cost weather-corner" title="${attr(tokens.map(([t, n]) => `${n} ${t}`).join(', '))} Weather Tokens">${tokens.map(([t, n]) => `<span class="wx ${slug(t)}">${weatherIcon(t)}<b>${n}</b></span>`).join('')}</div>` : '',
+        text: `${kw('Quest')}${body(attr(c.quest.text))}${rem(`Reward: ${c.xp} XP. ${boldKeywords(c.effectText)}`)}`,
+        bl: `<span class="corner-badge xp" title="XP Reward ${c.xp}">${icon('xp')}<b>${c.xp}</b></span>`,
+        br: inPlayLocation(c) ? `<span class="corner-badge stat quest" title="${attr(questTitle(c))}">${icon('quest')}<b>${questNow(c)}</b><small>/${c.quest.count}</small></span>` : '',
       };
+    }
     case 'Item':
       return {
         kind: 'item',
-        cost: `<span class="coin-cost" title="PokéDollar Cost">$${c.cost}</span>`,
-        type: `Item · ${c.itemType}`,
-        text: c.effectText,
+        corner: cardIcon('coin', { cls: 'cost', inner: num(`$${c.cost}`, 'coin-num'), title: `PokéDollar Cost $${c.cost}` }),
+        text: `${kw(`${c.itemType} Item`)}${body(boldKeywords(c.effectText))}`,
         status: [c.inDelivery && chip('delivery', `${icon('delivery')} In Delivery`)],
       };
     case 'Strategy':
-      return { kind: 'strategy', cost: `<span class="gem-cost" title="Energy Cost">${c.energyCost}</span>`, type: 'Strategy', text: c.effectText };
+      return { kind: 'strategy', corner: energy(c.energyCost, '', `Energy Cost ${c.energyCost}`), text: body(boldKeywords(c.effectText)) };
     case 'Supporter':
       return {
         kind: 'supporter',
-        cost: `<span class="icon-cost" title="Card-Cost: ${costText(c.cardCost)}">${cardCostIcons(c.cardCost)}</span>`,
-        type: 'Supporter',
-        text: `${c.effectText} <b class="gift">Gift:</b> ${c.gift.challengeText} → ${c.gift.bonusText}`,
+        corner: `<div class="cost card-cost" title="Card-Cost: ${costText(c.cardCost)}">${cardCostIcons(c.cardCost)}</div>`,
+        text: `${body(boldKeywords(c.effectText))}${rem(`<b>Gift:</b> ${attr(c.gift.challengeText)} → ${boldKeywords(c.gift.bonusText)}`)}`,
       };
     default:
-      return { kind: slug(c.cardType), type: c.cardType, text: '' };
+      return { kind: slug(c.cardType), text: '' };
   }
 }
 
@@ -1042,49 +1078,50 @@ function questTitle(c) {
   return `${c.quest.label} ${questNow(c)}/${c.quest.count}${hint ? ` (${hint})` : ''}`;
 }
 
-// Card art: assets/cards/<card id>.jpg (or a card's own `image`). It is a
-// background layer over the placeholder box, so a missing file just leaves
-// the placeholder showing (no broken-image icon), and a file added to the
-// folder later shows up without any code change.
+// Card art: assets/cards/<card id>.jpg (or a card's own `image`), filling the
+// whole face (cover, focused on the upper middle). It is a background layer
+// over the placeholder (the darkened frame material with the Card-Type's
+// icon), so a missing file just leaves the placeholder showing, and a file
+// added later shows up without any code change.
 function artUrl(c) {
   return c.image ?? `assets/cards/${c.id}.jpg`;
 }
 
-function art(c, f, extra = '') {
-  const [cls, label] = f.art ?? [`${f.kind}-art`, c.cardType];
-  return `<div class="card-art ${cls}"><span>${label}</span><div class="art-img" style="background-image:url('${artUrl(c)}')"></div>${extra}</div>`;
+function art(c, f) {
+  const medallion = f.ph ? cardIcon(iconName.type(f.ph), { cls: 'ph-icon' }) : cardIcon(`kind-${f.kind}`, { cls: 'ph-icon' });
+  return `<div class="card-art${f.ph ? ` ptype-${slug(f.ph)}` : ''}"><div class="ph">${medallion}</div><div class="art-img" style="background-image:url('${artUrl(c)}')"></div></div>`;
 }
 
 function cardClasses(c, f, size, opts) {
-  return `card ${size} ${f.kind}${c.rarity ? ` rarity-${slug(c.rarity)}` : ''}${f.cost ? ' has-cost' : ''}${c.spent ? ' spent' : ''}${opts.willSpend ? ' will-spend' : ''}`
+  return `card ${size} ${f.kind}${c.rarity ? ` rarity-${slug(c.rarity)}` : ''}${c.spent ? ' spent' : ''}${opts.willSpend ? ' will-spend' : ''}`
     + `${opts.alert ? ' alert' : ''}${c.inDelivery ? ' delivery' : ''}${stateClasses(opts)}`;
 }
 
-// The parts every card face shares, top to bottom.
-function plate(c, f) {
-  return `<div class="plate"><span class="card-name">${c.name}</span></div>${f.cost ? `<div class="cost">${f.cost}</div>` : ''}`;
-}
-
-function statRow(c, f) {
-  return `<div class="stat-row"><span class="stat-left">${f.left ?? ''}</span>`
-    + `${c.rarity ? `<span class="gem" title="${c.rarity}"></span>` : ''}<span class="stat-right">${f.right ?? ''}</span></div>`;
-}
-
+// One card, at one of four sizes:
+//   'full'  (hover preview, inspect) and 'hand': the whole layout
+//   'board' no rules panel and no rarity icon
+//   'mini'  (Bag, PokéMart, pickers) art, name and cost only
 function card(c, size, opts = {}) {
-  const f = face(c, opts);
+  const f = face(c, { ...opts, size });
   const pv = previews.push({ c, opts }) - 1;
   const head = `class="${cardClasses(c, f, size, opts)}" data-uid="${c.uid}" data-pv="${pv}"`;
-  if (size === 'mini') return `<div ${head}>${plate(c, f)}${art(c, f)}</div>`;
-  const badges = (f.badges ?? []).filter(Boolean).join('');
+  const name = `<div class="plate"><span class="card-name">${c.name}</span></div>`;
+  if (size === 'mini') return `<div ${head}><div class="inner">${art(c, f)}${name}</div>${f.corner ?? ''}</div>`;
+  const wide = size === 'hand' || size === 'full';
+  const badges = [retainMark(c), ...(f.badges ?? []), burnToken(c)].filter(Boolean).join('');
   const status = (f.status ?? []).filter(Boolean).join('');
-  const retain = c.currentStrength === undefined && c.cardType !== 'Trainer' && hasRetain(c)
-    ? `<div class="retain-ribbon" title="${attr(c.retain ? 'Retain: stays in your hand at Supper.' : 'Retain (granted): stays in your hand at Supper until it leaves your hand.')}"><span>Retain</span></div>` : '';
   return `<div ${head}>
-    ${payBadge(opts)}${retain}${plate(c, f)}
-    ${art(c, f, `${badges ? `<div class="frame-badges">${badges}</div>` : ''}${size === 'board' ? keywordChips(c) : ''}${burnToken(c)}${status ? `<div class="status-chips">${status}</div>` : ''}`)}
-    <div class="type-banner">${f.type}</div>
-    <div class="text-box">${f.text}</div>
-    ${statRow(c, f)}
+    <div class="inner">
+      ${art(c, f)}${name}
+      ${wide && f.text ? `<div class="text-box">${f.text}</div>` : ''}
+      ${badges ? `<div class="badge-col">${badges}</div>` : ''}
+      ${size === 'board' ? keywordChips(c) : ''}
+      ${status ? `<div class="status-chips">${status}</div>` : ''}
+      ${payBadge(opts)}
+    </div>
+    ${f.corner ?? ''}${f.type ?? ''}${f.speed ?? ''}${f.atk ?? ''}${f.str ?? ''}
+    ${f.bl ?? ''}${f.br ?? ''}
+    ${wide && c.rarity ? cardIcon(iconName.rarity(c.rarity), { cls: 'rarity', title: c.rarity }) : ''}
   </div>`;
 }
 
@@ -1154,17 +1191,14 @@ function detailLines(c, opts) {
   }
 }
 
-// The large preview: the same card face, with every field written out on the parchment.
-function detail({ c, opts }) {
-  const f = face(c, opts);
-  const badges = (f.badges ?? []).filter(Boolean).join('');
-  return `<div class="${cardClasses(c, f, 'full', {})}">
-    ${plate(c, f)}
-    ${art(c, f, badges ? `<div class="frame-badges">${badges}</div>` : '')}
-    <div class="type-banner">${[f.type, c.rarity].filter(Boolean).join(' · ')}</div>
-    <div class="text-box pv-lines">${detailLines(c, opts).filter(Boolean).join('')}</div>
-    ${statRow(c, f)}
-  </div>`;
+// The large preview: the full card (same face, full layout), and below it
+// every field written out. Inspect shows the card alone, beside its explanations.
+function detail({ c, opts }, { rows = true } = {}) {
+  const face = card(c, 'full', { alert: opts.alert, plan: opts.plan, costNow: opts.costNow })
+    .replace(/ data-uid="[^"]*"/, '').replace(/ data-pv="\d+"/, '');
+  previews.pop();   // not a card on screen of its own
+  const lines = rows ? detailLines(c, opts).filter(Boolean).join('') : '';
+  return `${face}${lines ? `<div class="pv-details pv-lines">${lines}</div>` : ''}`;
 }
 
 // Shows the preview beside the hovered card, inside the stage, without moving anything.
@@ -1980,5 +2014,5 @@ function inspectView(entry) {
     lines.push(item('Gift Bonus', `If a paid card meets the challenge (${c.gift.challengeText}): ${c.gift.bonusText}`));
   }
   if (c.heldItem) lines.push(item(`Held Item: ${c.heldItem.name}`, `${c.heldItem.effectText} It stays with this card until the card is Released.`));
-  return `<div class="inspect-card">${detail(entry)}</div><div class="inspect-side"><h3>${c.name}</h3>${lines.join('')}<p class="inspect-close">Click anywhere or press Escape to close.</p></div>`;
+  return `<div class="inspect-card">${detail(entry, { rows: false })}</div><div class="inspect-side"><h3>${c.name}</h3>${lines.join('')}<p class="inspect-close">Click anywhere or press Escape to close.</p></div>`;
 }

@@ -5,8 +5,9 @@ import { chooseAction } from './ai/opponent.js';
 import { render, STAGE, pushHistory, clearHistory, setCaption } from './ui/render.js';
 import { present, think, skip, resetFx, historyEntry, captionFor } from './ui/present.js';
 import { speedFactor } from './ui/settings.js';
+import { probeCardIcons } from './ui/cardIcons.js';
 
-export const BUILD = 'Step 17 — Retain, Search, cost reduction, quests';
+export const BUILD = 'V7 — Full-art cards';
 
 
 // The whole game is drawn on a fixed 1920×1080 stage, scaled uniformly to
@@ -140,7 +141,7 @@ function preload() {
     ? Promise.all(['700 16px Cinzel', '800 16px Cinzel', '400 16px "Alegreya Sans"', '800 16px "Alegreya Sans"'].map((f) => document.fonts.load(f))).catch(() => {})
     : Promise.resolve();
   const limit = new Promise((resolve) => { setTimeout(resolve, 3000); });
-  return Promise.race([Promise.all([...images, fonts]), limit]);
+  return Promise.race([Promise.all([...images, fonts, probeCardIcons()]), limit]);
 }
 
 async function start() {
