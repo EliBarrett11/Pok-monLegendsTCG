@@ -18,7 +18,33 @@
   <link rel="preload" as="image" href="assets/ui/frame-location.jpg">
   <link rel="preload" as="image" href="assets/ui/frame-supporter.jpg">
   <link rel="preload" as="image" href="assets/ui/frame-trainer.jpg">
-  <link rel="stylesheet" href="src/ui/style.css">
+  <script>
+    // Cache busting: every game file is loaded with ?v=<when this page was
+    // deployed>, so after an update the browser never runs a cached mix of
+    // old and new files. The version changes by itself with every deploy (the
+    // page's Last-Modified time); nothing to bump by hand. Every module is
+    // listed here (tests/version.test.js checks the list is complete).
+    (() => {
+      const version = Date.parse(document.lastModified) || Date.now();
+      const MODULES = [
+        'src/main.js',
+        'src/ai/opponent.js',
+        'src/engine/board.js', 'src/engine/cardData.js', 'src/engine/cards.js', 'src/engine/effects.js',
+        'src/engine/energy.js', 'src/engine/game.js', 'src/engine/keywords.js', 'src/engine/random.js', 'src/engine/status.js',
+        'src/ui/cardIcons.js', 'src/ui/icons.js', 'src/ui/interact.js', 'src/ui/medallions.js', 'src/ui/particles.js',
+        'src/ui/present.js', 'src/ui/render.js', 'src/ui/resources.js', 'src/ui/settings.js',
+      ];
+      const url = (path) => new URL(path, location.href).href;
+      const map = document.createElement('script');
+      map.type = 'importmap';
+      map.textContent = JSON.stringify({ imports: Object.fromEntries(MODULES.map((m) => [url(m), `${url(m)}?v=${version}`])) });
+      document.currentScript.after(map);
+      const css = document.createElement('link');
+      css.rel = 'stylesheet';
+      css.href = `src/ui/style.css?v=${version}`;
+      document.head.append(css);
+    })();
+  </script>
 </head>
 <body>
   <!-- A fixed 1920×1080 stage, scaled to fit the window (see main.js). -->
@@ -35,6 +61,6 @@
     <!-- Right-click a card: the inspect view (interact.js). -->
     <div id="inspect" hidden></div>
   </div>
-  <script type="module" src="src/main.js"></script>
+  <script type="module">import './src/main.js';</script>
 </body>
 </html>
