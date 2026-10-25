@@ -14,7 +14,7 @@ The game will eventually have **6 archetypes × 3 specializations = 18 deck type
 ## 1. Deck construction rules
 
 - **40 cards** per deck, plus **3 Trainers** outside the deck.
-- **Copy limits** per card, by Rarity: Common 3, Uncommon 3, Rare 2, Epic 2, Legendary 1.
+- **Rarity tiers (4):** Common, Rare, Epic, Legendary. **Copy limits** per card: Common 3, Rare 2, Epic 1, Legendary 1 — and **at most one Legendary card in a deck**.
 - **Standard split:** 18 Pokémon, 8 Strategy, 4 Supporter, 4 Location, 6 Item.
 - **Mostly-type:** about 14–15 Pokémon of the deck's type, plus 3–4 allies of other types.
 - **Pokémon stat budget (design guideline):** Attack + Strength ≈ 2 × Cost + 6. Adjust: Swift −2, Slow +2, Defence or Special Defence Strength-Type −1, each ability or Innate −1 to −3 by strength, Legendary +1.
@@ -99,8 +99,8 @@ Existing triggers (On Summon, On Attack, On Defend, On Defeated, On Breakfast, O
 | charmander | Charmander | 2 | 1 | Fire | 3 Special | 4 Hitpoints | Steady | Common | On Summon: Burn 1 to an enemy Pokémon or Trainer in this Pokémon's Zone. |
 | ponyta | Ponyta | 3 | 2 | Fire | 3 Physical | 3 Hitpoints | Swift | Common | Quick Attack |
 | mankey | Mankey | 2 | 2 | Fighting | 4 Physical | 3 Hitpoints | Swift | Common | Overrun |
-| magmar | Magmar | 2 | 3 | Fire | 4 Special | 6 Hitpoints | Steady | Uncommon | Scorch 2 |
-| sneasel | Sneasel | 2 | 3 | Dark | 4 Physical | 3 Hitpoints | Swift | Uncommon | On Knockout: this Pokémon becomes Active (once per Round). |
+| magmar | Magmar | 2 | 3 | Fire | 4 Special | 6 Hitpoints | Steady | Common | Scorch 2 |
+| sneasel | Sneasel | 2 | 3 | Dark | 4 Physical | 3 Hitpoints | Swift | Common | On Knockout: this Pokémon becomes Active (once per Round). |
 | arcanine | Arcanine | 2 | 4 | Fire | 5 Physical | 5 Hitpoints | Swift | Rare | Overrun, Scorch 1 |
 | houndoom | Houndoom | 1 | 5 | Fire | 5 Special | 6 Hitpoints | Swift | Epic | On Summon: Burn 2 to each enemy Trainer. |
 | blaziken | Blaziken | 1 | 5 | Fire | 7 Physical | 7 Hitpoints | Steady | Legendary | Overrun, Scorch 2 |
@@ -112,7 +112,7 @@ Curve: cost 1 ×5, 2 ×5, 3 ×4, 4 ×2, 5 ×2.
 | id | Name | × | Cost | Rarity | Effect |
 |---|---|---|---|---|---|
 | ember | Ember | 3 | 1 | Common | Burn 2 to an enemy Pokémon or Trainer. (Targeted) |
-| flame-charge | Flame Charge | 2 | 2 | Uncommon | A friendly Pokémon gains +2 Attack this Round. If it's a Fire Pokémon, it also gains Scorch 1 this Round. (Targeted) |
+| flame-charge | Flame Charge | 2 | 2 | Common | A friendly Pokémon gains +2 Attack this Round. If it's a Fire Pokémon, it also gains Scorch 1 this Round. (Targeted) |
 | heat-wave | Heat Wave | 2 | 4 | Rare | Burn 1 to every enemy Pokémon and every enemy Trainer. (Area) |
 | fire-blast | Fire Blast | 1 | 5 | Epic | Deal 4 damage to an enemy Pokémon or Trainer, then Burn 2 to it if it's still in play. (Targeted) |
 
@@ -121,15 +121,15 @@ Curve: cost 1 ×5, 2 ×5, 3 ×4, 4 ×2, 5 ×2.
 | id | Name | × | Rarity | Card-Cost | Effect | Gift Challenge | Gift Bonus |
 |---|---|---|---|---|---|---|---|
 | firebreather | Firebreather | 2 | Common | Discard 1 | Burn 1 to each enemy Trainer. | a Fire Pokémon | Burn 2 to each enemy Trainer instead. |
-| chili | Chili | 1 | Uncommon | Release 1 | Your Pokémon in a chosen Zone gain +2 Attack and Overrun this Round. | a Swift Pokémon | They also become Active. |
-| burglar | Burglar | 1 | Uncommon | Discard 2 | Gain 3 PokéDollars. | an Item card | Gain 5 PokéDollars instead. |
+| chili | Chili | 1 | Rare | Release 1 | Your Pokémon in a chosen Zone gain +2 Attack and Overrun this Round. | a Swift Pokémon | They also become Active. |
+| burglar | Burglar | 1 | Rare | Discard 2 | Gain 3 PokéDollars. | an Item card | Gain 5 PokéDollars instead. |
 
 ### Locations (4)
 
 | id | Name | × | Rarity | Weather | Quest | XP | Effect on completion |
 |---|---|---|---|---|---|---|---|
 | mt-ember | Mt. Ember | 2 | Common | 2 Sun | Apply Burn 4 times. | 2 | Burn 2 to each enemy Trainer. |
-| cinnabar-volcano | Cinnabar Volcano | 1 | Uncommon | 2 Sun | Damage enemy Trainers 3 times with Pokémon in this Zone. | 3 | Friendly Fire Pokémon in this Zone gain +1/+1. |
+| cinnabar-volcano | Cinnabar Volcano | 1 | Rare | 2 Sun | Damage enemy Trainers 3 times with Pokémon in this Zone. | 3 | Friendly Fire Pokémon in this Zone gain +1/+1. |
 | stark-mountain | Stark Mountain | 1 | Rare | 3 Sun | Defeat 2 enemy Pokémon. | 2 | Deal 2 damage to each enemy Pokémon in this Zone. |
 
 ### Items (6)
@@ -138,7 +138,7 @@ Curve: cost 1 ×5, 2 ×5, 3 ×4, 4 ×2, 5 ×2.
 |---|---|---|---|---|---|---|
 | charcoal | Charcoal | 2 | Common | Held | 2 | Holder gains +1 Attack. If it's a Fire Pokémon, it also gains Scorch 1. |
 | x-attack | X Attack | 2 | Common | Consumed | 2 | A friendly Pokémon in the arena gains +2 Attack this Round. Retain. |
-| quick-claw | Quick Claw | 1 | Uncommon | Held | 3 | Holder's Speed-Tier is one higher (Slow → Steady → Swift). |
+| quick-claw | Quick Claw | 1 | Rare | Held | 3 | Holder's Speed-Tier is one higher (Slow → Steady → Swift). |
 | choice-band | Choice Band | 1 | Rare | Held | 4 | Holder gains +3 Attack and −2 Strength (can't reduce Strength below 1). |
 
 ### Trainers (total Strength 43)
@@ -162,10 +162,10 @@ Curve: cost 1 ×5, 2 ×5, 3 ×4, 4 ×2, 5 ×2.
 | horsea | Horsea | 2 | 1 | Water | 3 Special | 4 Hitpoints | Steady | Common | Rally: this Pokémon gains +1/+1. |
 | goldeen | Goldeen | 2 | 2 | Water | 4 Physical | 5 Hitpoints | Steady | Common | On Summon: heal a friendly Pokémon 2. |
 | chinchou | Chinchou | 2 | 2 | Electric | 3 Special | 5 Special Defence | Steady | Common | Regenerate 1 |
-| quagsire | Quagsire | 3 | 3 | Water | 4 Physical | 7 Defence | Slow | Uncommon | Regenerate 2 |
-| wartortle | Wartortle | 2 | 3 | Water | 4 Special | 5 Defence | Steady | Uncommon | Shell 1 |
+| quagsire | Quagsire | 3 | 3 | Water | 4 Physical | 7 Defence | Slow | Common | Regenerate 2 |
+| wartortle | Wartortle | 2 | 3 | Water | 4 Special | 5 Defence | Steady | Common | Shell 1 |
 | lapras | Lapras | 2 | 4 | Water | 5 Special | 7 Hitpoints | Steady | Rare | On Summon: heal all friendly Pokémon in this Pokémon's Zone 2. |
-| pelipper | Pelipper | 1 | 4 | Water | 5 Special | 5 Hitpoints | Swift | Uncommon | Weather Tokens: 2 Rain. On Summon: a card in your hand gains Retain. |
+| pelipper | Pelipper | 1 | 4 | Water | 5 Special | 5 Hitpoints | Swift | Rare | Weather Tokens: 2 Rain. On Summon: a card in your hand gains Retain. |
 | chansey | Chansey | 1 | 4 | Normal | 1 Physical | 12 Hitpoints | Slow | Rare | On Breakfast: heal each friendly Pokémon in this Pokémon's Zone 2. |
 | gyarados | Gyarados | 1 | 5 | Water | 7 Physical | 6 Hitpoints | Steady | Epic | On Summon: deal 2 damage to each enemy Pokémon in this Pokémon's Zone. |
 | vaporeon | Vaporeon | 1 | 5 | Water | 5 Special | 7 Special Defence | Steady | Epic | Regenerate 2. On Heal: this Pokémon gains +1 Attack. |
@@ -178,16 +178,16 @@ Curve: cost 1 ×2, 2 ×4, 3 ×5, 4 ×4, 5 ×2, 6 ×1.
 | id | Name | × | Cost | Rarity | Effect |
 |---|---|---|---|---|---|
 | aqua-ring | Aqua Ring | 3 | 2 | Common | Heal a friendly Pokémon 3 and Douse it. Retain. (Targeted) |
-| bubble-beam | Bubble Beam | 2 | 3 | Uncommon | Deal 2 damage to an enemy Pokémon, or 3 if Rain is 2 or more. (Targeted) |
-| dive | Dive | 2 | 2 | Uncommon | Return a Pokémon from your Discard Pile to your hand. It gains Retain. |
+| bubble-beam | Bubble Beam | 2 | 3 | Common | Deal 2 damage to an enemy Pokémon, or 3 if Rain is 2 or more. (Targeted) |
+| dive | Dive | 2 | 2 | Common | Return a Pokémon from your Discard Pile to your hand. It gains Retain. |
 | surf | Surf | 1 | 5 | Rare | Deal 2 damage to each enemy Pokémon, and heal each friendly Pokémon 1. (Area) |
 
 ### Supporters (4)
 
 | id | Name | × | Rarity | Card-Cost | Effect | Gift Challenge | Gift Bonus |
 |---|---|---|---|---|---|---|---|
-| nurse-joy | Nurse Joy | 2 | Uncommon | Discard 1 | Heal a friendly Trainer 3 and Douse it. | a Normal Pokémon | Heal 5 instead. |
-| swimmer | Swimmer | 1 | Uncommon | Discard 2 | Free summon a Pokémon costing 2 or less from your hand. | a Water Pokémon | It arrives Active. |
+| nurse-joy | Nurse Joy | 2 | Common | Discard 1 | Heal a friendly Trainer 3 and Douse it. | a Normal Pokémon | Heal 5 instead. |
+| swimmer | Swimmer | 1 | Rare | Discard 2 | Free summon a Pokémon costing 2 or less from your hand. | a Water Pokémon | It arrives Active. |
 | fisherman | Fisherman | 1 | Rare | Release 1 | Search your Draw Pile for a Water Pokémon; it gains Retain. | a Strategy card | Search for two instead. |
 
 ### Locations (4)
@@ -195,7 +195,7 @@ Curve: cost 1 ×2, 2 ×4, 3 ×5, 4 ×4, 5 ×2, 6 ×1.
 | id | Name | × | Rarity | Weather | Quest | XP | Effect on completion |
 |---|---|---|---|---|---|---|---|
 | cerulean-cape | Cerulean Cape | 2 | Common | 2 Rain | Summon 3 Pokémon into this Zone. | 2 | Friendly Pokémon in this Zone gain +1/+1. |
-| lake-of-rage | Lake of Rage | 1 | Uncommon | 2 Rain | Heal 10 Strength in total. | 3 | Return up to 2 Pokémon from your Discard Pile to your hand. |
+| lake-of-rage | Lake of Rage | 1 | Rare | 2 Rain | Heal 10 Strength in total. | 3 | Return up to 2 Pokémon from your Discard Pile to your hand. |
 | route-119 | Route 119 | 1 | Rare | 3 Rain | Have 3 friendly Pokémon in this Zone at Supper. | 2 | Heal all friendly Trainers 3. |
 
 ### Items (6)
@@ -203,7 +203,7 @@ Curve: cost 1 ×2, 2 ×4, 3 ×5, 4 ×4, 5 ×2, 6 ×1.
 | id | Name | × | Rarity | Item-Type | PokéDollars | Effect |
 |---|---|---|---|---|---|---|
 | mystic-water | Mystic Water | 2 | Common | Held | 2 | Holder gains +1 Attack. If it's a Water Pokémon, it also gains +1 Strength. |
-| leftovers | Leftovers | 2 | Uncommon | Held | 3 | Holder gains Regenerate 1. |
+| leftovers | Leftovers | 2 | Common | Held | 3 | Holder gains Regenerate 1. |
 | full-heal | Full Heal | 2 | Common | Consumed | 1 | Douse a friendly Pokémon or Trainer and heal it 2. Retain. |
 
 ### Trainers (total Strength 48)
