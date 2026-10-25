@@ -883,6 +883,24 @@ async function after(root, snap, next, actor, t, late) {
     else if (e.type === 'damage' && shown(e.target.uid)) await hitBeat(root, e, t);
     else if (e.type === 'statusApplied' && shown(e.target.uid)) await burnApplied(e, t);
   }
+  // Retain at Supper: the kept cards glow in my hand (the opponent's count stays put).
+  for (const e of ev.filter((x) => x.type === 'retained')) {
+    if (e.who === 'player') {
+      for (const uid of e.uids) cardElements().get(uid)?.animate([{ filter: 'brightness(1)' }, { filter: 'brightness(1.35) drop-shadow(0 0 12px #ffb070)', offset: 0.4 }, { filter: 'brightness(1)' }], { duration: t(1400) });
+      const area = root.querySelector('.hand-area');
+      if (area) floatNumber(rectOf(area), `Kept: ${e.count} (Retain)`, 'buff', t(1500));
+    } else {
+      const hand = pile(root, 'ai-hand');
+      if (hand) floatNumber(rectOf(hand), `Kept ${e.count} (Retain)`, 'buff', t(1500));
+    }
+  }
+  // Search and Return: what was found rises from the pile; or "Nothing found".
+  for (const e of ev.filter((x) => ['searched', 'returned', 'searchNone', 'returnNone'].includes(x.type))) {
+    const from = pile(root, `${e.who}-${e.type.startsWith('search') ? 'draw' : 'discard'}`);
+    if (!from) continue;
+    const text = e.cards ? e.cards.map((c) => c.name).join(', ') : 'Nothing found';
+    floatNumber(rectOf(from), text, e.cards ? 'buff' : 'douse', t(1500));
+  }
   // Base Energy gained by passing floats up from that player's Energy counter.
   for (const e of ev.filter((x) => x.type === 'energyGained' && x.source === 'Pass')) {
     const counter = pile(root, `${e.who}-energy`);
@@ -946,7 +964,8 @@ export function captionFor(state, actor) {
       const paid = [...main.paid.discard, ...main.paid.release];
       text = `${S} ${verb(actor, 'play')} ${main.name}${on(main.target)}${paid.length ? `, paying ${paid.join(', ')}` : ''} — Gift ${main.gift.met ? 'met' : 'not met'}`;
     } else {
-      text = `${S} ${verb(actor, 'play')} ${main.name}${where}${on(main.target)}`;
+      const cut = main.cost !== undefined && main.cost < main.printedCost ? ` for ${main.cost} Energy (cost ${main.printedCost}, reduced)` : '';
+      text = `${S} ${verb(actor, 'play')} ${main.name}${where}${cut}${on(main.target)}`;
     }
   } else if (main?.type === 'itemBought') {
     text = `${S} ${verb(actor, 'buy')} ${main.name} from the PokéMart ($${main.cost})`;
@@ -965,6 +984,8 @@ export function captionFor(state, actor) {
       text += ` — ${list} ${names.length === 1 ? 'is' : 'are'} Spent (unmatched speed)`;
     }
     if (ev.some((e) => e.type === 'phaseChanged' && e.phase === 'supper')) text += ' · Battle Phase ends';
+  } else if (main?.type === 'choiceMade' && main.kind === 'pick') {
+    text = `${S} ${verb(actor, 'choose')} for ${main.source}`;
   } else if (main?.type === 'choiceMade') {
     text = main.kind === 'target'
       ? `${S} ${verb(actor, 'choose')} ${named(main.target)} for ${main.source}`
@@ -988,6 +1009,12 @@ export function captionFor(state, actor) {
     ...all('overrun').map((e) => `Overrun: ${e.amount} through to ${named(e.target)}`),
     ...all('statusApplied').map((e) => `${named(e.target)} Burned ${e.amount}${e.after !== e.amount ? ` (now ${e.after})` : ''}`),
     ...all('statusCleared').map((e) => `${named(e.target)} Doused`),
+    ...all('searched').map((e) => `${subject(e.who)} ${verb(e.who, 'search', 'searches')} for ${e.cards.map((c) => c.name).join(', ')}${e.retain ? ' (Retain)' : ''}`),
+    ...all('returned').map((e) => e.cards.length ? `${subject(e.who)} ${verb(e.who, 'return')} ${e.cards.map((c) => c.name).join(', ')} to hand${e.retain ? ' (Retain)' : ''}` : `${subject(e.who)} ${verb(e.who, 'return')} nothing`),
+    ...all('searchNone').map((e) => `${subject(e.who)} ${verb(e.who, 'search', 'searches')}: nothing found`),
+    ...all('returnNone').map((e) => `${subject(e.who)} ${verb(e.who, 'find')} nothing to return`),
+    ...all('retainGranted').map((e) => `${e.who === 'player' ? e.name : 'A card in their hand'} gains Retain`),
+    ...all('retained').map((e) => `${subject(e.who)} ${verb(e.who, 'keep')} ${e.count} card${e.count === 1 ? '' : 's'} (Retain)`),
     ...regen,
     ...all('defeated').map((e) => `${named(e.target)} defeated${e.cause === 'burn' ? ' by Burn' : ''}`),
     ...all('trainerRemoved').map((e) => `${named(e.target)} removed`),

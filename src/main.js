@@ -6,7 +6,7 @@ import { render, STAGE, pushHistory, clearHistory, setCaption } from './ui/rende
 import { present, think, skip, resetFx, historyEntry, captionFor } from './ui/present.js';
 import { speedFactor } from './ui/settings.js';
 
-export const BUILD = 'Step 16 — Burn, Innate Powers, new triggers';
+export const BUILD = 'Step 17 — Retain, Search, cost reduction, quests';
 
 
 // The whole game is drawn on a fixed 1920×1080 stage, scaled uniformly to

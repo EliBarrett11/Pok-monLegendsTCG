@@ -249,9 +249,16 @@ export const SUPPORTER_CARDS = [
 // Played as a Battle Action (no Energy) into the Location space of one of
 // your zones. Its Weather Tokens count while it is in play. Its quest counts
 // your own actions from the moment it is played:
-//   quest: { text, label, on: 'summon' | 'attack' | 'power', filter?, inZone?, count }
-//     filter  a card condition (matchesCard) on the summoned / attacking Pokémon
+//   quest: { text, label, on, filter?, inZone?, count }
+//     on      'summon' | 'attack' | 'power' (each one) · 'burn' (each card you burn) ·
+//             'heal' (Strength healed on your cards) · 'trainerStrike' (your Pokémon damaging
+//             an enemy Trainer) · 'defeat' (enemy Pokémon you defeat) · 'presence' (friendly
+//             Pokémon in this Zone, checked at Supper)
+//     filter  a card condition (matchesCard) on the summoned / attacking / defeated Pokémon
 //     inZone  only events in this Location's zone (your side)
+//   Trainer Passive cost reductions: passive.cost = { amount, first? } makes a
+//   friendly Pokémon summoned into that Trainer's Zone cost `amount` less (only
+//   the first one each Round with first: true; never below 0).
 // When the quest is completed you gain `xp`, `effects` resolve (the
 // Location's Zone is the source Zone), then the Location is Released.
 

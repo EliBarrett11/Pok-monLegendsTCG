@@ -1217,3 +1217,40 @@ button.primary {
   position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; pointer-events: none;
   background: radial-gradient(circle, #fff, #ffd36b 30%, #ff7a1a 60%, transparent 72%); box-shadow: 0 0 24px 10px rgba(255, 120, 30, 0.6);
 }
+
+/* --- Hand keywords, card picker, Zone costs ------------------------------------------ */
+
+/* Retain: a red bookmark ribbon hanging from the top right of a card in hand. */
+.retain-ribbon {
+  position: absolute; right: 10px; top: -3px; z-index: 4; width: 22px; height: 46px; pointer-events: auto; cursor: help;
+  background: linear-gradient(90deg, #8e1c1c, #c43a2a 45%, #8e1c1c); box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.6);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%);
+}
+.retain-ribbon span {
+  position: absolute; left: 50%; top: 4px; transform: translateX(-50%); writing-mode: vertical-rl;
+  font-family: var(--font-display); font-size: 8.5px; font-weight: 800; letter-spacing: 0.06em; color: #ffe3c4;
+}
+.card.full .retain-ribbon { width: 34px; height: 70px; right: 18px; }
+.card.full .retain-ribbon span { font-size: 13px; top: 6px; }
+@keyframes kept { 0%, 100% { box-shadow: var(--shadow-card); } 40% { box-shadow: 0 0 0 3px #ffb070, 0 0 24px 8px rgba(255, 140, 80, 0.7); } }
+
+/* A cost lowered by a reduction: a green gem; the cost tag on each space a Pokémon could go. */
+.gem-cost.reduced { background: radial-gradient(circle at 35% 30%, #d8ffd8, #3fbf6a 45%, #12602e 85%); color: #fff; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.7); }
+.zone-cost {
+  display: block; margin-top: 4px; padding: 1px 6px; border-radius: 6px; font-family: var(--font-text); font-size: 13px; font-weight: 800;
+  color: var(--ink); background: var(--brass-plate); border: 1px solid var(--brass-dark); text-transform: none; letter-spacing: 0;
+}
+.zone-cost.reduced { background: linear-gradient(#a8f0b8, #4fc46e); border-color: #1e4d34; }
+.zone-cost s { opacity: 0.6; font-weight: 600; margin-left: 2px; }
+
+/* The card picker (Search, Return, free summon). */
+.picker .pile-view-box { width: 1200px; }
+.pick-slot { position: relative; cursor: pointer; border-radius: var(--radius-board); transition: transform 0.12s; }
+.pick-slot:hover { transform: translateY(-4px); }
+.pick-slot.picked { box-shadow: 0 0 0 3px var(--green-bright), 0 0 18px 4px rgba(120, 231, 166, 0.6); }
+.pick-slot.picked::after {
+  content: '✓'; position: absolute; right: -6px; top: -8px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--green-bright); color: var(--ink); font-weight: 900; font-size: 16px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+}
+.pick-foot { display: flex; justify-content: flex-end; gap: 12px; margin-top: 14px; }
+.pick-foot button { font-size: 17px; padding: 8px 22px; }

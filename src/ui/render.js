@@ -10,12 +10,13 @@ import {
   summonSpaces, isFallen, attackOf, maxStrengthOf, playableStrategies, strategyTargets,
   playableSupporters, supporterTargets, giftMet, playableLocations, locationSpaces, weatherState,
   openBagOptions, itemTargets, BAG_SIZE, passEndsPhase, PASS_ENERGY, applyAction, passSpends,
+  summonCost, zoneReductions, cheapestCost,
 } from '../engine/game.js';
-import { EXERT_LIMIT } from '../engine/energy.js';
+import { EXERT_LIMIT, canPay } from '../engine/energy.js';
 import { keywordSummary, keywordLabel } from '../engine/keywords.js';
 import { statusCount } from '../engine/status.js';
 import { energySlots, exertSlots, pileDepth } from './resources.js';
-import { heldBonus, weatherTotal, speedOf, cardAt } from '../engine/board.js';
+import { heldBonus, weatherTotal, speedOf, cardAt, hasRetain } from '../engine/board.js';
 import { INNATE_POWERS, WEATHER, SPEED_TIERS } from '../engine/cardData.js';
 import { SPEEDS, getSpeed, setSpeed, speedFactor } from './settings.js';
 import { wireInteractions } from './interact.js';
@@ -121,6 +122,7 @@ function resetUiFor(state) {
   ui.bag = null;               // Open Bag: { mode: null | 'buyHand' | 'buyMart' | 'useBag', uid, then, picking }
   ui.costFocus = null;         // the card or Power whose Energy cost is being previewed: { uid } | { power: zone }
   ui.passWarn = false;         // the "passing now will make … Spent" warning is showing
+  ui.pick = [];                // uids marked in the card picker (Search, Return, free summon)
   if (keep) Object.assign(ui, keep);
 }
 
@@ -177,7 +179,22 @@ function targetKeys(state) {
 function placingSpaces(state) {
   const freeSummon = state.pending?.who === 'player' && state.pending.kind === 'freeSummon';
   if (!ui.selectedPokemon && !freeSummon) return new Set();
-  return new Set(summonSpaces(state, 'player').map(({ zone, space }) => `${zone}${space}`));
+  // Playing one: only Zones where it is affordable (a cost reduction can depend on the Zone).
+  const me = state.players.player;
+  const c = !freeSummon && me.hand.find((h) => h.uid === ui.selectedPokemon);
+  return new Set(summonSpaces(state, 'player').filter(({ zone }) => !c || canPay(me, summonCost(state, 'player', c, zone)))
+    .map(({ zone, space }) => `${zone}${space}`));
+}
+
+// What playing the selected Pokémon into this Zone costs, as a tag on its
+// spaces: "Costs 1" (green with the reason when reduced).
+function zoneCostTag(state, zone) {
+  const me = state.players.player;
+  const c = ui.selectedPokemon && me.hand.find((h) => h.uid === ui.selectedPokemon);
+  if (!c || state.pending) return '';
+  const cost = summonCost(state, 'player', c, zone);
+  const why = [...(c.costDown ? [`−${c.costDown} on the card`] : []), ...zoneReductions(state, 'player', zone).map((r) => `−${r.amount} ${r.name}`)];
+  return `<b class="zone-cost${cost < c.energyCost ? ' reduced' : ''}" title="${attr(cost < c.energyCost ? `Cost ${c.energyCost} → ${cost}: ${why.join(', ')}` : `Cost ${cost}`)}">Costs ${cost}${cost < c.energyCost ? ` <s>${c.energyCost}</s>` : ''}</b>`;
 }
 
 const isMyBattleTurn = (state) => state.phase === 'battle' && state.turn === 'player' && !state.pending;
@@ -247,6 +264,7 @@ export function render(root, state, actions) {
       <div class="log-body">${state.log.map((line) => `<p>${line}</p>`).join('')}</div>
     </aside>
     ${passWarningBox(state)}
+    ${pickerBox(state)}
     ${pileViewBox(state)}
     ${gameOverScreen(state)}
     <div class="preview" hidden></div>
@@ -430,6 +448,33 @@ function piles(state, who) {
   const p = state.players[who];
   const order = who === 'player' ? ['draw', 'discard', 'released'] : ['released', 'discard', 'draw'];
   return `<div class="piles ${who}">${order.map((k) => pileStack(p, who, k)).join('')}</div>`;
+}
+
+// The card picker for Search (Draw Pile), Return (Discard Pile) and a free
+// summon (hand): only the matching cards, click to mark, then confirm.
+const PICK_TITLES = { draw: 'Search your Draw Pile', discard: 'Return from your Discard Pile', hand: 'Summon a Pokémon for free' };
+function pickerBox(state) {
+  const pend = state.pending;
+  if (pend?.who !== 'player' || pend.kind !== 'pick') return '';
+  const p = state.players.player;
+  const pile = pend.from === 'draw' ? p.drawPile : pend.from === 'discard' ? p.discard : p.hand;
+  const cards = pend.options.map((uid) => pile.find((c) => c.uid === uid)).filter(Boolean);
+  const n = ui.pick.length;
+  const ok = n >= pend.min && n <= pend.max;
+  const need = pend.min === pend.max ? `Choose ${pend.max} card${pend.max === 1 ? '' : 's'}` : `Choose up to ${pend.max} card${pend.max === 1 ? '' : 's'}`;
+  const faces = cards.map((c) => `<div class="pick-slot${ui.pick.includes(c.uid) ? ' picked' : ''}" data-pick="${c.uid}">${card(c, 'board').replace(/ data-uid="[^"]*"/, '')}</div>`).join('');
+  return `
+    <div class="pile-view picker">
+      <div class="pile-view-box">
+        <header><h3>${PICK_TITLES[pend.from]} <span>${pend.label}</span></h3>
+          <p>${pend.text ?? ''} ${need}${pend.retain && !/Retain/.test(pend.text ?? '') ? '; it gains Retain' : ''}. Only matching cards are shown${pend.from === 'draw' ? '; the Draw Pile is shuffled afterwards' : ''}.</p></header>
+        <div class="pile-view-cards">${faces}</div>
+        <footer class="pick-foot">
+          ${pend.min === 0 ? `<button data-action="pick-none" class="secondary">${pend.from === 'hand' ? 'Don\'t summon' : 'Take none'}</button>` : ''}
+          <button data-action="pick-confirm"${ok && n ? '' : ' disabled'}>Confirm${n ? ` (${n})` : ''}</button>
+        </footer>
+      </div>
+    </div>`;
 }
 
 // Looking through a Discard or Released Pile: every card face up, in the order they arrived.
@@ -695,7 +740,7 @@ function pokemonZone(state, who, z, targets, fallen) {
           selectable: alert && who === 'player' && myTurn,
           selected: who === 'player' && ui.attacker?.zone === z && ui.attacker?.space === s,
         };
-        const empty = placing.has(`${z}${s}`) ? '<span class="empty">Play here</span>' : '';
+        const empty = placing.has(`${z}${s}`) ? `<span class="empty">Play here${zoneCostTag(state, z)}</span>` : '';
         return `<div class="${cls}" data-owner="${who}" data-zone="${z}" data-space="${s}">${c ? card(c, 'board', opts) : empty}</div>`;
       }).join('')}
     </div>`;
@@ -753,8 +798,10 @@ function handCards(state) {
       ...playableLocations(state, 'player')].map((c) => c.uid) : [];
   // A cost in hand turns red when it can't be paid now (Energy, or PokéDollars for Items).
   const energy = me.baseEnergy + me.exertMax - me.exhaust.length;
-  const short = (c) => (c.cardType === 'Item' ? c.cost > me.dollars : (c.energyCost ?? 0) > energy);
-  const hand = (c, opts = {}) => card(c, 'hand', { ...opts, cantAfford: short(c) });
+  // A Pokémon's cost now: the cheapest Zone it could go into (cost reductions).
+  const costNow = (c) => (c.cardType === 'Pokémon' ? cheapestCost(state, 'player', c) : c.energyCost ?? 0);
+  const short = (c) => (c.cardType === 'Item' ? c.cost > me.dollars : costNow(c) > energy);
+  const hand = (c, opts = {}) => card(c, 'hand', { ...opts, cantAfford: short(c), costNow: c.cardType === 'Pokémon' && costNow(c) < c.energyCost ? costNow(c) : undefined });
   return fan(me.hand.map((c) => {
     if (mulligan) return hand(c, { selectable: true, selected: ui.mulligan.has(c.uid) });
     if (xpStep) {
@@ -915,9 +962,12 @@ function face(c, opts) {
       }
       const speed = SPEED_TIERS[speedOf(c)];
       left += `<span class="speed${speed !== c.speedTier ? ' buffed' : ''}" title="Speed-Tier: ${speed}">${speedIcon(speed)}</span>`;
+      const reduced = opts.costNow !== undefined && !inPlay;
       return {
         kind: 'pokemon',
-        cost: `<span class="gem-cost" title="Energy Cost">${c.energyCost}</span>`,
+        cost: reduced
+          ? `<span class="gem-cost reduced" title="${attr(`Energy Cost ${c.energyCost}; ${opts.costNow} in its cheapest Zone now (cost reduction)`)}">${opts.costNow}</span>`
+          : `<span class="gem-cost" title="Energy Cost">${c.energyCost}</span>`,
         type: `Pokémon · ${c.pokemonType}`,
         text: [keywordTags(c), c.effectText && `<b>${c.effectTrigger}:</b> ${c.effectText}`].filter(Boolean).join(' '),
         left,
@@ -945,7 +995,7 @@ function face(c, opts) {
         type: 'Location',
         text: `<b>Quest:</b> ${c.quest.text} <b>Reward:</b> ${c.effectText}`,
         left: statBadge('xp', icon('xp'), `<b>${c.xp}</b>`, `XP Reward ${c.xp}`),
-        right: inPlayLocation(c) ? statBadge('quest', icon('quest'), `<b>${c.progress}</b><small>/${c.quest.count}</small>`, `${c.quest.label} ${c.progress}/${c.quest.count}`) : '',
+        right: inPlayLocation(c) ? statBadge('quest', icon('quest'), `<b>${questNow(c)}</b><small>/${c.quest.count}</small>`, questTitle(c)) : '',
         badges: frameBadges(c),
       };
     case 'Item':
@@ -971,6 +1021,26 @@ function face(c, opts) {
 }
 
 const inPlayLocation = (c) => c.progress !== undefined;
+
+// Quest progress as shown: most quests count up; "Have N friendly Pokémon in
+// this Zone at Supper" shows how many are there now (it's checked at Supper).
+function questNow(c) {
+  if (c.quest.on !== 'presence') return Math.min(c.progress, c.quest.count);
+  const zone = ui.state?.players.player.zones.find((z) => z.location?.uid === c.uid) ?? ui.state?.players.ai.zones.find((z) => z.location?.uid === c.uid);
+  return zone ? zone.pokemon.filter(Boolean).length : c.progress;
+}
+const QUEST_HINTS = {
+  burn: 'each card you burn counts once',
+  heal: 'Strength you actually heal on your own cards',
+  trainerStrike: 'each time one of your Pokémon in this Zone damages an enemy Trainer (attack or Overrun)',
+  defeat: 'each enemy Pokémon your cards or effects defeat (Burn you applied counts)',
+  presence: 'checked at each Supper: how many are there now',
+  summon: 'any summon counts, free ones too',
+};
+function questTitle(c) {
+  const hint = QUEST_HINTS[c.quest.on];
+  return `${c.quest.label} ${questNow(c)}/${c.quest.count}${hint ? ` (${hint})` : ''}`;
+}
 
 // Card art: assets/cards/<card id>.jpg (or a card's own `image`). It is a
 // background layer over the placeholder box, so a missing file just leaves
@@ -1007,8 +1077,10 @@ function card(c, size, opts = {}) {
   if (size === 'mini') return `<div ${head}>${plate(c, f)}${art(c, f)}</div>`;
   const badges = (f.badges ?? []).filter(Boolean).join('');
   const status = (f.status ?? []).filter(Boolean).join('');
+  const retain = c.currentStrength === undefined && c.cardType !== 'Trainer' && hasRetain(c)
+    ? `<div class="retain-ribbon" title="${attr(c.retain ? 'Retain: stays in your hand at Supper.' : 'Retain (granted): stays in your hand at Supper until it leaves your hand.')}"><span>Retain</span></div>` : '';
   return `<div ${head}>
-    ${payBadge(opts)}${plate(c, f)}
+    ${payBadge(opts)}${retain}${plate(c, f)}
     ${art(c, f, `${badges ? `<div class="frame-badges">${badges}</div>` : ''}${size === 'board' ? keywordChips(c) : ''}${burnToken(c)}${status ? `<div class="status-chips">${status}</div>` : ''}`)}
     <div class="type-banner">${f.type}</div>
     <div class="text-box">${f.text}</div>
@@ -1064,7 +1136,7 @@ function detailLines(c, opts) {
     case 'Location':
       return [
         row('Quest', c.quest.text),
-        inPlayLocation(c) && row('Progress', `${c.quest.label} <b>${c.progress}/${c.quest.count}</b>`),
+        inPlayLocation(c) && row('Progress', `${c.quest.label} <b>${questNow(c)}/${c.quest.count}</b>${QUEST_HINTS[c.quest.on] ? ` <span class="muted">(${QUEST_HINTS[c.quest.on]})</span>` : ''}`),
         row('XP Reward', `${c.xp} XP`),
         row('Reward', c.effectText),
         c.weatherTokens && row('Weather', weatherText(c.weatherTokens)),
@@ -1146,6 +1218,9 @@ function controls(state) {
   if (state.pending?.who === 'player' && state.pending.kind === 'target') {
     return { hint: `<b>${state.pending.label}:</b> ${state.pending.text ?? ''} Choose a highlighted target.`, secondary: '', primary: idle('Choose', 'a target') };
   }
+  if (state.pending?.who === 'player' && state.pending.kind === 'pick') {
+    return { hint: `<b>${state.pending.label}:</b> ${PICK_TITLES[state.pending.from]}: mark the cards you want, then confirm.`, secondary: '', primary: idle('Choose', 'cards') };
+  }
   switch (state.phase) {
     case 'trainers': {
       if (me.pending) return waiting;
@@ -1182,7 +1257,8 @@ function controls(state) {
     case 'battle': {
       if (state.pending?.who === 'player' && state.pending.kind === 'freeSummon') {
         const c = me.hand.find((h) => h.uid === state.pending.uid);
-        return { hint: `Ash drew <b>${c.name}</b>: click a highlighted space to summon it for free, or keep it.`, secondary: '', primary: primary('keep-card', 'Keep', 'in hand') };
+        const why = state.pending.label?.includes('Ash') ? `Ash drew <b>${c.name}</b>` : `<b>${state.pending.label}</b>: <b>${c.name}</b>`;
+        return { hint: `${why}: click a highlighted space to summon it for free, or keep it.`, secondary: '', primary: primary('keep-card', 'Keep', 'in hand') };
       }
       if (state.turn !== 'player' || state.pending) return waiting;
       if (ui.bag) {
@@ -1303,7 +1379,8 @@ function costOf(state, focus) {
     return t && t.strength > 0 ? t.power.cost : null;
   }
   const c = p.hand.find((h) => h.uid === focus.uid);
-  return c && (c.cardType === 'Pokémon' || c.cardType === 'Strategy') ? c.energyCost : null;
+  if (c?.cardType === 'Pokémon') return cheapestCost(state, 'player', c);   // its cheapest Zone now
+  return c?.cardType === 'Strategy' ? c.energyCost : null;
 }
 
 function applyCost(root, state) {
@@ -1420,6 +1497,16 @@ function wire(root, state, actions) {
     root.querySelector('[data-action="settings"]').textContent = `⚙ ${SPEEDS[getSpeed()].label}`;
   });
   on('[data-action="new-game"]', () => { pileView = null; newGame(); });
+  // The card picker: mark cards (one at a time when only one may be taken), then confirm.
+  on('[data-pick]', (el) => {
+    const uid = el.dataset.pick;
+    const max = state.pending?.max ?? 1;
+    if (ui.pick.includes(uid)) ui.pick = ui.pick.filter((u) => u !== uid);
+    else ui.pick = max === 1 ? [uid] : ui.pick.length < max ? [...ui.pick, uid] : ui.pick;
+    redraw();
+  });
+  on('[data-action="pick-confirm"]', () => dispatch({ type: 'resolveChoice', who: 'player', uids: [...ui.pick] }));
+  on('[data-action="pick-none"]', () => dispatch({ type: 'resolveChoice', who: 'player', uids: [] }));
   // Looking through a Discard or Released Pile; the backdrop or Close shuts it.
   on('[data-pile-view]', (el) => {
     const [who, kind] = el.dataset.pileView.split(':');
@@ -1644,7 +1731,7 @@ function wire(root, state, actions) {
       return;
     }
     const uid = ui.selectedPokemon;
-    if (!confirmExert(costPreview(state, 'player', uid).fromExert)) return;
+    if (!confirmExert(costPreview(state, 'player', uid, zone).fromExert)) return;   // the cost in this Zone
     dispatch({ type: 'playPokemon', who: 'player', uid, zone, space });
   });
 

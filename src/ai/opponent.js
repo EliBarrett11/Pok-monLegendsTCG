@@ -11,8 +11,10 @@ import {
   applyAction, legalActions, playablePokemon, summonSpaces, alertPokemon, legalTargets,
   usablePowers, powerTargets, playableStrategies, strategyTargets, opponentOf, maxStrengthOf, attackOf,
   playableSupporters, supporterTargets, giftMet, playableLocations, locationSpaces,
-  openBagOptions, itemTargets, passEndsPhase, PASS_ENERGY, passSpends,
+  openBagOptions, itemTargets, passEndsPhase, PASS_ENERGY, passSpends, summonCost,
 } from '../engine/game.js';
+import { baseEnergyFor } from '../engine/energy.js';
+import { cardAt } from '../engine/board.js';
 import { keywordAmount, afterShell } from '../engine/keywords.js';
 import { statusCount } from '../engine/status.js';
 
@@ -44,10 +46,9 @@ function candidateMoves(state, who) {
   // One move per distinct card and zone: spaces within a zone play the same.
   const seen = new Set();
   for (const card of playablePokemon(state, who)) {
-    if (card.energyCost > p.baseEnergy) continue;
     for (const { zone, space } of summonSpaces(state, who)) {
       const key = `${card.id}:${zone}`;
-      if (seen.has(key)) continue;
+      if (seen.has(key) || summonCost(state, who, card, zone) > p.baseEnergy) continue;
       seen.add(key);
       moves.push({ type: 'playPokemon', who, uid: card.uid, zone, space });
     }
@@ -250,6 +251,12 @@ function scoreMove(state, who, move) {
   if (trainer?.id === 'ash') return 12;
   const strategy = move.type === 'playStrategy' ? state.players[who].hand.find((c) => c.uid === move.uid) : null;
   if (strategy?.id === 'quickdraw') return 16;
+  // Search is like a draw: scored without trying it, so it never sees its own Draw Pile.
+  if (strategy?.effects.some((e) => e.op === 'search')) return 16;
+  // Retain on a card in hand: worth what keeping that card is worth.
+  if (strategy && move.target?.kind === 'hand' && strategy.effects.some((e) => e.op === 'retain')) {
+    return 6 + keepValue(state, who, state.players[who].hand.find((c) => c.uid === move.target.uid));
+  }
   const supporter = move.type === 'playSupporter' ? state.players[who].hand.find((c) => c.uid === move.uid) : null;
   if (supporter) return supporterScore(state, who, move, supporter);
   if (move.type === 'playLocation') return locationScore(state, who, move);
@@ -345,6 +352,7 @@ function supporterScore(state, who, move, card) {
   const cost = 2 * move.discard.length + 4 * move.release.length;
   const gift = giftMet(card, paid);
   if (card.id === 'tracey') return 14 + (gift ? 5 : 0) - cost;   // a draw: not tried, no peeking
+  if ([...card.effects, ...(card.gift?.effects ?? [])].some((e) => e.op === 'search')) return 14 + (gift ? 5 : 0) - cost;
   const after = applyAction({ ...state, log: [] }, move);
   const mine = (s) => s.players[who].zones.flatMap((z) => z.pokemon).filter(Boolean);
   const stats = (s) => mine(s).reduce((sum, c) => sum + attackOf(c) + maxStrengthOf(c) + c.currentStrength, 0);
@@ -364,11 +372,50 @@ function summonScore(before, after, who, { uid, zone, space }) {
   return 20 + 2 * card.energyCost + 3 * bonus - 8 * hurt;
 }
 
-// Choices mid-resolution: an ability's target is a random legal one;
-// Ash's free summon is always taken, into the best-scoring zone.
+// How much a card is worth keeping in hand for next Round: most for a
+// Pokémon (or Strategy Card) it can't afford now but can next Round, the
+// pricier the better; then anything it could afford next Round.
+function keepValue(state, who, card) {
+  if (!card) return 0;
+  const p = state.players[who];
+  const cost = card.energyCost ?? 0;
+  const next = baseEnergyFor(state.round + 1);
+  if (card.cardType !== 'Pokémon' && card.cardType !== 'Strategy') return 1;
+  if (cost > next) return 2;
+  return (cost > p.baseEnergy ? 10 : 4) + cost;
+}
+
+// Search and Return: the strongest card it could afford next Round (a
+// pricier Pokémon first, then Attack + Strength); if none, the cheapest.
+function pickValue(state, card) {
+  const next = baseEnergyFor(state.round + 1);
+  const cost = card.energyCost ?? 0;
+  const body = (card.attackValue ?? 0) + (card.strengthValue ?? 0);
+  return cost <= next ? 100 + 10 * cost + body : -cost;
+}
+
+function pickCards(state, who) {
+  const { options, max, from } = state.pending;
+  const p = state.players[who];
+  const pile = from === 'draw' ? p.drawPile : from === 'discard' ? p.discard : p.hand;
+  const cards = options.map((uid) => pile.find((c) => c.uid === uid));
+  // A free summon: the strongest Pokémon that fits (highest printed cost, then stats).
+  const value = from === 'hand' ? (c) => 10 * c.energyCost + c.attackValue + c.strengthValue : (c) => pickValue(state, c);
+  cards.sort((a, b) => value(b) - value(a) || random() - 0.5);
+  return { type: 'resolveChoice', who, uids: cards.slice(0, max).map((c) => c.uid) };
+}
+
+// Choices mid-resolution: an ability's target is a random legal one (Retain:
+// the card most worth keeping); Search, Return and free summons pick the
+// strongest cards; a free summon is always taken, into the best-scoring zone.
 function resolveChoice(state, who) {
+  if (state.pending.kind === 'pick') return pickCards(state, who);
   if (state.pending.kind === 'target') {
     const options = state.pending.options;
+    if (state.pending.op === 'retain') {
+      const best = [...options].sort((a, b) => keepValue(state, who, cardAt(state, b)) - keepValue(state, who, cardAt(state, a)))[0];
+      return { type: 'resolveChoice', who, target: best };
+    }
     return { type: 'resolveChoice', who, target: options[Math.floor(random() * options.length)] };
   }
   let best = null;

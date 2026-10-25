@@ -10,13 +10,13 @@ import { newEnergy, refreshEnergy, canPay, payCost, splitCost } from './energy.j
 import {
   PLAYERS, opponentOf, log, whose, draw, arenaPokemon, cardAt, emptySpaces, summonSpaces, isFallen,
   attackOf, damage, describeRef, sameRef, dropXp, weatherCounts, speedOf, release as releaseCards, earnDollars, toMart, emit, info,
-  maxStrengthOf,
+  maxStrengthOf, hasRetain,
 } from './board.js';
 import { hasKeyword, keywordAmount } from './keywords.js';
-import { applyStatus, resolveSupperStatuses } from './status.js';
+import { resolveSupperStatuses } from './status.js';
 import {
   summon, candidates, canResolve, targetedEffect, queueEffects, queueStep, run, refreshAuras, settle, fireTriggers,
-  matchesCard, questEvent, queueWeather, weatherState,
+  matchesCard, questEvent, queueWeather, weatherState, burnCard,
 } from './effects.js';
 
 export { PLAYERS, opponentOf, emptySpaces, summonSpaces, isFallen, attackOf, weatherCounts, weatherState };
@@ -116,20 +116,56 @@ export function isStuck(state) {
 
 // --- Questions the UI and AI ask ------------------------------------------
 
-// Pokémon in hand this player could play right now (affordable, with room).
+// What summoning this Pokémon into this Zone costs: its printed Energy Cost,
+// less any reduction on the card (while in hand) and from friendly Passives
+// for that Zone (e.g. Wallace: the first Pokémon summoned into his Zone each
+// Round costs 1 less). Never below 0. The printed Energy Cost itself never
+// changes (PokéDollars, Gift Challenges and "costing 2 or less" use it).
+export function summonCost(state, who, card, zone) {
+  return Math.max(0, card.energyCost - (card.costDown ?? 0) - zoneReductions(state, who, zone).reduce((sum, r) => sum + r.amount, 0));
+}
+
+// The cost reductions a Zone gives a summon there right now: [{ amount, name }].
+export function zoneReductions(state, who, zone) {
+  const p = state.players[who];
+  const trainer = p.zones[zone]?.trainer;
+  const cut = trainer && trainer.strength > 0 ? trainer.passive?.cost : null;
+  if (!cut) return [];
+  if (cut.first && p.summonedInto?.[zone] === state.round) return [];
+  return [{ amount: cut.amount, name: trainer.name }];
+}
+
+// Zones with an empty space this Pokémon could be summoned into now, with
+// the cost there: [{ zone, cost }].
+export function summonZones(state, who, card) {
+  const zones = [...new Set(summonSpaces(state, who).map((s) => s.zone))];
+  return zones.map((zone) => ({ zone, cost: summonCost(state, who, card, zone) }));
+}
+
+// The cheapest it could be summoned for now (its printed cost if there is no room).
+export function cheapestCost(state, who, card) {
+  const costs = summonZones(state, who, card).map((z) => z.cost);
+  return costs.length ? Math.min(...costs) : card.energyCost;
+}
+
+// Pokémon in hand this player could play right now (affordable in a Zone with room).
 export function playablePokemon(state, who) {
   const p = state.players[who];
   if (!summonSpaces(state, who).length) return [];
-  return p.hand.filter((c) => c.cardType === 'Pokémon' && canPay(p, c.energyCost));
+  return p.hand.filter((c) => c.cardType === 'Pokémon' && summonZones(state, who, c).some((z) => canPay(p, z.cost)));
 }
 
 // How paying a cost would split: { fromBase, fromExert }. For a card in hand
-// pass its uid; for a Trainer Power pass { power: zone }.
-export function costPreview(state, who, what) {
+// pass its uid (a Pokémon: the cost in `zone`, or its cheapest Zone); for a
+// Trainer Power pass { power: zone }.
+export function costPreview(state, who, what, zone) {
   const p = state.players[who];
-  const cost = typeof what === 'object'
-    ? p.zones[what.power].trainer.power.cost
-    : p.hand.find((h) => h.uid === what).energyCost;
+  let cost;
+  if (typeof what === 'object') cost = p.zones[what.power].trainer.power.cost;
+  else {
+    const c = p.hand.find((h) => h.uid === what);
+    cost = c.cardType !== 'Pokémon' ? c.energyCost : zone === undefined ? cheapestCost(state, who, c) : summonCost(state, who, c, zone);
+  }
   return splitCost(p, cost);
 }
 
@@ -483,6 +519,7 @@ const STEPS = {
         const [before, after] = damage(state, tref, amount, { by: attacker.owner });
         log(state, `Overrun: ${amount} leftover damage goes through to ${describeRef(state, tref)}. Strength ${before} → ${after}.`);
         strikes.push(tref);
+        questEvent(state, attacker.owner, { type: 'trainerStrike', zone: attacker.zone });
         settle(state);   // a removed Trainer's Passive stops
       } else {
         log(state, `Overrun: the leftover ${amount} damage is lost (no Trainer in Zone ${zone + 1} on that side).`);
@@ -490,7 +527,7 @@ const STEPS = {
     }
     if (job.scorch && still(job.scorch.target)) {
       emit(state, 'scorch', { who: attacker.owner, attacker: info(state, attacker), target: info(state, job.scorch.target), amount: job.scorch.amount });
-      applyStatus(state, job.scorch.target, 'burn', job.scorch.amount, attacker.owner);
+      burnCard(state, job.scorch.target, job.scorch.amount, attacker.owner);
     }
     const events = [];
     if (still(attacker)) events.push({ type: 'attack', ref: attacker, card: cardAt(state, attacker), target });
@@ -514,6 +551,16 @@ const STEPS = {
 
   supperAbilities(state) {
     fireTriggers(state, everyPokemon(state, 'supper'));
+  },
+
+  // "Have N friendly Pokémon in this Zone at Supper": checked after On Supper,
+  // before "this Round" effects expire.
+  supperQuests(state) {
+    for (const who of PLAYERS) {
+      state.players[who].zones.forEach((z, zone) => {
+        if (z.location?.quest?.on === 'presence') questEvent(state, who, { type: 'presence', zone, value: z.pokemon.filter(Boolean).length });
+      });
+    }
   },
 
   breakfastAbilities(state) {
@@ -542,15 +589,19 @@ const STEPS = {
     else startXpStep(state);
   },
 
+  // Hands are discarded, except cards with Retain (no hand size limit).
   supperDiscard(state) {
     for (const who of PLAYERS) {
       const p = state.players[who];
-      const n = p.hand.length;
-      for (const c of p.hand) emit(state, 'cardMoved', { uid: c.uid, name: c.name, owner: who, to: 'discard' });
-      dropXp(p.hand);
-      p.discard.push(...p.hand);
-      p.hand = [];
-      log(state, `${p.name} discarded ${n} card${n === 1 ? '' : 's'} from ${who === 'player' ? 'your' : 'their'} hand.`);
+      const kept = p.hand.filter(hasRetain);
+      const gone = p.hand.filter((c) => !hasRetain(c));
+      for (const c of gone) emit(state, 'cardMoved', { uid: c.uid, name: c.name, owner: who, to: 'discard' });
+      dropXp(gone);
+      p.discard.push(...gone);
+      p.hand = kept;
+      if (kept.length) emit(state, 'retained', { who, uids: kept.map((c) => c.uid), count: kept.length });
+      log(state, `${p.name} discarded ${gone.length} card${gone.length === 1 ? '' : 's'} from ${who === 'player' ? 'your' : 'their'} hand`
+        + `${kept.length ? `, keeping ${who === 'player' ? kept.map((c) => c.name).join(', ') : `${kept.length} card${kept.length === 1 ? '' : 's'}`} (Retain)` : ''}.`);
     }
     log(state, 'Supper Phase ends.');
     startRound(state, state.round + 1);
@@ -601,10 +652,12 @@ const HANDLERS = {
     if (!c || c.cardType !== 'Pokémon') throw new Error('Choose a Pokémon from your hand');
     if (p.zones[zone]?.pokemon[space] !== null) throw new Error('Choose an empty Pokémon Space');
     if (isFallen(state, who, zone)) throw new Error(`Zone ${zone + 1} has fallen on this side; no new Pokémon can go there`);
-    if (!canPay(p, c.energyCost)) throw new Error(`Not enough Energy to play ${c.name}`);
-    const paid = payCost(p, c.energyCost, state.round);
-    emit(state, 'cardPlayed', { who, uid: c.uid, name: c.name, cardType: c.cardType, to: { kind: 'pokemon', owner: who, zone, space } });
-    log(state, `${p.name} played ${c.name} into Zone ${zone + 1}, Space ${space + 1}, paying ${describePayment(paid)}.`);
+    const cost = summonCost(state, who, c, zone);
+    if (!canPay(p, cost)) throw new Error(`Not enough Energy to play ${c.name}`);
+    const cuts = [...(c.costDown ? [`−${c.costDown} on the card`] : []), ...zoneReductions(state, who, zone).map((r) => `−${r.amount} ${r.name}`)];
+    const paid = payCost(p, cost, state.round);
+    emit(state, 'cardPlayed', { who, uid: c.uid, name: c.name, cardType: c.cardType, cost, printedCost: c.energyCost, to: { kind: 'pokemon', owner: who, zone, space } });
+    log(state, `${p.name} played ${c.name} into Zone ${zone + 1}, Space ${space + 1}, paying ${describePayment(paid)}${cost !== c.energyCost ? ` (cost ${c.energyCost} → ${cost}: ${cuts.join(', ')})` : ''}.`);
     queueStep(state, 'endTurn', { who, passed: false });
     summon(state, who, c, zone, space);
   },
@@ -644,6 +697,7 @@ const HANDLERS = {
       attacker.spent = true;
       if (power > 0) {
         after.strikes.push(targetRef);
+        questEvent(state, who, { type: 'trainerStrike', zone: from.zone });
         if (scorch) after.scorch = { amount: scorch, target: targetRef };
       }
     } else {
@@ -852,10 +906,18 @@ const HANDLERS = {
   // Answers state.pending, then resolving carries on.
   //   freeSummon: { zone, space } to summon, or no zone to keep the card in hand
   //   target:     { target } — one of state.pending.options
-  resolveChoice(state, { zone, space, target }) {
+  resolveChoice(state, { zone, space, target, uids }) {
     const pending = state.pending;
     const job = state.stack.at(-1);
-    if (pending.kind === 'freeSummon') {
+    if (pending.kind === 'pick') {
+      const chosen = [...new Set(uids ?? [])];
+      if (chosen.some((u) => !pending.options.includes(u))) throw new Error('Choose from the matching cards');
+      if (chosen.length < pending.min || chosen.length > pending.max) {
+        throw new Error(pending.min === pending.max ? `Choose ${pending.max} card${pending.max === 1 ? '' : 's'}` : `Choose up to ${pending.max} card${pending.max === 1 ? '' : 's'}`);
+      }
+      job.choice = { uids: chosen };
+      emit(state, 'choiceMade', { who: pending.who, kind: 'pick', from: pending.from, source: pending.label, count: chosen.length });
+    } else if (pending.kind === 'freeSummon') {
       job.choice = { zone, space };
       const card = state.players[pending.who].hand.find((c) => c.uid === pending.uid);
       emit(state, 'choiceMade', { who: pending.who, kind: 'freeSummon', source: pending.label, uid: card.uid, name: card.name, summon: zone !== undefined && zone !== null, zone, space });
@@ -1062,6 +1124,7 @@ function startSupper(state) {
   // Weather → Burn → On Supper → "this Round" effects expire → hands discarded.
   queueStep(state, 'supperDiscard');
   queueStep(state, 'expireRound');
+  queueStep(state, 'supperQuests');
   queueStep(state, 'supperAbilities');
   queueStep(state, 'burn');
   queueWeather(state, 'supper');      // on top: Weather first

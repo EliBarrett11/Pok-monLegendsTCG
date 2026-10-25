@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { createGame, applyAction, PLAYERS } from '../src/engine/game.js';
 import { cardDefinition } from '../src/engine/cards.js';
-import { refreshAuras } from '../src/engine/effects.js';
+import { refreshAuras, resolveEffects } from '../src/engine/effects.js';
 import { inPlay } from '../src/engine/board.js';
 import { chooseAction } from '../src/ai/opponent.js';
 
@@ -73,6 +73,43 @@ const choose = (s) => chooseAction(s, 'ai', { rng: () => 0.5 });
   const move = choose(s);
   assert.equal(move.type, 'playStrategy');
   assert.equal(move.target.kind, 'trainer');
+}
+
+// Search and Return: the strongest card it could afford next Round.
+{
+  const s = match();
+  s.round = 3;   // next Round: 4 Base Energy
+  const p = s.players.ai;
+  const big = mon('dragonite');   // cost 6: not next Round
+  const good = mon('lairon');     // cost 4: the best it can afford next Round
+  const small = mon('shinx');     // cost 1
+  p.discard.push(big, good, small);
+  resolveEffects(s, { who: 'ai', source: { kind: 'strategy', owner: 'ai', uid: 'x', name: 'Dive' }, label: 'Dive' }, [{ op: 'return', filter: { cardType: 'Pokémon' } }]);
+  assert.deepEqual(choose(s).uids, [good.uid]);
+}
+// Retain: a card it can't afford now but can next Round.
+{
+  const s = match();
+  s.round = 3;
+  const p = s.players.ai;
+  p.baseEnergy = 2;
+  const now = mon('shinx');       // cost 1: affordable now
+  const later = mon('lairon');    // cost 4: not now, but next Round
+  const never = mon('dragonite'); // cost 6
+  p.hand.push(now, later, never);
+  resolveEffects(s, { who: 'ai', source: { kind: 'pokemon', owner: 'ai', zone: 0, space: 0, uid: 'x', name: 'Pelipper' }, label: 'Pelipper' },
+    [{ op: 'retain', target: { mode: 'targeted', side: 'friendly', kinds: ['handCard'] } }]);
+  assert.equal(choose(s).target.uid, later.uid);
+}
+// Free summon: the strongest Pokémon that fits.
+{
+  const s = match();
+  const p = s.players.ai;
+  const a = mon('shinx');
+  const b = mon('pidgey');   // cost 2
+  p.hand.push(a, b);
+  resolveEffects(s, { who: 'ai', source: { kind: 'supporter', owner: 'ai', uid: 'x', name: 'Swimmer' }, label: 'Swimmer' }, [{ op: 'freeSummon', filter: { energyCost: { max: 2 } } }]);
+  assert.deepEqual(choose(s).uids, [b.uid]);
 }
 
 console.log('All AI mechanics tests passed.');

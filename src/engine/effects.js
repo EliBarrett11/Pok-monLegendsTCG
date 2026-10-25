@@ -20,6 +20,14 @@
 //   douse        { target }                        removes all Burn
 //   grant        { keyword, amount?, thisRound?, target }  the card gains an Innate keyword
 //   buff and grant with thisRound: true expire at Supper (after Burn and On Supper)
+//   retain       { target }                        a card in hand gains Retain (until it leaves your hand)
+//   reduceCost   { amount, target }                a Pokémon in hand costs less (until it leaves your hand)
+//   search       { filter, count?, retain? }        choose matching cards from your Draw Pile into
+//                                                  your hand, then shuffle (none found: nothing happens)
+//   return       { filter, count?, upTo?, retain? } choose matching cards from your Discard Pile
+//                                                  into your hand (never the Released Pile)
+//   freeSummon   { filter, active? }               you may summon a matching Pokémon from your hand
+//                                                  without paying its cost (normal summon rules)
 //
 // SELECTOR     { mode, side, kinds, zone, filter }
 //   mode    'targeted' (the player chooses one) | 'area' (all that match) |
@@ -27,6 +35,7 @@
 //   side    'friendly' | 'opponent' | 'any'       relative to whoever owns the effect
 //   kinds   ['pokemon'] (default) | ['pokemon', 'trainer'] | ['trainer']
 //           'hand': Pokémon cards in hand (refs { kind: 'hand', owner, uid })
+//           'handCard': any card in hand (filter on any printed field)
 //   zone    'source': only the source's Zone, both sides of the arena
 //           'target': only the Zone of the target chosen for this card
 //   pick    'zone' (with mode 'targeted'): the player chooses a Zone that has
@@ -65,7 +74,9 @@ import { WEATHER } from './cardData.js';
 import {
   PLAYERS, opponentOf, log, whose, draw, canDraw, arenaPokemon, activeTrainers, cardAt, sameRef, weatherCounts, weatherTotal,
   describeRef, summonSpaces, damage, heal, releaseDefeated, maxStrengthOf, strengthOf, inPlay, heldBonus, toMart, emit, info,
+  enterHand,
 } from './board.js';
+import { shuffle } from './random.js';
 import { hasKeyword, keywordAmount, afterShell } from './keywords.js';
 import { applyStatus, clearStatus, STATUSES } from './status.js';
 
@@ -127,6 +138,13 @@ export function candidates(state, ctx, selector, op = {}) {
       out.push(ref);
     }
   }
+  if (kinds.includes('handCard') && selector.zone === undefined) {
+    for (const owner of sides) {
+      for (const card of state.players[owner].hand) {
+        if (passesFilter(card, selector.filter ?? {})) out.push({ kind: 'hand', owner, uid: card.uid });
+      }
+    }
+  }
   if (kinds.includes('hand') && selector.zone === undefined) {
     for (const owner of sides) {
       for (const card of state.players[owner].hand) {
@@ -154,6 +172,9 @@ export function targetedEffect(effects) {
 export function canResolve(state, ctx, effects) {
   return effects.every((e) => {
     if (e.op === 'draw') return canDraw(state, ctx.who) || ctx.willDiscard > 0;
+    // Return needs something to return (the Discard Pile is public), unless it says "up to".
+    // Search can always be played: the Draw Pile is hidden.
+    if (e.op === 'return') return e.upTo || pileMatches(state.players[ctx.who].discard, e.filter).length > 0;
     if (e.target?.mode === 'targeted' || e.target?.mode === 'area') return candidates(state, ctx, e.target, e).length > 0;
     return true;
   });
@@ -177,7 +198,11 @@ const OPS = {
     for (const ref of refs) {
       const what = describeRef(state, ref);
       const dealt = afterShell(cardAt(state, ref), e.amount);
-      const [before, after] = damage(state, ref, e.amount, { by: ctx.who });
+      const [before, after] = damage(state, ref, e.amount, { by: ctx.source.kind === 'weather' ? null : ctx.who });
+      // A Pokémon's own ability damaging an enemy Trainer: a Trainer strike for its quests.
+      if (ref.kind === 'trainer' && ref.owner !== ctx.who && ctx.source.kind === 'pokemon' && before > after) {
+        questEvent(state, ctx.who, { type: 'trainerStrike', zone: ctx.source.zone });
+      }
       log(state, `${ctx.label}: ${dealt} damage to ${what}${dealt !== e.amount ? ` (Shell: ${e.amount} → ${dealt})` : ''}. Strength ${before} → ${Math.max(after, 0)}.`);
     }
     // On Knockout: a Pokémon's own ability damage defeated enemy Pokémon. Queued
@@ -195,16 +220,97 @@ const OPS = {
       log(state, `${ctx.label}: healed ${what}. Strength ${before} → ${after}.`);
       if (after > before) healed.push({ type: 'heal', ref: { ...ref, uid: cardAt(state, ref).uid }, card: cardAt(state, ref), amount: after - before });
     }
+    // "Heal N Strength in total": what your own cards and effects actually heal on your cards (not Weather).
+    const mine = healed.filter((h) => h.ref.owner === ctx.who).reduce((sum, h) => sum + h.amount, 0);
+    if (mine && ctx.source.kind !== 'weather') questEvent(state, ctx.who, { type: 'heal', amount: mine });
     if (healed.length) fireTriggers(state, healed);
   },
 
   burn(state, ctx, e, refs) {
-    for (const ref of refs) applyStatus(state, ref, 'burn', e.amount, ctx.who);
+    for (const ref of refs) burnCard(state, ref, e.amount, ctx.who);
   },
 
   applyStatus(state, ctx, e, refs) {
     if (!STATUSES[e.status]) throw new Error(`Unknown status: ${e.status}`);
-    for (const ref of refs) applyStatus(state, ref, e.status, e.amount, ctx.who);
+    for (const ref of refs) {
+      if (e.status === 'burn') burnCard(state, ref, e.amount, ctx.who);
+      else applyStatus(state, ref, e.status, e.amount, ctx.who);
+    }
+  },
+
+  // Retain until the card leaves your hand.
+  retain(state, ctx, e, refs) {
+    for (const ref of refs) {
+      const card = cardAt(state, ref);
+      if (!card || card.retain || card.retainGranted) continue;
+      card.retainGranted = true;
+      emit(state, 'retainGranted', { who: ref.owner, uid: card.uid, name: card.name, source: ctx.label });
+      // The opponent's hand is hidden: its card stays unnamed.
+      log(state, `${ctx.label}: ${ref.owner === 'player' ? card.name : 'a card in hand'} gains Retain.`);
+    }
+  },
+
+  // A Pokémon in hand costs less, until it leaves your hand (never below 0).
+  reduceCost(state, ctx, e, refs) {
+    for (const ref of refs) {
+      const card = cardAt(state, ref);
+      card.costDown = (card.costDown ?? 0) + e.amount;
+      emit(state, 'costReduced', { who: ref.owner, uid: card.uid, name: card.name, amount: e.amount, source: ctx.label });
+      log(state, `${ctx.label}: ${ref.owner === 'player' ? card.name : 'a Pokémon in hand'} costs ${e.amount} less while it stays in hand.`);
+    }
+  },
+
+  // Search the Draw Pile; Return from the Discard Pile. The player picks
+  // (state.pending kind 'pick'); job.choice.uids holds the answer.
+  search(state, ctx, e, refs, job) {
+    return pickFromPile(state, ctx, e, job, 'drawPile');
+  },
+
+  return(state, ctx, e, refs, job) {
+    return pickFromPile(state, ctx, e, job, 'discard');
+  },
+
+  // A free summon: pick a matching Pokémon from hand (or none), then where it
+  // goes (or keep it). Costs nothing; otherwise a normal summon.
+  freeSummon(state, ctx, e, refs, job) {
+    const p = state.players[ctx.who];
+    if (job.picked === undefined) {
+      const options = p.hand.filter((c) => c.cardType === 'Pokémon' && passesFilter(c, e.filter ?? {})).map((c) => c.uid);
+      if (!options.length || !summonSpaces(state, ctx.who).length) {
+        emit(state, 'noTarget', { source: ctx.label });
+        log(state, `${ctx.label}: ${!options.length ? 'no matching Pokémon in hand' : 'no empty Pokémon Space'}, so nothing happens.`);
+        return null;
+      }
+      if (!job.choice) {
+        state.pending = { who: ctx.who, kind: 'pick', from: 'hand', op: 'freeSummon', options, min: 0, max: 1, label: ctx.label, text: ctx.text };
+        return 'pause';
+      }
+      job.picked = job.choice.uids?.[0] ?? null;
+      delete job.choice;
+      if (!job.picked) {
+        log(state, `${ctx.label}: ${p.name} chose not to summon.`);
+        return null;
+      }
+    }
+    if (!job.picked) return null;
+    const card = p.hand.find((c) => c.uid === job.picked);
+    if (!job.choice) {
+      state.pending = { who: ctx.who, kind: 'freeSummon', uid: card.uid, label: ctx.label };
+      return 'pause';
+    }
+    if (job.choice.zone === undefined || job.choice.zone === null) {
+      log(state, `${ctx.label}: ${p.name} kept ${card.name} in hand.`);
+      return null;
+    }
+    const { zone, space } = job.choice;
+    log(state, `${ctx.label}: ${card.name} was summoned for free into Zone ${zone + 1}, Space ${space + 1}.`);
+    const ref = summon(state, ctx.who, card, zone, space);
+    if (e.active) {
+      cardAt(state, ref).spent = false;
+      emit(state, 'ready', { target: info(state, ref) });
+      log(state, `${ctx.label}: ${card.name} arrives Active.`);
+    }
+    return null;
   },
 
   douse(state, ctx, e, refs) {
@@ -312,6 +418,58 @@ const OPS = {
   },
 };
 
+// Burn on a card, counted for the applier's "Apply Burn N times" quests (one per card).
+export function burnCard(state, ref, amount, by) {
+  if (!cardAt(state, ref) || amount <= 0) return;
+  applyStatus(state, ref, 'burn', amount, by);
+  if (by) questEvent(state, by, { type: 'burn' });
+}
+
+// Cards in a pile matching a filter (any printed field).
+export function pileMatches(pile, filter = {}) {
+  return pile.filter((c) => passesFilter(c, filter));
+}
+
+// Search (Draw Pile) or Return (Discard Pile): the player picks matching
+// cards, they go into the hand (gaining Retain if the effect says so), and a
+// searched Draw Pile is shuffled. Nothing matching: nothing happens (no shuffle).
+function pickFromPile(state, ctx, e, job, pileKey) {
+  const p = state.players[ctx.who];
+  const searching = pileKey === 'drawPile';
+  const verb = searching ? 'Search' : 'Return';
+  const matches = pileMatches(p[pileKey], e.filter);
+  const count = Math.min(e.count ?? 1, matches.length);
+  if (!matches.length) {
+    emit(state, searching ? 'searchNone' : 'returnNone', { who: ctx.who, source: ctx.label });
+    log(state, `${ctx.label}: ${verb} found no matching card${searching ? ' in the Draw Pile' : ' in the Discard Pile'}, so nothing happens.`);
+    return null;
+  }
+  if (!job.choice) {
+    state.pending = {
+      who: ctx.who, kind: 'pick', from: searching ? 'draw' : 'discard', op: e.op, options: matches.map((c) => c.uid),
+      min: e.upTo ? 0 : count, max: count, label: ctx.label, text: ctx.text, retain: Boolean(e.retain),
+    };
+    return 'pause';
+  }
+  const uids = job.choice.uids ?? [];
+  const picked = uids.map((uid) => p[pileKey].find((c) => c.uid === uid));
+  if (picked.some((c) => !c || !matches.includes(c))) throw new Error('Choose from the matching cards');
+  p[pileKey] = p[pileKey].filter((c) => !uids.includes(c.uid));
+  for (const c of picked) {
+    p.hand.push(enterHand(c));
+    if (e.retain) c.retainGranted = true;
+  }
+  emit(state, searching ? 'searched' : 'returned', { who: ctx.who, source: ctx.label, cards: picked.map((c) => ({ uid: c.uid, name: c.name })), retain: Boolean(e.retain) });
+  const names = picked.map((c) => c.name).join(', ') || 'nothing';
+  log(state, `${ctx.label}: ${p.name} ${searching ? 'searched the Draw Pile for' : 'returned'} ${names}${searching ? '' : ' from the Discard Pile'} to ${ctx.who === 'player' ? 'your' : 'their'} hand${e.retain && picked.length ? ' (with Retain)' : ''}.`);
+  if (searching) {
+    shuffle(state, p.drawPile);
+    emit(state, 'shuffledDraw', { who: ctx.who });
+    log(state, `${p.name} shuffled ${ctx.who === 'player' ? 'your' : 'their'} Draw Pile.`);
+  }
+  return null;
+}
+
 // --- The stack ------------------------------------------------------------------
 
 // extra: { onlyIfHurt: true } skips the job (silently) if the event's card is
@@ -341,7 +499,7 @@ function applyEffect(state, job, e) {
           log(state, `${ctx.label}: no legal target, so nothing happens.`);
           return null;
         }
-        state.pending = { who: ctx.who, kind: 'target', options: legal, label: ctx.label, text: ctx.text };
+        state.pending = { who: ctx.who, kind: 'target', op: e.op, options: legal, label: ctx.label, text: ctx.text };
         return 'pause';
       }
       if (!legal.some((r) => sameRef(r, ctx.target))) throw new Error('That is not a legal target');
@@ -389,6 +547,7 @@ export function run(state, steps = {}, isOver = () => false) {
     if (applyEffect(state, job, job.effects[job.i]) === 'pause') return;
     job.i += 1;
     delete job.choice;
+    delete job.picked;
   }
   if (isOver(state)) state.stack = [];
 }
@@ -411,6 +570,7 @@ export function summon(state, who, card, zone, space) {
   }
   p.hand = p.hand.filter((h) => h.uid !== card.uid);
   p.zones[zone].pokemon[space] = inPlay(card, { spent: !hasKeyword(card, 'Quick Attack') });
+  (p.summonedInto ??= {})[zone] = state.round;   // the first summon into this Zone this Round is done
   const ref = { kind: 'pokemon', owner: who, zone, space, uid: card.uid };
   emit(state, 'summoned', { who, target: { ...ref, name: card.name } });
   refreshAuras(state);
@@ -421,10 +581,13 @@ export function summon(state, who, card, zone, space) {
 
 // --- Quests ---------------------------------------------------------------------
 
-// One of `who`'s own actions: { type: 'summon' | 'attack' | 'power', card?, zone? }.
-// Every one of their Locations whose quest it fits moves on by 1, each
-// counting separately. A completed quest gives its XP, then its effect and
-// the Location's release are queued to resolve next.
+// Something `who` did that quests count:
+//   { type: 'summon' | 'attack' | 'power' | 'burn' | 'trainerStrike' | 'defeat', card?, zone? }  +1
+//   { type: 'heal', amount }                                                     +amount
+//   { type: 'presence', zone, value }   (checked at Supper) progress becomes value
+// Every one of their Locations whose quest it fits moves on, each counting
+// separately. A completed quest gives its XP, then its effect and the
+// Location's release are queued to resolve next.
 export function questEvent(state, who, event) {
   const p = state.players[who];
   p.zones.forEach((z, zone) => {
@@ -433,7 +596,8 @@ export function questEvent(state, who, event) {
     if (!quest || loc.done || quest.on !== event.type) return;
     if (quest.inZone && event.zone !== zone) return;
     if (quest.filter && !(event.card && matchesCard(event.card, quest.filter))) return;
-    loc.progress += 1;
+    if (event.value !== undefined) loc.progress = event.value;
+    else loc.progress += event.amount ?? 1;
     emit(state, 'questProgress', { owner: who, zone, uid: loc.uid, name: loc.name, progress: loc.progress, count: quest.count });
     const label = `${whose(state, who)} ${loc.name}`;
     log(state, `${label} quest: ${quest.label} ${loc.progress}/${quest.count}.`);
@@ -666,6 +830,10 @@ export function queueWeather(state, moment) {
 // and recalculate Passives (a removed Trainer's bonuses stop).
 export function settle(state) {
   const defeated = releaseDefeated(state);
+  // "Defeat N enemy Pokémon": the player whose card or effect dealt the last hit (Burn: who applied it).
+  for (const d of defeated) {
+    if (d.by && d.by !== d.ref.owner) questEvent(state, d.by, { type: 'defeat', card: d.card });
+  }
   if (defeated.length) fireTriggers(state, defeated.map(({ ref, card }) => ({ type: 'defeated', ref: { ...ref, uid: card.uid }, card })));
   refreshAuras(state);
 }

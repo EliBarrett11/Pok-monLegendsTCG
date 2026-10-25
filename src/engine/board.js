@@ -55,11 +55,24 @@ export function draw(state, who, count) {
       log(state, `${p.name} shuffled ${who === 'player' ? 'your' : 'their'} Discard Pile to form a new Draw Pile.`);
     }
     const card = p.drawPile.shift();
-    p.hand.push(card);
+    p.hand.push(enterHand(card));
     drawn.push(card);
   }
   if (drawn.length) emit(state, 'cardsDrawn', { who, uids: drawn.map((c) => c.uid), count: drawn.length });
   return drawn;
+}
+
+// A card entering a hand starts fresh: what was granted to it "until it
+// leaves your hand" (Retain, a cost reduction) belonged to its last visit.
+export function enterHand(card) {
+  delete card.retainGranted;
+  delete card.costDown;
+  return card;
+}
+
+// Retain: printed on the card, or granted while it is in your hand.
+export function hasRetain(card) {
+  return Boolean(card.retain || card.retainGranted);
 }
 
 export function canDraw(state, who) {
@@ -181,7 +194,7 @@ export function strengthOf(c) {
 // A Pokémon card as it enters the arena. XP spent on it in hand
 // ({ attack, strength }) becomes a permanent buff.
 export function inPlay(card, { spent }) {
-  const { xp = { attack: 0, strength: 0 }, ...rest } = card;
+  const { xp = { attack: 0, strength: 0 }, retainGranted, costDown, ...rest } = card;
   return {
     ...rest,
     currentStrength: card.strengthValue + xp.strength + heldBonus(card, 'strength'),
@@ -255,14 +268,18 @@ export function heal(state, ref, amount) {
 }
 
 // Pokémon at 0 Strength or less go to their owner's Released Pile.
-// Returns the defeated, as { ref, card }.
+// Returns the defeated, as { ref, card, cause, by } (by: the player whose
+// card or effect dealt the last hit, or null).
 // The opponent earns PokéDollars equal to its printed Energy Cost, and a
 // Held Item on it is lost to the PokéMart.
 export function releaseDefeated(state) {
   const defeated = arenaPokemon(state).filter(({ card }) => card.currentStrength <= 0);
-  for (const { ref, card } of defeated) {
+  for (const d of defeated) {
+    const { ref, card } = d;
     const p = state.players[ref.owner];
-    emit(state, 'defeated', { target: info(state, ref), cause: card.lastHit?.cause ?? 'damage', by: card.lastHit?.by ?? null });
+    d.cause = card.lastHit?.cause ?? 'damage';
+    d.by = card.lastHit?.by ?? null;
+    emit(state, 'defeated', { target: info(state, ref), cause: d.cause, by: d.by });
     leaveArena(card);
     p.zones[ref.zone].pokemon[ref.space] = null;
     log(state, `${whose(state, ref.owner)} ${card.name} was defeated and goes to the Released Pile.`);
