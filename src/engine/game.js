@@ -10,7 +10,7 @@ import { newEnergy, refreshEnergy, canPay, payCost, splitCost } from './energy.j
 import {
   PLAYERS, opponentOf, log, whose, draw, arenaPokemon, cardAt, emptySpaces, summonSpaces, isFallen,
   attackOf, damage, describeRef, sameRef, dropXp, weatherCounts, speedOf, release as releaseCards, earnDollars, toMart, emit, info,
-  maxStrengthOf, hasRetain,
+  maxStrengthOf, hasRetain, RULE_FLAGS,
 } from './board.js';
 import { hasKeyword, keywordAmount } from './keywords.js';
 import { resolveSupperStatuses } from './status.js';
@@ -217,6 +217,9 @@ export function alertPokemon(state, who) {
 // { kind: 'pokemon', zone, space } or { kind: 'trainer', zone } on the enemy side.
 // Physical attackers must target a Defence Pokémon if the opponent has any;
 // Special attackers must target a Special Defence Pokémon if there is any.
+// Balance experiments (tools/balance.js), off unless switched on:
+//   an "Infiltrator" Pokémon ignores these restrictions;
+//   RULE_FLAGS.zoneGuards: a guard only restricts targets in its own Zone.
 export function legalTargets(state, who, from) {
   const attacker = state.players[who].zones[from.zone]?.pokemon[from.space];
   if (!attacker) return [];
@@ -225,13 +228,19 @@ export function legalTargets(state, who, from) {
   enemy.zones.forEach((z, zone) => z.pokemon.forEach((card, space) => {
     if (card) pokemon.push({ kind: 'pokemon', zone, space, card });
   }));
+  const trainers = enemy.zones.map((z, zone) => ({ kind: 'trainer', zone, card: z.trainer }))
+    .filter((t) => t.card && t.card.strength > 0);
   const guard = { Physical: 'Defence', Special: 'Special Defence' }[attacker.attackType];
-  const guards = pokemon.filter((t) => t.card.strengthType === guard);
-  const targets = guards.length ? guards : [
-    ...pokemon,
-    ...enemy.zones.map((z, zone) => ({ kind: 'trainer', zone, card: z.trainer }))
-      .filter((t) => t.card && t.card.strength > 0),
-  ];
+  const isGuard = (t) => t.kind === 'pokemon' && t.card.strengthType === guard;
+  let targets;
+  if (hasKeyword(attacker, 'Infiltrator')) targets = [...pokemon, ...trainers];
+  else if (RULE_FLAGS.zoneGuards) {
+    const all = [...pokemon, ...trainers];
+    targets = all.filter((t) => isGuard(t) || !all.some((g) => isGuard(g) && g.zone === t.zone));
+  } else {
+    const guards = pokemon.filter(isGuard);
+    targets = guards.length ? guards : [...pokemon, ...trainers];
+  }
   return targets.map(({ kind, zone, space }) => (kind === 'pokemon' ? { kind, zone, space } : { kind, zone }));
 }
 

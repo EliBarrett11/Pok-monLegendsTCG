@@ -265,7 +265,8 @@ export function damage(state, ref, amount, opts = {}) {
 // Rule switches for balance experiments (tools/balance.js). All off: the
 // rules as written.
 //   burnBlocksHealing: a card with any Burn on it can't be healed.
-export const RULE_FLAGS = { burnBlocksHealing: false };
+//   zoneGuards: a Defence / Special Defence Pokémon only guards its own Zone.
+export const RULE_FLAGS = { burnBlocksHealing: false, zoneGuards: false };
 
 // Healing never goes above maximum Strength (a Trainer's starting Strength).
 export function heal(state, ref, amount) {
