@@ -3,8 +3,13 @@
 import assert from 'node:assert/strict';
 import { createGame, applyAction, winner, PLAYERS, opponentOf } from '../src/engine/game.js';
 import { chooseAction } from '../src/ai/opponent.js';
+import { hasRetain } from '../src/engine/board.js';
 
 const total = (p) => p.hand.length + p.drawPile.length + p.discard.length;
+// Cards with Retain stay in hand at Supper; Breakfast draws 7 on top of them
+// (or fewer, if that's all the cards left outside the hand).
+const kept = (p) => p.hand.filter(hasRetain).map((c) => c.uid);
+const drawn = (keptUids) => Math.min(7, 40 - keptUids.length);
 
 // Setup with both sides keeping their hands, ending at Round 1 Battle.
 function toRound1Battle(seed) {
@@ -34,7 +39,8 @@ for (let seed = 1; seed <= 20; seed++) {
   assert.throws(() => applyAction(s, { type: 'pass', who: first }));
 
   // Second consecutive pass → Supper → Round 2 Breakfast → Round 2 Battle.
-  const handsBefore = PLAYERS.map((w) => s.players[w].hand.map((c) => c.uid));
+  const handsBefore = PLAYERS.map((w) => s.players[w].hand.filter((c) => !hasRetain(c)).map((c) => c.uid));
+  const keptBefore = PLAYERS.map((w) => kept(s.players[w]));
   s = applyAction(s, { type: 'pass', who: s.turn });
   assert.equal(s.round, 2);
   assert.equal(s.phase, 'battle');
@@ -42,8 +48,9 @@ for (let seed = 1; seed <= 20; seed++) {
   assert.equal(s.turn, s.initiative);
   PLAYERS.forEach((w, i) => {
     const p = s.players[w];
-    assert.ok(handsBefore[i].every((u) => p.discard.some((c) => c.uid === u)), 'Supper discards the whole hand');
-    assert.equal(p.hand.length, 7, 'Breakfast draws 7');
+    assert.ok(handsBefore[i].every((u) => p.discard.some((c) => c.uid === u)), 'Supper discards the hand, except Retain cards');
+    assert.ok(keptBefore[i].every((u) => p.hand.some((c) => c.uid === u)), 'Retain cards stay in hand');
+    assert.equal(p.hand.length, keptBefore[i].length + 7, 'Breakfast draws 7');
     assert.equal(p.baseEnergy, 2);
     assert.equal(p.exertMax, 2);
     assert.equal(total(p), 40);
@@ -51,14 +58,15 @@ for (let seed = 1; seed <= 20; seed++) {
   assert.throws(() => applyAction(s, { type: 'mulligan', who: 'player', cardUids: [] }), 'no mulligan after Round 1');
 
   // Keep playing: 40 cards / 7 per Round empties the Draw Pile in Round 6,
-  // so the Discard Pile is reshuffled mid-draw. Every hand is still 7.
+  // so the Discard Pile is reshuffled mid-draw. Every hand draws 7.
   for (let round = 3; round <= 12; round++) {
+    const keeping = PLAYERS.map((w) => kept(s.players[w]));
     s = bothPass(s);
     assert.equal(s.round, round);
     assert.equal(s.initiative, round % 2 === 1 ? first : opponentOf(first));
-    for (const w of PLAYERS) {
+    for (const [i, w] of PLAYERS.entries()) {
       const p = s.players[w];
-      assert.equal(p.hand.length, 7);
+      assert.equal(p.hand.length, keeping[i].length + drawn(keeping[i]));
       assert.equal(total(p), 40, 'no cards lost or duplicated');
       assert.equal(p.baseEnergy, Math.min(round, 10));
       assert.equal(p.exertMax, 3);
@@ -83,10 +91,10 @@ for (let seed = 1; seed <= 20; seed++) {
   assert.equal(s.phase, 'battle', 'the Round carries on');
 }
 
-// Trainers start at placeholder Strength 15; win check needs all 3 at 0.
+// Trainers start at their printed Strength; win check needs all 3 at 0.
 {
   let s = toRound1Battle(7);
-  for (const w of PLAYERS) assert.ok(s.players[w].trainers.every((t) => t.strength === 15));
+  for (const w of PLAYERS) assert.ok(s.players[w].trainers.every((t) => t.strength > 0 && t.strength === t.maxStrength));
   assert.equal(winner(s), null);
   s.players.ai.trainers[0].strength = 0;
   s.players.ai.trainers[1].strength = 0;

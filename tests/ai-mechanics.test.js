@@ -3,15 +3,15 @@
 // tougher. Test-only cards. Run with: node tests/ai-mechanics.test.js
 import assert from 'node:assert/strict';
 import { createGame, applyAction, PLAYERS } from '../src/engine/game.js';
-import { cardDefinition } from '../src/engine/cards.js';
 import { refreshAuras, resolveEffects } from '../src/engine/effects.js';
 import { inPlay } from '../src/engine/board.js';
 import { chooseAction } from '../src/ai/opponent.js';
+import { trainerOrder, def, battle, place as placeCard, give, onTurn, at as atRef } from './fixtures.js';
 
 function match() {
   let s = createGame(41);
-  s = applyAction(s, { type: 'assignTrainers', who: 'player', order: ['player-trainer-ash', 'player-trainer-misty', 'player-trainer-brock'] });
-  s = applyAction(s, { type: 'assignTrainers', who: 'ai', order: ['ai-trainer-ash', 'ai-trainer-misty', 'ai-trainer-brock'] });
+  s = applyAction(s, { type: 'assignTrainers', who: 'player', order: trainerOrder(s, 'player') });
+  s = applyAction(s, { type: 'assignTrainers', who: 'ai', order: trainerOrder(s, 'ai') });
   s = applyAction(s, { type: 'flipCoin' });
   for (const who of PLAYERS) s = applyAction(s, { type: 'mulligan', who, cardUids: [] });
   for (const who of PLAYERS) {
@@ -27,7 +27,7 @@ function match() {
 }
 
 let made = 0;
-const mon = (base, extras = {}) => ({ ...cardDefinition(base), effectTrigger: null, effectText: null, ability: null, innatePower: null, uid: `test-${base}-${made++}`, ...extras });
+const mon = (base, extras = {}) => ({ ...def(base), effectTrigger: null, effectText: null, ability: null, innatePower: null, uid: `test-${base}-${made++}`, ...extras });
 function place(s, who, zone, space, card, { spent = true } = {}) {
   s.players[who].zones[zone].pokemon[space] = inPlay(card, { spent });
   refreshAuras(s);
@@ -38,9 +38,9 @@ const choose = (s) => chooseAction(s, 'ai', { rng: () => 0.5 });
 // can take the leftover damage.
 {
   const s = match();
-  place(s, 'ai', 0, 0, mon('growlithe', { innatePower: 'Overrun', attackValue: 8 }), { spent: false });
-  place(s, 'player', 0, 0, mon('horsea'));
-  place(s, 'player', 1, 0, mon('horsea'));
+  place(s, 'ai', 0, 0, mon('test-flame', { innatePower: 'Overrun', attackValue: 8 }), { spent: false });
+  place(s, 'player', 0, 0, mon('test-ripple'));
+  place(s, 'player', 1, 0, mon('test-ripple'));
   s.players.player.zones[0].pokemon[0].currentStrength = 1;
   s.players.player.zones[1].pokemon[0].currentStrength = 1;
   s.players.player.zones[0].trainer.strength = 0;   // nothing behind the first one
@@ -53,9 +53,9 @@ const choose = (s) => chooseAction(s, 'ai', { rng: () => 0.5 });
 // heal it back. (Both have Defence, so its Physical attack must pick one of them.)
 {
   const s = match();
-  place(s, 'ai', 0, 0, mon('growlithe', { attackValue: 2 }), { spent: false });
-  place(s, 'player', 0, 0, mon('lairon', { innatePower: 'Regenerate 2' }));
-  place(s, 'player', 1, 0, mon('lairon'));
+  place(s, 'ai', 0, 0, mon('test-flame', { attackValue: 2 }), { spent: false });
+  place(s, 'player', 0, 0, mon('test-steel', { innatePower: 'Regenerate 2' }));
+  place(s, 'player', 1, 0, mon('test-steel'));
   const move = choose(s);
   assert.equal(move.type, 'command');
   assert.deepEqual([move.target.kind, move.target.zone], ['pokemon', 1], 'not the Regenerate one');
@@ -64,7 +64,7 @@ const choose = (s) => chooseAction(s, 'ai', { rng: () => 0.5 });
 // Burn on Trainers: a "Burn 3 to an enemy Pokémon or Trainer" card goes on a Trainer, not a Pokémon.
 {
   const s = match();
-  place(s, 'player', 0, 0, mon('dragonite'));
+  place(s, 'player', 0, 0, mon('test-dragon'));
   s.players.ai.hand.push({
     id: 'test-ember', name: 'Test Ember', cardType: 'Strategy', energyCost: 1, image: null, rarity: 'Common', uid: 'test-ember-1',
     effectText: 'Burn 3 to an enemy Pokémon or Trainer.',
@@ -80,9 +80,9 @@ const choose = (s) => chooseAction(s, 'ai', { rng: () => 0.5 });
   const s = match();
   s.round = 3;   // next Round: 4 Base Energy
   const p = s.players.ai;
-  const big = mon('dragonite');   // cost 6: not next Round
-  const good = mon('lairon');     // cost 4: the best it can afford next Round
-  const small = mon('shinx');     // cost 1
+  const big = mon('test-dragon');   // cost 6: not next Round
+  const good = mon('test-steel');     // cost 4: the best it can afford next Round
+  const small = mon('test-spark');     // cost 1
   p.discard.push(big, good, small);
   resolveEffects(s, { who: 'ai', source: { kind: 'strategy', owner: 'ai', uid: 'x', name: 'Dive' }, label: 'Dive' }, [{ op: 'return', filter: { cardType: 'Pokémon' } }]);
   assert.deepEqual(choose(s).uids, [good.uid]);
@@ -93,9 +93,9 @@ const choose = (s) => chooseAction(s, 'ai', { rng: () => 0.5 });
   s.round = 3;
   const p = s.players.ai;
   p.baseEnergy = 2;
-  const now = mon('shinx');       // cost 1: affordable now
-  const later = mon('lairon');    // cost 4: not now, but next Round
-  const never = mon('dragonite'); // cost 6
+  const now = mon('test-spark');       // cost 1: affordable now
+  const later = mon('test-steel');    // cost 4: not now, but next Round
+  const never = mon('test-dragon'); // cost 6
   p.hand.push(now, later, never);
   resolveEffects(s, { who: 'ai', source: { kind: 'pokemon', owner: 'ai', zone: 0, space: 0, uid: 'x', name: 'Pelipper' }, label: 'Pelipper' },
     [{ op: 'retain', target: { mode: 'targeted', side: 'friendly', kinds: ['handCard'] } }]);
@@ -105,11 +105,39 @@ const choose = (s) => chooseAction(s, 'ai', { rng: () => 0.5 });
 {
   const s = match();
   const p = s.players.ai;
-  const a = mon('shinx');
-  const b = mon('pidgey');   // cost 2
+  const a = mon('test-spark');
+  const b = mon('test-wing');   // cost 2
   p.hand.push(a, b);
   resolveEffects(s, { who: 'ai', source: { kind: 'supporter', owner: 'ai', uid: 'x', name: 'Swimmer' }, label: 'Swimmer' }, [{ op: 'freeSummon', filter: { energyCost: { max: 2 } } }]);
   assert.deepEqual(choose(s).uids, [b.uid]);
+}
+
+// --- Each deck's plan ----------------------------------------------------------
+
+// Water Douses Burn on its own cards: Aqua Ring on a burned Pokémon, even one
+// at full Strength.
+{
+  const s = battle({ player: 'fire', ai: 'water', powers: false });
+  placeCard(s, 'ai', 0, 0, 'quagsire', { spent: true });
+  atRef(s, 'ai', 0, 0).status = { burn: { count: 3, by: 'player' } };
+  const uid = give(s, 'ai', 'aqua-ring');
+  onTurn(s, 'ai');
+  s.players.ai.baseEnergy = 2;
+  s.players.ai.dollars = 0;
+  assert.deepEqual(chooseAction(s, 'ai'), { type: 'playStrategy', who: 'ai', uid, target: { kind: 'pokemon', owner: 'ai', zone: 0, space: 0 } });
+}
+
+// Fire puts its Burn on Trainers: Ember at a Trainer, not the enemy Pokémon.
+{
+  const s = battle({ player: 'water', ai: 'fire', powers: false });
+  placeCard(s, 'player', 0, 0, 'quagsire', { spent: true });
+  const uid = give(s, 'ai', 'ember');
+  onTurn(s, 'ai');
+  s.players.ai.baseEnergy = 1;
+  s.players.ai.dollars = 0;
+  const move = chooseAction(s, 'ai');
+  assert.equal(move.uid, uid);
+  assert.equal(move.target.kind, 'trainer');
 }
 
 console.log('All AI mechanics tests passed.');

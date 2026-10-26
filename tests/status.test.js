@@ -3,21 +3,21 @@
 // Run with: node tests/status.test.js
 import assert from 'node:assert/strict';
 import { createGame, applyAction, attackOf, maxStrengthOf, PLAYERS, BREAKFAST_DOLLARS } from '../src/engine/game.js';
-import { cardDefinition } from '../src/engine/cards.js';
 import { ability } from '../src/engine/cardData.js';
 import { refreshAuras, resolveEffects } from '../src/engine/effects.js';
 import { inPlay } from '../src/engine/board.js';
 import { statusCount, STATUSES } from '../src/engine/status.js';
 import { hasKeyword } from '../src/engine/keywords.js';
+import { trainerOrder, def, useTestTrainers } from './fixtures.js';
 
 // --- Helpers ----------------------------------------------------------------
 
 // Round 1 Battle, empty hands, the player to act with initiative; Trainer
 // Passives and printed abilities off.
 function match() {
-  let s = createGame(41);
-  s = applyAction(s, { type: 'assignTrainers', who: 'player', order: ['player-trainer-ash', 'player-trainer-misty', 'player-trainer-brock'] });
-  s = applyAction(s, { type: 'assignTrainers', who: 'ai', order: ['ai-trainer-ash', 'ai-trainer-misty', 'ai-trainer-brock'] });
+  let s = useTestTrainers(createGame(41));
+  s = applyAction(s, { type: 'assignTrainers', who: 'player', order: trainerOrder(s, 'player') });
+  s = applyAction(s, { type: 'assignTrainers', who: 'ai', order: trainerOrder(s, 'ai') });
   s = applyAction(s, { type: 'flipCoin' });
   for (const who of PLAYERS) s = applyAction(s, { type: 'mulligan', who, cardUids: [] });
   for (const who of PLAYERS) {
@@ -34,7 +34,7 @@ function match() {
 // A test-only Pokémon: a placeholder's stats, no printed ability or keyword, plus extras.
 let made = 0;
 function mon(base, extras = {}) {
-  return { ...cardDefinition(base), effectTrigger: null, effectText: null, ability: null, innatePower: null, uid: `test-${base}-${made++}`, ...extras };
+  return { ...def(base), effectTrigger: null, effectText: null, ability: null, innatePower: null, uid: `test-${base}-${made++}`, ...extras };
 }
 
 function place(s, who, zone, space, card, { spent = true } = {}) {
@@ -95,7 +95,7 @@ assert.deepEqual(Object.keys(STATUSES), ['burn'], 'only Burn exists for now');
 // A burned Pokémon: same, and healing doesn't remove Burn.
 {
   let s = match();
-  const pud = place(s, 'ai', 0, 0, mon('dragonite'));   // 7/11
+  const pud = place(s, 'ai', 0, 0, mon('test-dragon'));   // 7/11
   burn(s, 'player', pud, 2);
   cast(s, 'ai', [{ op: 'heal', amount: 5, target: { mode: 'targeted', side: 'friendly' } }], pud);
   assert.equal(statusCount(at(s, pud), 'burn'), 2, 'healing does not remove Burn');
@@ -111,13 +111,13 @@ assert.deepEqual(Object.keys(STATUSES), ['burn'], 'only Burn exists for now');
 // burner's side), On Defeated fires; the defeat remembers who applied it.
 {
   let s = match();
-  const victim = place(s, 'ai', 2, 0, mon('metapod', ability('On Defeated', 'Gain 1 extra Base Energy this Round.', [{ op: 'gainEnergy', amount: 1 }])));
+  const victim = place(s, 'ai', 2, 0, mon('test-cocoon', ability('On Defeated', 'Gain 1 extra Base Energy this Round.', [{ op: 'gainEnergy', amount: 1 }])));
   at(s, victim).currentStrength = 2;
   burn(s, 'player', victim, 3);
   const dollars = s.players.player.dollars;
   s = nextRound(s);
   assert.equal(at(s, victim), null, 'defeated by Burn');
-  assert.equal(s.players.ai.released.at(-1).name, 'Metapod');
+  assert.equal(s.players.ai.released.at(-1).name, 'Test Cocoon');
   assert.equal(s.players.ai.released.at(-1).status, undefined, 'it keeps no Burn in the Released Pile');
   assert.equal(s.players.player.dollars, dollars + 2 + BREAKFAST_DOLLARS, 'its Energy Cost (2), plus the Breakfast PokéDollar');
   assert.equal(triggered(s, 'On Defeated').length, 1, 'On Defeated fires');
@@ -140,7 +140,7 @@ assert.deepEqual(Object.keys(STATUSES), ['burn'], 'only Burn exists for now');
 // Burn damage is effect damage: no On Defend.
 {
   let s = match();
-  const wall = place(s, 'ai', 0, 0, mon('lairon', ability('On Defend', 'Deal 1 damage to the attacker.', [
+  const wall = place(s, 'ai', 0, 0, mon('test-steel', ability('On Defend', 'Deal 1 damage to the attacker.', [
     { op: 'damage', amount: 1, target: { mode: 'event', role: 'attacker' } },
   ])));
   burn(s, 'player', wall, 2);
@@ -190,7 +190,7 @@ assert.deepEqual(Object.keys(STATUSES), ['burn'], 'only Burn exists for now');
 // Weather timed effects → Burn → On Supper → "this Round" effects expire → hands discarded.
 {
   let s = match();
-  const pud = place(s, 'player', 0, 0, mon('horsea', ability('On Supper', 'Gain 1 extra Base Energy this Round.', [{ op: 'gainEnergy', amount: 1 }])));
+  const pud = place(s, 'player', 0, 0, mon('test-ripple', ability('On Supper', 'Gain 1 extra Base Energy this Round.', [{ op: 'gainEnergy', amount: 1 }])));
   at(s, pud).currentStrength = 2;
   s.players.player.zones[1].location = { uid: 'wx', name: 'Weather test', cardType: 'Location', weatherTokens: { Rain: 8 }, quest: null };
   refreshAuras(s);
@@ -198,7 +198,7 @@ assert.deepEqual(Object.keys(STATUSES), ['burn'], 'only Burn exists for now');
   cast(s, 'player', [{ op: 'buff', attack: 2, strength: 0, thisRound: true, target: { mode: 'targeted', side: 'friendly' } }], pud);
   s.players.player.hand.push(s.players.player.drawPile.shift());
   s = nextRound(s);
-  const order = ['(☔ Rain 8): healed', 'Burn 3:', "Horsea's On Supper", '"This Round" effects end', 'You discarded'].map((t) => logIndex(s, t));
+  const order = ['(☔ Rain 8): healed', 'Burn 3:', "Test Ripple's On Supper", '"This Round" effects end', 'You discarded'].map((t) => logIndex(s, t));
   assert.ok(order.every((i) => i >= 0), `all logged: ${order}`);
   assert.deepEqual([...order].sort((a, b) => a - b), order, 'in that order');
   // 2, +1 when Rain 4's +1/+1 switched on → 3; Rain 8 heals 2 → 5; then Burn 3 → 2.
@@ -208,7 +208,7 @@ assert.deepEqual(Object.keys(STATUSES), ['burn'], 'only Burn exists for now');
 // A Pokémon defeated by Burn doesn't fire its On Supper.
 {
   let s = match();
-  const goner = place(s, 'player', 0, 0, mon('horsea', ability('On Supper', 'Gain 1 extra Base Energy this Round.', [{ op: 'gainEnergy', amount: 1 }])));
+  const goner = place(s, 'player', 0, 0, mon('test-ripple', ability('On Supper', 'Gain 1 extra Base Energy this Round.', [{ op: 'gainEnergy', amount: 1 }])));
   at(s, goner).currentStrength = 1;
   burn(s, 'ai', goner, 1);
   s = nextRound(s);
@@ -222,8 +222,8 @@ assert.deepEqual(Object.keys(STATUSES), ['burn'], 'only Burn exists for now');
 // the Passive rule: the maximum drops, current only if above it; never a defeat.
 {
   let s = match();
-  const a = place(s, 'player', 0, 0, mon('dragonite'));   // 7/11
-  const b = place(s, 'player', 0, 1, mon('magmar'));      // 5/7
+  const a = place(s, 'player', 0, 0, mon('test-dragon'));   // 7/11
+  const b = place(s, 'player', 0, 1, mon('test-blaze'));      // 5/7
   const buff = (ref) => cast(s, 'player', [{ op: 'buff', attack: 2, strength: 3, thisRound: true, target: { mode: 'targeted', side: 'friendly' } }], ref);
   buff(a);
   buff(b);

@@ -167,9 +167,13 @@ export function weatherTotal(c, stat) {
   return Object.values(c.weather ?? {}).reduce((sum, b) => sum + (b[stat] ?? 0), 0);
 }
 
-// What a Held Item gives its holder (counted while it is in the arena).
+// What a Held Item gives its holder (counted while it is in the arena),
+// including its extra for one Pokémon Type (held.also: "If it's a Fire Pokémon…").
 export function heldBonus(c, stat) {
-  return c.heldItem?.held?.[stat] ?? 0;
+  const held = c.heldItem?.held;
+  if (!held) return 0;
+  const also = held.also && held.also.pokemonType === c.pokemonType ? held.also[stat] ?? 0 : 0;
+  return (held[stat] ?? 0) + also;
 }
 
 // Attack can't go below 0.
@@ -177,9 +181,10 @@ export function attackOf(c) {
   return Math.max(0, c.attackValue + (c.attackBonus ?? 0) + auraTotal(c, 'attack') + weatherTotal(c, 'attack') + heldBonus(c, 'attack') + roundTotal(c, 'attack'));
 }
 
+// Never below 1 (a Held Item's −Strength can't take it lower).
 export function maxStrengthOf(c) {
   if (c.cardType === 'Trainer') return c.maxStrength;
-  return c.strengthValue + (c.strengthBonus ?? 0) + auraTotal(c, 'strength') + weatherTotal(c, 'strength') + heldBonus(c, 'strength') + roundTotal(c, 'strength');
+  return Math.max(1, c.strengthValue + (c.strengthBonus ?? 0) + auraTotal(c, 'strength') + weatherTotal(c, 'strength') + heldBonus(c, 'strength') + roundTotal(c, 'strength'));
 }
 
 // Speed-Tier as an index into SPEED_TIERS, raised by a Held Item (never past Swift).
@@ -197,7 +202,7 @@ export function inPlay(card, { spent }) {
   const { xp = { attack: 0, strength: 0 }, retainGranted, costDown, ...rest } = card;
   return {
     ...rest,
-    currentStrength: card.strengthValue + xp.strength + heldBonus(card, 'strength'),
+    currentStrength: Math.max(1, card.strengthValue + xp.strength + heldBonus(card, 'strength')),
     spent,
     attackBonus: xp.attack,
     strengthBonus: xp.strength,

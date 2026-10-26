@@ -4,18 +4,18 @@
 import assert from 'node:assert/strict';
 import { createGame, applyAction, attackOf, maxStrengthOf, weatherState, PLAYERS } from '../src/engine/game.js';
 import { WEATHER } from '../src/engine/cardData.js';
-import { cardDefinition } from '../src/engine/cards.js';
 import { refreshAuras } from '../src/engine/effects.js';
 import { inPlay } from '../src/engine/board.js';
+import { trainerOrder, def, testCard, useTestTrainers } from './fixtures.js';
 
 // --- Helpers ----------------------------------------------------------------
 
-// Round 1 Battle, Ash / Misty / Brock on both sides, empty hands, the player
+// Round 1 Battle, Test Ash / Test Misty / Test Brock on both sides, empty hands, the player
 // to act and to have initiative. Passives off; abilities off unless asked.
 function match({ abilities = false } = {}) {
-  let s = createGame(41);
-  s = applyAction(s, { type: 'assignTrainers', who: 'player', order: ['player-trainer-ash', 'player-trainer-misty', 'player-trainer-brock'] });
-  s = applyAction(s, { type: 'assignTrainers', who: 'ai', order: ['ai-trainer-ash', 'ai-trainer-misty', 'ai-trainer-brock'] });
+  let s = useTestTrainers(createGame(41));
+  s = applyAction(s, { type: 'assignTrainers', who: 'player', order: trainerOrder(s, 'player') });
+  s = applyAction(s, { type: 'assignTrainers', who: 'ai', order: trainerOrder(s, 'ai') });
   s = applyAction(s, { type: 'flipCoin' });
   for (const who of PLAYERS) s = applyAction(s, { type: 'mulligan', who, cardUids: [] });
   for (const who of PLAYERS) {
@@ -33,7 +33,7 @@ function match({ abilities = false } = {}) {
 function place(s, who, zone, space, id, extra = {}) {
   const p = s.players[who];
   const i = p.drawPile.findIndex((c) => c.id === id);
-  const card = i >= 0 ? p.drawPile.splice(i, 1)[0] : { ...cardDefinition(id), uid: `${who}-${id}-x` };
+  const card = i >= 0 ? p.drawPile.splice(i, 1)[0] : { ...def(id), uid: `${who}-${id}-x` };
   p.zones[zone].pokemon[space] = { ...inPlay(card, { spent: true }), ...extra };
   refreshAuras(s);
   return p.zones[zone].pokemon[space];
@@ -69,8 +69,8 @@ for (const [type, def] of Object.entries(WEATHER)) {
 
 {
   const s = match();
-  const pud = place(s, 'player', 2, 0, 'horsea');   // Water 2/6
-  const ember = place(s, 'player', 2, 1, 'growlithe'); // Fire 3/5
+  const pud = place(s, 'player', 2, 0, 'test-ripple');   // Water 2/6
+  const ember = place(s, 'player', 2, 1, 'test-flame'); // Fire 3/5
   weather(s, { Rain: 1 });
   assert.deepEqual(stats(pud), [2, 6, 6], 'below 2: nothing');
   weather(s, { Rain: 2 });
@@ -96,9 +96,9 @@ for (const [type, def] of Object.entries(WEATHER)) {
 
 {
   const s = match();
-  const ember = place(s, 'player', 0, 0, 'growlithe'); // Fire 3/5
-  const pud = place(s, 'ai', 1, 0, 'horsea');        // Water 2/6, opponent's side
-  const weak = place(s, 'ai', 1, 1, 'goldeen', { attackValue: 0 });   // Water with 0 Attack
+  const ember = place(s, 'player', 0, 0, 'test-flame'); // Fire 3/5
+  const pud = place(s, 'ai', 1, 0, 'test-ripple');        // Water 2/6, opponent's side
+  const weak = place(s, 'ai', 1, 1, 'test-fin', { attackValue: 0 });   // Water with 0 Attack
   weather(s, { Sun: 2 });
   assert.equal(attackOf(ember), 4, 'Sun 2: Fire +1 Attack');
   weather(s, { Sun: 4 });
@@ -115,9 +115,9 @@ for (const [type, def] of Object.entries(WEATHER)) {
 
 {
   const s = match();
-  const mine = place(s, 'player', 0, 0, 'horsea');
-  const theirs = place(s, 'ai', 0, 0, 'horsea');
-  const ember = place(s, 'ai', 0, 1, 'growlithe');
+  const mine = place(s, 'player', 0, 0, 'test-ripple');
+  const theirs = place(s, 'ai', 0, 0, 'test-ripple');
+  const ember = place(s, 'ai', 0, 1, 'test-flame');
   weather(s, { Rain: 6, Sun: 6 });
   // Water: Rain 4 (+1/+1) and Sun 6 (−1 Attack). Fire: Sun 4 (+2) and Rain 6 (−1).
   assert.deepEqual(stats(mine), [2, 7, 7]);
@@ -132,8 +132,8 @@ for (const [type, def] of Object.entries(WEATHER)) {
 
 {
   const s = match();
-  const hurt = place(s, 'player', 0, 0, 'horsea');
-  const full = place(s, 'player', 0, 1, 'quagsire');  // Water 4/8
+  const hurt = place(s, 'player', 0, 0, 'test-ripple');
+  const full = place(s, 'player', 0, 1, 'test-mud');  // Water 4/8
   weather(s, { Rain: 4 });
   assert.deepEqual(stats(full), [5, 9, 9], 'gaining Strength raises current and maximum');
   hurt.currentStrength = 1;
@@ -149,9 +149,9 @@ for (const [type, def] of Object.entries(WEATHER)) {
 // On Breakfast abilities; a defeated one triggers On Defeated as normal.
 {
   let s = match({ abilities: true });
-  place(s, 'player', 0, 0, 'growlithe');              // Fire: untouched
-  const frost = place(s, 'player', 0, 1, 'goldeen');   // Water, On Breakfast
-  const pud = place(s, 'ai', 1, 0, 'horsea');          // Water, On Defeated: heal Trainer in its zone 3
+  place(s, 'player', 0, 0, 'test-flame');              // Fire: untouched
+  const frost = place(s, 'player', 0, 1, 'test-fin');   // Water, On Breakfast
+  const pud = place(s, 'ai', 1, 0, 'test-ripple');          // Water, On Defeated: heal Trainer in its zone 3
   pud.currentStrength = 1;
   s.players.ai.zones[1].trainer.strength = 10;
   weather(s, { Sun: 8 });
@@ -160,11 +160,11 @@ for (const [type, def] of Object.entries(WEATHER)) {
   assert.equal(p.zones[0].pokemon[0].currentStrength, 5, 'Fire untouched');
   assert.equal(p.zones[0].pokemon[1].currentStrength, frost.currentStrength - 1);
   assert.equal(s.players.ai.zones[1].pokemon[0], null, 'defeated by Weather');
-  assert.equal(s.players.ai.released.at(-1).name, 'Horsea');
+  assert.equal(s.players.ai.released.at(-1).name, 'Test Ripple');
   assert.equal(s.players.ai.zones[1].trainer.strength, 13, 'On Defeated fired');
   const drew = logIndex(s, 'You drew 7 cards');
-  const sun = logIndex(s, 'Weather (☀ Sun 8): 1 damage to your Goldeen');
-  const ability = logIndex(s, "Your Goldeen's On Breakfast");
+  const sun = logIndex(s, 'Weather (☀ Sun 8): 1 damage to your Test Fin');
+  const ability = logIndex(s, "Your Test Fin's On Breakfast");
   assert.ok(drew >= 0 && sun > drew, 'after cards are drawn');
   assert.ok(ability > sun, 'Weather resolves before same-moment abilities');
 }
@@ -175,11 +175,11 @@ for (const [type, def] of Object.entries(WEATHER)) {
 // hands are discarded.
 {
   let s = match();
-  const pud = place(s, 'player', 0, 0, 'horsea', {
+  const pud = place(s, 'player', 0, 0, 'test-ripple', {
     effectTrigger: 'On Supper', effectText: 'Draw 1.', ability: { on: 'supper', match: { self: true }, effects: [{ op: 'draw', amount: 1 }] },
   });
-  const theirs = place(s, 'ai', 0, 0, 'quagsire');
-  const ember = place(s, 'player', 0, 1, 'growlithe');
+  const theirs = place(s, 'ai', 0, 0, 'test-mud');
+  const ember = place(s, 'player', 0, 1, 'test-flame');
   weather(s, { Rain: 8 });                           // Water at Rain 4+: +1/+1
   pud.currentStrength = 1;                           // 1/7
   theirs.currentStrength = 8;                        // 8/9: capped at 9
@@ -188,9 +188,9 @@ for (const [type, def] of Object.entries(WEATHER)) {
   assert.equal(s.players.player.zones[0].pokemon[0].currentStrength, 3);
   assert.equal(s.players.ai.zones[0].pokemon[0].currentStrength, 9, 'capped, opponent\'s side too');
   assert.equal(s.players.player.zones[0].pokemon[1].currentStrength, 1, 'not Water');
-  const rain = logIndex(s, 'Weather (☔ Rain 8): healed your Horsea');
+  const rain = logIndex(s, 'Weather (☔ Rain 8): healed your Test Ripple');
   assert.ok(rain >= 0);
-  assert.ok(rain < logIndex(s, "Your Horsea's On Supper"), 'before same-moment abilities');
+  assert.ok(rain < logIndex(s, "Your Test Ripple's On Supper"), 'before same-moment abilities');
   assert.ok(rain < logIndex(s, 'You discarded'), 'before hands are discarded');
 }
 
@@ -202,14 +202,14 @@ for (const [type, def] of Object.entries(WEATHER)) {
   const give = (who, id) => {
     const p = s.players[who];
     const i = p.drawPile.findIndex((c) => c.id === id);
-    p.hand.push(p.drawPile.splice(i, 1)[0]);
+    p.hand.push(i >= 0 ? p.drawPile.splice(i, 1)[0] : testCard(id));
     return p.hand.at(-1).uid;
   };
   const act = (who, action) => { s.turn = who; s.passesInARow = 0; s.players[who].baseEnergy = 10; s = applyAction(s, { who, ...action }); };
   act('player', { type: 'playLocation', uid: give('player', 'cerulean-cape'), zone: 0 });
   act('ai', { type: 'playLocation', uid: give('ai', 'cerulean-cape'), zone: 0 });
   assert.equal(weatherState(s).Rain.count, 4);
-  act('player', { type: 'playPokemon', uid: give('player', 'goldeen'), zone: 1, space: 0 });
+  act('player', { type: 'playPokemon', uid: give('player', 'test-fin'), zone: 1, space: 0 });
   assert.deepEqual(stats(s.players.player.zones[1].pokemon[0]), [5, 8, 8], 'summoned into Rain 4');
 }
 

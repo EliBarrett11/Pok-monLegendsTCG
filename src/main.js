@@ -6,8 +6,9 @@ import { render, STAGE, pushHistory, clearHistory, setCaption } from './ui/rende
 import { present, think, skip, resetFx, historyEntry, captionFor } from './ui/present.js';
 import { speedFactor } from './ui/settings.js';
 import { probeCardIcons } from './ui/cardIcons.js';
+import { renderDeckSelect, otherDeck, randomDeck } from './ui/deckSelect.js';
 
-export const BUILD = 'V7 — Full-art cards';
+export const BUILD = 'Step 18 — Fire and Water decks';
 
 
 // The whole game is drawn on a fixed 1920×1080 stage, scaled uniformly to
@@ -25,9 +26,11 @@ fitStage();
 const root = document.getElementById('app');
 const params = new URLSearchParams(location.search);
 const seedFromUrl = Number(params.get('seed'));
-// ?autoplay: the AI plays both sides (for watching, and for testing the presentation).
+// ?autoplay: the AI plays both sides (for watching, and for testing the
+// presentation), with the decks picked at random.
 const autoplay = params.has('autoplay');
-let state = createGame(seedFromUrl || Date.now());
+// null while the player is choosing a deck (before each match).
+let state = null;
 
 // While actions play out, input is locked; it unlocks when it's the player's move.
 let busy = false;
@@ -111,6 +114,7 @@ async function opponentActs(id) {
 
 const nextFrame = () => new Promise((resolve) => { setTimeout(resolve, 0); });
 
+// New match: back to deck selection (or straight in, with ?autoplay).
 function newGame() {
   match += 1;
   clearTimeout(lockInTimer);
@@ -118,13 +122,24 @@ function newGame() {
   clearHistory();
   setCaption('');
   lock(false);
-  state = createGame(Date.now());
+  state = null;
+  if (autoplay) startMatch(randomDeck());
+  else draw();
+}
+
+// The player plays `deck`; the AI plays the other one. ?seed= applies to the first match.
+let firstMatch = true;
+function startMatch(deck) {
+  const seed = (firstMatch && seedFromUrl) || Date.now();
+  firstMatch = false;
+  state = createGame(seed, { decks: { player: deck, ai: otherDeck(deck) } });
   draw();
   start();
 }
 
 function draw() {
-  render(root, state, { dispatch, newGame, build: BUILD });
+  if (!state) renderDeckSelect(root, { build: BUILD, choose: startMatch });
+  else render(root, state, { dispatch, newGame, build: BUILD });
 }
 
 // The tabletop art and fonts, loaded before the first frame so nothing pops in
@@ -154,7 +169,6 @@ async function start() {
 }
 
 preload().then(() => {
-  draw();
   stage.classList.add('ready');
-  start();
+  newGame();
 });

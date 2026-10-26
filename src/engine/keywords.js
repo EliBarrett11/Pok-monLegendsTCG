@@ -1,6 +1,8 @@
 // Innate Powers: keyword abilities on Pokémon that the rules check directly.
 // The printed keywords are the card's `innatePower` text, e.g. "Overrun, Scorch 2";
-// effects can grant more (card.granted: [{ key, amount?, thisRound? }]).
+// effects can grant more (card.granted: [{ key, amount?, thisRound? }]), and so
+// can a Held Item (held.keywords, held.also.keywords for one Type) and a
+// Trainer's Passive (card.aura[…].keywords, while it applies).
 //
 // Numbered keywords add up (Scorch 1 + Scorch 1 = Scorch 2). Keywords without
 // a number don't stack: having one twice is the same as having it once.
@@ -25,7 +27,10 @@ export function parseKeywords(text) {
 
 // Every keyword the card has now: printed, plus granted.
 export function keywordList(card) {
-  return [...parseKeywords(card?.innatePower), ...(card?.granted ?? [])];
+  const held = card?.heldItem?.held;
+  const fromHeld = held ? [...(held.keywords ?? []), ...(held.also?.pokemonType === card.pokemonType ? held.also.keywords ?? [] : [])] : [];
+  const fromAura = Object.values(card?.aura ?? {}).flatMap((a) => a.keywords ?? []);
+  return [...parseKeywords(card?.innatePower), ...(card?.granted ?? []), ...fromHeld, ...fromAura];
 }
 
 export function hasKeyword(card, key) {

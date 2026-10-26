@@ -36,13 +36,14 @@ export const HAND_SIZE = 7;
 //   gameOver   - a player has won, or the match is a draw (winner stays null)
 //
 // state.pending holds a choice a player must make mid-resolution (a trigger's
-// target, Ash's free summon). While it is set, that player's only Action is
+// target, a free summon). While it is set, that player's only Action is
 // resolveChoice. state.stack holds what is still to resolve (see effects.js).
 
-function newPlayer(name, owner, state) {
+function newPlayer(name, owner, state, deck) {
   return {
     name,
-    drawPile: shuffle(state, buildDeck(owner)),
+    deck,                // the deck id: 'fire' | 'water'
+    drawPile: shuffle(state, buildDeck(owner, deck)),
     hand: [],
     discard: [],
     released: [],        // defeated Pokémon and Released cards; never shuffled back
@@ -51,7 +52,7 @@ function newPlayer(name, owner, state) {
     xpChoice: null,      // the XP step: this player's locked-in spending, revealed together
     dollars: 0,          // PokéDollars: earned for defeating Pokémon, spent on Items; kept between Rounds
     bag: [],             // up to BAG_SIZE Items; { ...item, inDelivery } until the next Breakfast
-    trainers: buildTrainers(owner),
+    trainers: buildTrainers(owner, deck),
     // The Battle Arena row: 3 zones, each with 1 Trainer Space and 3 Pokémon Spaces.
     // Each zone also has 1 Location space on each side.
     zones: Array.from({ length: ZONES }, () => ({
@@ -65,7 +66,8 @@ function newPlayer(name, owner, state) {
   };
 }
 
-export function createGame(seed = Date.now()) {
+// decks: which deck each side plays (the player chooses; the AI plays the other).
+export function createGame(seed = Date.now(), { decks = { player: 'fire', ai: 'water' } } = {}) {
   const state = {
     seed,
     rng: seed >>> 0,
@@ -81,8 +83,8 @@ export function createGame(seed = Date.now()) {
     events: [],          // what the last action did, as structured events (see emit in board.js)
   };
   state.players = {
-    player: newPlayer('You', 'player', state),
-    ai: newPlayer('AI Opponent', 'ai', state),
+    player: newPlayer('You', 'player', state, decks.player),
+    ai: newPlayer('AI Opponent', 'ai', state, decks.ai),
   };
   // One PokéMart shared by both players: a deck and 3 Items on sale.
   state.mart = { deck: shuffle(state, buildMartStock()), onSale: [null, null, null] };
@@ -477,6 +479,15 @@ function endMatch(state, won) {
   state.winner = won;
   state.turn = null;
   state.pending = null;
+  // A card still resolving when the match ends finishes its move: a played
+  // Strategy or Supporter to the Discard Pile, a used Consumed Item to the PokéMart.
+  for (const job of state.stack ?? []) {
+    if (job.kind === 'step' && job.step === 'discard') STEPS.discard(state, job);
+    if (job.kind === 'step' && job.step === 'toMart') {
+      const { inDelivery, ...plain } = job.item;
+      state.mart.deck.push(plain);
+    }
+  }
   state.stack = [];
 }
 
@@ -527,7 +538,7 @@ const STEPS = {
     }
     if (job.scorch && still(job.scorch.target)) {
       emit(state, 'scorch', { who: attacker.owner, attacker: info(state, attacker), target: info(state, job.scorch.target), amount: job.scorch.amount });
-      burnCard(state, job.scorch.target, job.scorch.amount, attacker.owner);
+      burnCard(state, job.scorch.target, job.scorch.amount, attacker.owner, attacker);
     }
     const events = [];
     if (still(attacker)) events.push({ type: 'attack', ref: attacker, card: cardAt(state, attacker), target });
@@ -718,15 +729,7 @@ const HANDLERS = {
       // On Knockout: the attacker's hit, or the defender's hit back in a trade, defeated the other.
       if (hpAfter <= 0) after.knockouts.push({ ref: attackerRef, victim: info(state, targetRef) });
       if (trades && attacker.currentStrength <= 0) after.knockouts.push({ ref: { ...targetRef }, victim: info(state, attackerRef) });
-      // Amulet Coin: the holder dealt the combat damage that defeated an opponent Pokémon.
-      const coins = [];
-      if (defender.currentStrength <= 0) coins.push([who, attacker]);
-      if (trades && attacker.currentStrength <= 0) coins.push([foe, defender]);
       settle(state);   // defeats (and On Defeated) resolve before afterAttack
-      for (const [owner, holder] of coins) {
-        const bonus = holder.heldItem?.held?.luckyCoin;
-        if (bonus) earnDollars(state, owner, bonus, `from ${holder.name}'s Amulet Coin`);
-      }
       return;
     }
     settle(state);   // defeats (and On Defeated) resolve before afterAttack
@@ -761,7 +764,7 @@ const HANDLERS = {
     if (!card || card.cardType !== 'Strategy') throw new Error('Choose a Strategy Card from your hand');
     if (!playableStrategies(state, who).includes(card)) throw new Error(`${card.name} cannot be played now`);
     const paid = payCost(p, card.energyCost, state.round);
-    p.hand = p.hand.filter((c) => c !== card);   // out of hand while it resolves, so Quickdraw can't draw itself
+    p.hand = p.hand.filter((c) => c !== card);   // out of hand while it resolves, so a draw can't draw it
     emit(state, 'cardPlayed', { who, uid: card.uid, name: card.name, cardType: card.cardType, to: { kind: 'discard' }, target: info(state, target) });
     log(state, `${p.name} played ${card.name} (${card.effectText}) Paid ${describePayment(paid)}.`);
     queueStep(state, 'endTurn', { who, passed: false });

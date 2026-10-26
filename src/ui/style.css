@@ -1253,3 +1253,54 @@ button.primary {
   background: var(--parchment-fill); border: 2px solid var(--brass-dark); box-shadow: var(--shadow-lift);
   font-size: 13.5px; line-height: 1.3;
 }
+
+/* --- Deck selection -------------------------------------------------------------------- */
+
+.deck-select {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px;
+  background: radial-gradient(ellipse at center, rgba(20, 10, 2, 0.35), rgba(8, 4, 0, 0.8));
+}
+.deck-head { text-align: center; }
+.deck-head h1 {
+  margin: 0; font-family: var(--font-display); font-size: 60px; font-weight: 800; color: var(--brass-light);
+  text-shadow: 0 3px 6px rgba(0, 0, 0, 0.8), 0 0 30px rgba(255, 200, 100, 0.35);
+}
+.deck-head .hint { margin: 6px 0 0; font-size: 20px; }
+.deck-head .build-tag { margin-left: 10px; }
+.deck-options { display: flex; gap: 70px; }
+.deck-option {
+  --accent: var(--brass);
+  width: 700px; padding: 22px 34px 28px; display: flex; flex-direction: column; align-items: center; text-align: center;
+  background: var(--leather-panel); border: 3px solid var(--brass-dark); border-radius: var(--radius-panel);
+  box-shadow: inset 0 0 0 1px rgba(246, 221, 154, 0.3), inset 0 2px 14px rgba(0, 0, 0, 0.6), var(--shadow-panel);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.deck-option.fire { --accent: #ff8a4c; }
+.deck-option.water { --accent: #6fb8ff; }
+.deck-option:hover { transform: translateY(-6px); }
+.deck-option.last { border-color: var(--accent); box-shadow: inset 0 0 0 1px rgba(246, 221, 154, 0.3), 0 0 26px 4px color-mix(in srgb, var(--accent) 45%, transparent), var(--shadow-panel); }
+.deck-fan { position: relative; width: 100%; height: 420px; }
+.deck-fan .card { --w: 270px; position: absolute; left: 50%; top: 10px; transform-origin: 50% 100%; transition: transform 0.25s; }
+.deck-fan .card:nth-child(1) { transform: translateX(-88%) rotate(-8deg); z-index: 1; }
+.deck-fan .card:nth-child(2) { transform: translateX(-12%) translateY(14px) rotate(7deg); }
+.deck-option:hover .deck-fan .card:nth-child(1) { transform: translateX(-96%) rotate(-11deg); }
+.deck-option:hover .deck-fan .card:nth-child(2) { transform: translateX(-4%) translateY(14px) rotate(10deg); }
+.deck-option h2 {
+  margin: 8px 0 0; font-family: var(--font-display); font-size: 48px; font-weight: 800; color: var(--accent);
+  text-shadow: 0 3px 6px rgba(0, 0, 0, 0.8);
+}
+.deck-kind { margin: 2px 0 10px; font-family: var(--font-display); font-size: 21px; color: var(--brass-light); letter-spacing: 0.04em; }
+.deck-plan { margin: 0 0 14px; font-size: 19px; line-height: 1.35; color: var(--cream); min-height: 52px; }
+.deck-trainers { display: flex; gap: 12px; margin: 0 0 18px; padding: 0; list-style: none; }
+.deck-trainers li {
+  display: flex; align-items: center; gap: 8px; padding: 5px 8px 5px 14px; font-size: 18px;
+  border: 1px solid var(--brass-dark); border-radius: 999px; background: rgba(0, 0, 0, 0.3);
+}
+.deck-trainers .trainer-name { font-family: var(--font-display); font-weight: 700; color: var(--cream); }
+.deck-trainers .trainer-str {
+  min-width: 30px; padding: 2px 6px; border-radius: 999px; font-weight: 800; color: var(--ink);
+  background: linear-gradient(var(--brass-light), var(--brass));
+}
+.deck-option button { font-size: 24px; padding: 12px 40px; }
+.deck-option .last-tag { margin-left: 8px; font-size: 14px; font-weight: 500; opacity: 0.8; }
+.deck-random { font-size: 20px; padding: 10px 36px; }

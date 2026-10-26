@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { energySlots, exertSlots, pileDepth, PILE_DEPTH } from '../src/ui/resources.js';
 import { createGame, applyAction, PLAYERS } from '../src/engine/game.js';
 import { refreshEnergy, payCost } from '../src/engine/energy.js';
+import { trainerOrder } from './fixtures.js';
 
 // --- Energy crystals ------------------------------------------------------------
 
@@ -19,8 +20,8 @@ assert.deepEqual(energySlots(3, 4), { sockets: 3, lit: 3, bonus: 1 }, 'a Pass ab
 {
   let s = createGame(41);
   const box = () => s.players.player;
-  s = applyAction(s, { type: 'assignTrainers', who: 'player', order: ['player-trainer-ash', 'player-trainer-misty', 'player-trainer-brock'] });
-  s = applyAction(s, { type: 'assignTrainers', who: 'ai', order: ['ai-trainer-ash', 'ai-trainer-misty', 'ai-trainer-brock'] });
+  s = applyAction(s, { type: 'assignTrainers', who: 'player', order: trainerOrder(s, 'player') });
+  s = applyAction(s, { type: 'assignTrainers', who: 'ai', order: trainerOrder(s, 'ai') });
   s = applyAction(s, { type: 'flipCoin' });
   for (const who of PLAYERS) s = applyAction(s, { type: 'mulligan', who, cardUids: [] });
   s.turn = 'player';

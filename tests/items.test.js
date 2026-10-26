@@ -1,72 +1,26 @@
 // Checks PokéDollars, Item Cards, the Open Bag Action, the Bag, the PokéMart,
-// Held and Consumed Items, and the AI's use of them.
+// Held and Consumed Items, each Fire and Water Item working as written, and
+// the AI's use of them.
 // Run with: node tests/items.test.js
 import assert from 'node:assert/strict';
-import {
-  createGame, applyAction, legalActions, openBagOptions, itemTargets, isAlert, attackOf, maxStrengthOf,
-  BAG_SIZE, PLAYERS,
-} from '../src/engine/game.js';
-import { ITEM_CARDS, PLACEHOLDER_DECKLIST } from '../src/engine/cardData.js';
+import { applyAction, legalActions, openBagOptions, itemTargets, isAlert, attackOf, maxStrengthOf, BAG_SIZE } from '../src/engine/game.js';
+import { ITEM_CARDS } from '../src/engine/cardData.js';
 import { cardDefinition } from '../src/engine/cards.js';
 import { refreshAuras } from '../src/engine/effects.js';
+import { statusCount } from '../src/engine/status.js';
+import { keywordAmount } from '../src/engine/keywords.js';
 import { chooseAction } from '../src/ai/opponent.js';
+import { battle, give, act, onTurn, play, place, nextRound, at, trainerAt, pref, tref, href, stats, logged } from './fixtures.js';
 
-// --- Helpers ----------------------------------------------------------------
-
-// Round 1 Battle, Ash / Misty / Brock on both sides, empty hands, plenty of
-// Base Energy, the player to act and to have initiative. Passives and
-// abilities off, so numbers are the Items' own.
-function match({ seed = 51 } = {}) {
-  let s = createGame(seed);
-  s = applyAction(s, { type: 'assignTrainers', who: 'player', order: ['player-trainer-ash', 'player-trainer-misty', 'player-trainer-brock'] });
-  s = applyAction(s, { type: 'assignTrainers', who: 'ai', order: ['ai-trainer-ash', 'ai-trainer-misty', 'ai-trainer-brock'] });
-  s = applyAction(s, { type: 'flipCoin' });
-  for (const who of PLAYERS) s = applyAction(s, { type: 'mulligan', who, cardUids: [] });
-  for (const who of PLAYERS) {
-    const p = s.players[who];
-    p.drawPile.push(...p.hand.splice(0));
-    p.baseEnergy = 10;
-    p.dollars = 0;   // not the Breakfast PokéDollar: these tests count what defeats earn
-    p.trainers.forEach((t) => { t.passive = { text: '' }; });
-    for (const c of p.drawPile) c.ability = null;
-  }
-  s.initiative = 'player';
-  s.turn = 'player';
-  return s;
-}
-
-function give(s, who, id) {
-  const p = s.players[who];
-  for (const pile of [p.drawPile, p.discard]) {
-    const i = pile.findIndex((c) => c.id === id);
-    if (i >= 0) {
-      const [card] = pile.splice(i, 1);
-      p.hand.push(card);
-      return card.uid;
-    }
-  }
-  throw new Error(`no ${id} left for ${who}`);
-}
-
-const onTurn = (s, who) => { s.turn = who; s.passesInARow = 0; s.players[who].baseEnergy = 10; return s; };
-const act = (s, who, action) => applyAction(onTurn(s, who), { who, ...action });
-const play = (s, who, id, zone, space) => act(s, who, { type: 'playPokemon', uid: give(s, who, id), zone, space });
+// Trainer Passives and Powers off, so the numbers are the Items' own.
+// PokéDollars start at 0 (not the Breakfast one): these tests count them.
+const fire = () => battle({ seed: 51, passives: false, powers: false });
+const water = () => battle({ seed: 51, player: 'water', ai: 'fire', passives: false, powers: false });
 const bag = (s, who, action) => act(s, who, { type: 'openBag', ...action });
-const at = (s, who, zone, space) => s.players[who].zones[zone].pokemon[space];
-const pref = (owner, zone, space) => ({ kind: 'pokemon', owner, zone, space });
-const href = (owner, uid) => ({ kind: 'hand', owner, uid });
-const ready = (s, who, zone, space) => { at(s, who, zone, space).spent = false; };
+const buyUse = (s, who, uid, target) => { s.players[who].dollars += 10; return bag(s, who, { mode: 'buyHand', uid, then: 'use', target }); };
 const martIds = (s) => [...s.mart.deck, ...s.mart.onSale.filter(Boolean)].map((i) => i.id).sort();
-const logged = (s, text) => s.log.some((l) => l.includes(text));
-
-function nextRound(s) {
-  s.turn = 'player';
-  s.passesInARow = 0;
-  s = applyAction(s, { type: 'pass', who: 'player' });
-  s = applyAction(s, { type: 'pass', who: 'ai' });
-  for (const who of PLAYERS) if (s.xpStep && legalActions(s, who).includes('spendXp')) s = applyAction(s, { type: 'spendXp', who, spend: [] });
-  return s;
-}
+const hurt = (s, ref, to) => { at(s, ref.owner, ref.zone, ref.space).currentStrength = to; return ref; };
+const burn = (c) => statusCount(c, 'burn');
 
 // --- Data -------------------------------------------------------------------
 
@@ -76,17 +30,9 @@ for (const c of ITEM_CARDS) {
   for (const field of ['name', 'cost', 'effectText', 'rarity', 'effects']) assert.ok(c[field], `${c.name} ${field}`);
   assert.ok('image' in c);
 }
-assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
-  ['Black Belt', 'Held', 3], ['Rocky Helmet', 'Held', 3], ['Oran Berry', 'Held', 4], ['Amulet Coin', 'Held', 2],
-  ['Potion', 'Consumed', 2], ['Rose Incense', 'Consumed', 3], ['Miracle Seed', 'Consumed', 4],
-]);
 {
-  const s = createGame(1);
-  const items = s.players.player.drawPile.filter((c) => c.cardType === 'Item').map((c) => c.id).sort();
-  assert.deepEqual(items, ['amulet-coin', 'black-belt', 'black-belt', 'miracle-seed', 'oran-berry', 'potion', 'rocky-helmet', 'rocky-helmet']);
-  assert.equal(PLACEHOLDER_DECKLIST['rose-incense'], undefined, 'Rose Incense: PokéMart only');
+  const s = fire();
   assert.deepEqual(martIds(s), ITEM_CARDS.map((c) => c.id).sort(), 'PokéMart: one of each Item');
-  assert.equal(s.players.player.dollars, 0);
   assert.deepEqual(s.players.player.bag, []);
 }
 
@@ -95,100 +41,77 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
 // Earned for every opponent Pokémon defeated, by any cause: its printed Energy Cost.
 {
   // My attack.
-  let s = match();
-  s = play(s, 'player', 'absol', 0, 0);           // Quick Attack: Active
-  s = play(s, 'ai', 'geodude', 1, 0);                // cost 2
-  at(s, 'ai', 1, 0).currentStrength = 1;
-  at(s, 'ai', 1, 0).attackBonus = 5;                 // a buffed card still pays its printed cost
+  let s = fire();
+  place(s, 'player', 0, 0, 'mankey');                        // Attack 4
+  hurt(s, place(s, 'ai', 1, 0, 'goldeen', { spent: true, attackBonus: 5 }), 1);   // cost 2; buffed still pays its printed cost
   s = act(s, 'player', { type: 'command', from: { zone: 0, space: 0 }, target: { kind: 'pokemon', zone: 1, space: 0 } });
   assert.equal(s.players.player.dollars, 2);
-  assert.ok(logged(s, 'You earn 2 PokéDollars for defeating Geodude (now 2).'));
+  assert.ok(logged(s, 'You earn 2 PokéDollars for defeating Goldeen (now 2).'));
 
-  // Damage traded back by my Pokémon.
-  let t = match();
-  t = play(t, 'player', 'pidgey', 0, 0);           // Swift
-  t = play(t, 'ai', 'shinx', 1, 0);                 // Swift, Quick Attack, cost 1
-  ready(t, 'player', 0, 0);
-  at(t, 'ai', 1, 0).currentStrength = 9;             // survives
-  at(t, 'ai', 1, 0).spent = false;
-  at(t, 'player', 0, 0).currentStrength = 9;
-  t.players.ai.zones[1].pokemon[0].attackValue = 0;
-  at(t, 'player', 0, 0).attackValue = 9;
-  t = act(t, 'ai', { type: 'command', from: { zone: 1, space: 0 }, target: { kind: 'pokemon', zone: 0, space: 0 } });
-  assert.equal(t.players.ai.zones[1].pokemon[0], null, 'defeated by the damage Pidgey traded back');
-  assert.equal(t.players.player.dollars, 1);
-
-  // Effects (Misty's Power) and Weather (Sun 8).
-  let u = match();
-  u = play(u, 'ai', 'metapod', 1, 0);               // cost 2
-  at(u, 'ai', 1, 0).currentStrength = 1;
-  u = act(u, 'player', { type: 'usePower', zone: 1, target: pref('ai', 1, 0) });
-  assert.equal(u.players.player.dollars, 2);
-  u = play(u, 'player', 'horsea', 2, 0);            // cost 1, mine
-  at(u, 'player', 2, 0).currentStrength = 1;
-  u.players.ai.zones[2].location = { uid: 'sun', name: 'Sun test', cardType: 'Location', weatherTokens: { Sun: 8 }, quest: null };
-  refreshAuras(u);
+  // Effects (a Strategy Card) and Burn at Supper.
+  let u = fire();
+  hurt(u, place(u, 'ai', 1, 0, 'lapras'), 2);                // cost 4
+  u = act(u, 'player', { type: 'playStrategy', uid: give(u, 'player', 'ember'), target: pref('ai', 1, 0) });
   u = nextRound(u);
-  assert.equal(u.players.player.zones[2].pokemon[0], null, 'my Horsea defeated by Weather');
-  assert.equal(u.players.ai.dollars, 1 + 1, 'the opponent earns (1 for Horsea, 1 at Breakfast)');
+  assert.equal(at(u, 'ai', 1, 0), null, 'Burn 2 defeated it at Supper');
+  assert.equal(u.players.player.dollars, 4 + 1, '4 for Lapras, 1 at Breakfast');
 }
 
 // --- Items in hand ----------------------------------------------------------------
 
 // Unusable until bought; discarded at Supper like any other card.
 {
-  let s = match();
-  s = play(s, 'player', 'growlithe', 0, 0);
-  at(s, 'player', 0, 0).currentStrength = 1;
-  const potion = give(s, 'player', 'potion');
+  let s = fire();
+  place(s, 'player', 0, 0, 'growlithe');
+  const item = give(s, 'player', 'charcoal');
+  s.mart.onSale = [null, null, null];
   onTurn(s, 'player');
   assert.ok(!legalActions(s, 'player').includes('openBag'), 'no PokéDollars: nothing to do with it');
   const martBefore = martIds(s);
   s = nextRound(s);
-  assert.ok(s.players.player.discard.some((c) => c.uid === potion), 'discarded at Supper to my own Discard Pile');
+  assert.ok(s.players.player.discard.some((c) => c.uid === item), 'discarded at Supper to my own Discard Pile');
   assert.deepEqual(martIds(s), martBefore, 'not to the PokéMart');
 }
 
 // Buy from hand, then use it now...
 {
-  let s = match();
-  s = play(s, 'player', 'lairon', 0, 0);
-  at(s, 'player', 0, 0).currentStrength = 2;
-  const potion = give(s, 'player', 'potion');
+  let s = water();
+  hurt(s, place(s, 'player', 0, 0, 'quagsire'), 2);
+  const heal = give(s, 'player', 'full-heal');
   s.players.player.dollars = 5;
   const martBefore = s.mart.deck.length;
-  s = bag(s, 'player', { mode: 'buyHand', uid: potion, then: 'use', target: pref('player', 0, 0) });
-  assert.equal(s.players.player.dollars, 3);
-  assert.equal(at(s, 'player', 0, 0).currentStrength, 6, 'Potion heals 4');
-  assert.ok(!s.players.player.hand.some((c) => c.uid === potion));
+  s = bag(s, 'player', { mode: 'buyHand', uid: heal, then: 'use', target: pref('player', 0, 0) });
+  assert.equal(s.players.player.dollars, 4);
+  assert.equal(at(s, 'player', 0, 0).currentStrength, 4);
+  assert.ok(!s.players.player.hand.some((c) => c.uid === heal));
   assert.equal(s.mart.deck.length, martBefore + 1, 'a used Consumed Item goes to the PokéMart');
-  assert.ok(s.mart.deck.some((c) => c.uid === potion));
+  assert.ok(s.mart.deck.some((c) => c.uid === heal));
   assert.equal(s.turn, 'ai', 'one Action');
 }
 
 // ...or store it, and use it from the Bag on a later turn.
 {
-  let s = match();
-  const band = give(s, 'player', 'black-belt');
-  s.players.player.dollars = 3;
-  s = bag(s, 'player', { mode: 'buyHand', uid: band, then: 'store' });
-  assert.deepEqual(s.players.player.bag.map((i) => [i.uid, i.inDelivery]), [[band, false]]);
+  let s = fire();
+  const coal = give(s, 'player', 'charcoal');
+  s.players.player.dollars = 2;
+  s = bag(s, 'player', { mode: 'buyHand', uid: coal, then: 'store' });
+  assert.deepEqual(s.players.player.bag.map((i) => [i.uid, i.inDelivery]), [[coal, false]]);
   s = play(s, 'player', 'growlithe', 0, 0);
-  s = bag(s, 'player', { mode: 'useBag', uid: band, target: pref('player', 0, 0) });
+  s = bag(s, 'player', { mode: 'useBag', uid: coal, target: pref('player', 0, 0) });
   assert.equal(s.players.player.bag.length, 0);
-  assert.equal(at(s, 'player', 0, 0).heldItem.name, 'Black Belt');
-  assert.equal(attackOf(at(s, 'player', 0, 0)), 5, '+2 Attack');
+  assert.equal(at(s, 'player', 0, 0).heldItem.name, 'Charcoal');
 }
 
 // No legal target: can't be used, but can still be bought and stored.
 {
-  const s = match();
-  const potion = give(s, 'player', 'potion');
+  const s = fire();
+  const x = give(s, 'player', 'x-attack');                   // needs a friendly Pokémon in the arena
   s.players.player.dollars = 2;
-  assert.deepEqual(openBagOptions(s, 'player').filter((o) => o.uid === potion), [{ mode: 'buyHand', uid: potion, then: 'store' }]);
-  assert.throws(() => bag(s, 'player', { mode: 'buyHand', uid: potion, then: 'use' }), /no legal target/);
-  const t = bag(s, 'player', { mode: 'buyHand', uid: potion, then: 'store' });
-  assert.deepEqual(t.players.player.bag.map((i) => i.uid), [potion], 'bought and stored');
+  s.mart.onSale = [null, null, null];
+  assert.deepEqual(openBagOptions(s, 'player').filter((o) => o.uid === x), [{ mode: 'buyHand', uid: x, then: 'store' }]);
+  assert.throws(() => bag(s, 'player', { mode: 'buyHand', uid: x, then: 'use' }), /no legal target/);
+  const t = bag(s, 'player', { mode: 'buyHand', uid: x, then: 'store' });
+  assert.deepEqual(t.players.player.bag.map((i) => i.uid), [x], 'bought and stored');
   assert.equal(t.players.player.dollars, 0);
 }
 
@@ -196,10 +119,10 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
 
 // 3 on sale; buying puts it In Delivery until the next Breakfast; its slot stays empty.
 {
-  let s = match();
+  let s = fire();
   assert.equal(s.mart.onSale.filter(Boolean).length, 3);
   assert.equal(s.mart.deck.length, 4);
-  const slot = s.mart.onSale.findIndex((i) => i.id !== 'miracle-seed');
+  const slot = 0;
   const item = s.mart.onSale[slot];
   s.players.player.dollars = 10;
   s = bag(s, 'player', { mode: 'buyMart', slot });
@@ -220,7 +143,7 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
 
 // If the deck has fewer than 3, it shows what there is.
 {
-  let s = match();
+  let s = fire();
   s.mart.deck = [];
   s.mart.onSale = [s.mart.onSale[0], null, null];
   s = nextRound(s);
@@ -230,21 +153,20 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
 // The Bag: 6 spaces, In Delivery included. Full: no storing or PokéMart, but
 // buying from hand and using it straight away still works.
 {
-  let s = match();
-  s.players.player.bag = ITEM_CARDS.slice(0, 5).map((def, i) => ({ ...def, uid: `b${i}`, inDelivery: false }));
+  let s = fire();
+  s.players.player.bag = ITEM_CARDS.slice(0, 5).map((d, i) => ({ ...d, uid: `b${i}`, inDelivery: false }));
   s.players.player.dollars = 20;
-  const slot = s.mart.onSale.findIndex(Boolean);
-  s = bag(s, 'player', { mode: 'buyMart', slot });
+  s = bag(s, 'player', { mode: 'buyMart', slot: s.mart.onSale.findIndex(Boolean) });
   assert.equal(s.players.player.bag.length, BAG_SIZE);
   s = play(s, 'player', 'growlithe', 0, 0);
-  const band = give(s, 'player', 'black-belt');
+  const coal = give(s, 'player', 'charcoal');
   onTurn(s, 'player');
   const opts = openBagOptions(s, 'player');
   assert.ok(!opts.some((o) => o.mode === 'buyMart'), 'full: no PokéMart');
   assert.ok(!opts.some((o) => o.then === 'store'), 'full: no storing');
-  assert.throws(() => bag(s, 'player', { mode: 'buyHand', uid: band, then: 'store' }), /full/);
-  s = bag(s, 'player', { mode: 'buyHand', uid: band, then: 'use', target: pref('player', 0, 0) });
-  assert.equal(at(s, 'player', 0, 0).heldItem.name, 'Black Belt');
+  assert.throws(() => bag(s, 'player', { mode: 'buyHand', uid: coal, then: 'store' }), /full/);
+  s = bag(s, 'player', { mode: 'buyHand', uid: coal, then: 'use', target: pref('player', 0, 0) });
+  assert.equal(at(s, 'player', 0, 0).heldItem.name, 'Charcoal');
   assert.equal(s.players.player.bag.length, BAG_SIZE, 'Bag contents kept');
   s = nextRound(s);
   assert.equal(s.players.player.bag.length, BAG_SIZE, 'never discarded at Supper');
@@ -252,218 +174,196 @@ assert.deepEqual(ITEM_CARDS.map((c) => [c.name, c.itemType, c.cost]), [
 
 // --- Held Items ---------------------------------------------------------------------
 
-// On a Pokémon in hand: it follows the card through the Discard Pile and a
-// reshuffle, back into the hand, and applies once it is in the arena.
+// On a Pokémon in hand: it follows the card through the Discard Pile, and
+// applies once it is in the arena.
 {
-  let s = match();
-  const shell = give(s, 'player', 'rocky-helmet');
-  const iron = give(s, 'player', 'lairon');
-  s.players.player.dollars = 3;
-  assert.ok(itemTargets(s, 'player', s.players.player.hand.find((c) => c.uid === shell)).some((r) => r.kind === 'hand'));
-  s = bag(s, 'player', { mode: 'buyHand', uid: shell, then: 'use', target: href('player', iron) });
-  assert.equal(s.players.player.hand.find((c) => c.uid === iron).heldItem.name, 'Rocky Helmet');
-  s = nextRound(s);                                  // Supper: discarded, Held Item and all
+  let s = water();
+  const mw = give(s, 'player', 'mystic-water');
+  const mon = give(s, 'player', 'quagsire');
+  assert.ok(itemTargets(s, 'player', s.players.player.hand.find((c) => c.uid === mw)).some((r) => r.kind === 'hand'));
+  s = buyUse(s, 'player', mw, href('player', mon));
+  assert.equal(s.players.player.hand.find((c) => c.uid === mon).heldItem.name, 'Mystic Water');
+  s = nextRound(s);                                          // Supper: discarded, Held Item and all
   const p = s.players.player;
-  const where = () => [...p.hand, ...p.discard, ...p.drawPile].find((c) => c.uid === iron);
-  assert.equal(where().heldItem.name, 'Rocky Helmet');
-  // Force a reshuffle of the Discard Pile into the Draw Pile, and draw it back.
-  const ironCard = [...p.hand, ...p.drawPile].find((c) => c.uid === iron) ?? where();
-  [p.hand, p.drawPile, p.discard].forEach((pile) => { const i = pile.indexOf(ironCard); if (i >= 0) pile.splice(i, 1); });
-  p.discard.push(...p.drawPile.splice(0), ...p.hand.splice(0), ironCard);
-  s = nextRound(s);
-  const back = s.players.player.hand.find((c) => c.uid === iron)
-    ?? s.players.player.drawPile.find((c) => c.uid === iron);
-  assert.ok(logged(s, 'You shuffled your Discard Pile'));
-  assert.equal(back.heldItem.name, 'Rocky Helmet', 'still held after the reshuffle');
-  if (!s.players.player.hand.includes(back)) {
-    s.players.player.drawPile.splice(s.players.player.drawPile.indexOf(back), 1);
-    s.players.player.hand.push(back);
-  }
-  s = act(s, 'player', { type: 'playPokemon', uid: iron, zone: 1, space: 0 });
-  const placed = at(s, 'player', 1, 0);
-  assert.deepEqual([placed.currentStrength, maxStrengthOf(placed)], [13, 13], 'Lairon 10 + 3, current and maximum');
+  const card = [...p.hand, ...p.discard, ...p.drawPile].find((c) => c.uid === mon);
+  assert.equal(card.heldItem.name, 'Mystic Water');
+  for (const pile of [p.hand, p.discard, p.drawPile]) { const i = pile.indexOf(card); if (i >= 0) pile.splice(i, 1); }
+  p.hand.push(card);
+  s = act(s, 'player', { type: 'playPokemon', uid: mon, zone: 1, space: 0 });
+  assert.deepEqual(stats(at(s, 'player', 1, 0)), [5, 8, 8], 'Quagsire 4/7 + Mystic Water (Water: +1/+1)');
 }
 
 // Lost only when its Pokémon is Released: defeated, or paid as a Released Supporter cost.
 {
-  let s = match();
-  s = play(s, 'ai', 'growlithe', 1, 0);
-  const lucky = give(s, 'ai', 'amulet-coin');
-  s.players.ai.dollars = 2;
-  s = bag(s, 'ai', { mode: 'buyHand', uid: lucky, then: 'use', target: pref('ai', 1, 0) });
-  at(s, 'ai', 1, 0).currentStrength = 1;
-  s = act(s, 'player', { type: 'usePower', zone: 1, target: pref('ai', 1, 0) });
+  let s = fire();
+  place(s, 'ai', 1, 0, 'horsea');
+  const mw = give(s, 'ai', 'mystic-water');
+  s = buyUse(s, 'ai', mw, pref('ai', 1, 0));
+  hurt(s, pref('ai', 1, 0), 1);
+  s = act(s, 'player', { type: 'playStrategy', uid: give(s, 'player', 'fire-blast'), target: pref('ai', 1, 0) });
   assert.equal(s.players.ai.released.at(-1).heldItem, undefined);
-  assert.ok(s.mart.deck.some((c) => c.uid === lucky), 'to the PokéMart');
-  assert.ok(logged(s, 'Amulet Coin was held by AI Opponent\'s Growlithe, which was Released: it is lost, and goes to the PokéMart.'));
-  assert.ok(![...s.players.ai.drawPile, ...s.players.ai.discard, ...s.players.ai.hand].some((c) => c.uid === lucky), 'never back to the deck');
+  assert.ok(s.mart.deck.some((c) => c.uid === mw), 'to the PokéMart');
+  assert.ok(logged(s, "Mystic Water was held by AI Opponent's Horsea, which was Released: it is lost, and goes to the PokéMart."));
 
-  let t = match();
-  const band = give(t, 'player', 'black-belt');
-  const zap = give(t, 'player', 'shinx');
-  t.players.player.dollars = 3;
-  t = bag(t, 'player', { mode: 'buyHand', uid: band, then: 'use', target: href('player', zap) });
-  const coach = give(t, 'player', 'professor-oak');
-  t = play(t, 'player', 'growlithe', 0, 0);
-  t = act(t, 'player', { type: 'playSupporter', uid: coach, release: [zap], target: { kind: 'zone', owner: 'player', zone: 0 } });
-  assert.ok(t.mart.deck.some((c) => c.uid === band), 'Released as a Supporter payment: lost');
+  let t = fire();
+  const coal = give(t, 'player', 'charcoal');
+  const mon = give(t, 'player', 'ponyta');
+  t = buyUse(t, 'player', coal, href('player', mon));
+  place(t, 'player', 0, 0, 'growlithe');
+  t = act(t, 'player', { type: 'playSupporter', uid: give(t, 'player', 'chili'), release: [mon], target: { kind: 'zone', owner: 'player', zone: 0 } });
+  assert.ok(t.mart.deck.some((c) => c.uid === coal), 'Released as a Supporter payment: lost');
 }
 
 // One Held Item per Pokémon: a new one sends the old one to the PokéMart.
 {
-  let s = match();
-  s = play(s, 'player', 'geodude', 0, 0);            // 3/7
-  const shell = give(s, 'player', 'rocky-helmet');
-  s.players.player.dollars = 10;
-  at(s, 'player', 0, 0).currentStrength = 7;
-  s = bag(s, 'player', { mode: 'buyHand', uid: shell, then: 'use', target: pref('player', 0, 0) });
-  assert.deepEqual([at(s, 'player', 0, 0).currentStrength, maxStrengthOf(at(s, 'player', 0, 0))], [10, 10]);
-  const band = give(s, 'player', 'black-belt');
-  s = bag(s, 'player', { mode: 'buyHand', uid: band, then: 'use', target: pref('player', 0, 0) });
-  const geodude = at(s, 'player', 0, 0);
-  assert.equal(geodude.heldItem.name, 'Black Belt');
-  assert.equal(attackOf(geodude), 5);
-  assert.deepEqual([geodude.currentStrength, maxStrengthOf(geodude)], [7, 7], 'Rocky Helmet gone: like losing a Passive');
-  assert.ok(s.mart.deck.some((c) => c.uid === shell));
-  assert.ok(logged(s, 'Rocky Helmet was replaced on your Geodude'));
+  let s = water();
+  place(s, 'player', 0, 0, 'quagsire');                      // 4/7
+  s = buyUse(s, 'player', give(s, 'player', 'mystic-water'), pref('player', 0, 0));
+  assert.deepEqual(stats(at(s, 'player', 0, 0)), [5, 8, 8]);
+  const first = at(s, 'player', 0, 0).heldItem.uid;
+  s = buyUse(s, 'player', give(s, 'player', 'leftovers'), pref('player', 0, 0));
+  const q = at(s, 'player', 0, 0);
+  assert.equal(q.heldItem.name, 'Leftovers');
+  assert.deepEqual(stats(q), [4, 7, 7], 'Mystic Water gone: like losing a Passive');
+  assert.ok(s.mart.deck.some((c) => c.uid === first));
+  assert.ok(logged(s, 'Mystic Water was replaced on your Quagsire'));
 }
 
-// Oran Berry: one Speed-Tier higher, changing who is Alert.
-{
-  let s = match();
-  s = play(s, 'player', 'metapod', 0, 0);           // Steady
-  s = play(s, 'ai', 'growlithe', 0, 0);               // Swift
-  ready(s, 'player', 0, 0);
-  ready(s, 'ai', 0, 0);
-  assert.ok(!isAlert(s, at(s, 'player', 0, 0)));
-  const feather = give(s, 'player', 'oran-berry');
-  s.players.player.dollars = 4;
-  s = bag(s, 'player', { mode: 'buyHand', uid: feather, then: 'use', target: pref('player', 0, 0) });
-  assert.ok(isAlert(s, at(s, 'player', 0, 0)), 'Steady → Swift: Alert alongside Growlithe');
-  assert.ok(isAlert(s, at(s, 'ai', 0, 0)));
+// --- Fire Items -----------------------------------------------------------------------
 
-  let t = match();
-  t = play(t, 'player', 'shinx', 0, 0);             // Swift already
-  const f2 = give(t, 'player', 'oran-berry');
-  t.players.player.dollars = 4;
-  t = bag(t, 'player', { mode: 'buyHand', uid: f2, then: 'use', target: pref('player', 0, 0) });
-  assert.ok(isAlert(t, at(t, 'player', 0, 0)), 'no effect on Swift, but no harm');
+// Charcoal: +1 Attack; a Fire holder also gains Scorch 1 (adding to its own).
+{
+  let s = fire();
+  place(s, 'player', 0, 0, 'growlithe');                     // Scorch 1
+  place(s, 'player', 0, 1, 'mankey');                        // Fighting
+  s = buyUse(s, 'player', give(s, 'player', 'charcoal'), pref('player', 0, 0));
+  s = buyUse(s, 'player', give(s, 'player', 'charcoal'), pref('player', 0, 1));
+  assert.deepEqual([attackOf(at(s, 'player', 0, 0)), keywordAmount(at(s, 'player', 0, 0), 'Scorch')], [3, 2]);
+  assert.deepEqual([attackOf(at(s, 'player', 0, 1)), keywordAmount(at(s, 'player', 0, 1), 'Scorch')], [5, 0]);
+  place(s, 'ai', 2, 0, 'gyarados', { spent: true });
+  s = act(s, 'player', { type: 'command', from: { zone: 0, space: 0 }, target: { kind: 'pokemon', zone: 2, space: 0 } });
+  assert.deepEqual([at(s, 'ai', 2, 0).currentStrength, burn(at(s, 'ai', 2, 0))], [3, 2]);
 }
 
-// Amulet Coin: +2 when the holder's combat damage defeats an opponent Pokémon, in a trade too.
+// X Attack: a friendly Pokémon in the arena gains +2 Attack this Round. Retain.
 {
-  let s = match();
-  s = play(s, 'player', 'absol', 0, 0);           // Swift, Quick Attack: Active
-  const coin = give(s, 'player', 'amulet-coin');
-  s.players.player.dollars = 2;
-  s = bag(s, 'player', { mode: 'buyHand', uid: coin, then: 'use', target: pref('player', 0, 0) });
-  s = play(s, 'ai', 'geodude', 1, 0);
-  at(s, 'ai', 1, 0).currentStrength = 1;
-  s = act(s, 'player', { type: 'command', from: { zone: 0, space: 0 }, target: { kind: 'pokemon', zone: 1, space: 0 } });
-  assert.equal(s.players.player.dollars, 2 + 2, 'cost 2 + Amulet Coin 2');
-  assert.ok(logged(s, "You earn 2 PokéDollars from Absol's Amulet Coin"));
-
-  // In a trade: the holder is attacked while Alert and its hit back defeats the attacker.
-  let t = match();
-  t = play(t, 'player', 'pidgey', 0, 0);           // Swift
-  const c2 = give(t, 'player', 'amulet-coin');
-  t.players.player.dollars = 2;
-  t = bag(t, 'player', { mode: 'buyHand', uid: c2, then: 'use', target: pref('player', 0, 0) });
-  ready(t, 'player', 0, 0);
-  t = play(t, 'ai', 'shinx', 1, 0);                 // Swift, Quick Attack, cost 1, Strength 4
-  at(t, 'player', 0, 0).currentStrength = 9;
-  t = act(t, 'ai', { type: 'command', from: { zone: 1, space: 0 }, target: { kind: 'pokemon', zone: 0, space: 0 } });
-  assert.equal(t.players.ai.zones[1].pokemon[0], null);
-  assert.equal(t.players.player.dollars, 1 + 2);
-
-  // Effect damage doesn't count.
-  let u = match();
-  u = play(u, 'player', 'geodude', 1, 0);
-  const c3 = give(u, 'player', 'amulet-coin');
-  u.players.player.dollars = 2;
-  u = bag(u, 'player', { mode: 'buyHand', uid: c3, then: 'use', target: pref('player', 1, 0) });
-  u = play(u, 'ai', 'shinx', 1, 0);
-  at(u, 'ai', 1, 0).currentStrength = 1;
-  u = act(u, 'player', { type: 'usePower', zone: 1, target: pref('ai', 1, 0) });
-  assert.equal(u.players.player.dollars, 1, 'Misty defeated it, not the holder');
-}
-
-// --- Consumed Items -----------------------------------------------------------------
-
-// Potion: damaged friendly Pokémon in the arena only; capped at maximum.
-{
-  let s = match();
-  s = play(s, 'player', 'growlithe', 0, 0);
-  s = play(s, 'player', 'lairon', 0, 1);
-  s = play(s, 'ai', 'geodude', 0, 0);
-  at(s, 'player', 0, 0).currentStrength = 2;
-  at(s, 'ai', 0, 0).currentStrength = 1;
-  const potion = give(s, 'player', 'potion');
-  s.players.player.dollars = 2;
-  assert.deepEqual(itemTargets(s, 'player', s.players.player.hand.find((c) => c.uid === potion)), [pref('player', 0, 0)]);
-  s = bag(s, 'player', { mode: 'buyHand', uid: potion, then: 'use', target: pref('player', 0, 0) });
-  assert.equal(at(s, 'player', 0, 0).currentStrength, 5, 'capped at its maximum of 5');
-}
-
-// Rose Incense (from the PokéMart): a Spent Pokémon becomes Active, and can be Alert.
-{
-  let s = match();
-  s = play(s, 'player', 'growlithe', 0, 0);           // Spent
-  s = play(s, 'ai', 'metapod', 0, 0);
-  ready(s, 'ai', 0, 0);
-  assert.ok(isAlert(s, at(s, 'ai', 0, 0)), 'Metapod is Alert while Growlithe is Spent');
-  const tonic = { ...cardDefinition('rose-incense'), uid: 'tonic', inDelivery: false };
-  s.players.player.bag.push(tonic);
-  s = bag(s, 'player', { mode: 'useBag', uid: 'tonic', target: pref('player', 0, 0) });
-  assert.equal(at(s, 'player', 0, 0).spent, false);
-  assert.ok(isAlert(s, at(s, 'player', 0, 0)));
-  assert.ok(!isAlert(s, at(s, 'ai', 0, 0)), 'Alert recalculated: Swift beats Steady');
-  assert.ok(s.mart.deck.some((c) => c.uid === 'tonic'));
-}
-
-// Miracle Seed: +2 Base Energy this Round, past 10, not carried over.
-{
-  let s = match();
-  const drink = give(s, 'player', 'miracle-seed');
-  s.players.player.dollars = 4;
-  onTurn(s, 'player');
-  s = applyAction(s, { type: 'openBag', who: 'player', mode: 'buyHand', uid: drink, then: 'use' });
-  assert.equal(s.players.player.baseEnergy, 12);
+  let s = fire();
+  place(s, 'player', 0, 0, 'magmar');
+  s = buyUse(s, 'player', give(s, 'player', 'x-attack'), pref('player', 0, 0));
+  assert.equal(attackOf(at(s, 'player', 0, 0)), 6);
+  const kept = give(s, 'player', 'x-attack');
   s = nextRound(s);
-  assert.equal(s.players.player.baseEnergy, 2, 'Round 2: back to 2');
+  assert.equal(attackOf(at(s, 'player', 0, 0)), 4, 'this Round only');
+  assert.ok(s.players.player.hand.some((c) => c.uid === kept), 'Retain: an unbought X Attack stays in hand at Supper');
+  assert.ok(s.mart.deck.some((c) => c.id === 'x-attack') || s.mart.onSale.some((c) => c?.id === 'x-attack'), 'a used one goes to the PokéMart');
+}
+
+// Quick Claw: one Speed-Tier higher (Slow → Steady → Swift), changing who is Alert.
+{
+  let s = fire();
+  place(s, 'player', 0, 0, 'magmar');                        // Steady
+  place(s, 'ai', 0, 0, 'pelipper');                          // Swift
+  assert.ok(!isAlert(s, at(s, 'player', 0, 0)));
+  s = buyUse(s, 'player', give(s, 'player', 'quick-claw'), pref('player', 0, 0));
+  assert.ok(isAlert(s, at(s, 'player', 0, 0)), 'Steady → Swift: Alert alongside Pelipper');
+  assert.ok(isAlert(s, at(s, 'ai', 0, 0)));
+  let t = water();
+  place(t, 'player', 0, 0, 'quagsire');                      // Slow
+  place(t, 'ai', 0, 0, 'magmar');                            // Steady
+  t = buyUse(t, 'player', give(t, 'player', 'quick-claw'), pref('player', 0, 0));
+  assert.ok(isAlert(t, at(t, 'player', 0, 0)) && isAlert(t, at(t, 'ai', 0, 0)), 'Slow → Steady');
+}
+
+// Choice Band: +3 Attack and −2 Strength, current and maximum, never below 1:
+// it never defeats its holder.
+{
+  let s = fire();
+  place(s, 'player', 0, 0, 'magmar');                        // 4/6
+  s = buyUse(s, 'player', give(s, 'player', 'choice-band'), pref('player', 0, 0));
+  assert.deepEqual(stats(at(s, 'player', 0, 0)), [7, 4, 4]);
+  hurt(s, place(s, 'player', 1, 0, 'growlithe'), 1);         // 2/3, at 1
+  s = buyUse(s, 'player', give(s, 'player', 'choice-band'), pref('player', 1, 0));
+  assert.deepEqual(stats(at(s, 'player', 1, 0)), [5, 1, 1], 'still in play, at 1');
+  // On a card in hand, it applies as the Pokémon arrives.
+  const mon = give(s, 'player', 'ponyta');                   // 3/3
+  s = buyUse(s, 'player', give(s, 'player', 'choice-band'), href('player', mon));
+  s = act(s, 'player', { type: 'playPokemon', uid: mon, zone: 2, space: 0 });
+  assert.deepEqual(stats(at(s, 'player', 2, 0)), [6, 1, 1]);
+}
+
+// --- Water Items ----------------------------------------------------------------------
+
+// Mystic Water: +1 Attack; a Water holder also gains +1 Strength.
+{
+  let s = water();
+  place(s, 'player', 0, 0, 'horsea');                        // Water 3/4
+  place(s, 'player', 0, 1, 'chinchou');                      // Electric 3/5
+  s = buyUse(s, 'player', give(s, 'player', 'mystic-water'), pref('player', 0, 0));
+  s = buyUse(s, 'player', give(s, 'player', 'mystic-water'), pref('player', 0, 1));
+  assert.deepEqual(stats(at(s, 'player', 0, 0)), [4, 5, 5]);
+  assert.deepEqual(stats(at(s, 'player', 0, 1)), [4, 5, 5], 'not Water: Attack only');
+}
+
+// Leftovers: the holder gains Regenerate 1 (adding to its own).
+{
+  let s = water();
+  hurt(s, place(s, 'player', 0, 0, 'horsea'), 1);
+  hurt(s, place(s, 'player', 1, 0, 'quagsire'), 1);           // Regenerate 2
+  s = buyUse(s, 'player', give(s, 'player', 'leftovers'), pref('player', 0, 0));
+  s = buyUse(s, 'player', give(s, 'player', 'leftovers'), pref('player', 1, 0));
+  assert.equal(keywordAmount(at(s, 'player', 1, 0), 'Regenerate'), 3);
+  s = nextRound(s);
+  assert.deepEqual([at(s, 'player', 0, 0).currentStrength, at(s, 'player', 1, 0).currentStrength], [2, 4]);
+}
+
+// Full Heal: Douse a friendly Pokémon or Trainer and heal it 2. Retain.
+{
+  let s = water();
+  trainerAt(s, 'player', 0).strength = 10;
+  trainerAt(s, 'player', 0).status = { burn: { count: 3, by: 'ai' } };
+  s = buyUse(s, 'player', give(s, 'player', 'full-heal'), tref('player', 0));
+  assert.deepEqual([trainerAt(s, 'player', 0).strength, burn(trainerAt(s, 'player', 0))], [12, 0]);
+  // Any friendly card: a burned Pokémon at full Strength can still be Doused.
+  place(s, 'player', 1, 0, 'quagsire');
+  at(s, 'player', 1, 0).status = { burn: { count: 1, by: 'ai' } };
+  const heal = give(s, 'player', 'full-heal');
+  const targets = itemTargets(s, 'player', s.players.player.hand.find((c) => c.uid === heal));
+  assert.ok(targets.some((r) => r.kind === 'pokemon' && r.zone === 1));
+  assert.ok(targets.every((r) => r.owner !== 'ai'), 'friendly only');
+  s = nextRound(s);
+  assert.ok(s.players.player.hand.some((c) => c.uid === heal), 'Retain: stays in hand at Supper');
 }
 
 // --- AI -----------------------------------------------------------------------
 
 // Buys from hand and uses straight away when it has a target; stores otherwise.
 {
-  let s = match();
-  s = play(s, 'ai', 'growlithe', 0, 0);
-  s = play(s, 'ai', 'geodude', 0, 1);
-  const band = give(s, 'ai', 'black-belt');
-  s.players.ai.dollars = 3;
+  let s = battle({ seed: 51, passives: false, powers: false });
+  place(s, 'ai', 0, 0, 'horsea', { spent: true });
+  place(s, 'ai', 0, 1, 'quagsire', { spent: true });
+  const mw = give(s, 'ai', 'mystic-water');
+  s.players.ai.dollars = 2;
   s.mart.onSale = [null, null, null];
   onTurn(s, 'ai');
   s.players.ai.baseEnergy = 0;
-  s.players.ai.trainers.forEach((t) => { t.power = { ...t.power, cost: 99 }; });
   const move = chooseAction(s, 'ai');
   assert.equal(move.type, 'openBag');
-  assert.deepEqual([move.mode, move.uid, move.then], ['buyHand', band, 'use']);
+  assert.deepEqual([move.mode, move.uid, move.then], ['buyHand', mw, 'use']);
   assert.equal(move.target.kind, 'pokemon', 'on a Pokémon in the arena');
 
   // Prefers a Pokémon without a Held Item.
-  at(s, 'ai', 0, 0).heldItem = { ...cardDefinition('rocky-helmet'), uid: 'x' };
+  at(s, 'ai', 0, 0).heldItem = { ...cardDefinition('leftovers'), uid: 'x' };
+  refreshAuras(s);
   for (let i = 0; i < 10; i++) assert.deepEqual(chooseAction(s, 'ai').target, pref('ai', 0, 1));
 
   // With no target (no Pokémon in the arena), it stores the Item.
-  let t = match();
-  const shell = give(t, 'ai', 'rocky-helmet');
+  const t = battle({ seed: 51, passives: false, powers: false });
+  const lo = give(t, 'ai', 'leftovers');
   t.players.ai.dollars = 3;
   t.mart.onSale = [null, null, null];
   onTurn(t, 'ai');
   t.players.ai.baseEnergy = 0;
-  t.players.ai.trainers.forEach((tr) => { tr.power = { ...tr.power, cost: 99 }; });
-  assert.deepEqual(chooseAction(t, 'ai'), { type: 'openBag', who: 'ai', mode: 'buyHand', uid: shell, then: 'store' });
+  assert.deepEqual(chooseAction(t, 'ai'), { type: 'openBag', who: 'ai', mode: 'buyHand', uid: lo, then: 'store' });
 }
 
 console.log('All Item, Bag and PokéMart tests passed.');

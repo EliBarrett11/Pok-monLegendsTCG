@@ -1,318 +1,226 @@
-// Checks Strategy Cards (Quickdraw, Hypervoice, Recover) and the Innate
-// Powers Quick Attack and Agility.
+// Checks Strategy Cards: playing one (cost, turn, Discard Pile, targets),
+// Agility, and each Fire and Water Strategy Card working as written.
 // Run with: node tests/strategy.test.js
 import assert from 'node:assert/strict';
-import {
-  createGame, applyAction, legalActions, legalTargets, playableStrategies, strategyTargets, powerTargets,
-  isAlert, maxStrengthOf, PLAYERS,
-} from '../src/engine/game.js';
-import { STRATEGY_CARDS, POKEMON_CARDS, PLACEHOLDER_DECKLIST } from '../src/engine/cardData.js';
+import { applyAction, legalTargets, playableStrategies, strategyTargets, powerTargets, weatherCounts } from '../src/engine/game.js';
+import { STRATEGY_CARDS } from '../src/engine/cardData.js';
+import { statusCount } from '../src/engine/status.js';
+import { keywordAmount, hasKeyword } from '../src/engine/keywords.js';
 import { chooseAction } from '../src/ai/opponent.js';
+import {
+  battle, give, act, play, place, nextRound, at, trainerAt, pref, tref, stats, logged,
+} from './fixtures.js';
 
-// --- Helpers ----------------------------------------------------------------
-
-// Round 1 Battle, Trainers Ash / Misty / Brock in zones 1–3 on both sides,
-// empty hands, plenty of Base Energy, the player to act. Passives off
-// unless asked for, so damage numbers are the cards' own.
-function match({ passives = false } = {}) {
-  let s = createGame(5);
-  s = applyAction(s, { type: 'assignTrainers', who: 'player', order: ['player-trainer-ash', 'player-trainer-misty', 'player-trainer-brock'] });
-  s = applyAction(s, { type: 'assignTrainers', who: 'ai', order: ['ai-trainer-ash', 'ai-trainer-misty', 'ai-trainer-brock'] });
-  s = applyAction(s, { type: 'flipCoin' });
-  for (const who of PLAYERS) s = applyAction(s, { type: 'mulligan', who, cardUids: [] });
-  for (const who of PLAYERS) {
-    const p = s.players[who];
-    p.drawPile.push(...p.hand.splice(0));
-    p.baseEnergy = 10;
-    if (!passives) p.trainers.forEach((t) => { t.passive = { text: '' }; });
-    for (const c of p.drawPile) c.ability = null;   // abilities have their own test
-  }
-  s.turn = 'player';
-  return s;
-}
-
-function give(s, who, id) {
-  const p = s.players[who];
-  for (const pile of [p.drawPile, p.discard]) {
-    const i = pile.findIndex((c) => c.id === id);
-    if (i >= 0) {
-      const [card] = pile.splice(i, 1);
-      p.hand.push(card);
-      return card.uid;
-    }
-  }
-  throw new Error(`no ${id} left for ${who}`);
-}
-
-function play(s, who, id, zone, space) {
-  s.turn = who;
-  s.passesInARow = 0;
-  s.players[who].baseEnergy = 10;
-  return applyAction(s, { type: 'playPokemon', who, uid: give(s, who, id), zone, space });
-}
-
-function strategy(s, who, uid, target) {
-  s.turn = who;
-  return applyAction(s, { type: 'playStrategy', who, uid, target });
-}
-
-const at = (s, who, zone, space) => s.players[who].zones[zone].pokemon[space];
-const pref = (owner, zone, space) => ({ kind: 'pokemon', owner, zone, space });
-const tref = (owner, zone) => ({ kind: 'trainer', owner, zone });
-const ids = (cards) => cards.map((c) => c.id);
+// Trainer Passives and Powers off, so the numbers are the cards' own.
+const fire = (extra) => battle({ passives: false, powers: false, ...extra });
+const water = (extra) => battle({ player: 'water', ai: 'fire', passives: false, powers: false, ...extra });
+const strategy = (s, who, uid, target) => act(s, who, { type: 'playStrategy', uid, target });
+const burn = (c) => statusCount(c, 'burn');
+const hurt = (s, ref, to) => { at(s, ref.owner, ref.zone, ref.space).currentStrength = to; return ref; };
 
 // --- Card data ----------------------------------------------------------------
 
 for (const c of STRATEGY_CARDS) {
   assert.equal(c.cardType, 'Strategy');
-  for (const field of ['name', 'energyCost', 'effectText', 'rarity']) assert.ok(c[field], `${c.name} ${field}`);
+  for (const field of ['name', 'energyCost', 'effectText', 'rarity', 'effects']) assert.ok(c[field], `${c.name} ${field}`);
   assert.ok('image' in c);
 }
-assert.deepEqual(STRATEGY_CARDS.map((c) => [c.name, c.energyCost]), [['Quickdraw', 1], ['Hypervoice', 3], ['Recover', 3]]);
-assert.equal(PLACEHOLDER_DECKLIST.quickdraw, 3);
-assert.equal(PLACEHOLDER_DECKLIST.hypervoice, 3);
-assert.equal(PLACEHOLDER_DECKLIST.recover, 2);
-{
-  const deck = createGame(1).players.player.drawPile;
-  assert.equal(deck.length, 40);
-  assert.equal(deck.filter((c) => c.cardType === 'Strategy').length, 8);
-  assert.equal(deck.filter((c) => c.id === 'quickdraw').length, 3);
-}
-assert.ok(POKEMON_CARDS.filter((c) => c.innatePower === 'Quick Attack').length >= 2);
-assert.ok(POKEMON_CARDS.filter((c) => c.innatePower === 'Agility').length >= 2);
 
-// --- Quickdraw ----------------------------------------------------------------
+// --- Playing a Strategy Card -------------------------------------------------------
 
-// Draws 2, costs 1, uses the turn, then goes to the Discard Pile.
+// Pays its Energy Cost, resolves, uses the turn, then goes to the Discard Pile.
 {
-  let s = match();
-  const uid = give(s, 'player', 'quickdraw');
-  const top = ids(s.players.player.drawPile.slice(0, 2));
-  s = strategy(s, 'player', uid);
+  let s = fire();
+  const uid = give(s, 'player', 'ember');
+  s = strategy(s, 'player', uid, tref('ai', 0));
   const p = s.players.player;
-  assert.deepEqual(ids(p.hand), top);
   assert.equal(p.baseEnergy, 9);
   assert.equal(p.discard.at(-1).uid, uid, 'discarded after use');
   assert.equal(s.turn, 'ai');
-  assert.ok(s.log.some((l) => l.startsWith('You played Quickdraw (Draw 2 cards.) Paid 1 Base Energy.')));
-  assert.ok(s.log.some((l) => l.startsWith('Your Quickdraw: You drew 2 cards')));
+  assert.ok(logged(s, 'You played Ember (Burn 2 to an enemy Pokémon or Trainer.) Paid 1 Base Energy.'));
 }
 
-// Drawn cards can be played this Round, and are discarded at Supper as normal.
+// A targeted card needs a legal target; Agility Pokémon can't be targeted by
+// Strategy Cards (Trainer Powers and attacks still can).
 {
-  let s = match();
-  const p = s.players.player;
-  p.drawPile.unshift(...p.drawPile.splice(p.drawPile.findIndex((c) => c.id === 'growlithe'), 1));
-  s = strategy(s, 'player', give(s, 'player', 'quickdraw'));
-  s = applyAction(s, { type: 'pass', who: 'ai' });
-  const ember = s.players.player.hand.find((c) => c.id === 'growlithe');
-  s = applyAction(s, { type: 'playPokemon', who: 'player', uid: ember.uid, zone: 0, space: 0 });
-  assert.equal(at(s, 'player', 0, 0).name, 'Growlithe');
-  const left = s.players.player.hand.map((c) => c.uid);
-  s = applyAction(s, { type: 'pass', who: 'ai' });
-  s = applyAction(s, { type: 'pass', who: 'player' });
-  assert.ok(left.every((u) => s.players.player.discard.some((c) => c.uid === u)), 'Supper discards the drawn card');
-}
-
-// Reshuffles the Discard Pile when the Draw Pile runs out; never draws itself.
-{
-  let s = match();
-  const p = s.players.player;
-  const uid = give(s, 'player', 'quickdraw');
-  p.discard.push(...p.drawPile.splice(1));           // 1 card left in the Draw Pile, the rest discarded
-  s = strategy(s, 'player', uid);
-  const q = s.players.player;
-  assert.equal(q.hand.length, 2);
-  assert.ok(s.log.some((l) => l.startsWith('You shuffled your Discard Pile')));
-  assert.ok(!q.hand.some((c) => c.uid === uid), 'Quickdraw was not in the Discard Pile while drawing');
-  assert.deepEqual(q.discard.map((c) => c.uid), [uid]);
-}
-
-// Draws what it can; can't be played with nothing to draw.
-{
-  let s = match();
-  const uid = give(s, 'player', 'quickdraw');
-  const p = s.players.player;
-  p.drawPile = p.drawPile.slice(0, 1);
-  p.discard = [];
-  s = strategy(s, 'player', uid);
-  assert.equal(s.players.player.hand.length, 1);
-
-  const t = match();
-  const uid2 = give(t, 'player', 'quickdraw');
-  t.players.player.drawPile = [];
-  t.players.player.discard = [];
-  assert.ok(!playableStrategies(t, 'player').some((c) => c.uid === uid2));
-  assert.throws(() => strategy(t, 'player', uid2), /cannot/);
-}
-
-// --- Hypervoice ---------------------------------------------------------------
-
-// 2 damage to every opponent Pokémon, Agility included; friendly ones untouched.
-{
-  let s = match();
-  s = play(s, 'ai', 'geodude', 0, 0);                // 7 → 5
-  s = play(s, 'ai', 'pidgey', 1, 1);               // Agility, 5 → 3
-  s = play(s, 'ai', 'shinx', 2, 2);
-  at(s, 'ai', 2, 2).currentStrength = 2;            // already damaged: 2 → defeated
-  s = play(s, 'player', 'growlithe', 0, 0);
-  const trainers = s.players.ai.zones.map((z) => z.trainer.strength);
-  s.players.player.baseEnergy = 3;
-  s = strategy(s, 'player', give(s, 'player', 'hypervoice'));
-  assert.equal(at(s, 'ai', 0, 0).currentStrength, 5);
-  assert.equal(at(s, 'ai', 1, 1).currentStrength, 3, 'area effects still hit Agility');
-  assert.equal(at(s, 'ai', 2, 2), null);
-  assert.equal(s.players.ai.released.at(-1).name, 'Shinx');
-  assert.equal(at(s, 'player', 0, 0).currentStrength, 5);
-  assert.deepEqual(s.players.ai.zones.map((z) => z.trainer.strength), trainers, 'Trainers are not Pokémon');
-  assert.equal(s.players.player.baseEnergy, 0);
-  assert.ok(s.log.some((l) => l.includes("Your Hypervoice: 2 damage to AI Opponent's Pidgey")));
-}
-
-// Needs at least one opponent Pokémon.
-{
-  let s = match();
-  s = play(s, 'player', 'growlithe', 0, 0);
-  s.turn = 'player';
-  const uid = give(s, 'player', 'hypervoice');
-  assert.ok(!playableStrategies(s, 'player').some((c) => c.uid === uid));
-  assert.ok(!legalActions(s, 'player').includes('playStrategy'));
-}
-
-// --- Recover ------------------------------------------------------------------
-
-// Heals 5, capped at maximum Strength; any damaged Pokémon or Trainer, either side.
-{
-  let s = match();
-  s = play(s, 'player', 'lairon', 0, 0);           // 8
-  s = play(s, 'ai', 'geodude', 1, 0);                // 5
-  s = play(s, 'player', 'growlithe', 0, 1);           // undamaged
-  at(s, 'player', 0, 0).currentStrength = 1;
-  at(s, 'ai', 1, 0).currentStrength = 4;
-  s.players.player.zones[2].trainer.strength = 13;
-  s.players.ai.zones[0].trainer.strength = 2;
-  const uid = give(s, 'player', 'recover');
-  const keys = strategyTargets(s, 'player', uid).map((r) => `${r.owner}${r.kind[0]}${r.zone}${r.space ?? ''}`).sort();
-  assert.deepEqual(keys, ['aip10', 'ait0', 'playerp00', 'playert2'], 'damaged cards only, both sides, Trainers too');
-  s = strategy(s, 'player', uid, pref('player', 0, 0));
-  assert.equal(at(s, 'player', 0, 0).currentStrength, 6);
-  assert.equal(s.players.player.discard.at(-1).uid, uid);
-
-  const second = give(s, 'player', 'recover');
-  s = strategy(s, 'player', second, pref('player', 0, 0));
-  assert.equal(at(s, 'player', 0, 0).currentStrength, 10, 'capped at maximum');
-
-  let t = match();
-  t.players.player.zones[2].trainer.strength = 13;
-  t = strategy(t, 'player', give(t, 'player', 'recover'), tref('player', 2));
-  assert.equal(t.players.player.zones[2].trainer.strength, 15, "capped at the Trainer's starting Strength");
-
-  let u = match();
-  u = play(u, 'ai', 'geodude', 1, 0);
-  at(u, 'ai', 1, 0).currentStrength = 1;
-  u = strategy(u, 'player', give(u, 'player', 'recover'), pref('ai', 1, 0));
-  assert.equal(at(u, 'ai', 1, 0).currentStrength, 6, "can heal the opponent's Pokémon");
-}
-
-// Respects a buffed maximum.
-{
-  let s = match({ passives: true });
-  s = play(s, 'player', 'horsea', 1, 0);            // Misty: 4 + 3 = 7
-  at(s, 'player', 1, 0).currentStrength = 1;
-  s = strategy(s, 'player', give(s, 'player', 'recover'), pref('player', 1, 0));
-  assert.equal(at(s, 'player', 1, 0).currentStrength, 6);
-  assert.equal(maxStrengthOf(at(s, 'player', 1, 0)), 9);
-}
-
-// Unplayable with no legal target: nothing damaged, or only Agility Pokémon damaged.
-{
-  let s = match();
-  s = play(s, 'player', 'pidgey', 0, 0);           // Agility
-  s = play(s, 'player', 'growlithe', 0, 1);
-  s.turn = 'player';
-  const uid = give(s, 'player', 'recover');
+  let s = water();
+  const uid = give(s, 'player', 'bubble-beam');
+  assert.ok(!playableStrategies(s, 'player').some((c) => c.uid === uid), 'no enemy Pokémon');
+  place(s, 'ai', 1, 0, 'test-wing');                        // Agility
   assert.deepEqual(strategyTargets(s, 'player', uid), []);
-  assert.ok(!playableStrategies(s, 'player').some((c) => c.uid === uid), 'nothing damaged');
-  at(s, 'player', 0, 0).currentStrength = 1;
-  assert.ok(!playableStrategies(s, 'player').some((c) => c.uid === uid), 'Agility cannot be targeted by Strategy Cards');
-  assert.throws(() => strategy(s, 'player', uid, pref('player', 0, 0)), /cannot/);
-  at(s, 'player', 0, 1).currentStrength = 1;
-  assert.deepEqual(strategyTargets(s, 'player', uid), [pref('player', 0, 1)]);
-  assert.throws(() => strategy(s, 'player', uid, pref('player', 0, 0)), /legal target/);
+  assert.throws(() => strategy(s, 'player', uid, pref('ai', 1, 0)), /cannot/);
+  place(s, 'ai', 1, 1, 'test-flame');
+  assert.deepEqual(strategyTargets(s, 'player', uid), [pref('ai', 1, 1)]);
+  assert.throws(() => strategy(s, 'player', uid, pref('ai', 1, 0)), /legal target/);
+
+  const t = battle({ player: 'water', ai: 'fire', passives: false, testTrainers: true });
+  place(t, 'ai', 1, 0, 'test-wing');
+  assert.deepEqual(powerTargets(t, 'player', 1), [pref('ai', 1, 0)], 'Trainer Powers can still target it');
+  place(t, 'player', 0, 0, 'test-flame');
+  assert.ok(legalTargets(t, 'player', { zone: 0, space: 0 }).some((r) => r.kind === 'pokemon' && r.zone === 1), 'attacks can still target it');
 }
 
-// --- Agility vs Trainer Powers and attacks ------------------------------------
+// --- Fire -----------------------------------------------------------------------
 
+// Ember: Burn 2 to an enemy Pokémon or Trainer.
 {
-  let s = match();
-  s = play(s, 'ai', 'pidgey', 1, 0);               // Agility, in Misty's Zone
-  assert.deepEqual(powerTargets(s, 'player', 1), [pref('ai', 1, 0)], 'Trainer Powers can still target it');
-  s = play(s, 'player', 'growlithe', 0, 0);
-  at(s, 'player', 0, 0).spent = false;
-  s.turn = 'player';
-  assert.ok(legalTargets(s, 'player', { zone: 0, space: 0 }).some((t) => t.kind === 'pokemon' && t.zone === 1), 'attacks can still target it');
+  let s = fire();
+  place(s, 'ai', 0, 0, 'quagsire');
+  s = strategy(s, 'player', give(s, 'player', 'ember'), pref('ai', 0, 0));
+  assert.equal(burn(at(s, 'ai', 0, 0)), 2);
+  s = strategy(s, 'player', give(s, 'player', 'ember'), tref('ai', 2));
+  assert.equal(burn(trainerAt(s, 'ai', 2)), 2);
+  s = strategy(s, 'player', give(s, 'player', 'ember'), tref('ai', 2));
+  assert.equal(burn(trainerAt(s, 'ai', 2)), 4, 'Burn stacks');
+  assert.throws(() => strategy(s, 'player', give(s, 'player', 'ember'), tref('player', 0)), /legal target/, 'enemy only');
 }
 
-// --- Quick Attack ---------------------------------------------------------------
-
-// Arrives Active, and is Alert by the normal rules.
+// Flame Charge: +2 Attack this Round; a Fire Pokémon also gains Scorch 1 this Round.
 {
-  let s = match();
-  s = play(s, 'player', 'shinx', 0, 0);             // Swift, Quick Attack
-  const zap = at(s, 'player', 0, 0);
-  assert.equal(zap.spent, false, 'Active, not Spent');
-  assert.ok(isAlert(s, zap), 'the only Active Pokémon: Alert');
-  s = play(s, 'player', 'growlithe', 0, 1);           // no Quick Attack
-  assert.equal(at(s, 'player', 0, 1).spent, true);
-
-  s = play(s, 'ai', 'magmar', 1, 0);                // Steady, Quick Attack
-  const magmar = at(s, 'ai', 1, 0);
-  assert.equal(magmar.spent, false);
-  assert.ok(!isAlert(s, magmar), 'Active but not Alert: a Swift Pokémon is Active');
-  s = applyAction(s, { type: 'command', who: 'player', from: { zone: 0, space: 0 }, target: { kind: 'trainer', zone: 2 } });
-  assert.ok(isAlert(s, at(s, 'ai', 1, 0)), 'Alert once the Swift one is Spent');
-  assert.ok(legalActions(s, 'ai').includes('command'), 'can be Commanded the Round it arrived');
+  let s = fire();
+  place(s, 'player', 0, 0, 'growlithe');                    // Scorch 1 printed
+  place(s, 'player', 1, 0, 'mankey');                       // Fighting
+  s = strategy(s, 'player', give(s, 'player', 'flame-charge'), pref('player', 0, 0));
+  assert.equal(stats(at(s, 'player', 0, 0))[0], 4);
+  assert.equal(keywordAmount(at(s, 'player', 0, 0), 'Scorch'), 2, 'Scorch 1 + Scorch 1');
+  s = strategy(s, 'player', give(s, 'player', 'flame-charge'), pref('player', 1, 0));
+  assert.equal(stats(at(s, 'player', 1, 0))[0], 6);
+  assert.ok(!hasKeyword(at(s, 'player', 1, 0), 'Scorch'), 'not a Fire Pokémon: no Scorch');
+  // Its Scorch works on this Round's attack.
+  place(s, 'ai', 2, 0, 'test-dragon', { spent: true });
+  s = act(s, 'player', { type: 'command', from: { zone: 0, space: 0 }, target: { kind: 'pokemon', zone: 2, space: 0 } });
+  assert.deepEqual([at(s, 'ai', 2, 0).currentStrength, burn(at(s, 'ai', 2, 0))], [11 - 4, 2]);
+  s = nextRound(s);
+  assert.equal(stats(at(s, 'player', 0, 0))[0], 2, 'expired at Supper');
+  assert.equal(keywordAmount(at(s, 'player', 0, 0), 'Scorch'), 1);
 }
 
-// Quick Attack also applies to Ash's free summon (every summon uses the same rules).
+// Heat Wave: Burn 1 to every enemy Pokémon and every enemy Trainer.
 {
-  let s = match();
+  let s = fire();
+  place(s, 'ai', 0, 0, 'quagsire');
+  place(s, 'ai', 2, 1, 'horsea');
+  place(s, 'player', 0, 0, 'growlithe');
+  s = strategy(s, 'player', give(s, 'player', 'heat-wave'));
+  assert.deepEqual([burn(at(s, 'ai', 0, 0)), burn(at(s, 'ai', 2, 1))], [1, 1]);
+  assert.deepEqual(s.players.ai.zones.map((z) => burn(z.trainer)), [1, 1, 1]);
+  assert.equal(burn(at(s, 'player', 0, 0)), 0, 'enemies only');
+  assert.ok(s.players.player.zones.every((z) => burn(z.trainer) === 0));
+}
+
+// Fire Blast: 4 damage, then Burn 2 if the target is still in play.
+{
+  let s = fire();
+  place(s, 'ai', 0, 0, 'quagsire');                         // Strength 7
+  s = strategy(s, 'player', give(s, 'player', 'fire-blast'), pref('ai', 0, 0));
+  assert.deepEqual([at(s, 'ai', 0, 0).currentStrength, burn(at(s, 'ai', 0, 0))], [3, 2]);
+  s = strategy(s, 'player', give(s, 'player', 'fire-blast'), tref('ai', 1));
+  assert.deepEqual([trainerAt(s, 'ai', 1).strength, burn(trainerAt(s, 'ai', 1))], [17 - 4, 2]);
+  hurt(s, place(s, 'ai', 2, 0, 'horsea'), 2);
+  s = strategy(s, 'player', give(s, 'player', 'fire-blast'), pref('ai', 2, 0));
+  assert.equal(at(s, 'ai', 2, 0), null, 'defeated: nothing left to Burn');
+  assert.ok(s.players.ai.released.some((c) => c.id === 'horsea' && !c.status));
+}
+
+// --- Water ----------------------------------------------------------------------
+
+// Aqua Ring: heal a friendly Pokémon 3 and Douse it. Retain: kept in hand at Supper.
+{
+  let s = water();
+  hurt(s, place(s, 'player', 0, 0, 'quagsire'), 2);
+  at(s, 'player', 0, 0).status = { burn: { count: 3, by: 'ai' } };
+  assert.equal(burn(at(s, 'player', 0, 0)), 3);
+  s = strategy(s, 'player', give(s, 'player', 'aqua-ring'), pref('player', 0, 0));
+  assert.deepEqual([at(s, 'player', 0, 0).currentStrength, burn(at(s, 'player', 0, 0))], [5, 0]);
+  // Any friendly Pokémon: a burned one at full Strength can still be Doused.
+  place(s, 'player', 1, 0, 'horsea');
+  at(s, 'player', 1, 0).status = { burn: { count: 1, by: 'ai' } };
+  const uid = give(s, 'player', 'aqua-ring');
+  assert.ok(strategyTargets(s, 'player', uid).some((r) => r.zone === 1), 'undamaged Pokémon can be targeted');
+  assert.ok(!strategyTargets(s, 'player', uid).some((r) => r.owner === 'ai'), 'friendly only');
+  s = nextRound(s);
+  assert.ok(s.players.player.hand.some((c) => c.uid === uid), 'Retain: stays in hand');
+}
+
+// Bubble Beam: 2 damage to an enemy Pokémon, or 3 if Rain is 2 or more.
+{
+  let s = water();
+  place(s, 'ai', 0, 0, 'test-dragon');
+  s = strategy(s, 'player', give(s, 'player', 'bubble-beam'), pref('ai', 0, 0));
+  assert.equal(at(s, 'ai', 0, 0).currentStrength, 9);
+  s = act(s, 'player', { type: 'playLocation', uid: give(s, 'player', 'cerulean-cape'), zone: 2 });
+  assert.equal(weatherCounts(s).Rain, 2);
+  s = strategy(s, 'player', give(s, 'player', 'bubble-beam'), pref('ai', 0, 0));
+  assert.equal(at(s, 'ai', 0, 0).currentStrength, 6, 'Rain 2: 3 damage');
+  assert.throws(() => strategy(s, 'player', give(s, 'player', 'bubble-beam'), tref('ai', 0)), /legal target/, 'Pokémon only');
+}
+
+// Dive: Return a Pokémon from the Discard Pile to your hand; it gains Retain.
+{
+  let s = water();
+  const uid = give(s, 'player', 'dive');
+  assert.ok(!playableStrategies(s, 'player').some((c) => c.uid === uid), 'no Pokémon in the Discard Pile');
   const p = s.players.player;
-  p.drawPile.unshift(...p.drawPile.splice(p.drawPile.findIndex((c) => c.id === 'shinx'), 1));
-  s = applyAction(s, { type: 'usePower', who: 'player', zone: 0 });
-  s = applyAction(s, { type: 'resolveChoice', who: 'player', zone: 1, space: 1 });
-  assert.equal(at(s, 'player', 1, 1).spent, false);
+  const mon = p.drawPile.find((c) => c.id === 'lapras');
+  p.drawPile.splice(p.drawPile.indexOf(mon), 1);
+  p.discard.push(mon);
+  s = strategy(s, 'player', uid);
+  assert.deepEqual(s.pending.options, [mon.uid]);
+  s = applyAction(s, { type: 'resolveChoice', who: 'player', uids: [mon.uid] });
+  const back = s.players.player.hand.find((c) => c.uid === mon.uid);
+  assert.ok(back?.retainGranted, 'in hand, with Retain');
+  s = nextRound(s);
+  assert.ok(s.players.player.hand.some((c) => c.uid === mon.uid), 'kept at Supper');
+}
+
+// Surf: 2 damage to each enemy Pokémon, and heal each friendly Pokémon 1.
+{
+  let s = water();
+  place(s, 'ai', 0, 0, 'test-dragon');
+  place(s, 'ai', 2, 2, 'test-shadow');
+  hurt(s, place(s, 'player', 0, 0, 'quagsire'), 4);
+  hurt(s, place(s, 'player', 1, 0, 'horsea'), 1);
+  place(s, 'player', 2, 0, 'chinchou');
+  s = strategy(s, 'player', give(s, 'player', 'surf'));
+  assert.deepEqual([at(s, 'ai', 0, 0).currentStrength, at(s, 'ai', 2, 2).currentStrength], [9, 7]);
+  assert.deepEqual([at(s, 'player', 0, 0).currentStrength, at(s, 'player', 1, 0).currentStrength, at(s, 'player', 2, 0).currentStrength], [5, 2, 5]);
+  assert.equal(trainerAt(s, 'ai', 0).strength, 14, 'Trainers untouched');
+
+  // Playable while either part has something to affect.
+  const t = water();
+  const uid = give(t, 'player', 'surf');
+  assert.ok(!playableStrategies(t, 'player').some((c) => c.uid === uid), 'nothing to damage or heal');
+  hurt(t, place(t, 'player', 0, 0, 'horsea'), 1);
+  assert.ok(playableStrategies(t, 'player').some((c) => c.uid === uid), 'no enemy Pokémon, but a friendly one to heal');
 }
 
 // --- AI -----------------------------------------------------------------------
 
-// Recover only on its own damaged cards.
+// Water: Aqua Ring only on its own damaged cards.
 {
-  let s = match();
-  s = play(s, 'player', 'lairon', 0, 0);
-  at(s, 'player', 0, 0).currentStrength = 1;         // only YOUR card is damaged
+  let s = battle({ player: 'fire', ai: 'water', passives: false, powers: false });
+  place(s, 'player', 0, 0, 'magmar');
+  hurt(s, pref('player', 0, 0), 1);                         // only YOUR card is damaged
+  place(s, 'ai', 1, 0, 'quagsire');
   s.turn = 'ai';
-  s.players.ai.baseEnergy = 3;
-  s.players.ai.trainers.forEach((t) => { t.power = { ...t.power, cost: 99 }; });
-  give(s, 'ai', 'recover');
+  s.players.ai.baseEnergy = 2;
+  s.players.ai.dollars = 0;
+  const uid = give(s, 'ai', 'aqua-ring');
   assert.deepEqual(chooseAction(s, 'ai'), { type: 'pass', who: 'ai' });
-  s.players.ai.zones[1].trainer.strength = 4;
-  assert.deepEqual(chooseAction(s, 'ai'), { type: 'playStrategy', who: 'ai', uid: s.players.ai.hand[0].uid, target: tref('ai', 1) });
+  hurt(s, pref('ai', 1, 0), 2);
+  assert.deepEqual(chooseAction(s, 'ai'), { type: 'playStrategy', who: 'ai', uid, target: pref('ai', 1, 0) });
 }
 
-// Hypervoice only when you have Pokémon; it takes a good Hypervoice.
+// Fire: Ember goes at a Trainer.
 {
-  let s = match();
+  const s = battle({ player: 'water', ai: 'fire', passives: false, powers: false });
   s.turn = 'ai';
-  s.players.ai.baseEnergy = 3;
-  s.players.ai.trainers.forEach((t) => { t.power = { ...t.power, cost: 99 }; });
-  give(s, 'ai', 'hypervoice');
-  assert.deepEqual(chooseAction(s, 'ai'), { type: 'pass', who: 'ai' });
-  s = play(s, 'player', 'shinx', 0, 0);
-  s = play(s, 'player', 'growlithe', 0, 1);
-  s.turn = 'ai';
-  s.players.ai.baseEnergy = 3;
-  assert.equal(chooseAction(s, 'ai').type, 'playStrategy');
+  s.players.ai.baseEnergy = 1;
+  s.players.ai.dollars = 0;
+  give(s, 'ai', 'ember');
+  const move = chooseAction(s, 'ai');
+  assert.equal(move.type, 'playStrategy');
+  assert.equal(move.target.kind, 'trainer');
 }
 
 console.log('All Strategy Card tests passed.');

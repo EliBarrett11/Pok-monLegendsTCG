@@ -176,7 +176,7 @@ function targetKeys(state) {
   return { keys: new Set(), cls: '' };
 }
 
-// Empty spaces that can be clicked: for playing a Pokémon, or Ash's free summon.
+// Empty spaces that can be clicked: for playing a Pokémon, or a free summon.
 function placingSpaces(state) {
   const freeSummon = state.pending?.who === 'player' && state.pending.kind === 'freeSummon';
   if (!ui.selectedPokemon && !freeSummon) return new Set();
@@ -1291,7 +1291,7 @@ function controls(state) {
     case 'battle': {
       if (state.pending?.who === 'player' && state.pending.kind === 'freeSummon') {
         const c = me.hand.find((h) => h.uid === state.pending.uid);
-        const why = state.pending.label?.includes('Ash') ? `Ash drew <b>${c.name}</b>` : `<b>${state.pending.label}</b>: <b>${c.name}</b>`;
+        const why = `<b>${state.pending.label}</b>: <b>${c.name}</b>`;
         return { hint: `${why}: click a highlighted space to summon it for free, or keep it.`, secondary: '', primary: primary('keep-card', 'Keep', 'in hand') };
       }
       if (state.turn !== 'player' || state.pending) return waiting;
@@ -1756,7 +1756,7 @@ function wire(root, state, actions) {
     }
   });
 
-  // Empty spaces: play the selected Pokémon, or take Ash's free summon.
+  // Empty spaces: play the selected Pokémon, or take a free summon.
   on('.player .pokemon-space.target', (el) => {
     const zone = Number(el.dataset.zone);
     const space = Number(el.dataset.space);

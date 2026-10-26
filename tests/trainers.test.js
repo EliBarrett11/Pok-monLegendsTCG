@@ -1,357 +1,296 @@
-// Checks Trainer Passives and Powers (Ash, Misty, Brock), Trainer removal,
-// fallen zones, and the AI's choices with them.
+// Checks Trainers: each Fire and Water Trainer's Passive and Power working as
+// written, Powers once per Round, Trainer removal, fallen zones, and the AI's
+// choices with them.
 // Run with: node tests/trainers.test.js
 import assert from 'node:assert/strict';
 import {
-  createGame, applyAction, legalActions, legalTargets, canUsePower, powerTargets, summonSpaces,
-  attackOf, maxStrengthOf, PLAYERS,
+  applyAction, legalActions, legalTargets, canUsePower, powerTargets, summonSpaces, summonCost, attackOf,
 } from '../src/engine/game.js';
 import { TRAINER_CARDS } from '../src/engine/cardData.js';
+import { statusCount } from '../src/engine/status.js';
+import { hasKeyword, keywordAmount } from '../src/engine/keywords.js';
 import { chooseAction } from '../src/ai/opponent.js';
+import {
+  battle, give, act, onTurn, play, place, nextRound, choose, at, trainerAt, pref, tref, stats, logged,
+} from './fixtures.js';
 
-// --- Helpers ----------------------------------------------------------------
-
-// Round 1 Battle with Trainers in a fixed order (zones 1, 2, 3), empty
-// hands, plenty of Base Energy, and the player to act.
-function match({ player = ['ash', 'misty', 'brock'], ai = ['ash', 'misty', 'brock'], seed = 1 } = {}) {
-  let s = createGame(seed);
-  s = applyAction(s, { type: 'assignTrainers', who: 'player', order: player.map((id) => `player-trainer-${id}`) });
-  s = applyAction(s, { type: 'assignTrainers', who: 'ai', order: ai.map((id) => `ai-trainer-${id}`) });
-  s = applyAction(s, { type: 'flipCoin' });
-  for (const who of PLAYERS) s = applyAction(s, { type: 'mulligan', who, cardUids: [] });
-  for (const who of PLAYERS) {
-    const p = s.players[who];
-    p.drawPile.push(...p.hand.splice(0));
-    p.baseEnergy = 10;
-    for (const c of p.drawPile) c.ability = null;   // abilities have their own test
-  }
-  s.turn = 'player';
-  return s;
-}
-
-// Moves a card from the piles into the hand; returns its uid.
-function give(s, who, id) {
-  const p = s.players[who];
-  for (const pile of [p.drawPile, p.discard, p.hand]) {
-    const i = pile.findIndex((c) => c.id === id);
-    if (i >= 0) {
-      const [card] = pile.splice(i, 1);
-      p.hand.push(card);
-      return card.uid;
-    }
-  }
-  throw new Error(`no ${id} left for ${who}`);
-}
-
-// Plays a Pokémon on `who`'s turn (setting the turn first).
-function play(s, who, id, zone, space) {
-  s.turn = who;
-  s.passesInARow = 0;
-  s.players[who].baseEnergy = 10;
-  const uid = give(s, who, id);
-  return applyAction(s, { type: 'playPokemon', who, uid, zone, space });
-}
-
-// Puts a card on top of the Draw Pile (for Ash's draw).
-function stackTop(s, who, id) {
-  const p = s.players[who];
-  const i = p.drawPile.findIndex((c) => c.id === id);
-  p.drawPile.unshift(...p.drawPile.splice(i, 1));
-}
-
-const at = (s, who, zone, space) => s.players[who].zones[zone].pokemon[space];
-const trainer = (s, who, zone) => s.players[who].zones[zone].trainer;
-const power = (s, who, zone, target) => { s.turn = who; return applyAction(s, { type: 'usePower', who, zone, target }); };
-const pref = (owner, zone, space) => ({ kind: 'pokemon', owner, zone, space });
-const stats = (c) => [attackOf(c), c.currentStrength, maxStrengthOf(c)];
+// Fire: Blaine (Zone 1), Flannery (Zone 2), Kabu (Zone 3).
+// Water: Misty (Zone 1), Crasher Wake (Zone 2), Wallace (Zone 3).
+const fire = () => battle({ seed: 1 });
+const water = () => battle({ seed: 1, player: 'water', ai: 'fire' });
+const power = (s, who, zone, target) => act(s, who, { type: 'usePower', zone, target });
+const strategy = (s, who, id, target) => act(s, who, { type: 'playStrategy', uid: give(s, who, id), target });
+const command = (s, who, from, target) => act(s, who, { type: 'command', from, target });
+const burn = (c) => statusCount(c, 'burn');
+const hurt = (s, ref, to) => { at(s, ref.owner, ref.zone, ref.space).currentStrength = to; return ref; };
 
 // --- Data -------------------------------------------------------------------
 
-assert.deepEqual(TRAINER_CARDS.map((t) => [t.name, t.strength, t.power.cost]), [['Ash', 15, 1], ['Misty', 15, 1], ['Brock', 15, 1]]);
+for (const t of TRAINER_CARDS) {
+  assert.equal(t.cardType, 'Trainer');
+  assert.ok(t.name && t.strength > 0 && t.power.text && t.power.effects.length && t.passive.text, t.id);
+}
 {
-  const s = createGame(1);
-  for (const who of PLAYERS) assert.deepEqual(s.players[who].trainers.map((t) => t.name), ['Ash', 'Misty', 'Brock']);
+  const s = fire();
+  assert.deepEqual(s.players.player.zones.map((z) => z.trainer.name), ['Blaine', 'Flannery', 'Kabu']);
+  assert.deepEqual(s.players.ai.zones.map((z) => z.trainer.name), ['Misty', 'Crasher Wake', 'Wallace']);
 }
 
-// --- Passives ---------------------------------------------------------------
+// --- Blaine -------------------------------------------------------------------
 
-// Ash: friendly Pokémon in Ash's Zone gain +1/+1, and only friendly ones.
+// Power (1): Burn 1 to an enemy Pokémon or Trainer.
 {
-  let s = match();                                   // both sides: Ash in Zone 1
-  s = play(s, 'player', 'growlithe', 0, 0);           // Growlithe 3/5
-  s = play(s, 'ai', 'growlithe', 0, 1);
-  assert.deepEqual(stats(at(s, 'player', 0, 0)), [4, 6, 6], 'one +1/+1 from your own Ash');
-  assert.deepEqual(stats(at(s, 'ai', 0, 1)), [4, 6, 6], 'one +1/+1 from their own Ash, none from yours');
-  s = play(s, 'player', 'shinx', 1, 0);             // Misty's Zone: Ash's bonus does not reach
+  let s = fire();
+  place(s, 'ai', 2, 0, 'horsea');
+  assert.ok(powerTargets(s, 'player', 0).some((r) => r.kind === 'pokemon' && r.zone === 2), 'any Zone');
+  s = power(s, 'player', 0, tref('ai', 1));
+  assert.equal(burn(trainerAt(s, 'ai', 1)), 1, 'his own Power is not increased by his Passive');
+  assert.equal(s.players.player.baseEnergy, 9);
+}
+
+// Passive: Burn applied by friendly Pokémon in Blaine's Zone is increased by 1:
+// Scorch (Charcoal's too) and a Pokémon's own ability. Not Strategy Cards, and
+// not Pokémon in other Zones.
+{
+  let s = fire();
+  place(s, 'player', 0, 0, 'growlithe');                      // Scorch 1, in Blaine's Zone
+  place(s, 'player', 1, 0, 'growlithe');                      // Flannery's Zone
+  place(s, 'ai', 2, 0, 'test-dragon', { spent: true });
+  place(s, 'ai', 2, 1, 'test-dragon', { spent: true });
+  s = command(s, 'player', { zone: 0, space: 0 }, { kind: 'pokemon', zone: 2, space: 0 });
+  s = command(s, 'player', { zone: 1, space: 0 }, { kind: 'pokemon', zone: 2, space: 1 });
+  assert.deepEqual([burn(at(s, 'ai', 2, 0)), burn(at(s, 'ai', 2, 1))], [2, 1]);
+  s = play(s, 'player', 'charmander', 0, 1);                  // On Summon: Burn 1 (+1)
+  s = choose(s, { target: tref('ai', 0) });
+  assert.equal(burn(trainerAt(s, 'ai', 0)), 2);
+  s = strategy(s, 'player', 'ember', tref('ai', 1));
+  assert.equal(burn(trainerAt(s, 'ai', 1)), 2, 'Ember is not a Pokémon: no bonus');
+  // Charcoal's Scorch counts too.
+  let t = fire();
+  place(t, 'player', 0, 0, 'magmar');                          // Scorch 2
+  t.players.player.dollars = 2;
+  t = act(t, 'player', { type: 'openBag', mode: 'buyHand', uid: give(t, 'player', 'charcoal'), then: 'use', target: pref('player', 0, 0) });
+  t = command(t, 'player', { zone: 0, space: 0 }, { kind: 'trainer', zone: 2 });
+  assert.equal(burn(trainerAt(t, 'ai', 2)), 2 + 1 + 1, 'Scorch 2 + Charcoal 1 + Blaine 1');
+}
+
+// --- Flannery -----------------------------------------------------------------
+
+// Power (1): a friendly Pokémon in Flannery's Zone gains +2 Attack this Round.
+{
+  let s = fire();
+  place(s, 'player', 1, 0, 'mankey');
+  place(s, 'player', 0, 0, 'growlithe');
+  assert.deepEqual(powerTargets(s, 'player', 1), [pref('player', 1, 0)], 'her Zone only');
+  s = power(s, 'player', 1, pref('player', 1, 0));
+  assert.equal(attackOf(at(s, 'player', 1, 0)), 6);
+  s = nextRound(s);
+  assert.equal(attackOf(at(s, 'player', 1, 0)), 4);
+}
+
+// Passive: friendly Fire Pokémon in Flannery's Zone gain Overrun.
+{
+  let s = fire();
+  place(s, 'player', 1, 0, 'magmar');
+  place(s, 'player', 1, 1, 'sneasel', { spent: true });       // Dark
+  place(s, 'player', 0, 0, 'growlithe', { spent: true });     // another Zone
+  assert.ok(hasKeyword(at(s, 'player', 1, 0), 'Overrun'));
+  assert.ok(!hasKeyword(at(s, 'player', 1, 1), 'Overrun'), 'not Fire');
+  assert.ok(!hasKeyword(at(s, 'player', 0, 0), 'Overrun'), 'not in her Zone');
+  hurt(s, place(s, 'ai', 1, 0, 'horsea', { spent: true }), 1);
+  s = command(s, 'player', { zone: 1, space: 0 }, { kind: 'pokemon', zone: 1, space: 0 });
+  assert.equal(trainerAt(s, 'ai', 1).strength, 17 - 2, 'Magmar 4 − Shell 1 (from Wake) = 3, 1 needed: 2 to Crasher Wake');
+}
+
+// --- Kabu ---------------------------------------------------------------------
+
+// Power (2): a friendly Spent Pokémon in Kabu's Zone becomes Active.
+// Passive: friendly Pokémon in Kabu's Zone gain +2 Strength.
+{
+  let s = fire();
+  s = play(s, 'player', 'mankey', 2, 0);                      // Fighting 4/3: +2 Strength
+  assert.deepEqual(stats(at(s, 'player', 2, 0)), [4, 5, 5]);
+  place(s, 'player', 0, 0, 'growlithe', { spent: true });
+  assert.deepEqual(powerTargets(s, 'player', 2), [pref('player', 2, 0)], 'Spent, in his Zone');
+  s = power(s, 'player', 2, pref('player', 2, 0));
+  assert.equal(at(s, 'player', 2, 0).spent, false);
+  assert.equal(s.players.player.baseEnergy, 8, 'costs 2');
+  place(s, 'ai', 2, 0, 'horsea');
+  assert.deepEqual(stats(at(s, 'ai', 2, 0)), [3, 4, 4], 'friendly only');
+}
+
+// --- Misty --------------------------------------------------------------------
+
+// Power (1): heal a damaged friendly Pokémon in Misty's Zone 3.
+// Passive: friendly Water Pokémon in Misty's Zone gain +2 Strength.
+{
+  let s = water();
+  place(s, 'player', 0, 0, 'quagsire');                       // Water 4/7 → 4/9
+  place(s, 'player', 0, 1, 'chinchou');                       // Electric: no bonus
+  place(s, 'player', 1, 0, 'horsea');                         // another Zone
+  assert.deepEqual(stats(at(s, 'player', 0, 0)), [4, 9, 9]);
+  assert.deepEqual(stats(at(s, 'player', 0, 1)), [3, 5, 5]);
   assert.deepEqual(stats(at(s, 'player', 1, 0)), [3, 4, 4]);
-  assert.ok(s.log.some((l) => l.includes("Your Ash's Passive: your Growlithe (Zone 1, Space 1) gains +1/+1.")));
+  assert.ok(!canUsePower(s, 'player', 0), 'nothing damaged in her Zone');
+  hurt(s, pref('player', 1, 0), 1);
+  assert.ok(!canUsePower(s, 'player', 0), 'another Zone');
+  hurt(s, pref('player', 0, 0), 2);
+  s = power(s, 'player', 0, pref('player', 0, 0));
+  assert.equal(at(s, 'player', 0, 0).currentStrength, 5);
 }
 
-// The bonus counts in combat: a buffed Growlithe hits for 3.
+// --- Crasher Wake ---------------------------------------------------------------
+
+// Power (2): 2 damage to an enemy Pokémon in Wake's Zone.
+// Passive: friendly Pokémon in Wake's Zone gain Shell 1.
 {
-  let s = match();
-  s = play(s, 'player', 'growlithe', 0, 0);
-  s = applyAction(s, { type: 'pass', who: 'ai' });
-  s = applyAction(s, { type: 'pass', who: 'player' });   // to Round 2: Growlithe Active
-  s.turn = 'player';
-  const before = trainer(s, 'ai', 2).strength;
-  s = applyAction(s, { type: 'command', who: 'player', from: { zone: 0, space: 0 }, target: { kind: 'trainer', zone: 2 } });
-  assert.equal(before - trainer(s, 'ai', 2).strength, 4);
-}
-
-// Misty: friendly Water Pokémon in Misty's Zone gain +3 Strength.
-{
-  let s = match();
-  s = play(s, 'player', 'horsea', 1, 0);            // Water 2/6
-  s = play(s, 'player', 'growlithe', 1, 1);           // Fire
-  s = play(s, 'player', 'goldeen', 0, 0);           // Water, but in Ash's Zone: +1/+1 only
-  assert.deepEqual(stats(at(s, 'player', 1, 0)), [2, 9, 9]);
-  assert.deepEqual(stats(at(s, 'player', 1, 1)), [3, 5, 5]);
-  assert.deepEqual(stats(at(s, 'player', 0, 0)), [5, 8, 8]);
-}
-
-// Brock: opponent Pokémon summoned to Brock's Zone take 1 damage; friendly ones don't.
-{
-  let s = match();                                   // your Brock in Zone 3
-  s = play(s, 'ai', 'growlithe', 2, 0);
-  assert.deepEqual(stats(at(s, 'ai', 2, 0)), [3, 4, 5]);
-  assert.ok(s.log.some((l) => l.includes("Your Brock's Passive: 1 damage to AI Opponent's Growlithe")));
-  s = play(s, 'player', 'growlithe', 2, 0);           // its own Brock's Zone, but their Brock is in Zone 3 too
-  assert.deepEqual(stats(at(s, 'player', 2, 0)), [3, 4, 5], "your Pokémon takes their Brock's damage");
-  s = play(s, 'ai', 'horsea', 1, 0);                // not Brock's Zone
-  assert.deepEqual(stats(at(s, 'ai', 1, 0)), [2, 9, 9]);
-}
-
-// Passive bonuses apply first, then Brock's damage.
-{
-  let s = match({ ai: ['brock', 'misty', 'ash'] });  // their Ash shares Zone 3 with your Brock
-  s = play(s, 'ai', 'growlithe', 2, 0);
-  assert.deepEqual(stats(at(s, 'ai', 2, 0)), [4, 5, 6], '+1/+1 to 6 Strength, then 1 damage');
-}
-
-// --- Powers -----------------------------------------------------------------
-
-// Ash: draw 1; a 1-cost Pokémon may be summoned for free (arrives Spent, Passives apply).
-{
-  let s = match();
-  stackTop(s, 'player', 'horsea');
-  s = power(s, 'player', 0);
-  assert.equal(s.pending.kind, 'freeSummon');
-  assert.deepEqual(legalActions(s, 'player'), ['resolveChoice'], 'the choice must be made first');
-  assert.deepEqual(legalActions(s, 'ai'), []);
-  assert.equal(s.turn, 'player');
-  assert.equal(s.players.player.baseEnergy, 9, 'paid 1');
-  s = applyAction(s, { type: 'resolveChoice', who: 'player', zone: 1, space: 2 });
-  const horsea = at(s, 'player', 1, 2);
-  assert.equal(horsea.name, 'Horsea');
-  assert.equal(horsea.spent, true);
-  assert.deepEqual(stats(horsea), [2, 9, 9], "Misty's Passive applies");
-  assert.equal(s.players.player.baseEnergy, 9, 'the summon itself is free');
-  assert.equal(s.turn, 'ai', 'the Power used the turn');
-  assert.ok(s.log.some((l) => l.includes('Horsea was summoned for free')));
-}
-
-// Ash: keep the card instead; a drawn card that isn't a 1-cost Pokémon just stays in hand.
-{
-  let s = match();
-  stackTop(s, 'player', 'shinx');
-  s = power(s, 'player', 0);
-  s = applyAction(s, { type: 'resolveChoice', who: 'player' });
-  assert.ok(s.players.player.hand.some((c) => c.id === 'shinx'));
-  assert.equal(s.turn, 'ai');
-
-  let t = match();
-  stackTop(t, 'player', 'magmar');                  // cost 3
-  t = power(t, 'player', 0);
-  assert.equal(t.pending, null);
-  assert.ok(t.players.player.hand.some((c) => c.id === 'magmar'));
-  assert.equal(t.turn, 'ai');
-}
-
-// Ash: with no empty space it can use, the 1-cost Pokémon stays in hand.
-{
-  let s = match();
-  const fill = ['geodude', 'metapod', 'magmar', 'lairon', 'pidgey', 'dusclops', 'absol', 'sylveon', 'dragonite'];
-  fill.forEach((id, i) => { s = play(s, 'player', id, Math.floor(i / 3), i % 3); });
-  assert.equal(summonSpaces(s, 'player').length, 0);
-  stackTop(s, 'player', 'sewaddle');
-  s = power(s, 'player', 0);
-  assert.equal(s.pending, null);
-  assert.ok(s.players.player.hand.some((c) => c.id === 'sewaddle'));
-  assert.ok(s.log.some((l) => l.includes('no empty space, so it stays in hand')));
-  assert.equal(s.turn, 'ai');
-}
-
-// Ash: can't be used with nothing to draw.
-{
-  const s = match();
-  s.players.player.drawPile = [];
-  s.players.player.discard = [];
-  assert.equal(canUsePower(s, 'player', 0), false);
-  assert.throws(() => power(s, 'player', 0), /cannot/);
-}
-
-// Brock's Passive also fires on Ash's free summon.
-{
-  let s = match({ ai: ['brock', 'misty', 'ash'] });  // their Ash in Zone 3, your Brock in Zone 3
-  stackTop(s, 'ai', 'growlithe');
-  s = power(s, 'ai', 2);
-  s = applyAction(s, { type: 'resolveChoice', who: 'ai', zone: 2, space: 1 });
-  assert.deepEqual(stats(at(s, 'ai', 2, 1)), [4, 5, 6]);
-  assert.ok(s.log.some((l) => l.includes("Your Brock's Passive: 1 damage to AI Opponent's Growlithe")));
-}
-
-// Misty: 1 damage to an opponent Pokémon in Misty's Zone only.
-{
-  let s = match();
-  s = play(s, 'ai', 'horsea', 1, 0);                // Misty's Zone (Zone 2): 2/9 with their Misty
-  s = play(s, 'ai', 'shinx', 0, 0);                 // not Misty's Zone
+  let s = water();
+  place(s, 'ai', 1, 0, 'magmar');
+  place(s, 'ai', 0, 0, 'growlithe', { spent: true });        // another Zone
   assert.deepEqual(powerTargets(s, 'player', 1), [pref('ai', 1, 0)]);
-  assert.throws(() => power(s, 'player', 1, pref('ai', 0, 0)), /legal target/);
   s = power(s, 'player', 1, pref('ai', 1, 0));
-  assert.equal(at(s, 'ai', 1, 0).currentStrength, 8);
-  assert.equal(s.turn, 'ai');
+  assert.equal(at(s, 'ai', 1, 0).currentStrength, 4);
+  assert.equal(s.players.player.baseEnergy, 8, 'costs 2');
+  place(s, 'player', 1, 0, 'horsea', { spent: true });
+  place(s, 'player', 0, 0, 'horsea', { spent: true });
+  assert.equal(keywordAmount(at(s, 'player', 1, 0), 'Shell'), 1);
+  assert.equal(keywordAmount(at(s, 'player', 0, 0), 'Shell'), 0);
+  assert.equal(keywordAmount(at(s, 'ai', 1, 0), 'Shell'), 0, 'friendly only');
+  at(s, 'ai', 1, 0).spent = false;
+  s = command(s, 'ai', { zone: 1, space: 0 }, { kind: 'pokemon', zone: 1, space: 0 });
+  assert.equal(at(s, 'player', 1, 0).currentStrength, 4 - 3, 'Magmar 4 − Shell 1');
 }
 
-// Misty: no opponent Pokémon in her Zone → can't be used. Her damage can defeat.
+// --- Wallace ------------------------------------------------------------------
+
+// Power (1): Return a Pokémon from your Discard Pile to your hand.
 {
-  let s = match();
-  assert.equal(canUsePower(s, 'player', 1), false);
-  s = play(s, 'ai', 'shinx', 1, 0);                 // 3/4
-  at(s, 'ai', 1, 0).currentStrength = 1;
-  s = power(s, 'player', 1, pref('ai', 1, 0));
-  assert.equal(at(s, 'ai', 1, 0), null);
-  assert.equal(s.players.ai.released.at(-1).name, 'Shinx');
+  let s = water();
+  assert.ok(!canUsePower(s, 'player', 2), 'nothing to Return');
+  const p = s.players.player;
+  const mon = p.drawPile.find((c) => c.id === 'gyarados');
+  p.drawPile.splice(p.drawPile.indexOf(mon), 1);
+  p.discard.push(mon);
+  s = power(s, 'player', 2);
+  s = choose(s, { uids: [mon.uid] });
+  assert.ok(s.players.player.hand.some((c) => c.uid === mon.uid));
 }
 
-// Brock: +2 Defence, only to a friendly Defence Pokémon; current and maximum go up; permanent.
+// Passive: the first Pokémon you summon into Wallace's Zone each Round costs 1 less.
 {
-  let s = match();
-  assert.equal(canUsePower(s, 'player', 2), false, 'no Defence Pokémon yet');
-  s = play(s, 'player', 'growlithe', 1, 0);           // Hitpoints
-  s = play(s, 'ai', 'lairon', 1, 0);               // enemy Defence: not friendly
-  assert.equal(canUsePower(s, 'player', 2), false);
-  s = play(s, 'player', 'geodude', 1, 1);            // Defence 3/7
-  assert.deepEqual(powerTargets(s, 'player', 2), [pref('player', 1, 1)]);
-  assert.throws(() => power(s, 'player', 2, pref('player', 1, 0)), /legal target/);
-  at(s, 'player', 1, 1).currentStrength = 3;
-  s = power(s, 'player', 2, pref('player', 1, 1));
-  assert.deepEqual(stats(at(s, 'player', 1, 1)), [3, 5, 9]);
-  s = applyAction(s, { type: 'pass', who: 'ai' });
-  s = applyAction(s, { type: 'pass', who: 'player' });
-  assert.equal(s.round, 2);
-  assert.deepEqual(stats(at(s, 'player', 1, 1)), [3, 5, 9], 'the buff lasts');
+  let s = water();
+  const lapras = give(s, 'player', 'lapras');
+  const card = s.players.player.hand.find((c) => c.uid === lapras);
+  assert.deepEqual([summonCost(s, 'player', card, 2), summonCost(s, 'player', card, 0)], [3, 4]);
+  s = act(s, 'player', { type: 'playPokemon', uid: lapras, zone: 2, space: 0 });
+  assert.equal(s.players.player.baseEnergy, 10 - 3);
+  const quag = s.players.player.hand.length;
+  give(s, 'player', 'quagsire');
+  assert.equal(summonCost(s, 'player', s.players.player.hand[quag], 2), 3, 'the second one pays full');
+  s = nextRound(s);
+  assert.equal(summonCost(s, 'player', card, 2), 3, 'a new Round: the discount is back');
+  const horsea = give(s, 'player', 'horsea');
+  s.players.player.baseEnergy = 0;
+  s.turn = 'player';
+  s.passesInARow = 0;
+  s = applyAction(s, { type: 'playPokemon', who: 'player', uid: horsea, zone: 2, space: 1 });
+  assert.equal(at(s, 'player', 2, 1).id, 'horsea', 'a 1-cost Pokémon is free there');
 }
+
+// --- Powers -------------------------------------------------------------------
 
 // Each Power once per Round; usable again next Round. Paid with Exert if needed.
 {
-  let s = match();
-  s = play(s, 'ai', 'horsea', 1, 0);
-  s = power(s, 'player', 1, pref('ai', 1, 0));
-  assert.equal(canUsePower(s, 'player', 1), false, 'used this Round');
+  let s = fire();
+  s = power(s, 'player', 0, tref('ai', 0));
+  assert.equal(canUsePower(s, 'player', 0), false, 'used this Round');
   s.turn = 'player';
-  assert.throws(() => power(s, 'player', 1, pref('ai', 1, 0)), /cannot/);
-  s = applyAction(s, { type: 'pass', who: 'player' });
-  s = applyAction(s, { type: 'pass', who: 'ai' });
-  assert.equal(s.round, 2);
-  assert.equal(canUsePower(s, 'player', 1), true);
-  s.players.player.baseEnergy = 0;                   // Round 2: 2 Exert available
-  s = power(s, 'player', 1, pref('ai', 1, 0));
+  assert.throws(() => power(s, 'player', 0, tref('ai', 0)), /cannot/);
+  s = nextRound(s);
+  assert.equal(canUsePower(s, 'player', 0), true);
+  s.turn = 'player';
+  s.passesInARow = 0;
+  s.players.player.baseEnergy = 0;                           // Round 2: 2 Exert available
+  s = applyAction(s, { type: 'usePower', who: 'player', zone: 0, target: tref('ai', 0) });
   assert.equal(s.players.player.exhaust.length, 1, 'paid with Exert');
 }
 
 // --- Trainer removal ----------------------------------------------------------
 
 {
-  let s = match();
-  s = play(s, 'ai', 'growlithe', 0, 0);               // 4/6/6 with their Ash
-  s = play(s, 'ai', 'pidgey', 0, 1);               // 5/6/6
-  at(s, 'ai', 0, 1).currentStrength = 1;             // damaged: 1/6
-  s = play(s, 'player', 'absol', 1, 0);
-  s = applyAction(s, { type: 'pass', who: 'ai' });
-  s = applyAction(s, { type: 'pass', who: 'player' });   // Round 2: everything Active
-  s.turn = 'player';
-  trainer(s, 'ai', 0).strength = 2;
-  const swift = { zone: 1, space: 0 };               // Absol is Swift and Alert
-  s = applyAction(s, { type: 'command', who: 'player', from: swift, target: { kind: 'trainer', zone: 0 } });
-  assert.equal(trainer(s, 'ai', 0).strength, 0);
-  assert.ok(s.log.some((l) => l.includes("AI Opponent's Ash was removed. Zone 1 has fallen on AI Opponent's side.")));
+  let s = fire();
+  place(s, 'ai', 2, 0, 'horsea');
+  place(s, 'ai', 0, 0, 'quagsire');                           // Misty's Zone: 4/9
+  place(s, 'ai', 0, 1, 'horsea');                             // 3/6
+  hurt(s, pref('ai', 0, 1), 1);
+  place(s, 'player', 1, 0, 'ponyta');
+  trainerAt(s, 'ai', 0).strength = 2;
+  s = strategy(s, 'player', 'fire-blast', tref('ai', 0));
+  assert.equal(trainerAt(s, 'ai', 0).strength, 0);
+  assert.ok(logged(s, "AI Opponent's Misty was removed. Zone 1 has fallen on AI Opponent's side."));
   // Its Passive stops: maximum drops; current only if above it. Never defeated by the loss.
-  assert.deepEqual(stats(at(s, 'ai', 0, 0)), [3, 5, 5]);
-  assert.deepEqual(stats(at(s, 'ai', 0, 1)), [4, 1, 5], 'the damaged one keeps its 1 Strength');
-  assert.ok(s.log.some((l) => l.includes("loses the bonus from Ash's Passive")));
+  assert.deepEqual(stats(at(s, 'ai', 0, 0)), [4, 7, 7]);
+  assert.deepEqual(stats(at(s, 'ai', 0, 1)), [3, 1, 4], 'the damaged one keeps its 1 Strength');
+  assert.ok(logged(s, "loses the bonus from Misty's Passive"));
   // Its Power stops, and it can't be targeted.
   s.turn = 'ai';
   assert.equal(canUsePower(s, 'ai', 0), false);
-  assert.ok(!legalTargets(s, 'player', swift).some((t) => t.kind === 'trainer' && t.zone === 0));
+  assert.ok(!legalTargets(s, 'player', { zone: 1, space: 0 }).some((t) => t.kind === 'trainer' && t.zone === 0));
   // Fallen zone: no new Pokémon on that side; the other side is unaffected.
   assert.ok(!summonSpaces(s, 'ai').some((x) => x.zone === 0));
-  const uid = give(s, 'ai', 'sewaddle');
+  const uid = give(s, 'ai', 'chinchou');
+  onTurn(s, 'ai');
   assert.throws(() => applyAction(s, { type: 'playPokemon', who: 'ai', uid, zone: 0, space: 2 }), /fallen/);
-  s = play(s, 'player', 'sewaddle', 0, 0);
-  assert.equal(at(s, 'player', 0, 0).name, 'Sewaddle', 'your side of Zone 1 is fine');
+  s = play(s, 'player', 'growlithe', 0, 0);
+  assert.equal(at(s, 'player', 0, 0).name, 'Growlithe', 'your side of Zone 1 is fine');
   // Pokémon already in the fallen zone keep fighting.
+  for (const ref of [pref('player', 1, 0), pref('ai', 2, 0), pref('ai', 0, 1)]) at(s, ref.owner, ref.zone, ref.space).spent = true;
+  at(s, 'ai', 0, 0).spent = false;
+  onTurn(s, 'ai');
   assert.ok(legalActions(s, 'ai').includes('command'));
 }
 
-// A removed Brock's Passive stops.
-{
-  let s = match();
-  trainer(s, 'player', 2).strength = 0;
-  s = play(s, 'ai', 'growlithe', 2, 0);
-  assert.deepEqual(stats(at(s, 'ai', 2, 0)), [3, 5, 5], 'no damage from a removed Brock');
-}
-
-// --- AI ---------------------------------------------------------------------
+// --- AI -----------------------------------------------------------------------
 
 // Takes a winning attack over everything else.
 {
-  let s = match();
-  s.turn = 'ai';
-  s = play(s, 'ai', 'pidgey', 1, 0);
-  s = applyAction(s, { type: 'pass', who: 'player' });
-  s = applyAction(s, { type: 'pass', who: 'ai' });
-  s.turn = 'ai';
-  give(s, 'ai', 'dragonite');
+  const s = battle({ seed: 1, player: 'water', ai: 'fire' });
+  place(s, 'ai', 1, 0, 'arcanine');
+  give(s, 'ai', 'houndoom');
   s.players.player.zones.forEach((z, i) => { z.trainer.strength = i === 2 ? 3 : 0; });
-  const move = chooseAction(s, 'ai');
-  assert.deepEqual(move, { type: 'command', who: 'ai', from: { zone: 1, space: 0 }, target: { kind: 'trainer', zone: 2 } });
+  onTurn(s, 'ai');
+  assert.deepEqual(chooseAction(s, 'ai'), { type: 'command', who: 'ai', from: { zone: 1, space: 0 }, target: { kind: 'trainer', zone: 2 } });
 }
 
-// Uses Misty to finish off a Pokémon; never uses Exert; always takes Ash's free summon.
+// Water: uses Misty's Power to heal its own damaged Pokémon; never uses Exert for it.
 {
-  let s = match();
-  s = play(s, 'player', 'shinx', 1, 0);
-  at(s, 'player', 1, 0).currentStrength = 1;
-  s.turn = 'ai';
+  const s = battle({ seed: 1, player: 'fire', ai: 'water' });
+  place(s, 'ai', 0, 0, 'quagsire', { spent: true });
+  hurt(s, pref('ai', 0, 0), 2);
+  s.players.ai.trainers.forEach((t) => { if (t.id !== 'misty') t.power = { ...t.power, cost: 99 }; });
+  s.players.ai.dollars = 0;
+  onTurn(s, 'ai');
   s.players.ai.baseEnergy = 1;
-  assert.deepEqual(chooseAction(s, 'ai'), { type: 'usePower', who: 'ai', zone: 1, target: pref('player', 1, 0) });
-  s.players.ai.baseEnergy = 0;                       // Exert only: the AI won't
-  assert.deepEqual(chooseAction(s, 'ai'), { type: 'pass', who: 'ai' });
-
-  let t = match();
-  t.players.ai.baseEnergy = 1;
-  stackTop(t, 'ai', 'growlithe');
-  t = power(t, 'ai', 0);
-  const choice = chooseAction(t, 'ai');
-  assert.equal(choice.type, 'resolveChoice');
-  assert.notEqual(choice.zone, undefined, 'takes the free summon');
-  assert.notEqual(choice.zone, 2, "avoids your Brock's Zone");
-  applyAction(t, choice);
+  assert.deepEqual(chooseAction(s, 'ai'), { type: 'usePower', who: 'ai', zone: 0, target: pref('ai', 0, 0) });
+  s.players.ai.baseEnergy = 0;
+  assert.deepEqual(chooseAction(s, 'ai'), { type: 'pass', who: 'ai' }, 'Exert only: the AI won\'t');
 }
 
-// Plays the most expensive Pokémon it can afford, preferring a zone with its own bonus.
+// Plays the most expensive Pokémon it can afford, into a Zone with a bonus for it
+// (Misty's +2 Strength or Wake's Shell 1), not Wallace's.
 {
-  const s = match();
-  s.turn = 'ai';
+  const s = battle({ seed: 1, player: 'fire', ai: 'water' });
+  s.players.ai.trainers.forEach((t) => { t.power = { ...t.power, cost: 99 }; });
+  s.players.ai.dollars = 0;
+  onTurn(s, 'ai');
   s.players.ai.baseEnergy = 3;
-  give(s, 'ai', 'growlithe');
-  give(s, 'ai', 'quagsire');                          // cost 3, Water: Misty's Zone gives +3
-  s.players.ai.trainers.forEach((t) => { if (t.id !== 'misty') t.power = null; });
+  give(s, 'ai', 'horsea');
+  give(s, 'ai', 'quagsire');                                   // cost 3
+  s.players.ai.zones[2].trainer.passive = { text: '' };      // no discount to weigh
   const move = chooseAction(s, 'ai');
   assert.equal(move.type, 'playPokemon');
   assert.equal(s.players.ai.hand.find((c) => c.uid === move.uid).id, 'quagsire');
-  assert.equal(move.zone, 1);
+  assert.ok([0, 1].includes(move.zone), `Zone ${move.zone + 1}`);
 }
 
 console.log('All Trainer tests passed.');

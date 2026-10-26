@@ -9,7 +9,6 @@
 //   buff         { attack, strength, strengthType?, target }
 //                permanent; with strengthType only Pokémon of that
 //                Strength-Type can be chosen, and area versions skip others
-//   mayPlayFree  { filter }                        the card just drawn may be summoned for free
 //   gainEnergy   { amount }                        extra Base Energy this Round (may pass 10)
 //   releaseLocation {}                             the source Location goes to the Released Pile
 //   attachHeld   { target }                        attach the Item being used (ctx.item) as a
@@ -19,7 +18,12 @@
 //   applyStatus  { status, amount, target }        the same for any status in STATUSES (status.js)
 //   douse        { target }                        removes all Burn
 //   grant        { keyword, amount?, thisRound?, target }  the card gains an Innate keyword
+//   gainDollars  { amount }                        gain PokéDollars
 //   buff and grant with thisRound: true expire at Supper (after Burn and On Supper)
+//   onlyIf       a card condition: the effect only applies to targets matching it
+//                ("If it's a Fire Pokémon, it also gains Scorch 1")
+//   amountIf     { weather, min, amount }: this amount instead while that Weather's
+//                combined count is at least min ("or 3 if Rain is 2 or more")
 //   retain       { target }                        a card in hand gains Retain (until it leaves your hand)
 //   reduceCost   { amount, target }                a Pokémon in hand costs less (until it leaves your hand)
 //   search       { filter, count?, retain? }        choose matching cards from your Draw Pile into
@@ -31,7 +35,9 @@
 //
 // SELECTOR     { mode, side, kinds, zone, filter }
 //   mode    'targeted' (the player chooses one) | 'area' (all that match) |
-//           'event' (a card from the triggering event; role: 'ref' (default) or 'attacker')
+//           'event' (a card from the triggering event; role: 'ref' (default) or 'attacker') |
+//           'chosen' (the card an earlier effect of this card targeted, if still in play) |
+//           'self' (the Pokémon whose ability this is, if still in the arena)
 //   side    'friendly' | 'opponent' | 'any'       relative to whoever owns the effect
 //   kinds   ['pokemon'] (default) | ['pokemon', 'trainer'] | ['trainer']
 //           'hand': Pokémon cards in hand (refs { kind: 'hand', owner, uid })
@@ -60,7 +66,7 @@
 //   { kind: 'step', step, ... }            the rest of an Action or Phase (game.js)
 // New triggers go on top, so they resolve immediately. Triggers from the same
 // moment resolve initiative player first, then zone 1 → 3, left to right
-// (a Trainer after the Pokémon in its zone). A choice (a target, Ash's free
+// (a Trainer after the Pokémon in its zone). A choice (a target, a free
 // summon) pauses the stack in state.pending until resolveChoice.
 //
 // CONTEXT (ctx) for resolving: { who, source: { kind, owner, zone, space?, uid, name },
@@ -74,7 +80,7 @@ import { WEATHER } from './cardData.js';
 import {
   PLAYERS, opponentOf, log, whose, draw, canDraw, arenaPokemon, activeTrainers, cardAt, sameRef, weatherCounts, weatherTotal,
   describeRef, summonSpaces, damage, heal, releaseDefeated, maxStrengthOf, strengthOf, inPlay, heldBonus, toMart, emit, info,
-  enterHand,
+  enterHand, earnDollars,
 } from './board.js';
 import { shuffle } from './random.js';
 import { hasKeyword, keywordAmount, afterShell } from './keywords.js';
@@ -115,6 +121,19 @@ const passesFilter = matchesCard;
 // Every card a selector could apply to, as refs. `op` adds the stat rule:
 // a Strength-Type buff only fits Pokémon of that Strength-Type.
 export function candidates(state, ctx, selector, op = {}) {
+  if (selector.mode === 'chosen') {
+    const ref = ctx.target;
+    if (!ref || ref.kind === 'zone') return [];
+    const card = cardAt(state, ref);
+    const inPlay = card && card.uid === ctx.targetUid && (ref.kind !== 'trainer' || card.strength > 0) && (ref.kind !== 'pokemon' || card.currentStrength > 0);
+    return inPlay ? [ref] : [];
+  }
+  if (selector.mode === 'self') {
+    const { owner, zone, space, uid } = ctx.source;
+    const ref = { kind: 'pokemon', owner, zone, space };
+    const card = cardAt(state, ref);
+    return card?.uid === uid && card.currentStrength > 0 ? [ref] : [];
+  }
   if (selector.mode === 'event') {
     const ref = ctx.event?.[selector.role ?? 'ref'];
     return ref && cardAt(state, ref)?.uid === ref.uid ? [ref] : [];
@@ -166,16 +185,21 @@ export function targetedEffect(effects) {
 }
 
 // Whether a card or Power with these effects can be used now: a draw needs a
-// card to draw, and a targeted or area effect needs something to affect.
-// (Triggers don't ask; they just affect whatever is there.) ctx.willDiscard
-// counts cards a cost puts in the Discard Pile first, which a draw can reshuffle.
+// card to draw, a targeted effect needs a legal target, and an area card needs
+// something to affect: at least one of its area parts must (Surf with no enemy
+// Pokémon still heals). Area parts tied to the chosen target (zone: 'target')
+// follow whatever is chosen, so they aren't checked ahead. (Triggers don't
+// ask; they just affect whatever is there.) ctx.willDiscard counts cards a
+// cost puts in the Discard Pile first, which a draw can reshuffle.
 export function canResolve(state, ctx, effects) {
+  const areas = effects.filter((e) => e.target?.mode === 'area' && e.target.zone !== 'target');
+  if (areas.length && !areas.some((e) => candidates(state, ctx, e.target, e).length > 0)) return false;
   return effects.every((e) => {
     if (e.op === 'draw') return canDraw(state, ctx.who) || ctx.willDiscard > 0;
     // Return needs something to return (the Discard Pile is public), unless it says "up to".
     // Search can always be played: the Draw Pile is hidden.
     if (e.op === 'return') return e.upTo || pileMatches(state.players[ctx.who].discard, e.filter).length > 0;
-    if (e.target?.mode === 'targeted' || e.target?.mode === 'area') return candidates(state, ctx, e.target, e).length > 0;
+    if (e.target?.mode === 'targeted') return candidates(state, ctx, e.target, e).length > 0;
     return true;
   });
 }
@@ -195,15 +219,16 @@ const OPS = {
   },
 
   damage(state, ctx, e, refs) {
+    const amount = amountOf(state, e);
     for (const ref of refs) {
       const what = describeRef(state, ref);
-      const dealt = afterShell(cardAt(state, ref), e.amount);
-      const [before, after] = damage(state, ref, e.amount, { by: ctx.source.kind === 'weather' ? null : ctx.who });
+      const dealt = afterShell(cardAt(state, ref), amount);
+      const [before, after] = damage(state, ref, amount, { by: ctx.source.kind === 'weather' ? null : ctx.who });
       // A Pokémon's own ability damaging an enemy Trainer: a Trainer strike for its quests.
       if (ref.kind === 'trainer' && ref.owner !== ctx.who && ctx.source.kind === 'pokemon' && before > after) {
         questEvent(state, ctx.who, { type: 'trainerStrike', zone: ctx.source.zone });
       }
-      log(state, `${ctx.label}: ${dealt} damage to ${what}${dealt !== e.amount ? ` (Shell: ${e.amount} → ${dealt})` : ''}. Strength ${before} → ${Math.max(after, 0)}.`);
+      log(state, `${ctx.label}: ${dealt} damage to ${what}${dealt !== amount ? ` (Shell: ${amount} → ${dealt})` : ''}. Strength ${before} → ${Math.max(after, 0)}.`);
     }
     // On Knockout: a Pokémon's own ability damage defeated enemy Pokémon. Queued
     // under the On Defeated triggers settle() adds, so those resolve first.
@@ -227,13 +252,17 @@ const OPS = {
   },
 
   burn(state, ctx, e, refs) {
-    for (const ref of refs) burnCard(state, ref, e.amount, ctx.who);
+    for (const ref of refs) burnCard(state, ref, amountOf(state, e), ctx.who, ctx.source.kind === 'pokemon' ? ctx.source : null);
+  },
+
+  gainDollars(state, ctx, e) {
+    earnDollars(state, ctx.who, amountOf(state, e), `from ${ctx.label}`);
   },
 
   applyStatus(state, ctx, e, refs) {
     if (!STATUSES[e.status]) throw new Error(`Unknown status: ${e.status}`);
     for (const ref of refs) {
-      if (e.status === 'burn') burnCard(state, ref, e.amount, ctx.who);
+      if (e.status === 'burn') burnCard(state, ref, e.amount, ctx.who, ctx.source.kind === 'pokemon' ? ctx.source : null);
       else applyStatus(state, ref, e.status, e.amount, ctx.who);
     }
   },
@@ -360,9 +389,11 @@ const OPS = {
       if (old) toMart(state, old, `was replaced on ${what}`);
       log(state, `${ctx.label}: ${item.name} is now held by ${what}.`);
       if (ref.kind !== 'pokemon') continue;
+      // A Strength bonus raises current Strength too; a −Strength (Choice Band)
+      // lowers current and maximum alike, never below 1, so it never defeats.
       const delta = heldBonus(card, 'strength') - before;
       if (delta > 0) card.currentStrength += delta;
-      else if (delta < 0) card.currentStrength = Math.min(card.currentStrength, maxStrengthOf(card));
+      else if (delta < 0) card.currentStrength = Math.max(1, Math.min(card.currentStrength + delta, maxStrengthOf(card)));
     }
   },
 
@@ -393,36 +424,25 @@ const OPS = {
     log(state, `${ctx.label}: ${p.name} ${ctx.who === 'player' ? 'gain' : 'gains'} ${e.amount} extra Base Energy this Round (now ${p.baseEnergy}).`);
   },
 
-  // The last card drawn may be summoned for free, if it fits the filter.
-  // The player chooses (state.pending); job.choice holds the answer.
-  mayPlayFree(state, ctx, e, refs, job) {
-    const p = state.players[ctx.who];
-    const card = p.hand.find((c) => c.uid === ctx.drawn?.at(-1));
-    if (!card || !passesFilter(card, e.filter)) return null;
-    if (!summonSpaces(state, ctx.who).length) {
-      log(state, `${ctx.label}: ${card.name} could be summoned for free, but there is no empty space, so it stays in hand.`);
-      return null;
-    }
-    if (!job.choice) {
-      state.pending = { who: ctx.who, kind: 'freeSummon', uid: card.uid, label: ctx.label };
-      return 'pause';
-    }
-    if (job.choice.zone === undefined || job.choice.zone === null) {
-      log(state, `${ctx.label}: ${p.name} kept ${card.name} in hand.`);
-      return null;
-    }
-    const { zone, space } = job.choice;
-    log(state, `${ctx.label}: ${card.name} was summoned for free into Zone ${zone + 1}, Space ${space + 1}.`);
-    summon(state, ctx.who, card, zone, space);
-    return null;
-  },
 };
 
-// Burn on a card, counted for the applier's "Apply Burn N times" quests (one per card).
-export function burnCard(state, ref, amount, by) {
+// Burn on a card, counted for the applier's "Apply Burn N times" quests (one
+// per card). source: the Pokémon applying it (Scorch, its own ability), if
+// any: a friendly Trainer's burnBonus in its Zone adds to it (Blaine).
+export function burnCard(state, ref, amount, by, source = null) {
   if (!cardAt(state, ref) || amount <= 0) return;
-  applyStatus(state, ref, 'burn', amount, by);
+  const trainer = source && state.players[source.owner].zones[source.zone]?.trainer;
+  const bonus = trainer && trainer.strength > 0 ? trainer.passive?.burnBonus ?? 0 : 0;
+  if (bonus) log(state, `${whose(state, source.owner)} ${trainer.name}'s Passive: Burn +${bonus}.`);
+  applyStatus(state, ref, 'burn', amount + bonus, by);
   if (by) questEvent(state, by, { type: 'burn' });
+}
+
+// An effect's amount: amountIf swaps in another while a Weather count is high enough.
+function amountOf(state, e) {
+  const cond = e.amountIf;
+  if (cond && (weatherCounts(state)[cond.weather] ?? 0) >= cond.min) return cond.amount;
+  return e.amount;
 }
 
 // Cards in a pile matching a filter (any printed field).
@@ -503,6 +523,7 @@ function applyEffect(state, job, e) {
         return 'pause';
       }
       if (!legal.some((r) => sameRef(r, ctx.target))) throw new Error('That is not a legal target');
+      if (ctx.target.kind !== 'zone') ctx.targetUid ??= cardAt(state, ctx.target)?.uid;
       refs = e.target.pick === 'zone'
         ? candidates(state, ctx, { ...e.target, pick: undefined, mode: 'area', zone: 'target' }, e)
         : [ctx.target];
@@ -510,6 +531,7 @@ function applyEffect(state, job, e) {
       refs = legal;
     }
   }
+  if (e.onlyIf) refs = refs.filter((r) => matchesCard(cardAt(state, r) ?? {}, e.onlyIf));
   return OPS[e.op](state, ctx, e, refs, job);
 }
 
@@ -681,7 +703,13 @@ export function fireTriggers(state, events) {
       for (const trigger of triggers) {
         if (trigger.on !== event.type) continue;
         const ctx = { ...sourceCtx(state, ref, card), event };
-        if (eventMatches(state, trigger.match, ctx, event)) fired.push({ ctx, effects: trigger.effects, key: orderKey(state, ref) });
+        if (!eventMatches(state, trigger.match, ctx, event)) continue;
+        // "Once per Round": a second time this Round, it doesn't fire.
+        if (trigger.oncePerRound) {
+          if (card.abilityRound === state.round) continue;
+          card.abilityRound = state.round;
+        }
+        fired.push({ ctx, effects: trigger.effects, key: orderKey(state, ref) });
       }
     }
   }
@@ -711,9 +739,9 @@ export function refreshAuras(state) {
     const next = {};
     for (const t of auras) {
       const ctx = sourceCtx(state, t.ref, t.card);
-      const { target, attack, strength } = t.card.passive.aura;
+      const { target, attack, strength, keywords } = t.card.passive.aura;
       if (candidates(state, ctx, { ...target, mode: 'area' }).some((r) => sameRef(r, ref))) {
-        next[t.card.uid] = { attack, strength, name: t.card.name, owner: t.ref.owner };
+        next[t.card.uid] = { attack, strength, ...(keywords ? { keywords } : {}), name: t.card.name, owner: t.ref.owner };
       }
     }
     for (const [uid, bonus] of Object.entries(next)) {
@@ -721,7 +749,10 @@ export function refreshAuras(state) {
       card.aura[uid] = bonus;
       card.currentStrength += bonus.strength;
       emit(state, 'buff', { target: info(state, ref), attack: bonus.attack, strength: bonus.strength, source: `${bonus.name}'s Passive` });
-      const what = bonus.attack ? `${signed(bonus.attack)}/${signed(bonus.strength)}` : `${signed(bonus.strength)} Strength`;
+      const what = [
+        bonus.attack ? `${signed(bonus.attack)}/${signed(bonus.strength)}` : bonus.strength ? `${signed(bonus.strength)} Strength` : '',
+        ...(bonus.keywords ?? []).map((k) => (k.amount ? `${k.key} ${k.amount}` : k.key)),
+      ].filter(Boolean).join(' and ');
       log(state, `${whose(state, bonus.owner)} ${bonus.name}'s Passive: ${describeRef(state, ref)} gains ${what}.`);
     }
     for (const [uid, bonus] of Object.entries(card.aura)) {

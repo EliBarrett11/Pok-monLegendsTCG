@@ -380,7 +380,7 @@ async function hitBeat(root, e, t) {
   await wait(t(420));
 }
 
-// Area damage (Hypervoice): a wave sweeps across that side, hitting each card in turn.
+// Area damage (Surf, Gyarados): a wave sweeps across that side, hitting each card in turn.
 async function waveBeat(root, group, t) {
   const owner = group[0].target.owner;
   const side = root.querySelector(`.side.${owner === 'ai' ? 'opponent' : 'player'}`);

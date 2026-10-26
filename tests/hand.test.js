@@ -5,17 +5,17 @@ import assert from 'node:assert/strict';
 import {
   createGame, applyAction, PLAYERS, legalActions, playablePokemon, summonCost, costPreview, isAlert,
 } from '../src/engine/game.js';
-import { cardDefinition } from '../src/engine/cards.js';
 import { ability } from '../src/engine/cardData.js';
 import { refreshAuras, resolveEffects, canResolve } from '../src/engine/effects.js';
 import { inPlay } from '../src/engine/board.js';
+import { trainerOrder, def, useTestTrainers } from './fixtures.js';
 
 // --- Helpers ----------------------------------------------------------------
 
 function match() {
-  let s = createGame(41);
-  s = applyAction(s, { type: 'assignTrainers', who: 'player', order: ['player-trainer-ash', 'player-trainer-misty', 'player-trainer-brock'] });
-  s = applyAction(s, { type: 'assignTrainers', who: 'ai', order: ['ai-trainer-ash', 'ai-trainer-misty', 'ai-trainer-brock'] });
+  let s = useTestTrainers(createGame(41));
+  s = applyAction(s, { type: 'assignTrainers', who: 'player', order: trainerOrder(s, 'player') });
+  s = applyAction(s, { type: 'assignTrainers', who: 'ai', order: trainerOrder(s, 'ai') });
   s = applyAction(s, { type: 'flipCoin' });
   for (const who of PLAYERS) s = applyAction(s, { type: 'mulligan', who, cardUids: [] });
   for (const who of PLAYERS) {
@@ -30,7 +30,7 @@ function match() {
 }
 
 let made = 0;
-const mon = (base, extras = {}) => ({ ...cardDefinition(base), effectTrigger: null, effectText: null, ability: null, innatePower: null, uid: `test-${base}-${made++}`, ...extras });
+const mon = (base, extras = {}) => ({ ...def(base), effectTrigger: null, effectText: null, ability: null, innatePower: null, uid: `test-${base}-${made++}`, ...extras });
 const strategy = (name, effects, extras = {}) => ({ id: `test-${name}`, name, cardType: 'Strategy', energyCost: 1, image: null, rarity: 'Common', effectText: name, effects, uid: `test-${name}-${made++}`, ...extras });
 
 function place(s, who, zone, space, card, { spent = true } = {}) {
@@ -77,7 +77,7 @@ const handIds = (s, who = 'player') => s.players[who].hand.map((c) => c.uid);
 // Granted Retain lasts until the card leaves your hand; a kept Pokémon keeps its XP.
 {
   let s = match();
-  const pud = mon('horsea', { xp: { attack: 1, strength: 2 } });
+  const pud = mon('test-ripple', { xp: { attack: 1, strength: 2 } });
   s.players.player.hand.push(pud);
   cast(s, 'player', [{ op: 'retain', target: { mode: 'targeted', side: 'friendly', kinds: ['handCard'] } }], { kind: 'hand', owner: 'player', uid: pud.uid });
   assert.ok(s.players.player.hand.find((c) => c.uid === pud.uid).retainGranted);
@@ -90,7 +90,7 @@ const handIds = (s, who = 'player') => s.players[who].hand.map((c) => c.uid);
   const p = s.players.player;
   p.hand = p.hand.filter((c) => c.uid !== pud.uid);
   p.discard.push(kept);
-  s = cast(s, 'player', [{ op: 'return', filter: { cardType: 'Pokémon', id: 'horsea' } }]);
+  s = cast(s, 'player', [{ op: 'return', filter: { cardType: 'Pokémon', id: 'test-ripple' } }]);
   s = choose(s, { uids: [pud.uid] });
   assert.ok(!s.players.player.hand.find((c) => c.uid === pud.uid).retainGranted, 'a returned card starts without it');
 }
@@ -113,6 +113,7 @@ const handIds = (s, who = 'player') => s.players[who].hand.map((c) => c.uid);
 {
   let s = match();
   const p = s.players.player;
+  p.drawPile.push(mon('test-ripple'), mon('test-fin'), mon('test-mud'));
   const before = p.drawPile.map((c) => c.uid);
   const water = p.drawPile.filter((c) => c.pokemonType === 'Water').map((c) => c.uid);
   s = cast(s, 'player', [{ op: 'search', filter: { cardType: 'Pokémon', pokemonType: 'Water' }, retain: true }]);
@@ -136,9 +137,9 @@ const handIds = (s, who = 'player') => s.players[who].hand.map((c) => c.uid);
 {
   let s = match();
   const p = s.players.player;
-  const lone = p.drawPile.find((c) => c.id === 'dragonite');
-  p.drawPile = p.drawPile.filter((c) => c.id !== 'dragonite' || c === lone);
-  s = cast(s, 'player', [{ op: 'search', filter: { id: 'dragonite' }, count: 2 }]);
+  const lone = mon('test-dragon');
+  p.drawPile.push(lone);
+  s = cast(s, 'player', [{ op: 'search', filter: { id: 'test-dragon' }, count: 2 }]);
   assert.deepEqual([s.pending.min, s.pending.max], [1, 1]);
   s = choose(s, { uids: [lone.uid] });
   assert.ok(handIds(s).includes(lone.uid));
@@ -167,8 +168,8 @@ const handIds = (s, who = 'player') => s.players[who].hand.map((c) => c.uid);
 {
   let s = match();
   const p = s.players.player;
-  const gone = mon('absol');
-  const old = mon('pidgey');
+  const gone = mon('test-shadow');
+  const old = mon('test-wing');
   p.released.push(gone);
   p.discard.push(old, strategy('Junk', []));
   s = cast(s, 'player', [{ op: 'return', filter: { cardType: 'Pokémon' } }]);
@@ -184,14 +185,14 @@ const handIds = (s, who = 'player') => s.players[who].hand.map((c) => c.uid);
 {
   let s = match();
   const p = s.players.player;
-  p.released.push(mon('absol'));
+  p.released.push(mon('test-shadow'));
   const ctx = { who: 'player', source: { kind: 'strategy' } };
   assert.ok(!canResolve(s, ctx, [{ op: 'return', filter: { cardType: 'Pokémon' } }]), 'only Released matches: unplayable');
   assert.ok(canResolve(s, ctx, [{ op: 'return', filter: { cardType: 'Pokémon' }, upTo: true, count: 2 }]));
   const card = strategy('Dive', [{ op: 'return', filter: { cardType: 'Pokémon' } }]);
   p.hand.push(card);
   assert.ok(!legalActions(s, 'player').includes('playStrategy'), 'not offered as a move');
-  p.discard.push(mon('pidgey'), mon('geodude'));
+  p.discard.push(mon('test-wing'), mon('test-rock'));
   s = cast(s, 'player', [{ op: 'return', filter: { cardType: 'Pokémon' }, upTo: true, count: 2 }]);
   assert.deepEqual([s.pending.min, s.pending.max], [0, 2]);
   s = choose(s, { uids: [] });
@@ -206,9 +207,9 @@ const handIds = (s, who = 'player') => s.players[who].hand.map((c) => c.uid);
   let s = match();
   const p = s.players.player;
   p.baseEnergy = 0;
-  const rally = place(s, 'player', 1, 0, mon('quagsire', ability('Rally', 'Gain 1.', [{ op: 'gainEnergy', amount: 1 }])));
-  const cheap = mon('pidgey', ability('On Summon', 'Gain 1.', [{ op: 'gainEnergy', amount: 1 }]));
-  const pricey = mon('absol');
+  const rally = place(s, 'player', 1, 0, mon('test-mud', ability('Rally', 'Gain 1.', [{ op: 'gainEnergy', amount: 1 }])));
+  const cheap = mon('test-wing', ability('On Summon', 'Gain 1.', [{ op: 'gainEnergy', amount: 1 }]));
+  const pricey = mon('test-shadow');
   p.hand.push(cheap, pricey);
   p.zones[1].location = { uid: 'loc', name: 'Test Cape', cardType: 'Location', quest: { text: 'Summon 1 Pokémon into this Zone.', label: 'Summon here', on: 'summon', inZone: true, count: 5 }, xp: 1, effects: [], progress: 0 };
   s = cast(s, 'player', [{ op: 'freeSummon', filter: { energyCost: { max: 2 } } }]);
@@ -228,7 +229,7 @@ const handIds = (s, who = 'player') => s.players[who].hand.map((c) => c.uid);
 // It may be declined; "it arrives Active" (a Gift Bonus) makes it Active.
 {
   let s = match();
-  const a = mon('pidgey');
+  const a = mon('test-wing');
   s.players.player.hand.push(a);
   s = cast(s, 'player', [{ op: 'freeSummon', filter: { energyCost: { max: 2 } } }]);
   s = choose(s, { uids: [] });
@@ -247,8 +248,8 @@ const handIds = (s, who = 'player') => s.players[who].hand.map((c) => c.uid);
   let s = match();
   const p = s.players.player;
   p.zones[2].trainer.passive = { text: 'The first Pokémon you summon into this Zone each Round costs 1 less.', cost: { amount: 1, first: true } };
-  const geo = mon('geodude');   // cost 2
-  const geo2 = mon('geodude');
+  const geo = mon('test-rock');   // cost 2
+  const geo2 = mon('test-rock');
   p.hand.push(geo, geo2);
   assert.equal(summonCost(s, 'player', geo, 2), 1);
   assert.equal(summonCost(s, 'player', geo, 0), 2, 'other Zones: full cost');
@@ -272,8 +273,8 @@ const handIds = (s, who = 'player') => s.players[who].hand.map((c) => c.uid);
   let s = match();
   const p = s.players.player;
   p.zones[0].trainer.passive = { text: '', cost: { amount: 1, first: true } };
-  const free = mon('pidgey');
-  const next = mon('shinx');   // cost 1
+  const free = mon('test-wing');
+  const next = mon('test-spark');   // cost 1
   p.hand.push(free, next);
   s = cast(s, 'player', [{ op: 'freeSummon', filter: {} }]);
   s = choose(s, { uids: [free.uid] });
@@ -281,7 +282,7 @@ const handIds = (s, who = 'player') => s.players[who].hand.map((c) => c.uid);
   assert.equal(summonCost(s, 'player', s.players.player.hand.find((c) => c.uid === next.uid), 0), 1, 'the free summon was the first');
   const t = match();
   t.players.player.zones[1].trainer.passive = { text: '', cost: { amount: 1, first: true } };
-  const cheap = mon('shinx');
+  const cheap = mon('test-spark');
   t.players.player.hand.push(cheap);
   cast(t, 'player', [{ op: 'reduceCost', amount: 2, target: { mode: 'targeted', side: 'friendly', kinds: ['hand'] } }], { kind: 'hand', owner: 'player', uid: cheap.uid });
   assert.equal(summonCost(t, 'player', cheap, 1), 0, '1 − 2 − 1: never below 0');
@@ -299,7 +300,7 @@ const handIds = (s, who = 'player') => s.players[who].hand.map((c) => c.uid);
 
 {
   const s = match();
-  const a = place(s, 'player', 0, 0, mon('pidgey'));   // Spent, Swift
+  const a = place(s, 'player', 0, 0, mon('test-wing'));   // Spent, Swift
   assert.ok(!isAlert(s, at(s, a)));
   cast(s, 'player', [{ op: 'ready', target: { mode: 'targeted', side: 'friendly' } }], a);
   assert.equal(at(s, a).spent, false);

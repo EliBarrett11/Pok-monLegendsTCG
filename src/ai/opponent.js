@@ -4,7 +4,7 @@
 // On a Battle turn it lists every legal move it can pay for with Base Energy
 // alone, scores each one and Pass too, and picks the best (ties at random).
 // Most moves are scored by trying them on a copy
-// of the game; draws (Ash, Quickdraw) are scored without trying them, so the
+// of the game; draws and Searches are scored without trying them, so the
 // AI never peeks at its own Draw Pile.
 
 import {
@@ -15,7 +15,7 @@ import {
 } from '../engine/game.js';
 import { baseEnergyFor } from '../engine/energy.js';
 import { cardAt } from '../engine/board.js';
-import { keywordAmount, afterShell } from '../engine/keywords.js';
+import { keywordAmount, afterShell, keywordList } from '../engine/keywords.js';
 import { statusCount } from '../engine/status.js';
 
 // Where the AI's random choices come from. Tests pass a seeded generator
@@ -59,13 +59,12 @@ function candidateMoves(state, who) {
     if (targets.length) targets.forEach((target) => moves.push({ type: 'usePower', who, zone, target }));
     else moves.push({ type: 'usePower', who, zone });
   }
-  // Strategy Cards. Recover only on its own damaged cards; Hypervoice is only
-  // playable when the opponent has Pokémon.
+  // Strategy Cards: one try per legal target (each card says which side it targets).
   const seenStrategy = new Set();
   for (const card of playableStrategies(state, who)) {
     if (card.energyCost > p.baseEnergy || seenStrategy.has(card.id)) continue;
     seenStrategy.add(card.id);
-    const targets = strategyTargets(state, who, card.uid).filter((t) => card.id !== 'recover' || t.owner === who);
+    const targets = strategyTargets(state, who, card.uid);
     if (targets.length) targets.forEach((target) => moves.push({ type: 'playStrategy', who, uid: card.uid, target }));
     else if (!card.effects.some((e) => e.target?.mode === 'targeted')) moves.push({ type: 'playStrategy', who, uid: card.uid });
   }
@@ -133,18 +132,10 @@ function bagScore(state, who, move) {
   if (move.then === 'store') return 5;
   const item = (move.mode === 'buyHand' ? p.hand : p.bag).find((i) => i.uid === move.uid);
   const price = move.mode === 'buyHand' ? item.cost / 2 : 0;
-  if (item.id === 'miracle-seed') {
-    const wants = p.hand.some((c) => (c.cardType === 'Pokémon' || c.cardType === 'Strategy')
-      && c.energyCost > p.baseEnergy && c.energyCost <= p.baseEnergy + 2);
-    return (wants ? 14 : 3) - price;
-  }
   const after = applyAction({ ...state, log: [] }, move);
-  const mine = (s) => s.players[who].zones.flatMap((z) => z.pokemon).filter(Boolean);
-  const stats = (s) => mine(s).reduce((sum, c) => sum + attackOf(c) + maxStrengthOf(c) + c.currentStrength, 0);
-  const gained = stats(after) - stats(state);
-  const readied = mine(state).filter((c) => c.spent).length - mine(after).filter((c) => c.spent).length;
-  const special = item.itemType === 'Held' && !item.held.attack && !item.held.strength ? 6 : 0;   // Oran Berry, Amulet Coin
-  return 6 + 2 * gained + 8 * readied + special - price;
+  // A Speed-Tier raise (Quick Claw) isn't in the stats: a little extra for it.
+  const special = item.itemType === 'Held' && item.held.speedUp ? 6 : 0;
+  return 6 + evaluate(state, after, who) + special - price;
 }
 
 // Random cards from hand (not the Supporter), with one that meets the Gift
@@ -235,24 +226,78 @@ function burnPressure(s, side) {
   return sum;
 }
 
+// Each deck's plan, as weights on the general scoring (1 = as is):
+//   Fire (Aggressive · Burn): push damage onto Trainers, spread Burn, use Overrun.
+//   Water (Board-Based · Value-Midrange): build Zones, heal, Douse its own Burn,
+//   grow and hold its board.
+const PLANS = {
+  fire: { trainers: 1.5, burn: 1.5, douse: 1, overrun: 6, heal: 1, board: 1, keep: 1, zone: 0 },
+  water: { trainers: 1, burn: 1, douse: 1.6, overrun: 0, heal: 1.7, board: 1.3, keep: 1.4, zone: 3 },
+};
+const NO_PLAN = { trainers: 1, burn: 1, douse: 1, overrun: 0, heal: 1, board: 1, keep: 1, zone: 0 };
+const planOf = (s, who) => PLANS[s.players[who].deck] ?? NO_PLAN;
+
+// Burn's change: on the enemy, worth having; on its own cards, worth removing (Douse).
+function burnScore(before, after, who) {
+  const plan = planOf(before, who);
+  const foe = opponentOf(who);
+  return plan.burn * (burnPressure(after, foe) - burnPressure(before, foe)) - plan.douse * (burnPressure(after, who) - burnPressure(before, who));
+}
+
 const value = (cards) => cards.reduce((sum, c) => sum + (c.energyCost ?? 0) + (c.attackValue ?? 0), 0);
 // Pokémon newly in the Released Pile (defeated), not other Released cards.
 const newlyReleased = (before, after, who) => after.players[who].released.slice(before.players[who].released.length)
   .filter((c) => c.cardType === 'Pokémon');
 
+// What a move changed, from `who`'s side, for moves scored by trying them:
+// damage dealt and Pokémon defeated, Trainer Strength taken or healed,
+// healing, stats and keywords gained, Pokémon readied, Burn pressure, cards
+// gained in hand, PokéDollars and XP. (Attacks and summons add their own terms.)
+function evaluate(before, after, who) {
+  const foe = opponentOf(who);
+  const arena = (s, side) => s.players[side].zones.flatMap((z) => z.pokemon).filter(Boolean);
+  const trainerTotal = (s, side) => s.players[side].zones.reduce((sum, z) => sum + Math.max(0, z.trainer.strength), 0);
+  const health = (s, side) => arena(s, side).reduce((sum, c) => sum + Math.max(0, c.currentStrength), 0);
+  const stats = (s, side) => arena(s, side).reduce((sum, c) => sum + attackOf(c) + maxStrengthOf(c), 0);
+  const keywords = (s, side) => arena(s, side).reduce((sum, c) => sum + keywordList(c).length, 0);
+  const overruns = (s, side) => arena(s, side).filter((c) => keywordList(c).some((k) => k.key === 'Overrun')).length;
+  const plan = planOf(before, who);
+  const spent = (s, side) => arena(s, side).filter((c) => c.spent).length;
+  const enemyLost = newlyReleased(before, after, foe);
+  const ownLost = newlyReleased(before, after, who);
+  const healOwn = Math.max(0, health(after, who) - health(before, who) - (stats(after, who) - stats(before, who)));
+  let score = 0;
+  score += enemyLost.length ? 50 + value(enemyLost) : 0;
+  score -= ownLost.length ? plan.keep * (25 + value(ownLost)) : 0;
+  score += 3 * plan.trainers * (trainerTotal(before, foe) - trainerTotal(after, foe));
+  score += 3 * Math.max(0, trainerTotal(after, who) - trainerTotal(before, who));
+  score += 2 * Math.max(0, health(before, foe) - health(after, foe));
+  score += 1.5 * plan.heal * healOwn;
+  score += 2 * plan.board * (stats(after, who) - stats(before, who));
+  score += 4 * (keywords(after, who) - keywords(before, who));
+  score += plan.overrun * (overruns(after, who) - overruns(before, who));
+  score += 8 * Math.max(0, spent(before, who) - spent(after, who));
+  score += burnScore(before, after, who);
+  score += 4 * Math.max(0, after.players[who].hand.length - before.players[who].hand.length);
+  score += 2 * (after.players[who].dollars - before.players[who].dollars);
+  score += 5 * (after.players[who].xp - before.players[who].xp);
+  return score;
+}
+
+// What a card or Power costs to use, in score points: Energy spent now.
+const energyCost = (n) => 1.5 * n;
+
 // Higher is better. Roughly, from the top:
 //   1000 wins the match · 100 per enemy Trainer brought to 0 ·
 //   60+ defeats an enemy Pokémon without losing ours · 40+ hits the weakest
-//   enemy Trainer · 20+ plays a Pokémon (pricier, with Passive bonuses, away
-//   from enemy Brock damage) · 12–25 Brock buff / Ash draw / Misty chip ·
+//   enemy Trainer · 20+ plays a Pokémon (pricier, with Passive bonuses, into
+//   a Zone that helps it) · cards and Powers by what trying them changes ·
 //   5+ other attacks · -20 trades that lose the attacker for nothing.
 function scoreMove(state, who, move) {
   const trainer = move.type === 'usePower' ? state.players[who].zones[move.zone].trainer : null;
-  if (trainer?.id === 'ash') return 12;
   const strategy = move.type === 'playStrategy' ? state.players[who].hand.find((c) => c.uid === move.uid) : null;
-  if (strategy?.id === 'quickdraw') return 16;
-  // Search is like a draw: scored without trying it, so it never sees its own Draw Pile.
-  if (strategy?.effects.some((e) => e.op === 'search')) return 16;
+  // Searching and drawing are scored without trying them, so it never sees its own Draw Pile.
+  if (strategy?.effects.some((e) => e.op === 'search' || e.op === 'draw')) return 16 - energyCost(strategy.energyCost);
   // Retain on a card in hand: worth what keeping that card is worth.
   if (strategy && move.target?.kind === 'hand' && strategy.effects.some((e) => e.op === 'retain')) {
     return 6 + keepValue(state, who, state.players[who].hand.find((c) => c.uid === move.target.uid));
@@ -269,22 +314,23 @@ function scoreMove(state, who, move) {
   const removed = enemyTrainers(state).filter((str, i) => str > 0 && enemyTrainers(after)[i] === 0).length;
   const enemyLost = newlyReleased(state, after, foe);
   const ownLost = newlyReleased(state, after, who);
+  const plan = planOf(state, who);
   let score = 100 * removed + 5 * (after.players[who].xp - state.players[who].xp);   // quests completed
   // Burn: future damage on the enemy is worth having (on Trainers most), on its own cards worth removing.
-  score += (burnPressure(after, foe) - burnPressure(state, foe)) - (burnPressure(after, who) - burnPressure(state, who));
+  score += burnScore(state, after, who);
   // Enemy Trainer Strength lost other than by attacking the Trainer directly (Overrun, effects).
   if (move.target?.kind !== 'trainer' || move.type !== 'command') {
     const total = (s) => s.players[foe].zones.reduce((sum, z) => sum + Math.max(0, z.trainer.strength), 0);
-    score += 3 * (total(state) - total(after));
+    score += 3 * plan.trainers * (total(state) - total(after));
   }
 
   if (move.type === 'command') {
     if (move.target.kind === 'trainer') {
       const before = state.players[foe].zones[move.target.zone].trainer.strength;
-      return score + 40 + (15 - before) + (before - after.players[foe].zones[move.target.zone].trainer.strength);
+      return score + 40 + (15 - before) + plan.trainers * (before - after.players[foe].zones[move.target.zone].trainer.strength);
     }
     if (enemyLost.length && !ownLost.length) return score + 60 + value(enemyLost);
-    if (ownLost.length && !enemyLost.length) return score - 20;
+    if (ownLost.length && !enemyLost.length) return score - 20 * plan.keep;
     if (enemyLost.length) return score + 10 + value(enemyLost) - value(ownLost);
     // Chip damage: worth less on a target that will Regenerate it back (Shell is
     // already in the damage the try dealt).
@@ -296,31 +342,20 @@ function scoreMove(state, who, move) {
 
   if (move.type === 'playPokemon') return score + summonScore(state, after, who, move);
 
-  if (strategy?.id === 'hypervoice') {
-    // Damage actually dealt: Strength lost by each enemy Pokémon (all of it if defeated).
-    let dealt = 0;
-    state.players[foe].zones.forEach((z, zone) => z.pokemon.forEach((c, space) => {
-      if (c) dealt += c.currentStrength - Math.max(0, after.players[foe].zones[zone].pokemon[space]?.currentStrength ?? 0);
-    }));
-    return score + 10 + 4 * dealt + (enemyLost.length ? 30 + value(enemyLost) : 0);
-  }
-  if (strategy?.id === 'recover') {
-    const strengthAt = (s) => {
-      const z = s.players[who].zones[move.target.zone];
-      return move.target.kind === 'trainer' ? z.trainer.strength : z.pokemon[move.target.space].currentStrength;
-    };
-    const healed = strengthAt(after) - strengthAt(state);
-    const trainerInDanger = move.target.kind === 'trainer' && strengthAt(state) <= 6 ? 15 : 0;
-    return score + 8 + 3 * healed + trainerInDanger;
-  }
+  // Strategy Cards and Powers: what trying them changed, less the Energy spent.
+  // (Burn, Trainer damage and XP are already in `score`; evaluate counts them too,
+  // so leave them out of it here.)
+  const cost = strategy ? strategy.energyCost : trainer.power.cost;
+  return 4 + score + evaluate(state, after, who) - burnAndTrainers(state, after, who) - energyCost(cost);
+}
 
-  // Powers.
-  if (enemyLost.length) return score + 60 + value(enemyLost);
-  if (trainer?.id === 'brock') {
-    const target = state.players[who].zones[move.target.zone].pokemon[move.target.space];
-    return score + 15 + maxStrengthOf(target);
-  }
-  return score + 15;
+// The part of evaluate() that scoreMove has already counted (Burn pressure,
+// enemy Trainer Strength lost, XP), so a move isn't scored twice for it.
+function burnAndTrainers(before, after, who) {
+  const foe = opponentOf(who);
+  const total = (s) => s.players[foe].zones.reduce((sum, z) => sum + Math.max(0, z.trainer.strength), 0);
+  return burnScore(before, after, who) + 3 * planOf(before, who).trainers * (total(before) - total(after))
+    + 5 * (after.players[who].xp - before.players[who].xp);
 }
 
 // Locations: worth more for more XP, and a zone-tied quest more where it
@@ -351,25 +386,30 @@ function supporterScore(state, who, move, card) {
   const paid = state.players[who].hand.filter((c) => [...move.discard, ...move.release].includes(c.uid));
   const cost = 2 * move.discard.length + 4 * move.release.length;
   const gift = giftMet(card, paid);
-  if (card.id === 'tracey') return 14 + (gift ? 5 : 0) - cost;   // a draw: not tried, no peeking
-  if ([...card.effects, ...(card.gift?.effects ?? [])].some((e) => e.op === 'search')) return 14 + (gift ? 5 : 0) - cost;
+  // Searching and drawing: scored without trying them (no peeking at its own Draw Pile).
+  if ([...card.effects, ...(card.gift?.effects ?? [])].some((e) => e.op === 'search' || e.op === 'draw')) return 14 + (gift ? 5 : 0) - cost;
   const after = applyAction({ ...state, log: [] }, move);
-  const mine = (s) => s.players[who].zones.flatMap((z) => z.pokemon).filter(Boolean);
-  const stats = (s) => mine(s).reduce((sum, c) => sum + attackOf(c) + maxStrengthOf(c) + c.currentStrength, 0);
-  const trainers = (s) => s.players[who].zones.reduce((sum, z) => sum + z.trainer.strength, 0);
-  const gained = (stats(after) - stats(state)) + (trainers(after) - trainers(state));
   const danger = move.target?.kind === 'trainer' && state.players[who].zones[move.target.zone].trainer.strength <= 6 ? 15 : 0;
-  return 6 + 2 * gained + danger - cost;
+  return 6 + evaluate(state, after, who) + danger - cost;
 }
 
-// Playing a Pokémon: pricier is better; Passive bonuses help; Brock damage hurts.
+// Playing a Pokémon: pricier is better; Passive bonuses and keywords help;
+// arriving hurt is bad. Building a Zone: more for a quest there ("Have N in
+// this Zone", "Summon N into this Zone") and, for the Water plan, for joining
+// friendly Pokémon (Rally, Lapras, Chansey); and what its arrival did (On
+// Summon damage, healing…).
 function summonScore(before, after, who, { uid, zone, space }) {
   const card = before.players[who].hand.find((c) => c.uid === uid);
   const placed = after.players[who].zones[zone].pokemon[space];
   if (!placed) return -50;   // defeated as it arrived
-  const bonus = Object.values(placed.aura).reduce((sum, b) => sum + b.attack + b.strength, 0);
+  const bonus = Object.values(placed.aura).reduce((sum, b) => sum + b.attack + b.strength + 3 * (b.keywords?.length ?? 0), 0);
   const hurt = maxStrengthOf(placed) - placed.currentStrength;
-  return 20 + 2 * card.energyCost + 3 * bonus - 8 * hurt;
+  const side = before.players[who].zones[zone];
+  const friends = side.pokemon.filter(Boolean).length;
+  const quest = ['presence', 'summon'].includes(side.location?.quest?.on) && side.location.quest.inZone ? 6 : 0;
+  const zoneBuild = planOf(before, who).zone * friends + quest;
+  const arrival = evaluate(before, after, who) - 2 * (attackOf(placed) + maxStrengthOf(placed));   // its own stats aside
+  return 20 + 2 * card.energyCost + 3 * bonus - 8 * hurt + zoneBuild + Math.max(0, arrival);
 }
 
 // How much a card is worth keeping in hand for next Round: most for a
@@ -405,9 +445,10 @@ function pickCards(state, who) {
   return { type: 'resolveChoice', who, uids: cards.slice(0, max).map((c) => c.uid) };
 }
 
-// Choices mid-resolution: an ability's target is a random legal one (Retain:
-// the card most worth keeping); Search, Return and free summons pick the
-// strongest cards; a free summon is always taken, into the best-scoring zone.
+// Choices mid-resolution: an ability's target is the one that does the most
+// when tried (Retain: the card most worth keeping); Search, Return and free
+// summons pick the strongest cards; a free summon is always taken, into the
+// best-scoring zone.
 function resolveChoice(state, who) {
   if (state.pending.kind === 'pick') return pickCards(state, who);
   if (state.pending.kind === 'target') {
@@ -416,7 +457,13 @@ function resolveChoice(state, who) {
       const best = [...options].sort((a, b) => keepValue(state, who, cardAt(state, b)) - keepValue(state, who, cardAt(state, a)))[0];
       return { type: 'resolveChoice', who, target: best };
     }
-    return { type: 'resolveChoice', who, target: options[Math.floor(random() * options.length)] };
+    let best = null;
+    for (const target of options) {
+      const move = { type: 'resolveChoice', who, target };
+      const score = evaluate(state, applyAction({ ...state, log: [] }, move), who) + random() * 0.01;
+      if (!best || score > best.score) best = { move, score };
+    }
+    return best.move;
   }
   let best = null;
   const seen = new Set();
