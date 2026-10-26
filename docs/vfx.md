@@ -103,7 +103,7 @@ Each step leaves the game playable and comes with a test. Visual quality can't b
 
 ## 8. VFX texture kit
 
-Elliott generates these images. Each is processed into a transparent WebP in `assets/vfx/`.
+Elliott generates these images. Each is processed into a transparent WebP in `assets/vfx/`. **Style:** anime battle-effect style, cel-shaded with 2–3 flat tones per colour, bold clean shapes and crisp edges, saturated colours, not photorealistic. The procedural effects should match it (chunky shapes and flat colour bands rather than soft realistic noise).
 
 | File | Contents |
 |---|---|
