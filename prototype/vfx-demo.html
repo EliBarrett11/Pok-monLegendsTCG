@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VFX Style Demo — Fire Physical</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:wght@500;800&family=Cinzel:wght@700;800&display=swap">
+<style>
+  html, body { margin: 0; height: 100%; background: #0d0805; overflow: hidden; }
+  #stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0;
+    background: url('../assets/ui/table.jpg') center/cover; }
+  #shake { position: absolute; inset: 0; }
+  .mat { position: absolute; left: 260px; top: 70px; width: 1400px; height: 940px; border-radius: 18px;
+    background: url('../assets/ui/board-mat.jpg') center/cover; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
+  .card { position: absolute; width: 250px; height: 350px; border-radius: 14px; will-change: transform, filter;
+    box-shadow: 0 18px 40px rgba(0,0,0,.55), 0 0 0 3px #b8893a, 0 0 0 5px #2a1806; overflow: hidden; }
+  .card .art { position: absolute; inset: 0; background-size: cover; background-position: center; }
+  .card .plate { position: absolute; left: 0; right: 0; bottom: 0; height: 78px;
+    background: linear-gradient(180deg, rgba(30,16,6,0) 0%, rgba(30,16,6,.88) 38%, rgba(20,10,3,.96) 100%); }
+  .card .name { position: absolute; left: 16px; bottom: 40px; font: 800 24px Cinzel, serif; color: #f6e7c4; text-shadow: 0 2px 4px #000; }
+  .card .stat { position: absolute; bottom: 10px; font: 800 26px 'Alegreya Sans', sans-serif; color: #fff; text-shadow: 0 2px 4px #000; }
+  .card .atk { left: 16px; color: #ffd27a; }
+  .card .hp { right: 16px; color: #9fe0ff; }
+  .card .char { position: absolute; inset: -6px; background: url('../assets/vfx/char-edge.webp') center/100% 100%; opacity: 0; pointer-events: none; }
+  .badge { position: absolute; top: 12px; right: 12px; min-width: 46px; height: 46px; border-radius: 23px; padding: 0 8px; box-sizing: border-box;
+    display: flex; align-items: center; justify-content: center; gap: 2px; font: 800 26px 'Alegreya Sans', sans-serif; color: #fff;
+    background: radial-gradient(circle at 40% 35%, #ff9a3c, #b5260c 70%); box-shadow: 0 0 0 2px #2a1806, 0 0 18px #ff6a1a; transform: scale(0); }
+  canvas { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; pointer-events: none; }
+  #bloom { mix-blend-mode: screen; opacity: .85; }
+  #soft { filter: brightness(.7) sepia(.35); }
+  #flash { position: absolute; inset: 0; background: radial-gradient(circle at var(--x) var(--y), rgba(255,235,190,.9), rgba(255,160,60,.25) 40%, rgba(255,120,40,0) 70%); opacity: 0; pointer-events: none; mix-blend-mode: screen; }
+  .num { position: absolute; font: 800 110px Cinzel, serif; color: #fff4d6; pointer-events: none;
+    -webkit-text-stroke: 5px #4a1200; paint-order: stroke fill; text-shadow: 0 0 24px #ff7a1a, 0 6px 0 #4a1200; transform: translate(-50%,-50%) scale(0); }
+  .label { position: absolute; font: 700 22px Cinzel, serif; color: #f2d9a6; letter-spacing: .08em; text-shadow: 0 2px 6px #000; }
+  #ui { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); display: flex; gap: 12px; align-items: center;
+    padding: 12px 18px; border-radius: 14px; background: rgba(20,10,4,.82); box-shadow: 0 0 0 2px #b8893a, 0 10px 30px rgba(0,0,0,.6); }
+  #ui button { font: 700 20px Cinzel, serif; color: #2a1806; background: linear-gradient(#f3d58c, #c89a45); border: 0; border-radius: 9px; padding: 10px 18px; cursor: pointer; box-shadow: 0 3px 0 #6b4a1a; }
+  #ui button.on { background: linear-gradient(#ffb066, #e0662a); color: #fff; }
+  #ui span { font: 700 18px Cinzel, serif; color: #e9cf98; margin-left: 6px; }
+  .title { position: absolute; left: 300px; top: 100px; font: 800 30px Cinzel, serif; color: #f6e7c4; text-shadow: 0 2px 8px #000; }
+  .sub { position: absolute; left: 300px; top: 142px; font: 500 22px 'Alegreya Sans', sans-serif; color: #e3cfa8; text-shadow: 0 2px 6px #000; max-width: 640px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="shake">
+    <div class="mat"></div>
+    <div class="title">VFX style demo — Fire Physical</div>
+    <div class="sub">Arcanine (5 Physical, Scorch 1) charges Quagsire. Hit-stop, shake and flash scale with damage; Scorch leaves the target burning.</div>
+    <div class="label" style="left:1260px;top:250px">Opponent</div>
+    <div class="label" style="left:470px;top:960px">You</div>
+    <div class="card" id="def" style="left:1260px;top:290px">
+      <div class="art" style="background-image:url('../assets/cards/quagsire.jpg')"></div>
+      <div class="plate"></div><div class="name">Quagsire</div>
+      <div class="stat atk">⚔ 4</div><div class="stat hp" id="defHp">♥ 7</div>
+      <div class="char" id="char"></div>
+      <div class="badge" id="badge"><span id="burnN">1</span></div>
+    </div>
+    <div class="card" id="atk" style="left:470px;top:590px">
+      <div class="art" style="background-image:url('../assets/cards/arcanine.jpg')"></div>
+      <div class="plate"></div><div class="name">Arcanine</div>
+      <div class="stat atk">⚔ 5</div><div class="stat hp">♥ 6</div>
+    </div>
+    <canvas id="soft" width="1920" height="1080"></canvas>
+    <canvas id="bloom" width="960" height="540"></canvas>
+    <canvas id="fx" width="1920" height="1080"></canvas>
+    <div id="flash"></div>
+  </div>
+  <div id="ui">
+    <button id="play">▶ Play attack</button>
+    <span>Speed</span>
+    <button data-speed="0.35">Slow-mo</button>
+    <button data-speed="1" class="on">1×</button>
+    <span>Burn</span>
+    <button data-burn="1" class="on">1</button>
+    <button data-burn="2">2</button>
+    <button data-burn="4">4</button>
+  </div>
+</div>
+<script>
+// A standalone style prototype (not part of the game): Canvas 2D with additive
+// blending and a blurred bloom copy, standing in for the planned WebGL layer.
+const stage = document.getElementById('stage');
+function fit() {
+  const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+  stage.style.transform = `translate(${(innerWidth - 1920 * s) / 2}px, ${(innerHeight - 1080 * s) / 2}px) scale(${s})`;
+}
+addEventListener('resize', fit); fit();
+
+const fx = document.getElementById('fx').getContext('2d');
+const soft = document.getElementById('soft').getContext('2d');   // smoke and other solid effects (no bloom)
+const bloom = document.getElementById('bloom').getContext('2d');
+const $ = (id) => document.getElementById(id);
+const atkEl = $('atk'), defEl = $('def'), shakeEl = $('shake'), flashEl = $('flash');
+
+const TEX = {};
+let ATLAS = {};
+const names = ['flame', 'fire-burst', 'embers-atlas', 'smoke', 'impact', 'shockwave'];
+const load = (n) => new Promise((r) => { const i = new Image(); i.onload = () => { TEX[n] = i; r(); }; i.src = `../assets/vfx/${n}.webp`; });
+Promise.all([...names.map(load), fetch('../assets/vfx/manifest.json').then((r) => r.json()).then((m) => { ATLAS = m; })]).then(() => requestAnimationFrame(loop));
+
+// ---------- clock: sim time can freeze (hit-stop) and slow down ----------
+let speed = 1, sim = 0, lastReal = performance.now(), freezeUntil = 0;
+let timeline = [], running = null;
+const rnd = (a, b) => a + Math.random() * (b - a);
+const ease = { outCubic: (t) => 1 - (1 - t) ** 3, inQuad: (t) => t * t, outBack: (t) => 1 + 2.7 * (t - 1) ** 3 + 1.7 * (t - 1) ** 2, outElastic: (t) => t === 0 || t === 1 ? t : 2 ** (-10 * t) * Math.sin((t * 10 - 0.75) * (2 * Math.PI / 3)) + 1 };
+const clamp01 = (t) => Math.max(0, Math.min(1, t));
+
+// ---------- particles ----------
+let parts = [];
+function spawn(o) {
+  parts.push(Object.assign({ x: 0, y: 0, vx: 0, vy: 0, g: 0, drag: 0, rot: 0, vr: 0, s0: 1, s1: 1, a0: 1, a1: 0, life: 500, age: 0, add: true, fadeIn: 0, sprite: null, tex: 'flame', ax: 0.5, ay: 0.5, stretch: 1 }, o));
+}
+function emberSprite() { const s = ATLAS.embers.atlas.sprites; return s[Math.floor(Math.random() * s.length)]; }
+function drawParts(dt) {
+  fx.clearRect(0, 0, 1920, 1080); soft.clearRect(0, 0, 1920, 1080);
+  for (const p of parts) {
+    p.age += dt;
+    p.vy += p.g * dt / 1000; p.vx *= 1 - p.drag * dt / 1000; p.vy *= 1 - p.drag * dt / 1000;
+    p.x += p.vx * dt / 1000; p.y += p.vy * dt / 1000; p.rot += p.vr * dt / 1000;
+  }
+  parts = parts.filter((p) => p.age < p.life);
+  for (const pass of [false, true]) {
+    const ctx = pass ? fx : soft;
+    ctx.globalCompositeOperation = pass ? 'lighter' : 'source-over';
+    for (const p of parts) {
+      if (p.add !== pass) continue;
+      const t = p.age / p.life;
+      const fadeIn = p.fadeIn ? clamp01(p.age / p.fadeIn) : 1;
+      ctx.globalAlpha = Math.max(0, (p.a0 + (p.a1 - p.a0) * t) * fadeIn);
+      const s = p.s0 + (p.s1 - p.s0) * ease.outCubic(t);
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      if (p.sprite) {
+        const [sx, sy, w, h] = p.sprite;
+        ctx.drawImage(TEX['embers-atlas'], sx, sy, w, h, -w * s / 2, -h * s / 2, w * s, h * s);
+      } else {
+        const img = TEX[p.tex];
+        ctx.drawImage(img, -img.width * s * p.ax * p.stretch, -img.height * s * p.ay, img.width * s * p.stretch, img.height * s);
+      }
+      ctx.restore();
+    }
+  }
+  fx.globalAlpha = soft.globalAlpha = 1; fx.globalCompositeOperation = 'source-over';
+  // Bloom: a blurred, half-resolution copy of the effects, screened on top.
+  bloom.clearRect(0, 0, 960, 540);
+  bloom.filter = 'blur(10px)';
+  bloom.drawImage(fx.canvas, 0, 0, 960, 540);
+  bloom.filter = 'none';
+}
+
+// ---------- geometry ----------
+const ATK_HOME = { x: 470 + 125, y: 590 + 175 };
+const DEF_HOME = { x: 1260 + 125, y: 290 + 175 };
+const dir = (() => { const dx = DEF_HOME.x - ATK_HOME.x, dy = DEF_HOME.y - ATK_HOME.y, l = Math.hypot(dx, dy); return { x: dx / l, y: dy / l, l }; })();
+const angle = Math.atan2(dir.y, dir.x);
+let atkPos = { x: 0, y: 0, s: 1, r: 0 }, defPos = { x: 0, y: 0, r: 0, tint: 0 };
+let shake = { amp: 0, until: 0, start: 0 };
+let burn = 0, burnTarget = 1, hp = 7;
+
+function setCards() {
+  atkEl.style.transform = `translate(${atkPos.x}px, ${atkPos.y}px) rotate(${atkPos.r}rad) scale(${atkPos.s})`;
+  atkEl.style.zIndex = 3;
+  defEl.style.transform = `translate(${defPos.x}px, ${defPos.y}px) rotate(${defPos.r}rad)`;
+  defEl.style.filter = defPos.tint > 0.01 ? `brightness(${1 + defPos.tint * 1.4}) sepia(${defPos.tint}) saturate(${1 + defPos.tint * 2}) hue-rotate(-15deg)` : '';
+}
+
+// ---------- the attack timeline (sim ms) ----------
+const WIND = 240, DASH = 260, RET = 420;
+function playAttack() {
+  sim = 0; hp = 7; $('defHp').textContent = '♥ 7';
+  running = { t0: 0, hit: false, scorched: false };
+}
+function attackFrame(dt) {
+  const t = sim;
+  const back = { x: -dir.x * 46, y: -dir.y * 46 };
+  const contact = { x: dir.x * (dir.l - 210), y: dir.y * (dir.l - 210) };
+  if (t < WIND) {
+    const k = ease.outCubic(t / WIND);
+    atkPos = { x: back.x * k, y: back.y * k, s: 1 + 0.07 * k, r: -0.06 * k };
+    // ignition: flames lick up around the card's edge
+    for (let i = 0; i < 2; i++) {
+      const side = Math.random() < 0.5 ? -1 : 1;
+      spawn({ tex: 'flame', x: ATK_HOME.x + atkPos.x + side * rnd(60, 135), y: ATK_HOME.y + atkPos.y + rnd(-150, 170), vy: rnd(-260, -140), vx: rnd(-20, 20),
+        s0: rnd(0.12, 0.22), s1: rnd(0.28, 0.42), a0: 0.95, a1: 0, life: rnd(380, 560), fadeIn: 60, ay: 0.85, rot: rnd(-0.15, 0.15) });
+    }
+  } else if (t < WIND + DASH) {
+    const k = ease.inQuad((t - WIND) / DASH);
+    atkPos = { x: back.x + (contact.x - back.x) * k, y: back.y + (contact.y - back.y) * k, s: 1.07 + 0.05 * k, r: -0.06 + 0.1 * k };
+    // Flame Wheel trail: big flames left behind along the path, blown backwards
+    for (let i = 0; i < 3; i++) {
+      spawn({ tex: 'flame', x: ATK_HOME.x + atkPos.x + rnd(-70, 70), y: ATK_HOME.y + atkPos.y + rnd(-90, 90), vx: -dir.x * rnd(200, 420), vy: -dir.y * rnd(200, 420) - 80,
+        s0: rnd(0.35, 0.55), s1: rnd(0.12, 0.2), a0: 0.9, a1: 0, life: rnd(260, 420), rot: angle - Math.PI / 2 + Math.PI + rnd(-0.3, 0.3), ay: 0.75 });
+    }
+    spawn({ sprite: emberSprite(), x: ATK_HOME.x + atkPos.x + rnd(-110, 110), y: ATK_HOME.y + atkPos.y + rnd(-150, 150), vx: -dir.x * rnd(80, 260), vy: rnd(-200, -40), g: 300,
+      s0: rnd(0.5, 0.9), s1: 0.3, a0: 1, a1: 0, life: rnd(500, 800), vr: rnd(-6, 6) });
+  } else {
+    if (!running.hit) { running.hit = true; impact(); }
+    const k = clamp01((t - WIND - DASH) / RET);
+    const e = ease.outBack(k);
+    atkPos = { x: contact.x * (1 - e), y: contact.y * (1 - e), s: 1.12 - 0.12 * e, r: 0.04 * (1 - e) };
+  }
+  // defender recoil (spring)
+  if (running.hit) {
+    const k = clamp01((t - WIND - DASH) / 650);
+    const spring = Math.exp(-6 * k) * Math.cos(k * 14);
+    defPos = { x: dir.x * 46 * spring, y: dir.y * 46 * spring, r: 0.09 * spring, tint: Math.max(0, 1 - k * 2.2) };
+    if (!running.scorched && t > WIND + DASH + 700) { running.scorched = true; applyBurn(); }
+    if (t > WIND + DASH + 1300) running = null;
+  }
+}
+
+function impact() {
+  const cx = DEF_HOME.x - dir.x * 40, cy = DEF_HOME.y - dir.y * 40;
+  freezeUntil = performance.now() + 110;           // hit-stop
+  shake = { amp: 20, start: sim, until: sim + 320 };
+  flashEl.style.setProperty('--x', cx + 'px'); flashEl.style.setProperty('--y', cy + 'px');
+  flashEl.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 260 / speed, easing: 'ease-out' });
+  spawn({ tex: 'impact', x: cx, y: cy, s0: 0.35, s1: 1.15, a0: 1, a1: 0, life: 230, rot: rnd(0, 6) });
+  spawn({ tex: 'fire-burst', x: cx, y: cy, s0: 0.25, s1: 1.25, a0: 1, a1: 0, life: 520, vr: rnd(-1, 1), rot: rnd(0, 6) });
+  spawn({ tex: 'fire-burst', x: cx, y: cy, s0: 0.15, s1: 0.8, a0: 0.9, a1: 0, life: 380, vr: 2, rot: rnd(0, 6) });
+  spawn({ tex: 'shockwave', x: cx, y: cy + 60, s0: 0.25, s1: 1.35, a0: 0.75, a1: 0, life: 420, rot: angle * 0.15 });
+  for (let i = 0; i < 40; i++) {
+    const a = rnd(0, Math.PI * 2), v = rnd(380, 1150);
+    spawn({ sprite: emberSprite(), x: cx, y: cy, vx: Math.cos(a) * v + dir.x * 300, vy: Math.sin(a) * v + dir.y * 300 - 200, g: 1300, drag: 1.4,
+      s0: rnd(0.55, 1.05), s1: 0.25, a0: 1, a1: 0.2, life: rnd(600, 1100), vr: rnd(-10, 10), rot: a });
+  }
+  for (let i = 0; i < 4; i++) {
+    spawn({ tex: 'smoke', add: false, x: cx + rnd(-150, 150), y: cy - rnd(120, 200), vx: rnd(-50, 50), vy: rnd(-110, -60),
+      s0: rnd(0.16, 0.22), s1: rnd(0.34, 0.45), a0: 0.32, a1: 0, life: rnd(800, 1100), fadeIn: 150, rot: rnd(0, 6), vr: rnd(-0.4, 0.4) });
+  }
+  hp = 2; $('defHp').textContent = '♥ 2';
+  number('−5', DEF_HOME.x, DEF_HOME.y - 40);
+}
+
+function number(text, x, y) {
+  const el = document.createElement('div');
+  el.className = 'num'; el.textContent = text; el.style.left = x + 'px'; el.style.top = y + 'px';
+  shakeEl.appendChild(el);
+  el.animate([
+    { transform: 'translate(-50%,-50%) scale(0)', opacity: 1 },
+    { transform: 'translate(-50%,-50%) scale(1.55)', opacity: 1, offset: 0.12 },
+    { transform: 'translate(-50%,-50%) scale(1)', opacity: 1, offset: 0.25 },
+    { transform: 'translate(-50%,-90%) scale(1)', opacity: 1, offset: 0.75 },
+    { transform: 'translate(-50%,-120%) scale(.9)', opacity: 0 },
+  ], { duration: 1500 / speed, easing: 'ease-out' }).onfinish = () => el.remove();
+}
+
+function applyBurn() {
+  // the clinging embers swirl into the card and catch
+  for (let i = 0; i < 18; i++) {
+    const a = rnd(0, Math.PI * 2), r = rnd(160, 260);
+    spawn({ sprite: emberSprite(), x: DEF_HOME.x + Math.cos(a) * r, y: DEF_HOME.y + Math.sin(a) * r, vx: -Math.cos(a) * r * 2.4, vy: -Math.sin(a) * r * 2.4,
+      drag: 2.5, s0: 0.9, s1: 0.3, a0: 0, a1: 1, life: 420, fadeIn: 0, vr: 8 });
+  }
+  setTimeout(() => {
+    burn = burnTarget; $('burnN').textContent = burn;
+    $('badge').animate([{ transform: 'scale(0)' }, { transform: 'scale(1.5)' }, { transform: 'scale(1)' }], { duration: 420 / speed, easing: 'ease-out', fill: 'forwards' });
+    spawn({ tex: 'fire-burst', x: DEF_HOME.x, y: DEF_HOME.y + 60, s0: 0.2, s1: 0.75, a0: 0.8, a1: 0, life: 380, rot: rnd(0, 6) });
+  }, 380 / speed);
+}
+
+// ---------- the burning-card idle effect, scaled by the Burn count ----------
+let burnAcc = 0;
+function burningFrame(dt, now) {
+  const charEl = $('char');
+  if (!burn) { charEl.style.opacity = 0; return; }
+  const level = Math.min(burn, 4) / 4;            // 1 → .25, 4+ → 1
+  const flicker = 0.75 + 0.25 * Math.sin(now / 90) * Math.sin(now / 37);
+  charEl.style.opacity = (0.35 + 0.65 * level) * flicker;
+  const cx = DEF_HOME.x + defPos.x, cy = DEF_HOME.y + defPos.y;
+  burnAcc += dt * (0.012 + 0.05 * level);
+  while (burnAcc > 1) {
+    burnAcc -= 1;
+    // flames licking up from the bottom edge and the sides
+    const edge = Math.random();
+    let x, y;
+    // flames hug the edges so the art and the numbers stay readable
+    if (edge < 0.35) { x = cx + rnd(-115, 115); y = cy + 182; }
+    else { x = cx + (Math.random() < 0.5 ? -132 : 132); y = cy + rnd(-130, 170); }
+    spawn({ tex: 'flame', x, y, vx: rnd(-10, 10), vy: rnd(-80, -40), s0: rnd(0.06, 0.1) * (0.8 + 0.6 * level), s1: rnd(0.11, 0.17) * (0.8 + 0.6 * level),
+      a0: 0.9, a1: 0, life: rnd(420, 700), fadeIn: 80, ay: 0.9, rot: rnd(-0.2, 0.2) });
+    if (Math.random() < 0.6) spawn({ sprite: emberSprite(), x: cx + rnd(-125, 125), y: cy + rnd(-60, 170), vx: rnd(-30, 30), vy: rnd(-160, -70),
+      s0: rnd(0.35, 0.6), s1: 0.15, a0: 1, a1: 0, life: rnd(900, 1500), vr: rnd(-4, 4) });
+    if (Math.random() < 0.12 * level) spawn({ tex: 'smoke', add: false, x: cx + rnd(-100, 100), y: cy - 150, vy: rnd(-60, -30), vx: rnd(-20, 20),
+      s0: 0.12, s1: 0.3, a0: 0.35, a1: 0, life: 1600, fadeIn: 200, rot: rnd(0, 6) });
+  }
+}
+
+// ---------- main loop ----------
+function loop(now) {
+  let dt = Math.min(50, now - lastReal); lastReal = now;
+  const frozen = now < freezeUntil;
+  const sdt = frozen ? 0 : dt * speed;
+  sim += sdt;
+  if (running) attackFrame(sdt);
+  if (shake.until > sim) {
+    const k = 1 - (sim - shake.start) / (shake.until - shake.start);
+    const a = shake.amp * k * k;
+    shakeEl.style.transform = `translate(${rnd(-a, a)}px, ${rnd(-a, a)}px)`;
+  } else shakeEl.style.transform = '';
+  setCards();
+  burningFrame(sdt, now);
+  drawParts(sdt);
+  requestAnimationFrame(loop);
+}
+
+$('play').onclick = () => { burn = 0; $('badge').getAnimations().forEach((a) => a.cancel()); playAttack(); };
+document.querySelectorAll('[data-speed]').forEach((b) => b.onclick = () => {
+  speed = +b.dataset.speed; document.querySelectorAll('[data-speed]').forEach((x) => x.classList.toggle('on', x === b));
+});
+document.querySelectorAll('[data-burn]').forEach((b) => b.onclick = () => {
+  burnTarget = +b.dataset.burn; document.querySelectorAll('[data-burn]').forEach((x) => x.classList.toggle('on', x === b));
+  if (burn) { burn = burnTarget; $('burnN').textContent = burn; }
+});
+setTimeout(() => playAttack(), 700);
+</script>
+</body>
+</html>
