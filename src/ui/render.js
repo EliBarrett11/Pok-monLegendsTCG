@@ -22,6 +22,7 @@ import { SPEEDS, getSpeed, setSpeed, speedFactor } from './settings.js';
 import { wireInteractions } from './interact.js';
 import { icon, statIcon, speedIcon, weatherIcon } from './icons.js';
 import { cardIcon, iconName } from './cardIcons.js';
+import { STATUS_VISUALS, statusLevel } from './vfx/library.js';
 
 export const STAGE = { width: 1920, height: 1080 };
 
@@ -944,6 +945,18 @@ function burnToken(c) {
   return `<div class="burn-token" title="${attr(`Burn ${n}: takes ${n} damage at Supper, then Burn goes down by 1. Douse removes it; healing doesn't.`)}">${icon('flame')}<b>${n}</b></div>`;
 }
 
+// For the effects layer (vfx/): what the card attacks with, and each Status
+// Effect's visual level (data-status-burn="1"…"4"), which also draws the
+// charred edge in CSS.
+function vfxAttrs(c) {
+  let out = c.cardType === 'Pokémon' ? ` data-ptype="${c.pokemonType}" data-atype="${c.attackType}"` : '';
+  for (const id of Object.keys(STATUS_VISUALS)) {
+    const level = statusLevel(id, statusCount(c, id));
+    if (level) out += ` data-status-${id}="${level}"`;
+  }
+  return out;
+}
+
 // Retain: a small red bookmark (cards in hand).
 function retainMark(c) {
   if (c.currentStrength !== undefined || c.cardType === 'Trainer' || !hasRetain(c)) return '';
@@ -1105,7 +1118,7 @@ function cardClasses(c, f, size, opts) {
 function card(c, size, opts = {}) {
   const f = face(c, { ...opts, size });
   const pv = previews.push({ c, opts }) - 1;
-  const head = `class="${cardClasses(c, f, size, opts)}" data-uid="${c.uid}" data-pv="${pv}"`;
+  const head = `class="${cardClasses(c, f, size, opts)}" data-uid="${c.uid}" data-pv="${pv}"${vfxAttrs(c)}`;
   const name = `<div class="plate"><span class="card-name">${c.name}</span></div>`;
   if (size === 'mini') return `<div ${head}><div class="inner">${art(c, f)}${name}</div>${f.corner ?? ''}</div>`;
   const wide = size === 'hand' || size === 'full';

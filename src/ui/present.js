@@ -10,6 +10,8 @@
 import { setCaption, cardElements, cardMarkup, STAGE } from './render.js';
 import { speedFactor } from './settings.js';
 import { burst, edgeBurst, clearParticles, reducedMotion } from './particles.js';
+import { vfxReady, playTimeline, skipTimelines, clearVfx, coins as vfxCoins } from './vfx/engine.js';
+import { attackAnimation, counterAnimation, tintOf, STATUS_VISUALS } from './vfx/library.js';
 import { phaseIcon } from './icons.js';
 
 // --- Timing and skipping -----------------------------------------------------------
@@ -21,6 +23,7 @@ const waiters = new Set();   // pauses still waiting
 // Skips to the end of the action being shown (its caption still updates).
 export function skip() {
   skipping = true;
+  skipTimelines();
   for (const a of running) a.finish();
   for (const done of [...waiters]) done();
 }
@@ -331,11 +334,12 @@ function revealPanel(e, r) {
 
 // An attack: wind-up, a lunge along the targeting arrow's curve, the impact
 // (both sides at once in a trade), then the attacker springs back.
-async function attackBeat(root, e, hits, t) {
+async function attackBeat(root, e, hits, t, scorch = null) {
   const a = shown(e.attacker.uid);
   const b = shown(e.target.uid);
   const onTarget = hits.find((h) => h.target.uid === e.target.uid);
   const onAttacker = hits.find((h) => h.target.uid === e.attacker.uid);
+  if (a && b && vfxReady() && t(1) > 0) return attackVfx(root, e, a, b, onTarget, onAttacker, t, scorch);
   if (!a || !b) {
     impact(root, b, onTarget, t);
     impact(root, a, onAttacker, t);
@@ -373,6 +377,61 @@ async function attackBeat(root, e, hits, t) {
   await wait(t(320));
 }
 
+// What a card attacks with, from its markup: Pokémon Type and Attack-Type.
+function attackerData(el) {
+  return { pokemonType: el?.dataset.ptype ?? 'Normal', attackType: el?.dataset.atype ?? 'Physical' };
+}
+
+// The hit's numbers (damage and the Strength badge counting down), and a Trainer's flinch.
+function hitNumbers(el, hit, t, { trainer = false, rect = null } = {}) {
+  if (!el || !hit) return;
+  const r = rect ?? rectOf(el);
+  const text = hit.shell ? `<span class="shell-raw">−${hit.raw}</span>−${hit.amount}<span class="shell-tag">Shell −${hit.shell}</span>` : `−${hit.amount}`;
+  floatNumber(r, text, 'damage', t(1200));
+  countBadge(el, hit.before, hit.after, t(450), 'damage');
+  if (trainer) el.animate([0, 1, 2, 3, 4, 5, 6].map((i) => ({ translate: i === 6 ? '0 0' : `${(i % 2 ? -1 : 1) * 6 * (1 - i / 6)}px 0` })), { duration: t(380) });
+}
+
+// An attack on the WebGL layer: the attacker's Type + Attack-Type animation
+// (docs/vfx.md section 3), hit-stop and shake scaled by the damage, the
+// defender's own shorter answer in a trade, and with Scorch the embers
+// swirling into the target as its Burn.
+async function attackVfx(root, e, a, b, onTarget, onAttacker, t, scorch) {
+  glow(a, 'fx-attacker');
+  glow(b, 'fx-target');
+  const A = centre(rectOf(a));
+  const B = centre(rectOf(b));
+  const line = svgLayer('fx-arrow', `<path d="${curve(A, B).d}" fill="none" stroke="#f0cf78" stroke-width="7" stroke-linecap="round" stroke-dasharray="16 8" opacity="0.6"/>`);
+  const me = attackerData(a);
+  const rate = 1 / t(1);
+  const trainer = e.target.kind === 'trainer';
+  const restA = rectOf(a);
+  const answers = [];
+  await playTimeline(attackAnimation(me), {
+    attacker: a, target: b, rate, damage: onTarget?.amount ?? 1, tint: tintOf(me.pokemonType),
+    fire: me.pokemonType === 'Fire', trade: Boolean(e.trades && onAttacker), scorch: Boolean(scorch),
+    on: {
+      impact: () => {
+        hitNumbers(b, onTarget, t, { trainer });
+        if (e.trades && onAttacker) {
+          const them = attackerData(b);
+          answers.push(playTimeline(counterAnimation(them), {
+            attacker: b, target: a, self: b, rate, damage: onAttacker.amount, tint: tintOf(them.pokemonType), fire: them.pokemonType === 'Fire',
+            on: { counterHit: () => hitNumbers(a, onAttacker, t, { rect: restA }) },
+          }));
+        }
+      },
+      scorchCatch: () => {
+        if (!scorch) return;
+        floatNumber(rectOf(b), `Burn +${scorch.amount}`, 'burn', t(1100));
+      },
+    },
+  });
+  await Promise.all(answers);
+  line.remove();
+  await wait(t(120));
+}
+
 // A hit that isn't an attack (an ability, a Power): a smaller impact.
 async function hitBeat(root, e, t) {
   impact(root, shown(e.target.uid), e, t);
@@ -400,6 +459,20 @@ async function waveBeat(root, group, t) {
 
 // Burn at Supper: every burned card flares at the same moment.
 async function burnBeat(root, group, t) {
+  if (vfxReady() && t(1) > 0) {
+    // Each burned card's fire flares as it deals its damage (then dies down a step when redrawn).
+    await Promise.all(group.map((h) => {
+      const el = shown(h.target.uid);
+      if (!el) return null;
+      el.querySelector('.burn-token')?.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.6)' }, { transform: 'scale(1)' }], { duration: t(500) });
+      return playTimeline(STATUS_VISUALS.burn.tick, {
+        target: el, rate: 1 / t(1), damage: h.amount, fire: true,
+        on: { flare: () => hitNumbers(el, h, t, { trainer: h.target.kind === 'trainer' }) },
+      });
+    }));
+    await wait(t(120));
+    return;
+  }
   for (const h of group) {
     const el = shown(h.target.uid);
     impact(root, el, h, t, { trainer: h.target.kind === 'trainer' });
@@ -413,6 +486,11 @@ async function burnBeat(root, group, t) {
 async function burnApplied(e, t) {
   const el = shown(e.target.uid);
   const r = rectOf(el);
+  if (vfxReady() && t(1) > 0) {
+    floatNumber(r, `Burn +${e.amount}`, 'burn', t(1100));
+    await playTimeline(STATUS_VISUALS.burn.applied, { target: el, rate: 1 / t(1), damage: e.amount, fire: true });
+    return;
+  }
   burst(r.x + r.w / 2, r.y + r.h * 0.6, { kind: 'energy', colors: ['#ff7a1a', '#ffb347', '#ffe08a'], count: 10 + 3 * e.amount, speed: 120, up: 200, life: t(700), size: 7, area: r.w * 0.7 });
   floatNumber(r, `Burn +${e.amount}`, 'burn', t(1100));
   await wait(t(380));
@@ -422,6 +500,13 @@ async function burnApplied(e, t) {
 async function douseBeat(e, t) {
   const el = shown(e.target.uid);
   const r = rectOf(el);
+  if (vfxReady() && t(1) > 0) {
+    el.querySelector('.burn-token')?.animate([{ opacity: 1, filter: 'none' }, { opacity: 0, filter: 'grayscale(1) blur(2px)' }], { duration: t(450), fill: 'forwards' });
+    el.removeAttribute('data-status-burn');   // the fire goes out now (the redraw confirms it)
+    floatNumber(r, 'Doused', 'douse', t(1100));
+    await playTimeline(STATUS_VISUALS.burn.cleared, { target: el, rate: 1 / t(1) });
+    return;
+  }
   burst(r.x + r.w / 2, r.y + r.h * 0.5, { kind: 'sparkle', colors: ['#e8f6ff', '#bfe6ff', '#ffffff'], count: 22, speed: 110, up: 140, life: t(900), size: 9, area: r.w * 0.8 });
   el.querySelector('.burn-token')?.animate([{ opacity: 1, filter: 'none' }, { opacity: 0, filter: 'grayscale(1) blur(2px)' }], { duration: t(450), fill: 'forwards' });
   floatNumber(r, 'Doused', 'douse', t(1100));
@@ -505,6 +590,8 @@ function coins(root, e, from, t) {
   const end = centre(rectOf(to));
   const start = centre(from);
   const n = clamp(e.amount, 1, 6);
+  const bump = () => to.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.25)', filter: 'brightness(1.6)' }, { transform: 'scale(1)' }], { duration: t(400) });
+  if (vfxCoins(start, end, n, t(800), bump)) return;
   for (let i = 0; i < n; i++) {
     const coin = spawn('fx-coin', { x: start.x - 10, y: start.y - 10, w: 20, h: 20 }, '$');
     const mid = { x: (start.x + end.x) / 2 + (Math.random() - 0.5) * 120, y: Math.min(start.y, end.y) - 80 - Math.random() * 60 };
@@ -669,7 +756,12 @@ async function walk(root, events, t, late) {
           if (hits.length === (e.trades ? 2 : 1)) break;
         }
         hits.forEach((h) => used.add(h));
-        await attackBeat(root, e, hits, t);
+        // Scorch: the Burn it applies to the target lands as part of the attack.
+        const nextAttack = ev.findIndex((x, j) => j > i && x.type === 'attack');
+        const scorch = ev.slice(i + 1, nextAttack < 0 ? ev.length : nextAttack)
+          .find((x) => x.type === 'statusApplied' && x.status === 'burn' && x.target.uid === e.target.uid && !used.has(x));
+        if (scorch && vfxReady() && t(1) > 0 && shown(e.target.uid)) used.add(scorch);
+        await attackBeat(root, e, hits, t, scorch && used.has(scorch) ? scorch : null);
         break;
       }
       case 'abilityTriggered': await triggerBanner(e, t); break;
@@ -1097,4 +1189,5 @@ export function resetFx() {
   skip();
   clearFx();
   clearParticles();
+  clearVfx();
 }

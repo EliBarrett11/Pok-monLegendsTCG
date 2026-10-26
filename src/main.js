@@ -7,8 +7,9 @@ import { present, think, skip, resetFx, historyEntry, captionFor } from './ui/pr
 import { speedFactor } from './ui/settings.js';
 import { probeCardIcons } from './ui/cardIcons.js';
 import { renderDeckSelect, otherDeck, randomDeck } from './ui/deckSelect.js';
+import { initVfx, syncStatus } from './ui/vfx/engine.js';
 
-export const BUILD = 'Step 19 — Fire rebalance';
+export const BUILD = 'Step 20 — VFX foundation';
 
 
 // The whole game is drawn on a fixed 1920×1080 stage, scaled uniformly to
@@ -140,6 +141,7 @@ function startMatch(deck) {
 function draw() {
   if (!state) renderDeckSelect(root, { build: BUILD, choose: startMatch });
   else render(root, state, { dispatch, newGame, build: BUILD });
+  syncStatus(root);   // burning cards keep smouldering on the effects layer
 }
 
 // The tabletop art and fonts, loaded before the first frame so nothing pops in
@@ -156,7 +158,11 @@ function preload() {
     ? Promise.all(['700 16px Cinzel', '800 16px Cinzel', '400 16px "Alegreya Sans"', '800 16px "Alegreya Sans"'].map((f) => document.fonts.load(f))).catch(() => {})
     : Promise.resolve();
   const limit = new Promise((resolve) => { setTimeout(resolve, 3000); });
-  return Promise.race([Promise.all([...images, fonts, probeCardIcons()]), limit]);
+  // The WebGL effects layer (with its textures); without WebGL the 2D effects stay.
+  // ?novfx forces the 2D fallback (for checking it).
+  const vfx = params.has('novfx') ? Promise.resolve(false)
+    : initVfx(document.getElementById('vfx')).catch((err) => { console.warn('VFX: WebGL layer off.', err); return false; });
+  return Promise.race([Promise.all([...images, fonts, probeCardIcons(), vfx]), limit]);
 }
 
 async function start() {

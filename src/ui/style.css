@@ -1304,3 +1304,35 @@ button.primary {
 .deck-option button { font-size: 24px; padding: 12px 40px; }
 .deck-option .last-tag { margin-left: 8px; font-size: 14px; font-weight: 500; opacity: 0.8; }
 .deck-random { font-size: 20px; padding: 10px 36px; }
+
+/* --- Effects layer (vfx/) ---------------------------------------------------------------- */
+
+#vfx { position: absolute; inset: 0; width: 1920px; height: 1080px; z-index: 45; pointer-events: none; }
+#vfx[hidden] { display: none; }
+
+/* Status visuals: a Burned card's edges char and smoulder, stronger with its
+   level (data-status-burn 1–4). The flames and embers are on the effects layer;
+   this overlay is CSS, so it shows without WebGL too. The Burn number stays on top. */
+.card[data-status-burn]::after {
+  content: ''; position: absolute; inset: calc(var(--w) * -0.025); z-index: 1; pointer-events: none;
+  border-radius: inherit;
+  background: url('../../assets/vfx/char-edge.webp') center / 100% 100% no-repeat;
+  box-shadow: inset 0 calc(var(--w) * -0.05) calc(var(--w) * 0.12) rgba(255, 110, 20, 0.55), 0 0 calc(var(--w) * 0.08) rgba(255, 110, 20, 0.5);
+  opacity: var(--char, 0.35);
+  animation: char-flicker 1.1s ease-in-out infinite alternate;
+}
+.card[data-status-burn="1"] { --char: 0.35; }
+.card[data-status-burn="2"] { --char: 0.55; }
+.card[data-status-burn="3"] { --char: 0.75; }
+.card[data-status-burn="4"] { --char: 1; }
+.card[data-status-burn="4"] .card-art { filter: sepia(0.25) saturate(1.2) brightness(0.92); }
+.card[data-status-burn] .burn-token { z-index: 4; }
+@keyframes char-flicker {
+  from { filter: brightness(0.85); }
+  to { filter: brightness(1.25); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card[data-status-burn]::after { animation: none; }
+}
+/* Heat shimmer on a card (vfx/engine.js turns it on and off). */
+.card.vfx-heat { filter: url(#vfx-heat); }

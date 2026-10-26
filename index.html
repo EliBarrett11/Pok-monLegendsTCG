@@ -33,6 +33,7 @@
         'src/engine/energy.js', 'src/engine/game.js', 'src/engine/keywords.js', 'src/engine/random.js', 'src/engine/status.js',
         'src/ui/cardIcons.js', 'src/ui/deckSelect.js', 'src/ui/icons.js', 'src/ui/interact.js', 'src/ui/medallions.js', 'src/ui/particles.js',
         'src/ui/present.js', 'src/ui/render.js', 'src/ui/resources.js', 'src/ui/settings.js',
+        'src/ui/vfx/engine.js', 'src/ui/vfx/gl.js', 'src/ui/vfx/library.js', 'src/ui/vfx/textures.js', 'src/ui/vfx/timeline.js',
       ];
       const url = (path) => new URL(path, location.href).href;
       const map = document.createElement('script');
@@ -50,7 +51,9 @@
   <!-- A fixed 1920×1080 stage, scaled to fit the window (see main.js). -->
   <div id="stage">
     <main id="app"></main>
-    <!-- Particles for combat and effects (particles.js): one canvas over the stage. -->
+    <!-- The effects layer: WebGL (vfx/engine.js) when the browser has it, otherwise
+         the 2D particle canvas (particles.js). One canvas over the stage either way. -->
+    <canvas id="vfx" width="1920" height="1080" hidden></canvas>
     <canvas id="particles" width="1920" height="1080"></canvas>
     <!-- Reveals, arrows, numbers and banners while actions play out. -->
     <div id="fx"></div>

@@ -1,8 +1,10 @@
-// Particles for combat and effects, all on one canvas over the stage.
-// The loop only runs while particles are alive, the total is capped, and
-// "reduce motion" (an operating-system setting) means far fewer of them.
+// Particles for combat and effects. With WebGL they're drawn on the effects
+// layer (vfx/engine.js); without it, here on a 2D canvas over the stage (the
+// fallback). The 2D loop only runs while particles are alive, the total is
+// capped, and "reduce motion" (an operating-system setting) means far fewer.
 
 import { STAGE } from './render.js';
+import { vfxReady, burstCompat } from './vfx/engine.js';
 
 const MAX_PARTICLES = 420;
 const motion = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
@@ -26,6 +28,10 @@ export function burst(x, y, {
   kind = 'spark', colors = ['#fff3c4'], count = 12, speed = 260, life = 600, size = 3,
   gravity = 0, up = 0, angle = -Math.PI / 2, spread = Math.PI * 2, area = 0,
 } = {}) {
+  if (vfxReady()) {
+    burstCompat(x, y, { kind, colors, count, speed, life, size, gravity, up, angle, spread, area });
+    return;
+  }
   if (!canvas() || life <= 0) return;
   const n = Math.max(1, Math.round(count * (reducedMotion() ? 0.35 : 1)));
   for (let i = 0; i < n && parts.length < MAX_PARTICLES; i++) {
