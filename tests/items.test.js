@@ -278,17 +278,20 @@ for (const c of ITEM_CARDS) {
 // it never defeats its holder.
 {
   let s = fire();
-  place(s, 'player', 0, 0, 'magmar');                        // 4/6
+  place(s, 'player', 0, 0, 'magmar');                        // 4/7
   s = buyUse(s, 'player', give(s, 'player', 'choice-band'), pref('player', 0, 0));
-  assert.deepEqual(stats(at(s, 'player', 0, 0)), [7, 4, 4]);
-  hurt(s, place(s, 'player', 1, 0, 'growlithe'), 1);         // 2/3, at 1
+  assert.deepEqual(stats(at(s, 'player', 0, 0)), [7, 5, 5]);
+  hurt(s, place(s, 'player', 1, 0, 'growlithe'), 1);         // 2/5, at 1
   s = buyUse(s, 'player', give(s, 'player', 'choice-band'), pref('player', 1, 0));
-  assert.deepEqual(stats(at(s, 'player', 1, 0)), [5, 1, 1], 'still in play, at 1');
+  assert.deepEqual(stats(at(s, 'player', 1, 0)), [5, 1, 3], 'current Strength stays at 1');
+  place(s, 'player', 1, 1, 'test-spark', { strengthValue: 2 }); // a test Pokémon with Strength 2
+  s = buyUse(s, 'player', give(s, 'player', 'choice-band'), pref('player', 1, 1));
+  assert.deepEqual(stats(at(s, 'player', 1, 1)), [6, 1, 1], 'maximum Strength stops at 1: still in play');
   // On a card in hand, it applies as the Pokémon arrives.
-  const mon = give(s, 'player', 'ponyta');                   // 3/3
+  const mon = give(s, 'player', 'ponyta');                   // 3/5
   s = buyUse(s, 'player', give(s, 'player', 'choice-band'), href('player', mon));
   s = act(s, 'player', { type: 'playPokemon', uid: mon, zone: 2, space: 0 });
-  assert.deepEqual(stats(at(s, 'player', 2, 0)), [6, 1, 1]);
+  assert.deepEqual(stats(at(s, 'player', 2, 0)), [6, 3, 3]);
 }
 
 // --- Water Items ----------------------------------------------------------------------

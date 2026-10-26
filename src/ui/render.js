@@ -925,6 +925,7 @@ const KEYWORD_SHORT = {
   Overrun: "Leftover damage from a knockout hits that Zone's Trainer.",
   Regenerate: 'Heals X at each Breakfast.',
   Shell: 'Takes X less from each hit (at least 1).',
+  Infiltrator: 'Its attacks ignore Defence and Special Defence.',
 };
 const keywordShort = (k) => (KEYWORD_SHORT[k.key] ?? '').replace(/\bX\b/g, k.amount);
 const keywordTags = (c) => keywordSummary(c).map((k) => `<b class="keyword" title="${attr(`${keywordLabel(k)}: ${keywordHelp(k)}`)}">${keywordLabel(k)}</b>`).join(' · ');
@@ -955,7 +956,7 @@ const num = (n, cls = '') => `<b class="num${cls ? ` ${cls}` : ''}">${n}</b>`;
 
 // Card text: keywords bold, reminder text italic. Keywords inside other text
 // (Burn 2, Retain, Douse…) are bolded where they appear.
-const KEYWORD_WORDS = /\b(Retain|Douse[ds]?|Burn \d+|Search|Return|Overrun|Scorch \d+|Shell \d+|Regenerate \d+|Quick Attack|Agility|Free summon|this Round)\b/g;
+const KEYWORD_WORDS = /\b(Retain|Douse[ds]?|Burn \d+|Search|Return|Overrun|Scorch \d+|Shell \d+|Regenerate \d+|Quick Attack|Agility|Infiltrator|Free summon|this Round)\b/g;
 const boldKeywords = (text) => attr(text ?? '').replace(KEYWORD_WORDS, '<b>$1</b>');
 const kw = (html) => `<span class="kw">${html}</span>`;
 const body = (html) => `<span class="body">${html}</span>`;

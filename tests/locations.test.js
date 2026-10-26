@@ -155,7 +155,7 @@ for (const c of LOCATION_CARDS) {
   attack(1, 0);
   assert.equal(s.players.player.xp, 3);
   assert.equal(loc(s, 'player', 1), null);
-  assert.deepEqual(stats(at(s, 'player', 1, 0)).slice(0, 1).concat(stats(at(s, 'player', 1, 0))[2]), [3, 4], 'Growlithe +1/+1');
+  assert.deepEqual(stats(at(s, 'player', 1, 0)).slice(0, 1).concat(stats(at(s, 'player', 1, 0))[2]), [3, 6], 'Growlithe +1/+1');
   assert.equal(stats(at(s, 'player', 1, 1))[0], 4, 'Mankey is Fighting: no buff');
   assert.equal(stats(at(s, 'player', 0, 0))[0], 3, 'other Zone: no buff');
 }
@@ -294,10 +294,10 @@ for (const c of LOCATION_CARDS) {
   assert.deepEqual(s.players.player.hand.find((c) => c.uid === ember.uid).xp, { attack: 1, strength: 1 });
   assert.ok(s.log.some((l) => l.includes('You spent 2 XP: Growlithe +1 Attack, +1 Strength (1 XP left).')));
   s = applyAction(onTurn(s, 'player'), { type: 'playPokemon', who: 'player', uid: ember.uid, zone: 0, space: 0 });
-  assert.deepEqual(stats(at(s, 'player', 0, 0)), [3, 4, 4], 'permanent once played: current and maximum Strength');
+  assert.deepEqual(stats(at(s, 'player', 0, 0)), [3, 6, 6], 'permanent once played: current and maximum Strength');
   s = nextRound(s);
   if (s.xpStep) s = applyAction(s, { type: 'spendXp', who: 'player', spend: [] });
-  assert.deepEqual(stats(at(s, 'player', 0, 0)), [3, 4, 4], 'still there next Round');
+  assert.deepEqual(stats(at(s, 'player', 0, 0)), [3, 6, 6], 'still there next Round');
 }
 
 // Secret: the first lock-in isn't applied until both have locked in.

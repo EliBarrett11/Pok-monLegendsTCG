@@ -108,8 +108,8 @@ for (const t of TRAINER_CARDS) {
 // Passive: friendly Pokémon in Kabu's Zone gain +2 Strength.
 {
   let s = fire();
-  s = play(s, 'player', 'mankey', 2, 0);                      // Fighting 4/3: +2 Strength
-  assert.deepEqual(stats(at(s, 'player', 2, 0)), [4, 5, 5]);
+  s = play(s, 'player', 'mankey', 2, 0);                      // Fighting 4/5: +2 Strength
+  assert.deepEqual(stats(at(s, 'player', 2, 0)), [4, 7, 7]);
   place(s, 'player', 0, 0, 'growlithe', { spent: true });
   assert.deepEqual(powerTargets(s, 'player', 2), [pref('player', 2, 0)], 'Spent, in his Zone');
   s = power(s, 'player', 2, pref('player', 2, 0));
@@ -149,7 +149,7 @@ for (const t of TRAINER_CARDS) {
   place(s, 'ai', 0, 0, 'growlithe', { spent: true });        // another Zone
   assert.deepEqual(powerTargets(s, 'player', 1), [pref('ai', 1, 0)]);
   s = power(s, 'player', 1, pref('ai', 1, 0));
-  assert.equal(at(s, 'ai', 1, 0).currentStrength, 4);
+  assert.equal(at(s, 'ai', 1, 0).currentStrength, 7 - 2);
   assert.equal(s.players.player.baseEnergy, 8, 'costs 2');
   place(s, 'player', 1, 0, 'horsea', { spent: true });
   place(s, 'player', 0, 0, 'horsea', { spent: true });

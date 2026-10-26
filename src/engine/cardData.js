@@ -51,6 +51,7 @@ export const INNATE_POWERS = {
   Overrun: "When this Pokémon's attack defeats an enemy Pokémon, the damage left over is dealt to the enemy Trainer in that Zone (lost if that Trainer has been removed).",
   Regenerate: 'At each Breakfast, this Pokémon heals X.',
   Shell: 'Every instance of damage this Pokémon takes is reduced by X, to a minimum of 1. Includes Burn.',
+  Infiltrator: 'This Pokémon\'s attacks ignore the Defence and Special Defence targeting restrictions: it may attack any enemy Pokémon or any enemy Trainer still in play. An Alert target still hits back.',
 };
 
 // Effect Trigger Words → the event a Pokémon ability listens for (effects.js).
@@ -192,20 +193,22 @@ const ENEMY_TRAINERS = { mode: 'area', side: 'opponent', kinds: ['trainer'] };
 // =============================================================================
 
 export const FIRE_POKEMON = [
-  pokemon('Growlithe', 1, 'Fire', 'Physical', 2, 'Hitpoints', 3, 'Swift', 'Common', { innatePower: 'Scorch 1' }),
-  pokemon('Charmander', 1, 'Fire', 'Special', 3, 'Hitpoints', 4, 'Steady', 'Common',
+  pokemon('Growlithe', 1, 'Fire', 'Physical', 2, 'Hitpoints', 5, 'Swift', 'Common', { innatePower: 'Scorch 1' }),
+  pokemon('Charmander', 1, 'Fire', 'Special', 3, 'Hitpoints', 6, 'Steady', 'Common',
     ability('On Summon', "Burn 1 to an enemy Pokémon or Trainer in this Pokémon's Zone.", [
       { op: 'burn', amount: 1, target: { ...ENEMY_ANY, zone: 'source' } },
     ])),
-  pokemon('Ponyta', 2, 'Fire', 'Physical', 3, 'Hitpoints', 3, 'Swift', 'Common', { innatePower: 'Quick Attack' }),
-  pokemon('Mankey', 2, 'Fighting', 'Physical', 4, 'Hitpoints', 3, 'Swift', 'Common', { innatePower: 'Overrun' }),
-  pokemon('Magmar', 3, 'Fire', 'Special', 4, 'Hitpoints', 6, 'Steady', 'Common', { innatePower: 'Scorch 2' }),
-  pokemon('Sneasel', 3, 'Dark', 'Physical', 4, 'Hitpoints', 3, 'Swift', 'Common',
-    ability('On Knockout', 'This Pokémon becomes Active (once per Round).', [{ op: 'ready', target: SELF }], {}, { oncePerRound: true })),
-  pokemon('Arcanine', 4, 'Fire', 'Physical', 5, 'Hitpoints', 5, 'Swift', 'Rare', { innatePower: 'Overrun, Scorch 1' }),
-  pokemon('Houndoom', 5, 'Fire', 'Special', 5, 'Hitpoints', 6, 'Swift', 'Epic',
+  pokemon('Ponyta', 2, 'Fire', 'Physical', 3, 'Hitpoints', 5, 'Swift', 'Common', { innatePower: 'Quick Attack, Infiltrator' }),
+  pokemon('Mankey', 2, 'Fighting', 'Physical', 4, 'Hitpoints', 5, 'Swift', 'Common', { innatePower: 'Overrun, Infiltrator' }),
+  pokemon('Magmar', 3, 'Fire', 'Special', 4, 'Hitpoints', 7, 'Steady', 'Common', { innatePower: 'Scorch 2' }),
+  pokemon('Sneasel', 3, 'Dark', 'Physical', 4, 'Hitpoints', 4, 'Swift', 'Common', {
+    innatePower: 'Infiltrator',
+    ...ability('On Knockout', 'This Pokémon becomes Active (once per Round).', [{ op: 'ready', target: SELF }], {}, { oncePerRound: true }),
+  }),
+  pokemon('Arcanine', 4, 'Fire', 'Physical', 5, 'Hitpoints', 6, 'Swift', 'Rare', { innatePower: 'Overrun, Scorch 1, Infiltrator' }),
+  pokemon('Houndoom', 5, 'Fire', 'Special', 5, 'Hitpoints', 7, 'Swift', 'Epic',
     ability('On Summon', 'Burn 2 to each enemy Trainer.', [{ op: 'burn', amount: 2, target: ENEMY_TRAINERS }])),
-  pokemon('Blaziken', 5, 'Fire', 'Physical', 7, 'Hitpoints', 7, 'Steady', 'Legendary', { innatePower: 'Overrun, Scorch 2' }),
+  pokemon('Blaziken', 5, 'Fire', 'Physical', 7, 'Hitpoints', 8, 'Steady', 'Legendary', { innatePower: 'Overrun, Scorch 2' }),
 ];
 
 export const FIRE_STRATEGY = [

@@ -36,7 +36,7 @@ for (const c of SUPPORTER_CARDS) {
   assert.ok(matchesCard(ponyta, { pokemonType: ['Water', 'Fire'] }), 'any of a list');
   assert.ok(matchesCard(ponyta, { energyCost: { max: 2 } }), 'a range');
   assert.ok(!matchesCard(ponyta, { energyCost: { min: 3 } }));
-  assert.ok(matchesCard(ponyta, { rarity: 'Common', innatePower: 'Quick Attack' }));
+  assert.ok(matchesCard(ponyta, { rarity: 'Common', innatePower: 'Quick Attack, Infiltrator' }));
   assert.ok(!matchesCard(cardDefinition('ember'), { cardType: 'Pokémon' }));
   assert.ok(!matchesCard(cardDefinition('ember'), { speedTier: 'Swift' }), 'a field the card lacks never matches');
 }

@@ -4,10 +4,13 @@
 //
 // --variant X tries a balance change for this run only, by changing the card
 // data in memory before the matches start (the card files never change).
-// Variants: A (current cards), S, C, D, E, E2, E3, I (an AI plan, not a
-// card change), L, T, W, B (a rule change), X, Z (a rule change), G, U, and
-// combinations such as SCE or E3XZ (see VARIANTS below). (Round 1's Trainer Strength variant "B" is now
-// "S"; "B" is the Burn rule from round 3.)
+// Variants: A (current cards), S, C, D, E, E2, I (an AI plan, not a card
+// change), L, T, W, B (a rule change), Z (a rule change), G, U, and
+// combinations such as GU or EZ (see VARIANTS below). Each changes the current
+// cards. (Round 1's Trainer Strength variant "B" is now "S"; "B" is the Burn
+// rule from round 3. E3 and X were adopted in Step 19 — Fire +1 Strength, +2
+// for cost 2 or less, and Infiltrator — so they are the real cards now and no
+// longer variants.)
 // --decks fire,fire plays a mirror match instead (for checking the seats).
 //
 // The same matches every time (seeds 1..N for each seat order, the AI's
@@ -55,9 +58,6 @@ const VARIANTS = {
   E2: () => {   // Every Fire-deck Pokémon gets +2 Strength
     for (const c of POKEMON_CARDS) if (DECKS.fire.list[c.id]) c.strengthValue += 2;
   },
-  E3: () => {   // Fire-deck Pokémon +1 Strength, +2 for those costing 2 or less
-    for (const c of POKEMON_CARDS) if (DECKS.fire.list[c.id]) c.strengthValue += c.energyCost <= 2 ? 2 : 1;
-  },
   I: () => usePlan('fire', 'pressure'),   // Fire's AI: Trainer damage ×2, attacks on Pokémon ×0.5
   L: () => {   // Match length: every Trainer +3 Strength
     for (const t of TRAINER_CARDS) t.strength += 3;
@@ -79,12 +79,6 @@ const VARIANTS = {
         const heal = effects.find((e) => e.op === 'heal');
         effects.splice(0, effects.length, { op: 'douse', target: heal.target }, { op: 'heal', amount: heal.amount, target: { mode: 'chosen' } });
       }
-    }
-  },
-  X: () => {   // New Innate Power "Infiltrator" (ignores the Defence targeting rules) on four Fire Pokémon
-    for (const id of ['ponyta', 'mankey', 'sneasel', 'arcanine']) {
-      const c = card(POKEMON_CARDS, id);
-      c.innatePower = c.innatePower ? `${c.innatePower}, Infiltrator` : 'Infiltrator';
     }
   },
   Z: () => { RULE_FLAGS.zoneGuards = true; },   // Rule: a guard only restricts targets in its own Zone
@@ -112,7 +106,7 @@ const VARIANTS = {
     for (const id of DECKS.fire.trainers) bump(card(TRAINER_CARDS, id).power.effects);
   },
 };
-const parts = VARIANT.match(/E[23]?|[A-DGILSTUWXZ]/g) ?? [];
+const parts = VARIANT.match(/E2?|[A-DGILSTUWZ]/g) ?? [];
 if (parts.join('') !== VARIANT) throw new Error(`Unknown variant: ${VARIANT}`);
 for (const part of parts) if (typeof VARIANTS[part] === 'function') VARIANTS[part]();
 const STALL_ROUND = 100;

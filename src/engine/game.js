@@ -217,8 +217,8 @@ export function alertPokemon(state, who) {
 // { kind: 'pokemon', zone, space } or { kind: 'trainer', zone } on the enemy side.
 // Physical attackers must target a Defence Pokémon if the opponent has any;
 // Special attackers must target a Special Defence Pokémon if there is any.
-// Balance experiments (tools/balance.js), off unless switched on:
-//   an "Infiltrator" Pokémon ignores these restrictions;
+// An Infiltrator attacker ignores both. Only Trainers above 0 Strength.
+// Balance experiment (tools/balance.js), off unless switched on:
 //   RULE_FLAGS.zoneGuards: a guard only restricts targets in its own Zone.
 export function legalTargets(state, who, from) {
   const attacker = state.players[who].zones[from.zone]?.pokemon[from.space];

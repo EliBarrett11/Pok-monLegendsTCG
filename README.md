@@ -80,6 +80,15 @@ No build step: plain HTML, CSS and JavaScript modules. Working rules for each se
   | By seat: You vs AI | You Fire 5 – 95 AI Water | You Water 91 – 9 AI Fire |
 
   Water wins about 93% whichever seat it's in. Both decks deal about the same damage to enemy Trainers, but Fire's Trainers have 43 Strength to Water's 48, Water heals its Trainers back (Route 119, Nurse Joy, Full Heal, Kyogre), and Water's Rain often reaches 6, where Fire Pokémon get −1 Attack. **The Breakfast PokéDollar**, judged with the real decks as planned: without it Water wins 93.5% instead of 93.0%, matches last the same 6.8 Rounds and none stall either way, so it makes no real difference and stays.
+- **Step 19** — Fire rebalance (Elliott's choice after four rounds of balance tests; `docs/decks.md` and `docs/rules.md` updated). The tests found that Water fields eight guards (Defence / Special Defence) and Fire none, so about 80% of the time an attacking Fire Pokémon had no legal Trainer target. Fire Pokémon get +1 Strength, +2 for those costing 2 or less (Growlithe 5, Charmander 6, Ponyta 5, Mankey 5, Magmar 7, Sneasel 4, Arcanine 6, Houndoom 7, Blaziken 8), and a new Innate Power, **Infiltrator**, on Ponyta, Mankey, Sneasel and Arcanine: their attacks ignore the Defence and Special Defence targeting restrictions (Trainers at 0 Strength still can't be targeted, and an Alert target still hits back). It doesn't stack, effects can grant it, and it shows on cards with its rule text like the other keywords. Water is unchanged. The AI attacks past guards through the same legal targets. New `tests/infiltrator.test.js`; `tools/balance.js` drops the old E3 and X variants (now the real cards). Confirmation run, `node tools/balance.js 200` (400 matches):
+
+  | | Before (Step 18) | After |
+  |---|---|---|
+  | Fire win rate | 7.0% | **44.3%** (45.0% from your seat, 43.5% from the AI's) |
+  | Rounds per match | 6.8 | 6.0 |
+  | Fire's attacks: into guards · other Pokémon · Trainers | 66% · 4% · 30% | 35% · 7% · 58% |
+  | Fire's Alert Pokémon with no Trainer to attack | 82% | 57% |
+  | Damage to enemy Trainers per match: Fire (attacks · Burn) · Water | 42.7 (8.2 · 32.1) · 42.3 | 51.6 (27.1 · 22.9) · 36.1 |
 
 Add `?seed=123` to the URL to replay the same shuffle and coin flip.
 

@@ -8,7 +8,7 @@ import { speedFactor } from './ui/settings.js';
 import { probeCardIcons } from './ui/cardIcons.js';
 import { renderDeckSelect, otherDeck, randomDeck } from './ui/deckSelect.js';
 
-export const BUILD = 'Step 18 — Fire and Water decks';
+export const BUILD = 'Step 19 — Fire rebalance';
 
 
 // The whole game is drawn on a fixed 1920×1080 stage, scaled uniformly to
