@@ -1336,3 +1336,7 @@ button.primary {
 }
 /* Heat shimmer on a card (vfx/engine.js turns it on and off). */
 .card.vfx-heat { filter: url(#vfx-heat); }
+
+/* Passing: an Energy crystal flies into the Energy counter. */
+.fx-crystal { position: absolute; left: 0; top: 0; width: 28px; height: 36px; pointer-events: none; z-index: 3; filter: drop-shadow(0 0 8px rgba(127, 245, 222, 0.9)); }
+.fx-crystal svg { width: 100%; height: 100%; display: block; }

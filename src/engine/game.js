@@ -949,11 +949,11 @@ const HANDLERS = {
     const spends = passSpends(state, who);
     emit(state, 'pass', { who, endsPhase: ends, gain: ends ? 0 : PASS_ENERGY, spends });
     if (ends) {
-      log(state, `${p.name} passed.`);
+      log(state, `${p.name} ${who === 'player' ? 'pass' : 'passes'}: No Energy: ${who === 'player' ? 'the opponent' : 'you'} passed last.`);
     } else {
       p.baseEnergy += PASS_ENERGY;
       emit(state, 'energyGained', { who, amount: PASS_ENERGY, source: 'Pass' });
-      log(state, `${p.name} passed and ${who === 'player' ? 'gain' : 'gains'} ${PASS_ENERGY} Base Energy this Round (now ${p.baseEnergy}).`);
+      log(state, `${p.name} ${who === 'player' ? 'pass' : 'passes'}: +${PASS_ENERGY} Base Energy (now ${p.baseEnergy}).`);
       // Unmatched speed: their Active Pokémon at the top Speed-Tier become Spent (Alert is worked out afresh).
       if (spends.length) {
         for (const ref of spends) cardAt(state, ref).spent = true;

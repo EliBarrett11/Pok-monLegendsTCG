@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { createGame, applyAction, PLAYERS, opponentOf, passEndsPhase, PASS_ENERGY } from '../src/engine/game.js';
 import { buildDeck } from '../src/engine/cards.js';
 import { chooseAction } from '../src/ai/opponent.js';
+import { captionFor } from '../src/ui/present.js';
 
 // Setup with both sides keeping their hands, ending at Round 1 Battle.
 function toRound1Battle(seed) {
@@ -113,6 +114,26 @@ assert.equal(PASS_ENERGY, 1);
   s = applyAction(s, { type: 'pass', who: ai });
   s = applyAction(s, { type: 'playLocation', who: foe, uid: give(s, foe, isLocation), zone: 2 });
   assert.equal(chooseAction(s, ai, { rng: () => 0.5 }).type, 'playPokemon');
+}
+
+// --- What a Pass says (Feedback batch 1): the gain, or why there's none ---
+{
+  let s = toRound1Battle(4);
+  const first = s.turn;
+  const second = opponentOf(first);
+  const name = (w) => (w === 'player' ? 'You pass' : 'AI Opponent passes');
+  const cap = (w) => (w === 'player' ? 'You pass' : 'Opponent passes');
+  s = applyAction(s, { type: 'pass', who: first });
+  const now = s.players[first].baseEnergy;
+  assert.ok(s.log.includes(`${name(first)}: +1 Base Energy (now ${now}).`), 'the log says what passing gained');
+  assert.equal(captionFor(s, first), `${cap(first)}: +1 Base Energy`);
+  s = applyAction(s, { type: 'pass', who: second });
+  const reason = second === 'player' ? 'the opponent' : 'you';
+  assert.ok(s.log.includes(`${name(second)}: No Energy: ${reason} passed last.`), 'the log says why the second Pass gained nothing');
+  assert.ok(captionFor(s, second).startsWith(`${cap(second)}: No Energy: ${reason} passed last`));
+  // Both sides read the same way.
+  const pass = s.events.find((e) => e.type === 'pass');
+  assert.deepEqual([pass.endsPhase, pass.gain], [true, 0]);
 }
 
 console.log('All Pass tests passed.');

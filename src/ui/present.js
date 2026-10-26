@@ -8,7 +8,7 @@
 // reveals, arrows, numbers and cards on their way to a pile.
 
 import { setCaption, cardElements, cardMarkup, STAGE } from './render.js';
-import { speedFactor } from './settings.js';
+import { speedFactor, readableMs } from './settings.js';
 import { burst, edgeBurst, clearParticles, reducedMotion } from './particles.js';
 import { vfxReady, playTimeline, skipTimelines, clearVfx, coins as vfxCoins } from './vfx/engine.js';
 import { attackAnimation, counterAnimation, tintOf, STATUS_VISUALS } from './vfx/library.js';
@@ -247,6 +247,7 @@ function svgLayer(cls, inner) {
 
 async function banner(text, ms, kind = '') {
   if (ms <= 0 || skipping) return;
+  ms = readableMs(ms);   // words stay up long enough to read
   const b = document.createElement('div');
   b.className = `fx-banner ${kind}`;
   b.textContent = text;
@@ -666,9 +667,27 @@ function weatherTint(root, e, t) {
 }
 
 // A Trainer's Power: the Trainer glows, then a beam of sparks travels to its target.
+// A small banner with words beside a card (an ability, a Power, Spent by a
+// Pass): above it, or below it near the top edge. It stays up long enough to read.
+function cardTag(el, html, ms, cls = '') {
+  if (!el || ms <= 0 || skipping) return;
+  const r = rectOf(el);
+  const below = r.y < 150;
+  const tag = spawn(`fx-trigger${cls}${below ? ' below' : ''}`, null, html);
+  tag.style.left = `${r.x + r.w / 2}px`;
+  tag.style.top = `${below ? r.y + r.h + 4 : r.y - 4}px`;
+  play(tag, [
+    { opacity: 0, transform: 'scale(0.8)' },
+    { opacity: 1, transform: 'scale(1)', offset: 0.15 },
+    { opacity: 1, offset: 0.8 },
+    { opacity: 0 },
+  ], readableMs(ms));
+}
+
 async function powerBeat(e, t) {
   const trainer = shown(e.uid);
   glow(trainer, 'fx-power');
+  cardTag(trainer, `<b>${e.name}</b> · Power`, t(1400));
   await animate(trainer, [{ filter: 'brightness(1)' }, { filter: 'brightness(1.7)' }, { filter: 'brightness(1.2)' }], t(380));
   const target = shown(e.target?.uid);
   if (trainer && target) {
@@ -685,22 +704,41 @@ async function powerBeat(e, t) {
   await wait(t(150));
 }
 
+// A Pass: an Energy crystal flies from the Pass button (the opponent's from
+// their side of the mat) into that player's Energy counter.
+const CRYSTAL = '<svg viewBox="0 0 24 32"><path d="M12 1 22 11 12 31 2 11Z" fill="#7ff5de" stroke="#e8fffa" stroke-width="1.5"/><path d="M12 1 7 11h10Z" fill="#d6fff6" opacity=".8"/></svg>';
+async function crystalFlight(root, who, t) {
+  const to = pile(root, `${who}-energy`);
+  if (!to || skipping) return;
+  const seat = who === 'player' ? root.querySelector('.medallion-seat') : null;
+  const a = seat ? centre(rectOf(seat)) : { x: REVEAL.cx, y: REVEAL.cy.ai };
+  const b = centre(rectOf(to));
+  const c = spawn('fx-crystal');
+  const lift = Math.min(a.y, b.y) - 120;
+  const at = (x, y, s = 1) => `translate(${x - 14}px, ${y - 18}px) scale(${s})`;
+  c.innerHTML = CRYSTAL;
+  await play(c, [
+    { transform: at(a.x, a.y, 0.4), opacity: 0 },
+    { transform: at(a.x, a.y, 1.2), opacity: 1, offset: 0.15 },
+    { transform: at((a.x + b.x) / 2, lift, 1.1), opacity: 1, offset: 0.55 },
+    { transform: at(b.x, b.y, 0.7), opacity: 1 },
+  ], t(700), { easing: 'ease-in-out' });
+}
+
+// A number on the board ticks up to its new value (already drawn) from `by` less.
+function countUp(el, by, ms) {
+  if (!el || ms <= 0 || skipping) return;
+  const end = Number(el.textContent);
+  if (!Number.isFinite(end)) return;
+  el.textContent = String(end - by);
+  for (let i = 1; i <= by; i++) setTimeout(() => { el.textContent = String(end - by + i); }, (ms * i) / by);
+}
+
 // A triggered ability or Passive: a small banner beside its card, then its effect.
 async function triggerBanner(e, t) {
   const el = shown(e.source.uid);
   if (!el) return;
-  const r = rectOf(el);
-  // Just above its own card (below it near the top edge), clear of its neighbours.
-  const below = r.y < 150;
-  const tag = spawn(`fx-trigger${below ? ' below' : ''}`, null, `<b>${e.source.name}</b> · ${e.word}`);
-  tag.style.left = `${r.x + r.w / 2}px`;
-  tag.style.top = `${below ? r.y + r.h + 4 : r.y - 4}px`;
-  play(tag, [
-    { opacity: 0, transform: 'scale(0.8)' },
-    { opacity: 1, transform: 'scale(1)', offset: 0.15 },
-    { opacity: 1, offset: 0.8 },
-    { opacity: 0 },
-  ], t(1400));
+  cardTag(el, `<b>${e.source.name}</b> · ${e.word}`, t(1400));
   glow(el, 'fx-power');
   await wait(t(420));
 }
@@ -711,12 +749,7 @@ async function spentBeat(e, t) {
   for (const ref of e.targets) {
     const el = shown(ref.uid);
     if (!el) continue;
-    const r = rectOf(el);
-    const below = r.y < 150;
-    const tag = spawn(`fx-trigger spent-tag${below ? ' below' : ''}`, null, `<b>${ref.name}</b> · Spent: unmatched speed`);
-    tag.style.left = `${r.x + r.w / 2}px`;
-    tag.style.top = `${below ? r.y + r.h + 4 : r.y - 4}px`;
-    play(tag, [{ opacity: 0, transform: 'scale(0.8)' }, { opacity: 1, transform: 'scale(1)', offset: 0.15 }, { opacity: 1, offset: 0.8 }, { opacity: 0 }], t(1500));
+    cardTag(el, `<b>${ref.name}</b> · Spent: unmatched speed`, t(1500), ' spent-tag');
     animate(el, [{ filter: 'none', rotate: '0deg' }, { filter: 'saturate(0.6) brightness(0.94)', rotate: '4deg' }], t(500), { fill: 'forwards' });
   }
   await wait(t(650));
@@ -817,12 +850,16 @@ async function before(root, prev, next, actor, t, late) {
     glow(shown(main.target.uid), 'fx-target');
     await wait(t(400));
   } else if (main?.type === 'pass' && !main.endsPhase) {
-    await banner(`${actor === 'player' ? 'You pass' : 'Opponent passes'}`, t(850), actor);
+    await banner(`${actor === 'player' ? 'You pass' : 'Opponent passes'}: +${main.gain} Base Energy`, t(850), actor);
+    await crystalFlight(root, actor, t);
+  } else if (main?.type === 'pass') {
+    const counter = pile(root, `${actor}-energy`);
+    if (counter) floatNumber(rectOf(counter), 'No Energy', 'douse', t(1300));
   }
   await walk(root, ev, t, late);
   // The Battle Phase ending (two passes in a row), then Supper, before the board changes.
   if (main?.type === 'pass' && main.endsPhase) {
-    await phaseBanner('end', 'Battle ends', `${actor === 'player' ? 'You' : 'The opponent'} passed straight back`, t(800));
+    await phaseBanner('end', 'Battle ends', `${actor === 'player' ? 'You pass' : 'Opponent passes'}. ${passNoGain(actor)}`, t(800));
   }
   if (ev.some((e) => e.type === 'phaseChanged' && e.phase === 'supper')) {
     await phaseBanner('supper', 'Supper', 'Hands are discarded', t(850));
@@ -843,6 +880,7 @@ const PHASES = {
 // length unless `hold` is given (then only that long, and it finishes on its own).
 async function phaseBanner(kind, title, sub, ms, { hold = null, small = false } = {}) {
   if (ms <= 0 || skipping) return;
+  ms = readableMs(ms);   // words stay up long enough to read
   const art = PHASES[kind]?.icon ? phaseIcon(PHASES[kind].icon) : '';
   const b = spawn(`fx-phase ${kind}${small ? ' small' : ''}`, null,
     `${art ? `<i class="fx-phase-icon">${art}</i>` : ''}<div class="fx-phase-text"><b>${title}</b>${sub ? `<span>${sub}</span>` : ''}</div>`);
@@ -996,7 +1034,10 @@ async function after(root, snap, next, actor, t, late) {
   // Base Energy gained by passing floats up from that player's Energy counter.
   for (const e of ev.filter((x) => x.type === 'energyGained' && x.source === 'Pass')) {
     const counter = pile(root, `${e.who}-energy`);
-    if (counter) floatNumber(rectOf(counter), `+${e.amount} Energy`, 'buff', t(1300));
+    if (!counter) continue;
+    floatNumber(rectOf(counter), `+${e.amount} Energy`, 'buff', t(1300));
+    counter.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.25)', filter: 'brightness(1.8)' }, { transform: 'scale(1)' }], { duration: t(600), easing: 'ease-out' });
+    countUp(counter.querySelector('.base-n'), e.amount, t(500));
   }
   // A Weather bracket that switched on: its pip lights up.
   for (const e of ev.filter((x) => x.type === 'weatherChanged' && x.on)) {
@@ -1010,6 +1051,8 @@ async function after(root, snap, next, actor, t, late) {
 
 const subject = (w) => (w === 'player' ? 'You' : 'Opponent');
 const verb = (w, base, third) => (w === 'player' ? base : third ?? `${base}s`);
+// The Pass that ends the Battle Phase gains nothing: the other player passed just before.
+export const passNoGain = (w) => `No Energy: ${w === 'player' ? 'the opponent' : 'you'} passed last`;
 const owned = (owner, capital = false) => (owner === 'player' ? (capital ? 'Your' : 'your') : "Opponent's");
 const named = (t) => (t ? `${t.owner ? `${owned(t.owner)} ` : ''}${t.name}` : '');
 const on = (t) => (t ? ` on ${named(t)}` : '');
@@ -1069,7 +1112,7 @@ export function captionFor(state, actor) {
   } else if (main?.type === 'powerUsed') {
     text = `${S} ${verb(actor, 'use')} ${main.name}'s Power${on(main.target)}`;
   } else if (main?.type === 'pass') {
-    text = `${S} ${verb(actor, 'pass', 'passes')}${main.gain ? `, +${main.gain} Energy` : ''}`;
+    text = `${S} ${verb(actor, 'pass', 'passes')}: ${main.endsPhase ? passNoGain(actor) : `+${main.gain} Base Energy`}`;
     if (main.spends?.length) {
       const names = main.spends.map((r) => r.name);
       const list = names.length < 2 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
