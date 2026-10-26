@@ -51,7 +51,7 @@ export function wireInteractions(root, context) {
     cards.forEach((el, i) => { el.onmouseenter = () => { if (!drag) layoutFan(fan, i); }; });
     fan.onmouseleave = () => { if (!drag) layoutFan(fan, -1); };
   }
-  const draggable = '.hand > .card, .tray > .card, .player .bag-slot.usable .card, .mart-item.buyable .card, '
+  const draggable = '.hand > .card, .tray > .card, .player .bag-slot.usable .card, '
     + '.player .pokemon-space .card.selectable, .player .trainer-space .card.selectable';
   for (const el of root.querySelectorAll(draggable)) el.onpointerdown = (e) => onPress(e, el);
   refreshAim();

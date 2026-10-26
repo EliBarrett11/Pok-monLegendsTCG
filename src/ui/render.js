@@ -12,10 +12,10 @@ import {
   openBagOptions, itemTargets, BAG_SIZE, passEndsPhase, PASS_ENERGY, applyAction, passSpends,
   summonCost, zoneReductions, cheapestCost, attackBlock,
 } from '../engine/game.js';
-import { EXERT_LIMIT, canPay } from '../engine/energy.js';
+import { canPay } from '../engine/energy.js';
 import { keywordSummary, keywordLabel } from '../engine/keywords.js';
 import { statusCount } from '../engine/status.js';
-import { energySlots, exertSlots, pileDepth } from './resources.js';
+import { pileDepth, panelView, pipTip, martView } from './resources.js';
 import { heldBonus, weatherTotal, speedOf, cardAt, hasRetain } from '../engine/board.js';
 import { INNATE_POWERS, WEATHER, SPEED_TIERS } from '../engine/cardData.js';
 import { SPEEDS, getSpeed, setSpeed, speedFactor } from './settings.js';
@@ -42,6 +42,8 @@ let caption = '';
 let settingsOpen = false;
 // The Discard or Released Pile being looked through: { who, kind } or null.
 let pileView = null;
+// Kept across actions: whether the full PokéMart is open (it closes when an action is taken).
+let martOpen = false;
 // The last actions, newest first, for the history strip: { who, kind, text, card, fresh }.
 let history = [];
 const HISTORY_SIZE = 10;
@@ -326,6 +328,7 @@ export function render(root, state, actions) {
     ${passWarningBox(state)}
     ${pickerBox(state)}
     ${pileViewBox(state)}
+    ${martOverlay(state)}
     ${gameOverScreen(state)}
     <div class="preview" hidden></div>
   `;
@@ -376,17 +379,47 @@ function historyStrip() {
 // top, mirrored (resource panel left, piles right). Every number the old text
 // bars showed is still here, on a crystal row, a gem, a badge or a pile tag.
 
-// A player's resource panel: name and turn, XP, PokéDollars, Energy, Exert and the Bag.
+// A player's resource panel (docs/design/player-panel-mockup.jpg): a name
+// tag, then five framed tiles: Energy, Exert, XP, PokéDollars, and the Bag
+// with its 6 slots. Mine is large along the bottom right; the opponent's is
+// the same, compact, along the top.
 function resources(state, who) {
-  const p = state.players[who];
+  const v = panelView(state, who);
+  const turn = state.phase === 'battle' && state.turn === who && !state.pending;
+  const tile = (kind, label, body, tip, extra = '') => `
+    <div class="tile t-${kind}" data-pile="${who}-${kind}" title="${attr(tip)}"${extra}>
+      <span class="tile-label">${label}</span><div class="tile-body">${body}</div>
+    </div>`;
+  const num = (cls, n, max) => `<b class="tile-n"><span class="${cls}">${n}</span>${max !== undefined ? `<small>/${max}</small>` : ''}</b>`;
+  const pips = v.exert.pips.map((x) => `<i class="pip ${x.state}" title="${attr(pipTip(x))}">${cardIcon('exert')}`
+    + `${x.state === 'exhausted' ? `<b>${x.breakfasts}</b>` : x.state === 'locked' ? `<span class="pip-lock">${icon('lock')}</span>` : ''}</i>`).join('');
   return `
     <div class="res ${who}">
-      <div class="res-id"><i class="turn-dot${state.phase === 'battle' && state.turn === who && !state.pending ? ' on' : ''}" title="${state.turn === who ? 'Their move now' : ''}"></i><strong class="pname">${p.name}</strong>
+      <div class="res-tag"><i class="turn-dot${turn ? ' on' : ''}" title="${turn ? 'Their move now' : ''}"></i><strong class="pname">${who === 'player' ? 'You' : 'Opponent'}</strong>
         ${passedLast(state, who) ? `<span class="passed-chip" title="Passed last turn: ${who === 'ai' ? 'if you pass now, the Battle Phase ends' : 'if the opponent passes now, the Battle Phase ends'}">Passed</span>` : ''}</div>
-      <div class="res-tokens">${xpBadge(p, who)}${coinStack(p, who)}</div>
-      ${energyMeter(state, p, who)}
-      ${exertGems(state, p, who)}
-      ${satchel(state, who)}
+      ${tile('energy', 'Energy', `${cardIcon('energy', { cls: 'tile-ico' })}${num(`base-n${v.energy.value > v.energy.max ? ' over' : ''}`, v.energy.value, v.energy.max)}<span class="cost-note"></span>`, v.energy.tip)}
+      ${tile('exert', `Exert <em><span class="exert-ready">${v.exert.ready}</span> ready</em>`, `<span class="pips">${pips}</span>`, v.exert.tip)}
+      ${tile('xp', 'XP', `${cardIcon('xp', { cls: 'tile-ico' })}${num('xp-n', v.xp.value)}`, v.xp.tip)}
+      ${tile('dollars', 'PokéDollars', `${cardIcon('coin', { cls: 'tile-ico' })}${num('dollars-n', v.dollars.value)}`, v.dollars.tip)}
+      ${bagRow(state, who, v.bag)}
+    </div>`;
+}
+
+// The Bag: its own row of 6 slots, each Item's art and name. In Delivery
+// Items are faded with an "Arrives next Round" tag; empty slots are dashed.
+function bagRow(state, who, bag) {
+  const usable = new Set(who === 'player' && isMyBattleTurn(state) && !ui.supporter
+    ? openBagOptions(state, 'player').filter((o) => o.mode === 'useBag').map((o) => o.uid) : []);
+  const slots = bag.slots.map((x) => {
+    if (!x) return '<div class="bag-slot empty"></div>';
+    const cls = `bag-slot${x.inDelivery ? ' delivery' : ''}${usable.has(x.uid) ? ' usable' : ''}${ui.bag?.uid === x.uid ? ' selected' : ''}`;
+    const tag = x.inDelivery ? `<i class="parcel-tag" title="In Delivery: arrives next Round">${who === 'ai' ? 'Next Round' : 'Arrives next Round'}</i>` : '';
+    return `<div class="${cls}" data-uid="${x.uid}">${card(x.item, 'thumb')}${tag}</div>`;
+  }).join('');
+  return `
+    <div class="tile t-bag bag${bag.full ? ' full' : ''}" data-pile="${who}-bag" title="${attr(bag.tip)}">
+      <span class="tile-label">Bag <b class="bag-count"><span class="bag-n">${bag.count}</span> / ${bag.size}</b></span>
+      <div class="bag-slots">${slots}</div>
     </div>`;
 }
 
@@ -403,84 +436,6 @@ function opponentHand(n) {
 // Who passed on the last turn of this Battle Phase (their pass did not end it).
 function passedLast(state, who) {
   return state.phase === 'battle' && state.passesInARow === 1 && state.turn !== who;
-}
-
-const BONUS_SHOWN = 3;   // extra crystals drawn above this Round's Base Energy; more shows as "+n"
-
-// Base Energy as crystals: one socket per point of this Round's Base Energy
-// (up to 10), lit while unspent, dim once spent. Energy above that (from
-// passing or abilities) shows as extra crystals in a cooler shade.
-function energyMeter(state, p, who) {
-  const { sockets, lit, bonus } = energySlots(state.round, p.baseEnergy);
-  const cells = [
-    ...Array.from({ length: sockets }, (_, i) => `<i class="crystal ${i < lit ? 'lit' : 'empty'}"></i>`),
-    ...Array.from({ length: Math.min(bonus, BONUS_SHOWN) }, () => '<i class="crystal bonus"></i>'),
-    bonus > BONUS_SHOWN ? `<i class="crystal-more">+${bonus - BONUS_SHOWN}</i>` : '',
-  ].join('');
-  const tip = `Base Energy: ${p.baseEnergy} left of this Round's ${sockets}`
-    + `${bonus ? ` (+${bonus} extra from passing or abilities)` : ''}. Spent first; it resets at Breakfast.`;
-  return `
-    <div class="energy" data-pile="${who}-energy" data-sockets="${sockets}" title="${attr(tip)}">
-      ${icon('energy')}<span class="crystals">${cells || '<i class="crystal-none">—</i>'}</span>
-      <b class="energy-n${bonus ? ' over' : ''}"><span class="base-n">${p.baseEnergy}</span><small>/ ${sockets}</small></b>
-      <span class="cost-note"></span>
-    </div>`;
-}
-
-// Exert: 3 sockets. Free points are amber gems; Exhausted ones are cracked
-// stones marked with the Round they recover in; sockets above this Round's
-// Exert maximum are locked (Rounds 1 and 2).
-function exertGems(state, p, who) {
-  const free = p.exertMax - p.exhaust.length;
-  const slots = exertSlots(p);
-  const gems = slots.map((x) => (x.kind === 'free' ? '<i class="xgem free"></i>'
-    : x.kind === 'stone' ? `<i class="xgem stone"><b>R${x.recoversRound}</b></i>`
-      : `<i class="xgem locked">${icon('lock')}</i>`)).join('');
-  const lines = slots.map((x) => `<li>${x.kind === 'free' ? 'Ready to use'
-    : x.kind === 'stone' ? `Exhausted (position ${x.position}): recovers at the start of Round ${x.recoversRound}`
-      : `Locked until Round ${EXERT_LIMIT}`}</li>`).join('');
-  return `
-    <div class="exert" data-pile="${who}-exert">
-      <span class="gems">${gems}</span><span class="exert-label">Exert <b class="exert-n">${free}/${p.exertMax}</b></span>
-      <div class="res-tip"><b>Exert</b>: extra Energy, used only once Base Energy runs out. Each point used
-        becomes Exhausted and takes Rounds to recover.<ul>${lines}</ul></div>
-    </div>`;
-}
-
-function xpBadge(p, who) {
-  return `<div class="xp-badge" data-pile="${who}-xp" title="XP: ${p.xp} (spent in the XP step to raise a Pokémon's stats)"><i class="star">${icon('xp')}</i><b class="xp-n">${p.xp}</b><span>XP</span></div>`;
-}
-
-const COINS_SHOWN = 6;
-
-// PokéDollars: a stack of gold coins (taller with more money) and the amount.
-function coinStack(p, who) {
-  const n = Math.min(COINS_SHOWN, Math.ceil(p.dollars / 2));
-  const coins = Array.from({ length: n }, (_, i) => `<i class="coin" style="bottom:${i * 3}px"></i>`).join('');
-  return `<div class="dollars" data-pile="${who}-dollars" title="PokéDollars: $${p.dollars} (buy Items at the PokéMart)"><span class="coin-stack">${coins}</span><b class="dollars-n">$${p.dollars}</b></div>`;
-}
-
-// A player's Bag: a leather satchel with 6 spaces. Items In Delivery are
-// wrapped until the next Round. Both Bags are visible.
-function satchel(state, who) {
-  const p = state.players[who];
-  const usable = new Set(who === 'player' && isMyBattleTurn(state) && !ui.supporter
-    ? openBagOptions(state, 'player').filter((o) => o.mode === 'useBag').map((o) => o.uid) : []);
-  const slots = Array.from({ length: BAG_SIZE }, (_, i) => {
-    const item = p.bag[i];
-    if (!item) return '<div class="bag-slot empty"></div>';
-    const cls = `bag-slot${item.inDelivery ? ' delivery' : ''}${usable.has(item.uid) ? ' usable' : ''}${ui.bag?.uid === item.uid ? ' selected' : ''}`;
-    const parcel = item.inDelivery ? '<i class="parcel" title="In Delivery: usable from next Round"><span>Next Round</span></i>' : '';
-    return `<div class="${cls}" data-uid="${item.uid}">${card(item, 'mini')}${parcel}</div>`;
-  }).join('');
-  const full = p.bag.length >= BAG_SIZE;
-  const delivery = p.bag.filter((i) => i.inDelivery).length;
-  const tip = `Bag: ${p.bag.length} of ${BAG_SIZE} Items${full ? ' (full)' : ''}${delivery ? `, ${delivery} In Delivery until next Round` : ''}`;
-  return `
-    <div class="bag${full ? ' full' : ''}" data-pile="${who}-bag" title="${tip}">
-      <span class="bag-flap"><span>Bag</span><b class="bag-count">${p.bag.length}/${BAG_SIZE}</b></span>
-      <div class="bag-slots">${slots}</div>
-    </div>`;
 }
 
 const PILE_NAMES = { draw: 'Draw Pile', discard: 'Discard Pile', released: 'Released Pile' };
@@ -573,57 +528,48 @@ const lastRes = {};
 
 function animateResources(root, state) {
   for (const who of ['player', 'ai']) {
-    const p = state.players[who];
-    const now = { round: state.round, base: p.baseEnergy, free: p.exertMax - p.exhaust.length, xp: p.xp, dollars: p.dollars };
+    const v = panelView(state, who);
+    const now = { round: state.round, energy: v.energy.value, exert: v.exert.ready, xp: v.xp.value, dollars: v.dollars.value, bag: v.bag.count };
     const was = lastRes[who];
     lastRes[who] = now;
     const f = speedFactor();
     if (!was || f === 0 || now.round < was.round || !state.round) continue;
     const box = root.querySelector(`.res.${who}`);
     if (!box) continue;
-    const step = 110 * f;
 
-    // Energy, position by position: the Round's sockets first, then the extra crystals.
-    const sockets = [...box.querySelectorAll('.energy .crystal.lit, .energy .crystal.empty')];
-    const extra = [...box.querySelectorAll('.energy .crystal.bonus')];
-    const at = (k) => (k < sockets.length ? sockets[k] : extra[k - sockets.length]);
-    for (let k = was.base; k < now.base; k++) {
-      at(k)?.animate([
-        { opacity: 0.2, transform: 'scale(0.5)', filter: 'brightness(3)' },
-        { opacity: 1, transform: 'scale(1.35)', filter: 'brightness(2)', offset: 0.5 },
-        { opacity: 1, transform: 'scale(1)', filter: 'none' },
-      ], { duration: 380 * f, delay: (k - was.base) * step, fill: 'backwards', easing: 'ease-out' });
-    }
-    for (let k = was.base - 1; k >= now.base; k--) {
-      const el = at(k);
-      if (!el) continue;
-      crackOut(el, 'crystal-ghost', 420 * f, (was.base - 1 - k) * step);
+    // Every tile whose value changed: the number ticks to it, and the tile
+    // pulses gold for a gain or red for a spend.
+    const tiles = { energy: '.base-n', exert: '.exert-ready', xp: '.xp-n', dollars: '.dollars-n', bag: '.bag-n' };
+    for (const [k, num] of Object.entries(tiles)) {
+      if (now[k] === was[k]) continue;
+      const tile = box.querySelector(`.t-${k}`);
+      tick(tile?.querySelector(num), was[k], now[k], 500 * f, '');
+      pulseTile(tile, now[k] > was[k], f);
     }
 
-    // Exert: free gems first, then stones, so a spent gem turns to stone in its own socket.
-    const gems = [...box.querySelectorAll('.exert .xgem')];
-    for (let k = now.free; k < was.free; k++) if (gems[k]) crackOut(gems[k], 'gem-ghost', 520 * f, (k - now.free) * step);
-    for (let k = was.free; k < now.free; k++) {
-      gems[k]?.animate([
+    // Exert pips: ready ones first, so a spent pip dims in its own place; recovered ones glow back.
+    const pips = [...box.querySelectorAll('.t-exert .pip')];
+    for (let k = now.exert; k < was.exert; k++) if (pips[k]) crackOut(pips[k], 'gem-ghost', 520 * f, (k - now.exert) * 110 * f);
+    for (let k = was.exert; k < now.exert; k++) {
+      pips[k]?.animate([
         { filter: 'grayscale(1) brightness(0.5)', transform: 'scale(0.8)' },
         { filter: 'brightness(1.9) drop-shadow(0 0 6px #ffb040)', transform: 'scale(1.25)', offset: 0.55 },
         { filter: 'none', transform: 'scale(1)' },
-      ], { duration: 700 * f, delay: (k - was.free) * step * 2, fill: 'backwards' });
+      ], { duration: 700 * f, delay: (k - was.exert) * 220 * f, fill: 'backwards' });
     }
-
-    if (now.xp !== was.xp) {
-      const badge = box.querySelector('.xp-badge');
-      tick(badge?.querySelector('.xp-n'), was.xp, now.xp, 500 * f, '');
-      if (now.xp > was.xp) stars(badge, Math.min(5, now.xp - was.xp), f);
-    }
-    if (now.dollars !== was.dollars) {
-      const stack = box.querySelector('.dollars');
-      tick(stack?.querySelector('.dollars-n'), was.dollars, now.dollars, 500 * f, '$');
-      if (now.dollars > was.dollars) {
-        stack?.querySelector('.coin-stack')?.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.2) translateY(-3px)', filter: 'brightness(1.5)' }, { transform: 'scale(1)' }], { duration: 450 * f });
-      } else slideCoins(stack, Math.min(5, was.dollars - now.dollars), f);
-    }
+    if (now.xp > was.xp) stars(box.querySelector('.t-xp'), Math.min(5, now.xp - was.xp), f);
   }
+}
+
+// A tile flashing gold (it gained) or red (it was spent).
+function pulseTile(tile, gain, f) {
+  if (!tile) return;
+  const c = gain ? '255, 200, 70' : '235, 70, 50';
+  tile.animate([
+    { boxShadow: `0 0 0 0 rgba(${c}, 0)` },
+    { boxShadow: `0 0 0 3px rgba(${c}, 0.95), 0 0 22px 6px rgba(${c}, 0.7)`, filter: 'brightness(1.25)', offset: 0.3 },
+    { boxShadow: `0 0 0 0 rgba(${c}, 0)` },
+  ], { duration: 800 * f, easing: 'ease-out' });
 }
 
 // A lit copy over the element that flares, cracks and fades: the point being spent.
@@ -673,25 +619,6 @@ function stars(badge, n, f) {
   }
 }
 
-// Coins sliding off the top of the stack: money spent.
-function slideCoins(stack, n, f) {
-  const holder = stack?.querySelector('.coin-stack');
-  if (!holder) return;
-  const top = holder.querySelectorAll('.coin').length;
-  for (let i = 0; i < n; i++) {
-    const c = document.createElement('i');
-    c.className = 'coin sliding';
-    c.style.bottom = `${(top + i) * 3}px`;
-    holder.append(c);
-    const a = c.animate([
-      { transform: 'translate(0, 0) rotate(0deg)', opacity: 1 },
-      { transform: `translate(${18 + i * 4}px, -6px) rotate(25deg)`, opacity: 1, offset: 0.35 },
-      { transform: `translate(${34 + i * 6}px, ${24 + i * 3}px) rotate(80deg)`, opacity: 0 },
-    ], { duration: 600 * f, delay: i * 90 * f, fill: 'backwards', easing: 'ease-in' });
-    a.onfinish = () => c.remove();
-  }
-}
-
 function weatherText(tokens) {
   return Object.entries(tokens ?? {}).map(([type, n]) => `<span class="weather-chip ${slug(type)}">${weatherIcon(type)} ${n} ${type}</span>`).join(' ');
 }
@@ -728,18 +655,57 @@ function centreStrip(state) {
     </section>`;
 }
 
-// The shared PokéMart: 3 Items on sale and the deck count.
+const COIN_IMG = '<img class="coin-img" src="assets/ui/icons/coin.webp" alt="">';
+
+// The PokéMart in the side panel: a small storefront, the counter art with the
+// Items on sale standing on it, price tags and a "PokéMart ›" sign. Clicking it
+// opens the full PokéMart. (While that is open, these copies give up their card
+// identity so the buy animation starts from the big card.)
 function martPanel(state) {
-  const onSale = state.round && state.mart ? state.mart.onSale : [null, null, null];
-  const buyable = new Set(isMyBattleTurn(state) && !ui.supporter
-    ? openBagOptions(state, 'player').filter((o) => o.mode === 'buyMart').map((o) => o.slot) : []);
-  const slots = onSale.map((item, slot) => (item
-    ? `<div class="mart-item${buyable.has(slot) ? ' buyable' : ''}" data-slot="${slot}">
-        ${card(item, 'mini')}
-        <div class="mart-text"><div class="mart-name"><b>${item.name}</b><span class="price">$${item.cost}</span></div>
-          <div class="mart-effect">${item.itemType}: ${item.effectText}</div></div></div>`
-    : `<div class="mart-item sold">${state.round ? 'Sold' : 'Opens in Round 1'}</div>`)).join('');
-  return `<div class="mart"><div class="mart-label">PokéMart ${state.round && state.mart ? `<span class="hint">deck ${state.mart.deck.length}</span>` : ''}</div>${slots}</div>`;
+  const v = martView(state);
+  const items = v.slots.map((x) => {
+    if (!x.item) return `<div class="sf-item empty">${x.sold ? '<span class="sold-placard">Sold</span>' : ''}</div>`;
+    let face = card(x.item, 'mini');
+    if (martOpen) face = face.replace(/ data-uid="[^"]*"/, '');
+    return `<div class="sf-item${x.canBuy ? ' buyable' : ''}" data-slot="${x.slot}">${face}<i class="price-tag">$${x.price}</i></div>`;
+  }).join('');
+  const tip = v.open ? `PokéMart: ${v.onSale} on sale, ${v.inStock} more in stock. Click to open.` : 'The PokéMart opens in Round 1.';
+  return `
+    <div class="storefront${v.canBuyAny ? ' can-buy' : ''}" data-action="open-mart" role="button" tabindex="0" title="${attr(tip)}">
+      <span class="mart-sign">PokéMart ›</span>
+      <div class="sf-shelf">${items}</div>
+    </div>`;
+}
+
+// The full PokéMart (docs/design/pokemart-mockup.jpg): an overlay over the
+// dimmed board, the counter art behind the Items on sale as real cards with
+// paper price tags, a Buy button under each (or why it can't be bought), and
+// your PokéDollars and Bag space.
+function martOverlay(state) {
+  if (!martOpen) return '';
+  const v = martView(state);
+  const shelf = v.slots.map((x) => (x.item
+    ? `<div class="mart-slot">${card(x.item, 'hand')}<i class="paper-tag">${COIN_IMG}<b>${x.price}</b></i></div>`
+    : `<div class="mart-slot empty">${x.sold ? '<span class="sold-placard big">Sold</span>' : `<span class="closed">${x.label}</span>`}</div>`)).join('');
+  const buys = v.slots.map((x) => (x.item
+    ? `<div class="mart-buy"><button data-action="mart-buy" data-slot="${x.slot}"${x.canBuy ? '' : ' disabled'}>Buy</button><small${x.canBuy ? '' : ' class="why"'}>${attr(x.note)}</small></div>`
+    : `<div class="mart-buy"><small>${x.sold ? 'Restocks at Breakfast' : ''}</small></div>`)).join('');
+  return `
+    <div class="mart-view" data-action="close-mart">
+      <div class="mart-box" role="dialog" aria-label="PokéMart">
+        <button class="mart-close" data-action="close-mart" title="Close (Esc)">✕</button>
+        <div class="mart-scene">
+          <div class="mart-banner"><h2>PokéMart</h2><span>${v.onSale} on sale · restocks every Breakfast · ${v.inStock} more in stock</span></div>
+          <div class="mart-shelf">${shelf}</div>
+        </div>
+        <div class="mart-buys">${buys}</div>
+        <footer class="mart-foot">
+          <span class="mart-stat">You have ${COIN_IMG}<b>${v.dollars}</b></span>
+          <span class="mart-stat">Bag <b>${v.bagCount}/${v.bagSize}</b></span>
+          <p>Bought here, an Item arrives at your next Breakfast.<br>Buying here is your Open Bag Action.</p>
+        </footer>
+      </div>
+    </div>`;
 }
 
 // --- The arena ----------------------------------------------------------------
@@ -1199,6 +1165,7 @@ function card(c, size, opts = {}) {
   const head = `class="${cardClasses(c, f, size, opts)}" data-uid="${c.uid}" data-pv="${pv}"${vfxAttrs(c)}`;
   const name = `<div class="plate"><span class="card-name">${c.name}</span></div>`;
   if (size === 'mini') return `<div ${head}><div class="inner">${art(c, f)}${name}</div>${f.corner ?? ''}</div>`;
+  if (size === 'thumb') return `<div ${head}><div class="inner">${art(c, f)}<span class="thumb-name">${c.name}</span></div></div>`;
   const wide = size === 'hand' || size === 'full';
   const badges = [retainMark(c), ...(f.badges ?? []), burnToken(c)].filter(Boolean).join('');
   const status = (f.status ?? []).filter(Boolean).join('');
@@ -1404,7 +1371,7 @@ function controls(state) {
             primary: idle('Choose', 'above'),
           };
         }
-        const hints = { buyHand: 'Click an Item in your hand to buy it.', buyMart: 'Click an Item in the PokéMart to buy it (In Delivery until next Breakfast).', useBag: 'Click an Item in your Bag to use it.' };
+        const hints = { buyHand: 'Click an Item in your hand to buy it.', useBag: 'Click an Item in your Bag to use it.' };
         if (ui.bag.mode) return { hint: hints[ui.bag.mode], secondary: cancel, primary: idle('Choose', 'an Item') };
         return {
           hint: `<b>Open Bag</b> ($${me.dollars}): choose one.`,
@@ -1510,12 +1477,12 @@ function costOf(state, focus) {
 }
 
 function applyCost(root, state) {
-  const box = root.querySelector('[data-pile="player-energy"]');
-  const exert = root.querySelector('[data-pile="player-exert"]');
+  const box = root.querySelector('.res.player [data-pile="player-energy"]');
+  const exert = root.querySelector('.res.player [data-pile="player-exert"]');
   if (!box || !exert) return;
   box.classList.remove('previewing', 'short');
   exert.classList.remove('previewing', 'short');
-  root.querySelectorAll('.res.player .spend, .res.player .spend-exert').forEach((c) => c.classList.remove('spend', 'spend-exert'));
+  exert.querySelectorAll('.spend-exert').forEach((c) => c.classList.remove('spend-exert'));
   const note = box.querySelector('.cost-note');
   note.textContent = '';
   const cost = ui.costFocus && state.phase === 'battle' ? costOf(state, ui.costFocus) : null;
@@ -1523,7 +1490,6 @@ function applyCost(root, state) {
   const p = state.players.player;
   const free = p.exertMax - p.exhaust.length;
   box.classList.add('previewing');
-  exert.classList.add('previewing');
   if (cost > p.baseEnergy + free) {
     box.classList.add('short');
     exert.classList.add('short');
@@ -1532,11 +1498,12 @@ function applyCost(root, state) {
   }
   const fromBase = Math.min(cost, p.baseEnergy);
   const fromExert = cost - fromBase;
-  // The crystals it would spend flicker: the rightmost unspent ones (extra crystals first).
-  const unspent = [...box.querySelectorAll('.crystal.lit'), ...box.querySelectorAll('.crystal.bonus')];
-  unspent.slice(unspent.length - Math.min(fromBase, unspent.length)).forEach((c) => c.classList.add('spend'));
-  const gems = [...exert.querySelectorAll('.xgem.free')];
-  if (fromExert) gems.slice(gems.length - fromExert).forEach((c) => c.classList.add('spend-exert'));
+  // The Exert pips it would use flicker: the last ready ones.
+  const ready = [...exert.querySelectorAll('.pip.ready')];
+  if (fromExert) {
+    exert.classList.add('previewing');
+    ready.slice(ready.length - fromExert).forEach((c) => c.classList.add('spend-exert'));
+  }
   note.textContent = cost === 0 ? 'Free' : fromExert ? `−${fromBase} Base · +${fromExert} Exhaust` : `−${fromBase} Base Energy`;
   if (fromExert) note.classList.add('exert'); else note.classList.remove('exert');
 }
@@ -1622,7 +1589,7 @@ function wire(root, state, actions) {
     root.querySelectorAll('[data-speed]').forEach((b) => { b.className = b === el ? 'chosen' : 'secondary'; });
     root.querySelector('[data-action="settings"]').textContent = `⚙ ${SPEEDS[getSpeed()].label}`;
   });
-  on('[data-action="new-game"]', () => { pileView = null; newGame(); });
+  on('[data-action="new-game"]', () => { pileView = null; martOpen = false; newGame(); });
   // The card picker: mark cards (one at a time when only one may be taken), then confirm.
   on('[data-pick]', (el) => {
     const uid = el.dataset.pick;
@@ -1797,10 +1764,27 @@ function wire(root, state, actions) {
   on('[data-action="open-bag"]', () => { clearSelection(); ui.bag = { mode: null }; redraw(); });
   on('[data-action="cancel-bag"]', () => { ui.bag = null; redraw(); });
   on('[data-action="cancel-target"]', () => { clearSelection(); redraw(); });
-  on('[data-action="bag-mode"]', (el) => { ui.bag = { mode: el.dataset.mode }; redraw(); });
+  on('[data-action="bag-mode"]', (el) => {
+    // Buying from the PokéMart happens in the PokéMart itself.
+    if (el.dataset.mode === 'buyMart') { ui.bag = null; martOpen = true; } else ui.bag = { mode: el.dataset.mode };
+    redraw();
+  });
   on('[data-action="bag-store"]', () => { ui.bag.then = 'store'; dispatchBag(undefined); });
   on('[data-action="bag-use"]', () => { ui.bag.then = 'use'; useNow(); });
-  on('.mart-item.buyable', (el) => dispatch({ type: 'openBag', who: 'player', mode: 'buyMart', slot: Number(el.dataset.slot) }));
+  // The PokéMart: the storefront opens it; Buy is the same Open Bag action as before.
+  on('[data-action="open-mart"]', () => { martOpen = true; redraw(); });
+  on('[data-action="mart-buy"]', (el) => {
+    martOpen = false;
+    clearSelection();
+    dispatch({ type: 'openBag', who: 'player', mode: 'buyMart', slot: Number(el.dataset.slot) });
+  });
+  root.querySelectorAll('[data-action="close-mart"]').forEach((el) => {
+    el.onclick = (e) => {
+      if (e.target !== el) return;
+      martOpen = false;
+      redraw();
+    };
+  });
   on('.player .bag-slot.usable', (el) => {
     clearSelection();
     ui.bag = { mode: 'useBag', uid: el.dataset.uid };
@@ -1880,9 +1864,9 @@ function wire(root, state, actions) {
     arrowSource: () => arrowSource(state),
     outcome: (el) => outcome(state, el),
     inspect: (el) => inspectView(previews[Number(el.dataset.pv)]),
-    selecting: () => Boolean(pileView || ui.passWarn || ui.attacker || ui.power !== null || ui.strategy || ui.location || ui.selectedPokemon
+    selecting: () => Boolean(pileView || martOpen || ui.passWarn || ui.attacker || ui.power !== null || ui.strategy || ui.location || ui.selectedPokemon
       || ui.bag || ui.supporter || ui.selectedTrainer),
-    cancel: () => { pileView = null; clearSelection(); ui.selectedTrainer = null; ui.costFocus = null; redraw(); },
+    cancel: () => { pileView = null; martOpen = false; clearSelection(); ui.selectedTrainer = null; ui.costFocus = null; redraw(); },
   });
 }
 
@@ -1946,8 +1930,6 @@ function dragPlan(state, el, { redraw, dispatch, dispatchBag, usePower }) {
       arena: targeted ? null : () => dispatchBag(undefined),
     };
   }
-  const mart = el.closest('.mart-item.buyable');
-  if (mart) return { kind: 'card', bag: () => dispatch({ type: 'openBag', who: 'player', mode: 'buyMart', slot: Number(mart.dataset.slot) }) };
 
   if (!el.classList.contains('selectable')) return null;
   const space = el.closest('.player .pokemon-space');

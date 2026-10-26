@@ -363,7 +363,7 @@ button.primary {
 
 /* Bottom: my hand fanned along the edge, then my info bar. */
 .bottom { position: absolute; left: 196px; top: 938px; width: 1414px; height: 142px; display: flex; z-index: 3; }
-.hand-area { position: relative; width: 740px; height: 142px; flex: none; margin: 0 18px 0 24px; }
+.hand-area { position: relative; width: 740px; height: 142px; flex: none; margin: 0 28px 0 14px; }
 .hand, .tray { position: absolute; inset: 0; }
 /* The fan: each card rotates around its bottom edge (render.js arcLayout places it). */
 .hand > .card, .tray > .card {
@@ -408,7 +408,7 @@ button.primary {
   box-shadow: inset 0 0 0 3px rgba(255, 214, 130, 0.55), inset 0 0 50px rgba(255, 200, 110, 0.25);
 }
 .drop-hover { filter: brightness(1.25); }
-.player .bag.drop-ok { border-radius: 8px; box-shadow: 0 0 0 2px rgba(255, 214, 130, 0.9), 0 0 16px 5px rgba(255, 200, 110, 0.5); }
+.player .t-bag.drop-ok { border-radius: 8px; box-shadow: 0 0 0 2px rgba(255, 214, 130, 0.9), 0 0 16px 5px rgba(255, 200, 110, 0.5); }
 /* While aiming, everything that isn't a legal target dims. */
 /* (Drawn from the game state, so nothing stays dim after a cancelled drag or the AI's turn.)
    Only a light dim, still in colour: a defeated Trainer must never be mistaken for one. */
@@ -484,31 +484,81 @@ button.primary {
 .settings-title { font-family: var(--font-display); font-size: 13px; color: var(--brass-light); }
 .settings button.chosen { box-shadow: var(--bevel), 0 0 10px 2px var(--gold-glow); }
 
-/* PokéMart */
-.mart { flex: none; display: flex; flex-direction: column; gap: 5px; }
-.mart-label {
-  font-family: var(--font-display); font-weight: 800; font-size: 15px; color: var(--brass-light);
-  display: flex; justify-content: space-between; align-items: baseline;
+/* PokéMart (Feedback batch 2, docs/design/pokemart-mockup.jpg) */
+/* In the side panel: a small storefront that opens the full PokéMart. */
+.storefront {
+  position: relative; flex: none; height: 150px; border-radius: 8px; cursor: pointer; overflow: hidden;
+  background: url('../../assets/ui/pokemart.jpg') center 58% / 200% auto no-repeat;
+  border: 2px solid var(--brass-dark); box-shadow: inset 0 0 0 1px rgba(246, 221, 154, 0.35), 0 3px 8px rgba(0, 0, 0, 0.6);
 }
-.mart-label .hint { font-family: var(--font-text); font-weight: 400; font-size: 12px; }
-.mart-item {
-  height: 79px; display: flex; gap: 8px; padding: 2px 4px; border-radius: 7px;
-  background: rgba(0, 0, 0, 0.28); border: 1px solid rgba(209, 169, 90, 0.35);
+.storefront:hover { filter: brightness(1.12); }
+.storefront.can-buy { box-shadow: inset 0 0 0 1px rgba(246, 221, 154, 0.35), 0 0 12px 2px rgba(255, 205, 110, 0.45); }
+.mart-sign {
+  position: absolute; left: 50%; top: 6px; translate: -50% 0; z-index: 2; padding: 2px 12px; border-radius: 6px; white-space: nowrap;
+  font-family: var(--font-display); font-size: 14px; font-weight: 800; letter-spacing: 0.05em; color: #fff;
+  background: linear-gradient(#3d6fd6, #1d3f96); border: 2px solid #e8edf8; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6);
 }
-.mart-item.buyable { cursor: pointer; border-color: var(--brass-light); box-shadow: 0 0 10px rgba(255, 205, 110, 0.35); }
-.mart-item.buyable:hover { background: rgba(255, 205, 110, 0.12); }
-.mart-item.sold { display: grid; place-items: center; color: var(--cream-muted); border-style: dashed; font-family: var(--font-display); font-size: 13px; }
-.mart-text { min-width: 0; flex: 1; font-size: 12.5px; display: flex; flex-direction: column; gap: 2px; padding-top: 2px; }
-.mart-name { display: flex; justify-content: space-between; gap: 6px; white-space: nowrap; }
-.mart-name b { overflow: hidden; text-overflow: ellipsis; font-family: var(--font-display); font-size: 13px; color: var(--cream); }
-.price {
-  flex: none; padding: 0 5px; border-radius: 9px; font-weight: 800; color: var(--ink);
-  background: radial-gradient(circle at 35% 30%, #fff1b8, var(--brass) 55%, var(--brass-mid)); border: 1px solid var(--brass-dark);
+.sf-shelf { position: absolute; left: 6px; right: 6px; bottom: 10px; display: flex; justify-content: space-around; align-items: flex-end; }
+.sf-item { position: relative; width: 58px; height: 82px; }
+.sf-item > .card.mini { --w: 58px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.7); }
+.sf-item.empty { display: grid; place-items: center; }
+.price-tag {
+  position: absolute; left: 50%; bottom: -8px; translate: -50% 0; padding: 0 6px; border-radius: 4px; font-style: normal;
+  font-size: 13px; font-weight: 800; line-height: 16px; color: var(--ink); background: var(--parchment); border: 1px solid var(--brass-dark);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
-.mart-effect {
-  color: var(--cream-muted); overflow: hidden; line-height: 1.2;
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3;
+.sold-placard {
+  padding: 2px 8px; rotate: -10deg; border-radius: 4px; font-family: var(--font-display); font-size: 13px; font-weight: 800; letter-spacing: 0.1em;
+  text-transform: uppercase; color: #fff4e0; background: linear-gradient(#b8322a, #7a1a14); border: 2px solid #f6dd9a; box-shadow: 0 3px 6px rgba(0, 0, 0, 0.6);
 }
+.sold-placard.big { font-size: 34px; padding: 8px 26px; border-width: 3px; }
+
+/* The full PokéMart: an overlay over the dimmed, blurred board. */
+.mart-view {
+  position: absolute; inset: 0; z-index: 44; display: grid; place-items: center;   /* under #fx, so paid coins show */
+  background: rgba(10, 5, 2, 0.55); backdrop-filter: blur(5px) brightness(0.7);
+}
+.mart-box {
+  position: relative; width: 1260px; height: 875px; border-radius: 22px; overflow: hidden; display: flex; flex-direction: column;
+  background: var(--leather-panel); border: 3px solid var(--brass); box-shadow: inset 0 0 0 1px rgba(246, 221, 154, 0.4), 0 20px 60px rgba(0, 0, 0, 0.8);
+}
+.mart-close {
+  position: absolute; right: 18px; top: 16px; z-index: 5; width: 50px; height: 50px; padding: 0; border-radius: 50%;
+  font-size: 26px; line-height: 1; color: var(--ink); background: var(--brass-plate); border: 2px solid var(--brass-dark); box-shadow: var(--bevel), 0 3px 8px rgba(0, 0, 0, 0.6);
+}
+.mart-scene { position: relative; height: 710px; flex: none; background: url('../../assets/ui/pokemart.jpg') center top / 100% auto no-repeat; }
+.mart-banner {
+  position: absolute; left: 50%; top: 58px; translate: -50% 0; padding: 10px 40px 12px; text-align: center; border-radius: 12px;
+  background: linear-gradient(#3463c8, #1c3b8c); border: 3px solid #e8edf8; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6); color: #fff;
+}
+.mart-banner h2 { margin: 0; font-family: var(--font-display); font-size: 48px; font-weight: 800; letter-spacing: 0.05em; line-height: 1.05; text-shadow: 0 3px 4px rgba(0, 0, 0, 0.5); }
+.mart-banner span { font-size: 16px; }
+.mart-shelf { position: absolute; left: 0; right: 0; top: 196px; display: grid; grid-template-columns: repeat(3, 200px); justify-content: center; column-gap: 66px; }
+.mart-slot { position: relative; height: 280px; display: grid; place-items: end center; }
+.mart-slot > .card.hand { --w: 200px; box-shadow: 0 10px 16px rgba(0, 0, 0, 0.65); }
+.mart-slot.empty { place-items: center; }
+.mart-slot .closed { font-family: var(--font-display); font-size: 20px; color: var(--cream); text-shadow: 0 2px 4px #000; }
+.paper-tag {
+  position: absolute; right: -26px; top: 46%; z-index: 3; display: flex; align-items: center; gap: 4px; padding: 4px 12px 4px 18px; rotate: 8deg;
+  font-style: normal; border-radius: 4px 10px 10px 4px; background: linear-gradient(#fbf3dc, #e6d4a6); border: 1px solid #8a6a32; box-shadow: 0 3px 6px rgba(0, 0, 0, 0.55);
+}
+.paper-tag::before { content: ''; position: absolute; left: 6px; top: 50%; width: 6px; height: 6px; translate: 0 -50%; border-radius: 50%; background: #3d2514; }
+.paper-tag .coin-img { width: 28px; height: 28px; }
+.paper-tag b { font-family: var(--font-display); font-size: 24px; color: var(--ink); }
+.mart-buys { display: grid; grid-template-columns: repeat(3, 200px); justify-content: center; column-gap: 66px; padding-top: 14px; }
+.mart-buy { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.mart-buy button { width: 196px; font-family: var(--font-display); font-size: 22px; font-weight: 800; padding: 8px 0; }
+.mart-buy button:disabled { filter: grayscale(1) brightness(0.7); cursor: not-allowed; }
+.mart-buy small { font-size: 14px; color: var(--cream-muted); }
+.mart-buy small.why { color: #ffb0a0; }
+.mart-foot { position: absolute; left: 36px; right: 36px; bottom: 20px; display: flex; align-items: center; gap: 14px; }
+.mart-stat {
+  display: flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 8px; border: 1px solid var(--brass-mid);
+  font-family: var(--font-display); font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--brass-light);
+}
+.mart-stat b { font-size: 26px; color: var(--cream); letter-spacing: 0; }
+.mart-stat .coin-img { width: 30px; height: 30px; }
+.mart-foot p { margin: 0 0 0 auto; text-align: right; font-size: 15px; line-height: 1.4; color: var(--cream); }
 
 /* Match log: a drawer over the right side, closed by default */
 .log {
@@ -693,14 +743,6 @@ button.primary {
 /* --- V5: turn flow and clarity ------------------------------------------------------------- */
 
 /* The side panel: PokéMart at the top, the prompt, then the main action medallion beside my side of the board. */
-.mart { flex-direction: row; flex-wrap: wrap; gap: 5px; }
-.mart-label { flex-basis: 100%; }
-.mart-item { flex: 1 1 0; min-width: 0; height: auto; flex-direction: column; align-items: center; gap: 2px; padding: 4px 3px 3px; }
-.mart-item .mart-text { width: 100%; align-items: center; padding: 0; }
-.mart-item .mart-name { flex-direction: column; align-items: center; gap: 1px; width: 100%; }
-.mart-item .mart-name b { font-size: 11px; max-width: 100%; }
-.mart-item .mart-effect { display: none; }
-.mart-item.sold { height: 105px; }
 .panel-title h1 { font-size: 17px; }
 .medallion-seat { flex: none; height: 182px; display: grid; place-items: center; }
 
@@ -835,149 +877,130 @@ button.primary {
   position: absolute; left: 290px; top: 1px; width: 1330px; height: 76px;
   display: flex; align-items: center; gap: 14px;
 }
-.res { position: relative; display: grid; color: var(--cream-muted); font-size: 13px; }
-.res.ai {
-  height: 74px; padding: 3px 12px; column-gap: 16px; align-items: center;
-  grid-template-columns: 170px 290px 96px auto; grid-template-rows: 30px 36px;
-  grid-template-areas: "id energy exert bag" "tokens energy exert bag";
-}
+/* --- Feedback batch 2: resource panels (docs/design/player-panel-mockup.jpg) ----------- */
+/* Five framed tiles: Energy, Exert, XP, PokéDollars and the Bag row. Mine is
+   large, in the strip below the board right of the hand and under the side
+   panel; the opponent's is the same, compact, along the top. */
+.res { position: absolute; display: grid; color: var(--cream-muted); font-size: 13px; --frame: linear-gradient(#6a4526, #3d2514); }
 .res.player {
-  width: 416px; height: 138px; margin-top: 2px; padding: 4px 10px 5px; column-gap: 10px; row-gap: 2px;
-  grid-template-columns: 1fr auto; grid-template-rows: 26px 40px 1fr;
-  grid-template-areas: "id tokens" "energy exert" "bag bag";
+  left: 986px; top: 0; width: 723px; height: 140px; padding: 8px 8px 7px; gap: 6px;
+  grid-template-columns: 178px 196px 150px 1fr; grid-template-rows: 66px 1fr;
+  grid-template-areas: "energy exert xp dollars" "bag bag bag bag";
 }
-.res-id { grid-area: id; display: flex; align-items: center; gap: 7px; white-space: nowrap; min-width: 0; }
-.pname { font-family: var(--font-display); color: var(--brass-light); font-size: 16px; letter-spacing: 0.03em; }
+.res.ai {
+  position: relative; width: 940px; height: 70px; flex: none; padding: 5px 6px; gap: 5px; margin-top: -4px;
+  grid-template-columns: 118px 128px 92px 122px 1fr; grid-template-rows: 1fr;
+  grid-template-areas: "energy exert xp dollars bag";
+}
+/* The name tag ("You", "Opponent"), with whose move it is and who passed last. */
+.res-tag {
+  position: absolute; z-index: 2; display: flex; align-items: center; gap: 7px; padding: 1px 12px 2px; white-space: nowrap;
+  border-radius: 6px 6px 0 0; background: var(--brass-plate); border: 1px solid var(--brass-dark); box-shadow: var(--bevel);
+}
+.res.player .res-tag { left: 18px; top: -24px; }
+.res.ai .res-tag { left: 18px; bottom: -22px; border-radius: 0 0 6px 6px; }
+.pname { font-family: var(--font-display); color: var(--ink); font-size: 17px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
 #stage.ai-thinking .res.ai .pname::after {
-  content: ' is thinking…'; font-family: var(--font-text); font-weight: 400; font-size: 14px; color: var(--cream-muted);
+  content: ' is thinking…'; font-family: var(--font-text); font-weight: 400; font-size: 14px; text-transform: none; letter-spacing: 0;
 }
-.res-tokens { grid-area: tokens; display: flex; align-items: center; gap: 16px; justify-self: start; }
-.res.player .res-tokens { justify-self: end; }
 
-/* Energy: a row of crystals and the number left of this Round's. */
-.energy { grid-area: energy; position: relative; display: flex; align-items: center; gap: 5px; }
-.energy > .icon { width: 16px; height: 16px; color: var(--sun); flex: none; }
-.crystals { display: flex; align-items: center; gap: 2px; }
-.crystal {
-  position: relative; width: 12px; height: 22px; flex: none;
-  clip-path: polygon(50% 0, 100% 28%, 100% 72%, 50% 100%, 0 72%, 0 28%);
+.tile {
+  position: relative; display: flex; flex-direction: column; justify-content: center; min-width: 0; padding: 3px 10px 4px;
+  border-radius: 8px; background: linear-gradient(rgba(60, 36, 16, 0.85), rgba(26, 14, 6, 0.9));
+  border: 1px solid var(--brass-mid); box-shadow: inset 0 0 0 1px rgba(246, 221, 154, 0.18), inset 0 2px 8px rgba(0, 0, 0, 0.6);
 }
-.crystal.lit { background: linear-gradient(120deg, #fffbe0 0%, #ffd760 30%, #f0a628 58%, #9c5a08 100%); }
-.crystal.empty { background: linear-gradient(120deg, #4a3420, #22150a 60%, #120a04); opacity: 0.85; }
-.crystal.empty::after { content: ''; position: absolute; inset: 3px 3px; clip-path: inherit; background: rgba(0, 0, 0, 0.45); }
-.crystal.bonus {
-  background: linear-gradient(120deg, #f0fffb 0%, #7ff5de 32%, #24b8a4 62%, #0b5e56 100%);
-  animation: bonus-glow 1.6s ease-in-out infinite alternate;
+.tile.t-energy { grid-area: energy; } .tile.t-exert { grid-area: exert; } .tile.t-xp { grid-area: xp; }
+.tile.t-dollars { grid-area: dollars; } .tile.t-bag { grid-area: bag; }
+.tile-label {
+  display: flex; align-items: baseline; gap: 6px; white-space: nowrap; line-height: 1;
+  font-family: var(--font-display); font-size: 13px; font-weight: 700; color: var(--brass); letter-spacing: 0.08em; text-transform: uppercase;
 }
-@keyframes bonus-glow { from { filter: brightness(1); } to { filter: brightness(1.35); } }
-.crystal-ghost {
-  position: absolute; inset: 0;
-  background: linear-gradient(120deg, #fffbe0 0%, #ffd760 30%, #f0a628 58%, #9c5a08 100%),
-    linear-gradient(60deg, transparent 46%, #000 48%, transparent 52%);
-  background-blend-mode: multiply;
-}
-.crystal-more { font-style: normal; font-size: 13px; font-weight: 800; color: #7ff5de; margin-left: 2px; }
-.crystal-none { font-style: normal; color: var(--cream-muted); }
-.energy-n { font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--brass-light); white-space: nowrap; line-height: 1; margin-left: 3px; }
-.energy-n small { font-size: 16px; color: var(--cream-muted); margin-left: 3px; }
-.energy-n.over .base-n { color: #7ff5de; }
+.tile-label em { font-style: normal; color: #ffc46a; }
+.tile-body { display: flex; align-items: center; gap: 8px; min-height: 0; }
+.tile-ico { position: relative; width: 38px; height: 38px; flex: none; }
+.tile-n { font-family: var(--font-display); font-size: 36px; font-weight: 800; line-height: 1; color: var(--cream); white-space: nowrap; }
+.tile-n > span { display: inline-block; }
+.tile-n small { font-size: 22px; color: var(--cream-muted); margin-left: 2px; }
+.tile-n .over { color: #7ff5de; }
+.res.ai .tile { padding: 2px 7px; }
+.res.ai .tile-label { font-size: 10px; letter-spacing: 0.06em; }
+.res.ai .tile-ico { width: 26px; height: 26px; }
+.res.ai .tile-n { font-size: 24px; }
+.res.ai .tile-n small { font-size: 15px; }
+.res.ai .tile-body { gap: 5px; }
 
-/* A cost being previewed: the crystals and gems it would spend flicker. */
-.energy.previewing .crystal.spend { animation: crystal-flicker 0.5s ease-in-out infinite alternate; }
-.exert.previewing .xgem.spend-exert { animation: crystal-flicker 0.5s ease-in-out infinite alternate; box-shadow: 0 0 10px 3px #ffa030; }
+/* Exert pips: glowing when ready, grey with the Breakfasts left when Exhausted, locked until unlocked. */
+.pips { display: flex; gap: 8px; align-items: center; }
+.pip { position: relative; width: 40px; height: 40px; flex: none; display: block; }
+.pip .ico { width: 100%; height: 100%; }
+.pip.ready .ico { filter: drop-shadow(0 0 7px rgba(255, 160, 50, 0.85)); }
+.pip.exhausted .ico, .pip.locked .ico { filter: grayscale(1) brightness(0.45); }
+.pip.locked .ico { opacity: 0.55; }
+.pip b {
+  position: absolute; left: 50%; top: 50%; translate: -50% -40%; min-width: 22px; padding: 0 4px; border-radius: 11px; text-align: center;
+  font-family: var(--font-display); font-size: 17px; font-weight: 800; line-height: 22px; color: var(--ink);
+  background: var(--brass-plate); border: 1px solid var(--brass-dark); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+.pip-lock { position: absolute; inset: 0; display: grid; place-items: center; }
+.pip-lock .icon { width: 18px; height: 18px; color: var(--brass-light); filter: drop-shadow(0 1px 2px #000); }
+.res.ai .pips { gap: 4px; }
+.res.ai .pip { width: 26px; height: 26px; }
+.res.ai .pip b { font-size: 12px; line-height: 15px; min-width: 15px; }
+.res.ai .pip-lock .icon { width: 12px; height: 12px; }
+.gem-ghost { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle, rgba(255, 210, 120, 0.95), rgba(255, 140, 30, 0.4) 60%, transparent 72%); }
+.xp-word { font-family: var(--font-display); font-weight: 800; color: #8fb8ff; }
+
+/* A cost being previewed: the Energy note, and the Exert pips it would use flicker. */
+.t-exert.previewing .pip.spend-exert { animation: crystal-flicker 0.5s ease-in-out infinite alternate; }
 @keyframes crystal-flicker { from { filter: brightness(1.7); opacity: 1; } to { filter: brightness(0.7); opacity: 0.3; } }
 .cost-note {
-  display: none; position: absolute; left: 0; bottom: calc(100% + 6px); z-index: 5; padding: 2px 9px; border-radius: 6px; white-space: nowrap;
+  display: none; position: absolute; left: 0; bottom: calc(100% + 30px); z-index: 5; padding: 2px 9px; border-radius: 6px; white-space: nowrap;
   background: rgba(20, 10, 2, 0.95); border: 1px solid var(--brass); color: var(--brass-light); font-size: 15px; font-weight: 800;
 }
-.energy.previewing .cost-note { display: block; }
+.t-energy.previewing .cost-note { display: block; }
+.t-energy.previewing .base-n { animation: crystal-flicker 0.5s ease-in-out infinite alternate; }
 .cost-note.exert { color: #ffb050; border-color: #ffa030; }
-.energy.short .cost-note { color: #ff9a8a; border-color: var(--red-bright); }
-.energy.short .base-n, .exert.short .exert-n { color: var(--red-bright); }
+.t-energy.short .cost-note { color: #ff9a8a; border-color: var(--red-bright); }
+.t-energy.short .base-n { color: var(--red-bright); }
 
-/* Exert: amber gems in brass sockets; Exhausted ones cracked stones with their Round; locked sockets. */
-.exert { grid-area: exert; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
-.exert-label { order: -1; display: flex; align-items: baseline; gap: 5px; line-height: 13px; font-family: var(--font-display); font-size: 11px; font-weight: 700; color: var(--brass); letter-spacing: 0.04em; text-transform: uppercase; }
-.exert-label b { font-family: var(--font-text); font-size: 15px; color: #ffc46a; text-transform: none; }
-.gems { display: flex; gap: 5px; }
-.xgem {
-  position: relative; width: 24px; height: 24px; flex: none; border-radius: 8px;
-  border: 2px solid var(--brass-dark); box-shadow: inset 0 0 0 1px rgba(246, 221, 154, 0.35), 0 2px 3px rgba(0, 0, 0, 0.6);
-}
-.xgem.free {
-  background: radial-gradient(circle at 34% 28%, #fff4cc 0%, #ffbf48 30%, #e07e10 65%, #8a4404 100%);
-  box-shadow: inset 0 0 0 1px rgba(255, 240, 200, 0.5), 0 0 8px 1px rgba(255, 170, 60, 0.55), 0 2px 3px rgba(0, 0, 0, 0.6);
-}
-.xgem.stone {
-  background:
-    linear-gradient(118deg, transparent 44%, rgba(0, 0, 0, 0.75) 46%, rgba(0, 0, 0, 0.75) 48%, transparent 50%),
-    linear-gradient(62deg, transparent 58%, rgba(0, 0, 0, 0.6) 60%, transparent 63%),
-    radial-gradient(circle at 34% 28%, #8c8070, #4a4036 55%, #241e18);
-}
-.xgem.stone b {
-  position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%); padding: 0 3px; border-radius: 3px;
-  font-size: 12px; font-weight: 800; line-height: 13px; color: var(--ink); background: var(--brass-plate); border: 1px solid var(--brass-dark);
-}
-.xgem.locked { display: grid; place-items: center; background: linear-gradient(#2a1a0c, #140c06); }
-.xgem.locked .icon { width: 14px; height: 14px; color: var(--brass); --icon-cut: #140c06; }
-.gem-ghost { position: absolute; inset: -2px; border-radius: 9px; background: radial-gradient(circle at 34% 28%, #fff4cc 0%, #ffbf48 30%, #e07e10 65%, #8a4404 100%); }
-.res-tip {
-  display: none; position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 30; width: 310px; padding: 8px 12px; border-radius: 8px;
-  background: var(--parchment-fill); color: var(--ink); font-size: 14px; line-height: 1.35; box-shadow: var(--shadow-panel); border: 1px solid var(--brass-dark);
-}
-.res-tip ul { margin: 5px 0 0; padding-left: 18px; }
-.exert:hover .res-tip { display: block; }
-.res.ai .res-tip { bottom: auto; top: calc(100% + 8px); left: 0; right: auto; }
-
-/* XP: a star badge. PokéDollars: a stack of gold coins. */
-.xp-badge, .dollars { position: relative; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
-.xp-badge .star .icon { width: 26px; height: 26px; color: #c9b0ff; filter: drop-shadow(0 0 4px rgba(170, 130, 255, 0.7)) drop-shadow(0 1px 1px #000); }
-.xp-badge .star { display: flex; }
-.xp-n, .dollars-n { display: inline-block; font-size: 19px; font-weight: 800; }
-.xp-n { color: #d9c8ff; }
-.xp-badge span { font-family: var(--font-display); font-size: 11px; font-weight: 700; color: #b9a0f0; }
-.fly-star { position: absolute; left: 0; top: 0; pointer-events: none; }
+.fly-star { position: absolute; left: 20px; top: 20px; pointer-events: none; }
 .fly-star .icon { width: 18px; height: 18px; color: #e6d8ff; filter: drop-shadow(0 0 5px #b48cff); }
-.coin-stack { position: relative; width: 24px; height: 27px; flex: none; }
-.coin {
-  position: absolute; left: 0; width: 24px; height: 9px; border-radius: 50%;
-  background: linear-gradient(#fff0b0, #e8b440 50%, #8a5e12); box-shadow: 0 1.5px 0 #5a3a08, inset 0 1px 0 rgba(255, 255, 255, 0.6);
-}
-.dollars-n { color: var(--brass-light); }
 
-/* The Bag: a leather satchel with 6 pockets. */
-.bag {
-  grid-area: bag; display: flex; align-items: center; gap: 6px; padding: 1px 7px 1px 4px; justify-self: start;
-  border-radius: 7px 7px 12px 12px; background: linear-gradient(#8a5a32, #5a3820 60%, #3d2514);
-  box-shadow: inset 0 0 0 1px rgba(246, 221, 154, 0.25), inset 0 -3px 6px rgba(0, 0, 0, 0.45), 0 3px 6px rgba(0, 0, 0, 0.55);
-  outline: 1px dashed rgba(246, 221, 154, 0.35); outline-offset: -4px;
-}
-.bag-flap {
-  display: flex; flex-direction: column; align-items: center; gap: 2px; width: 40px;
-  font-family: var(--font-display); font-size: 12px; font-weight: 700; color: var(--brass-light);
-}
-.bag-count { padding: 0 5px; border-radius: 5px; font-family: var(--font-text); font-size: 15px; line-height: 17px; color: var(--ink); background: var(--brass-plate); border: 1px solid var(--brass-dark); }
-.bag.full { box-shadow: inset 0 0 0 1px rgba(246, 221, 154, 0.25), inset 0 -3px 6px rgba(0, 0, 0, 0.45), 0 3px 6px rgba(0, 0, 0, 0.55), 0 0 0 2px #c0392b; }
-.bag.full .bag-count { background: linear-gradient(#e0503c, #9a2418); color: #fff; border-color: #4a0c06; }
-.bag-slots { display: flex; gap: 3px; }
-.bag-slot { position: relative; width: 40px; height: 56px; flex: none; border-radius: var(--radius-mini); }
-.bag-slot > .card.mini { transform: scale(0.77); transform-origin: 0 0; }
-.bag-slot.empty { background: rgba(20, 10, 2, 0.45); box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.7); border: 1px dashed rgba(240, 205, 150, 0.25); }
+/* The Bag row: 6 slots with each Item's art and name. */
+.t-bag { flex-direction: row; align-items: center; gap: 10px; }
+.t-bag .tile-label { flex-direction: column; align-items: flex-start; gap: 6px; width: 58px; flex: none; }
+.bag-count { font-family: var(--font-display); font-size: 20px; color: var(--cream); letter-spacing: 0; }
+.bag.full .bag-count { color: #ff8a7a; }
+.bag-slots { flex: 1; display: grid; grid-template-columns: repeat(6, 1fr); gap: 7px; height: 100%; }
+.bag-slot { position: relative; min-width: 0; border-radius: 6px; }
+.bag-slot.empty { border: 2px dashed rgba(240, 205, 150, 0.3); background: rgba(20, 10, 2, 0.35); }
+.bag-slot.empty::after { content: ''; position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; translate: -50% -50%; border-radius: 50%; border: 2px dashed rgba(240, 205, 150, 0.25); }
 .bag-slot.usable { cursor: pointer; outline: 2px solid var(--green-bright); outline-offset: 1px; }
 .bag-slot.usable:hover { filter: brightness(1.15); }
 .bag-slot.selected { outline: 3px solid var(--green-bright); }
-.parcel {
-  position: absolute; inset: 0; border-radius: var(--radius-mini); pointer-events: none;
-  background:
-    linear-gradient(90deg, transparent 43%, #b8322a 43%, #d2453a 50%, #b8322a 57%, transparent 57%),
-    linear-gradient(transparent 30%, #b8322a 30%, #d2453a 36%, #b8322a 42%, transparent 42%),
-    rgba(190, 145, 90, 0.7);
-  box-shadow: inset 0 0 0 1px rgba(90, 50, 20, 0.8);
+.bag-slot.delivery > .card { opacity: 0.5; filter: saturate(0.6); }
+.parcel-tag {
+  position: absolute; left: 3px; right: 3px; top: 3px; padding: 1px 0; border-radius: 3px; text-align: center; pointer-events: none;
+  font-style: normal; font-size: 11px; font-weight: 800; line-height: 13px; white-space: nowrap; overflow: hidden;
+  color: var(--ink); background: var(--parchment); border: 1px solid var(--brass-dark);
 }
-.parcel span {
-  position: absolute; left: -2px; right: -2px; bottom: 2px; padding: 1px 0; border-radius: 3px; text-align: center;
-  font-size: 10px; font-weight: 800; line-height: 10px; color: var(--cream); background: rgba(110, 28, 22, 0.95);
+.res.ai .t-bag { gap: 6px; }
+.res.ai .t-bag .tile-label { width: 34px; gap: 3px; }
+.res.ai .bag-count { font-size: 14px; }
+.res.ai .bag-slots { gap: 5px; }
+.res.ai .parcel-tag { font-size: 8px; line-height: 10px; }
+
+/* A card shown as a Bag thumbnail: its art, the name across the bottom. */
+.card.thumb { position: absolute; inset: 0; width: auto; height: auto; border-radius: 6px; overflow: hidden; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6); border: 1px solid var(--brass-dark); }
+.card.thumb .inner { position: absolute; inset: 0; }
+.card.thumb .card-art { position: absolute; inset: 0; }
+.card.thumb .art-img { position: absolute; inset: 0; background-size: cover; background-position: center 35%; }
+.card.thumb .ph { display: none; }
+.thumb-name {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 1px 3px 2px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-family: var(--font-display); font-size: 12px; font-weight: 700; color: var(--cream); background: linear-gradient(transparent, rgba(0, 0, 0, 0.85) 40%);
 }
+.res.ai .thumb-name { font-size: 8px; }
 
 /* Piles: physical stacks with depth, the count on a brass tag. */
 .piles { display: flex; align-items: flex-end; gap: 10px; flex: none; }
@@ -1377,3 +1400,7 @@ button.primary {
 /* Passing: an Energy crystal flies into the Energy counter. */
 .fx-crystal { position: absolute; left: 0; top: 0; width: 40px; height: 52px; pointer-events: none; z-index: 3; filter: drop-shadow(0 0 8px rgba(127, 245, 222, 0.9)); }
 .fx-crystal svg { width: 100%; height: 100%; display: block; }
+
+/* Coins paid at the PokéMart. */
+.fx-coin-img { position: absolute; pointer-events: none; filter: drop-shadow(0 0 6px rgba(255, 210, 90, 0.8)); }
+.fx-coin-img img { width: 100%; height: 100%; display: block; }

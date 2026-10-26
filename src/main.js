@@ -9,7 +9,7 @@ import { probeCardIcons } from './ui/cardIcons.js';
 import { renderDeckSelect, otherDeck, randomDeck } from './ui/deckSelect.js';
 import { initVfx, syncStatus } from './ui/vfx/engine.js';
 
-export const BUILD = 'Feedback batch 1';
+export const BUILD = 'Feedback batch 2';
 
 
 // The whole game is drawn on a fixed 1920×1080 stage, scaled uniformly to

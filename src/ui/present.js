@@ -725,13 +725,35 @@ async function crystalFlight(root, who, t) {
   ], t(700), { easing: 'ease-in-out' });
 }
 
-// A number on the board ticks up to its new value (already drawn) from `by` less.
-function countUp(el, by, ms) {
-  if (!el || ms <= 0 || skipping) return;
-  const end = Number(el.textContent);
-  if (!Number.isFinite(end)) return;
-  el.textContent = String(end - by);
-  for (let i = 1; i <= by; i++) setTimeout(() => { el.textContent = String(end - by + i); }, (ms * i) / by);
+// Buying from the PokéMart (Feedback batch 2): the card lifts off the counter
+// and coins fly to it from the buyer's PokéDollars tile; then, as the board
+// redraws, it flies into its Bag slot, In Delivery. The same for the
+// opponent, from the storefront in the side panel.
+const lifts = [];   // cards lifted off the counter, held until they fly to the Bag
+async function buyBeat(root, e, t) {
+  const el = shown(e.uid);
+  if (!el) return;
+  glow(el, 'fx-target');
+  lifts.push(el.animate([{ transform: 'translateY(0) scale(1)' }, { transform: 'translateY(-26px) scale(1.06)' }],
+    { duration: t(320), easing: 'ease-out', fill: 'forwards' }));
+  const from = pile(root, `${e.who}-dollars`);
+  if (from) {
+    const start = centre(rectOf(from));
+    const end = centre(rectOf(el));
+    const n = clamp(e.cost, 1, 6);
+    if (!vfxCoins(start, end, n, t(700), () => {})) {
+      for (let i = 0; i < n; i++) {
+        const coin = spawn('fx-coin-img', { x: start.x - 14, y: start.y - 14, w: 28, h: 28 }, '<img src="assets/ui/icons/coin.webp" alt="">');
+        const mid = { x: (start.x + end.x) / 2 + (Math.random() - 0.5) * 100, y: Math.min(start.y, end.y) - 60 - Math.random() * 50 };
+        play(coin, [
+          { transform: 'translate(0, 0) scale(0.6)', opacity: 0 },
+          { transform: `translate(${mid.x - start.x}px, ${mid.y - start.y}px) scale(1.1)`, opacity: 1, offset: 0.45 },
+          { transform: `translate(${end.x - start.x}px, ${end.y - start.y}px) scale(0.5)`, opacity: 0.2 },
+        ], t(700), { delay: i * t(70), easing: 'ease-in-out', fill: 'backwards' });
+      }
+    }
+  }
+  await wait(t(780));
 }
 
 // A triggered ability or Passive: a small banner beside its card, then its effect.
@@ -844,8 +866,7 @@ async function before(root, prev, next, actor, t, late) {
     if (ev.some((e) => effects.includes(e.type))) stepAside(shownCard, t);
   }
   else if (main?.type === 'itemBought') {
-    glow(shown(main.uid), 'fx-target');
-    await wait(t(450));
+    await buyBeat(root, main, t);
   } else if (main?.type === 'choiceMade' && main.target) {
     glow(shown(main.target.uid), 'fx-target');
     await wait(t(400));
@@ -956,6 +977,8 @@ function land(el, t) {
 async function after(root, snap, next, actor, t, late) {
   const ev = next.events;
   const moves = [];
+  // A card lifted off the PokéMart counter flies from where it was lifted to.
+  lifts.splice(0).forEach((a) => a.cancel());
   // Cards still on screen glide to their new place; new ones arrive from a pile.
   for (const fresh of root.querySelectorAll('.card[data-uid]')) {
     const was = snap.get(fresh.dataset.uid);
@@ -1035,9 +1058,8 @@ async function after(root, snap, next, actor, t, late) {
   for (const e of ev.filter((x) => x.type === 'energyGained' && x.source === 'Pass')) {
     const counter = pile(root, `${e.who}-energy`);
     if (!counter) continue;
+    // (The tile itself ticks up and pulses gold as the panel redraws.)
     floatNumber(rectOf(counter), `+${e.amount} Energy`, 'buff', t(1300));
-    counter.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.25)', filter: 'brightness(1.8)' }, { transform: 'scale(1)' }], { duration: t(600), easing: 'ease-out' });
-    countUp(counter.querySelector('.base-n'), e.amount, t(500));
   }
   // A Weather bracket that switched on: its pip lights up.
   for (const e of ev.filter((x) => x.type === 'weatherChanged' && x.on)) {
