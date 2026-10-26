@@ -86,9 +86,9 @@ export const EMITTERS = {
   scorchSwirl: { tex: 'embers', blend: 'add', count: 18, at: 'ring', radius: R(160, 260), dir: 'inward', speed: 2.4, drag: 2.5, life: 420, size: [0.9, 0.3], alpha: [0, 1], spin: 8 },
   scorchCatch: { tex: 'fire-burst', blend: 'add', count: 1, at: 'centre', offsetY: 0.17, life: 380, size: [0.2, 0.75], alpha: [0.8, 0] },
   // Fire Special: Flamethrower
-  flamethrower: { tex: 'flame', blend: 'add', rate: 260, at: 'muzzle', dir: 'forward', speed: R(1100, 1500), spreadDeg: 9, life: R(380, 520), size: [R(0.16, 0.24), R(0.5, 0.8)], alpha: [1, 0], pivot: 0.5, alignForward: true, drag: 0.6 },
+  flamethrower: { tex: 'flame', blend: 'add', rate: 150, at: 'muzzle', dir: 'forward', speed: R(1100, 1500), spreadDeg: 9, life: R(380, 520), size: [R(0.14, 0.2), R(0.36, 0.56)], alpha: [0.7, 0], pivot: 0.5, alignForward: true, drag: 0.6 },
   streamEmbers: { tex: 'embers', blend: 'add', rate: 90, at: 'muzzle', dir: 'forward', speed: R(700, 1300), spreadDeg: 16, lift: R(0, 120), gravity: 200, life: R(420, 700), size: [R(0.4, 0.8), 0.2], alpha: [1, 0], spin: R(-8, 8) },
-  engulf: { tex: 'flame', blend: 'add', rate: 140, at: 'edges', dir: 'up', speed: R(160, 300), life: R(320, 520), size: [R(0.16, 0.28), R(0.34, 0.5)], alpha: [1, 0], fadeIn: 40, pivot: 0.85, rot: R(-0.2, 0.2) },
+  engulf: { tex: 'flame', blend: 'add', rate: 100, at: 'edges', dir: 'up', speed: R(160, 300), life: R(320, 520), size: [R(0.14, 0.24), R(0.3, 0.44)], alpha: [0.85, 0], fadeIn: 40, pivot: 0.85, rot: R(-0.2, 0.2) },
   heatSmoke: { tex: 'smoke', blend: 'alpha', rate: 10, at: 'card', area: 0.7, offsetY: -0.4, dir: 'up', speed: R(40, 90), life: R(900, 1300), size: [0.14, 0.36], alpha: [0.3, 0], fadeIn: 200, spin: R(-0.3, 0.3), tint: '#5a4a40' },
   muzzleFlash: { tex: 'fire-burst', blend: 'add', count: 1, at: 'muzzle', life: 260, size: [0.12, 0.42], alpha: [1, 0] },
   // Shared impact pieces
@@ -244,7 +244,7 @@ export const TIMELINES = {
 // Ribbons (trails): texture, width (px), how long a point lives (ms), colour, opacity.
 export const RIBBONS = {
   flameWheelTrail: { tex: 'streak', width: 90, life: 200, color: '#ff4000', alpha: 0.28, blend: 'add' },
-  flameStream: { tex: 'streak', width: 64, life: 140, color: '#ff8a20', alpha: 0.55, blend: 'add', toTarget: true },
+  flameStream: { tex: 'streak', width: 56, life: 140, color: '#ff5a10', alpha: 0.3, blend: 'add', toTarget: true },
   tintTrail: { tex: 'streak', width: 80, life: 200, color: 'type', alpha: 0.5, blend: 'add' },
   orbTrail: { tex: 'streak', width: 54, life: 260, color: 'type', alpha: 0.6, blend: 'add' },
 };
