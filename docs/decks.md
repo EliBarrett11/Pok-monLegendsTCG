@@ -43,6 +43,7 @@ A Status Effect is a counter on a Pokémon or a Trainer, shown as a numbered tok
 | **Overrun** | When this Pokémon's attack defeats an enemy Pokémon, the damage left over beyond the target's remaining Strength is dealt to the Trainer in that Zone on the defender's side. Lost if that Trainer has been removed. Overrun damage counts as damage from this Pokémon (it triggers On Trainer Strike). |
 | **Regenerate X** | At Breakfast (with On Breakfast abilities), this Pokémon heals X. |
 | **Shell X** | Every instance of damage this Pokémon takes is reduced by X, to a minimum of 1. Applies to all damage, including Burn. |
+| **Infiltrator** | This Pokémon's attacks ignore the Defence and Special Defence targeting restrictions: it may attack any enemy Pokémon or any enemy Trainer still in play. Trading damage works as normal (an Alert target still hits back). |
 | Quick Attack, Agility | Unchanged. |
 
 A Pokémon can have more than one Innate Power (e.g. "Overrun, Scorch 2").
@@ -95,15 +96,15 @@ Existing triggers (On Summon, On Attack, On Defend, On Defeated, On Breakfast, O
 
 | id | Name | × | Cost | Type | Attack | Strength | Speed | Rarity | Abilities |
 |---|---|---|---|---|---|---|---|---|---|
-| growlithe | Growlithe | 3 | 1 | Fire | 2 Physical | 3 Hitpoints | Swift | Common | Scorch 1 |
-| charmander | Charmander | 2 | 1 | Fire | 3 Special | 4 Hitpoints | Steady | Common | On Summon: Burn 1 to an enemy Pokémon or Trainer in this Pokémon's Zone. |
-| ponyta | Ponyta | 3 | 2 | Fire | 3 Physical | 3 Hitpoints | Swift | Common | Quick Attack |
-| mankey | Mankey | 2 | 2 | Fighting | 4 Physical | 3 Hitpoints | Swift | Common | Overrun |
-| magmar | Magmar | 2 | 3 | Fire | 4 Special | 6 Hitpoints | Steady | Common | Scorch 2 |
-| sneasel | Sneasel | 2 | 3 | Dark | 4 Physical | 3 Hitpoints | Swift | Common | On Knockout: this Pokémon becomes Active (once per Round). |
-| arcanine | Arcanine | 2 | 4 | Fire | 5 Physical | 5 Hitpoints | Swift | Rare | Overrun, Scorch 1 |
-| houndoom | Houndoom | 1 | 5 | Fire | 5 Special | 6 Hitpoints | Swift | Epic | On Summon: Burn 2 to each enemy Trainer. |
-| blaziken | Blaziken | 1 | 5 | Fire | 7 Physical | 7 Hitpoints | Steady | Legendary | Overrun, Scorch 2 |
+| growlithe | Growlithe | 3 | 1 | Fire | 2 Physical | 5 Hitpoints | Swift | Common | Scorch 1 |
+| charmander | Charmander | 2 | 1 | Fire | 3 Special | 6 Hitpoints | Steady | Common | On Summon: Burn 1 to an enemy Pokémon or Trainer in this Pokémon's Zone. |
+| ponyta | Ponyta | 3 | 2 | Fire | 3 Physical | 5 Hitpoints | Swift | Common | Quick Attack, Infiltrator |
+| mankey | Mankey | 2 | 2 | Fighting | 4 Physical | 5 Hitpoints | Swift | Common | Overrun, Infiltrator |
+| magmar | Magmar | 2 | 3 | Fire | 4 Special | 7 Hitpoints | Steady | Common | Scorch 2 |
+| sneasel | Sneasel | 2 | 3 | Dark | 4 Physical | 4 Hitpoints | Swift | Common | Infiltrator. On Knockout: this Pokémon becomes Active (once per Round). |
+| arcanine | Arcanine | 2 | 4 | Fire | 5 Physical | 6 Hitpoints | Swift | Rare | Overrun, Scorch 1, Infiltrator |
+| houndoom | Houndoom | 1 | 5 | Fire | 5 Special | 7 Hitpoints | Swift | Epic | On Summon: Burn 2 to each enemy Trainer. |
+| blaziken | Blaziken | 1 | 5 | Fire | 7 Physical | 8 Hitpoints | Steady | Legendary | Overrun, Scorch 2 |
 
 Curve: cost 1 ×5, 2 ×5, 3 ×4, 4 ×2, 5 ×2.
 

@@ -59,12 +59,13 @@ Card definitions live in `src/engine/cardData.js`; the cards themselves are list
 Keyword abilities on Pokémon that always apply. A Pokémon can have more than one (e.g. "Overrun, Scorch 2"). X is the keyword's number.
 
 - **Quick Attack:** this Pokémon is summoned Active instead of Spent, so it can be Alert and Commanded the Round it arrives (by the normal Alert rules).
+- **Infiltrator:** This Pokémon's attacks ignore the Defence and Special Defence targeting restrictions: it may attack any enemy Pokémon or any enemy Trainer still in play. Trading damage works as normal (an Alert target still hits back). Fire's fast raiders (Ponyta, Mankey, Sneasel, Arcanine) have it.
 - **Agility:** this Pokémon can't be chosen as a target by Strategy Cards. Area effects (e.g. Surf) still affect it. Trainer Powers and attacks can still target it.
 - **Scorch X:** when this Pokémon's attack (a Command) deals damage, apply Burn X to the target, if it is still in play. Works on Trainers too. Only its own attack: hitting back in a trade doesn't Scorch, and Scorch never burns the Trainer that Overrun damage reaches. An attack that deals no damage (Attack 0) doesn't Scorch.
 - **Overrun:** when this Pokémon's attack defeats an enemy Pokémon, the damage left over is dealt to the Trainer in that Zone on the defender's side. Leftover = damage actually dealt (after the defender's Shell) − the defender's remaining Strength. Example: Attack 6 into Shell 1 with 3 Strength left → 5 dealt → 2 to the Trainer. Lost if that Trainer has been removed. Only its own attack (not hitting back in a trade); it still happens if the attacker is also defeated in the trade. Overrun damage counts as damage from this Pokémon (it triggers On Trainer Strike).
 - **Regenerate X:** at each Breakfast, with the On Breakfast abilities (after the Breakfast Weather), this Pokémon heals X, before its own On Breakfast ability. At full Strength nothing happens.
 - **Shell X:** every instance of damage this Pokémon takes is reduced by X, to a minimum of 1: attacks, effects, Weather and Burn. No damage stays no damage (Attack 0 deals 0).
-- **Having one twice:** numbered keywords add up (Scorch 1 + Scorch 1 = Scorch 2; Shell and Regenerate the same). Keywords without a number (Overrun, Quick Attack, Agility) don't stack: having one twice is the same as having it once. Effects can grant keywords, permanently or "this Round".
+- **Having one twice:** numbered keywords add up (Scorch 1 + Scorch 1 = Scorch 2; Shell and Regenerate the same). Keywords without a number (Overrun, Quick Attack, Agility, Infiltrator) don't stack: having one twice is the same as having it once. Effects can grant keywords, permanently or "this Round".
 
 ### 1.4 Supporter Cards
 
@@ -276,6 +277,7 @@ Every Round, each player:
 - **Targets:** any opponent Pokémon (Active or Spent) or any opponent Trainer, with these restrictions:
   - If the opponent has any Pokémon with **Defence** Strength-Type (Active or Spent), a **Physical** attacker must target one of those.
   - If the opponent has any Pokémon with **Special Defence** Strength-Type (Active or Spent), a **Special** attacker must target one of those.
+  - An attacker with **Infiltrator** (section 1.3) ignores both restrictions above.
   - A Trainer at 0 Strength can't be targeted.
 - **Damage:** the attacker deals its Attack Value (including buffs and Passive bonuses) to the target's current Strength, reduced by the target's Shell (section 1.3). Extra damage beyond what the target has left is lost, unless the attacker has Overrun.
 - **Trading damage:** if the target is an **Alert** Pokémon, it deals its Attack Value back to the attacker at the same time, and both become Spent.
@@ -402,15 +404,15 @@ Two decks, as approved in `docs/decks.md` (the source of truth for them). The ga
 
 | Pokémon | × | Cost | Type | Attack | Strength | Speed | Rarity | Abilities |
 |---|---|---|---|---|---|---|---|---|
-| Growlithe | 3 | 1 | Fire | 2 Physical | 3 Hitpoints | Swift | Common | Scorch 1 |
-| Charmander | 2 | 1 | Fire | 3 Special | 4 Hitpoints | Steady | Common | On Summon: Burn 1 to an enemy Pokémon or Trainer in this Pokémon's Zone. |
-| Ponyta | 3 | 2 | Fire | 3 Physical | 3 Hitpoints | Swift | Common | Quick Attack |
-| Mankey | 2 | 2 | Fighting | 4 Physical | 3 Hitpoints | Swift | Common | Overrun |
-| Magmar | 2 | 3 | Fire | 4 Special | 6 Hitpoints | Steady | Common | Scorch 2 |
-| Sneasel | 2 | 3 | Dark | 4 Physical | 3 Hitpoints | Swift | Common | On Knockout: this Pokémon becomes Active (once per Round). |
-| Arcanine | 2 | 4 | Fire | 5 Physical | 5 Hitpoints | Swift | Rare | Overrun, Scorch 1 |
-| Houndoom | 1 | 5 | Fire | 5 Special | 6 Hitpoints | Swift | Epic | On Summon: Burn 2 to each enemy Trainer. |
-| Blaziken | 1 | 5 | Fire | 7 Physical | 7 Hitpoints | Steady | Legendary | Overrun, Scorch 2 |
+| Growlithe | 3 | 1 | Fire | 2 Physical | 5 Hitpoints | Swift | Common | Scorch 1 |
+| Charmander | 2 | 1 | Fire | 3 Special | 6 Hitpoints | Steady | Common | On Summon: Burn 1 to an enemy Pokémon or Trainer in this Pokémon's Zone. |
+| Ponyta | 3 | 2 | Fire | 3 Physical | 5 Hitpoints | Swift | Common | Quick Attack, Infiltrator |
+| Mankey | 2 | 2 | Fighting | 4 Physical | 5 Hitpoints | Swift | Common | Overrun, Infiltrator |
+| Magmar | 2 | 3 | Fire | 4 Special | 7 Hitpoints | Steady | Common | Scorch 2 |
+| Sneasel | 2 | 3 | Dark | 4 Physical | 4 Hitpoints | Swift | Common | Infiltrator. On Knockout: this Pokémon becomes Active (once per Round). |
+| Arcanine | 2 | 4 | Fire | 5 Physical | 6 Hitpoints | Swift | Rare | Overrun, Scorch 1, Infiltrator |
+| Houndoom | 1 | 5 | Fire | 5 Special | 7 Hitpoints | Swift | Epic | On Summon: Burn 2 to each enemy Trainer. |
+| Blaziken | 1 | 5 | Fire | 7 Physical | 8 Hitpoints | Steady | Legendary | Overrun, Scorch 2 |
 
 | Strategy | × | Cost | Rarity | Effect |
 |---|---|---|---|---|
@@ -495,7 +497,9 @@ Two decks, as approved in `docs/decks.md` (the source of truth for them). The ga
 
 ## Open questions
 
-- **Fire vs Water balance (Step 18):** in 200 seeded AI-vs-AI matches (100 in each seat order, `node tools/balance.js`), **Water wins 93%** (91–95% whichever side it sits), in 6.8 Rounds on average, with no draws, stalls or decks running dry. Both decks deal about the same damage to enemy Trainers (Fire 42.7 per match, three quarters of it from Burn; Water 42.3), but Fire's Trainers have 43 Strength and Water's 48, and Water heals its Trainers back (Route 119, Nurse Joy, Full Heal, Kyogre). Water's Locations and Pelipper/Kyogre also stack Rain to 6, where Fire Pokémon get −1 Attack. No card numbers were changed: Elliott decides.
+- **Fire vs Water balance (settled after Step 18):** the Step 18 decks had Water winning 93%. Four rounds of AI-vs-AI tests (`node tools/balance.js --variant …`) found the cause: Water fields eight guards (Defence/Special Defence) and Fire none, so about 80% of the time an attacking Fire Pokémon had no legal Trainer target and Fire's attacks dealt only ~8 Trainer damage a match. Elliott chose: Fire Pokémon +1 Strength (+2 for those costing 2 or less), and the new Innate Power Infiltrator on Ponyta, Mankey, Sneasel and Arcanine (Fire won 46% in 200 test matches, ±3.5). Water is unchanged.
+- **Match length:** Fire vs Water lasts about 6 Rounds, Fire mirrors about 5, Water mirrors about 9. Is that the right length? It depends on how many minutes a Round takes in real play (the target is a 30–40 minute match).
+- **Zone guards (idea, not adopted):** guards would only protect their own Zone. Tested as variant Z; it adds depth but would need its own rebalance (with Infiltrator, Fire won 63%).
 - **The Breakfast PokéDollar (judged in Step 18):** with the real decks it makes almost no difference: without it Water wins 93.5% instead of 93.0%, matches last the same 6.8 Rounds, and nothing stalls either way. It stays.
 - **Stalled matches:** none of the 200 Fire vs Water matches stall, but nothing in the rules ends a match where healing keeps up with the only damage left. Should there be a Round limit or a "no progress" draw? (For now the AI-vs-AI test stops matches at Round 100 and reports them as stalled.)
 - **Quest timing:** when a quest completes during an Action that also sets off abilities (e.g. a summon that also triggers Rally), the build resolves the quest's effect first. Is that right?
