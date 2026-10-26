@@ -122,4 +122,6 @@ Elliott generates these images. Each is processed into a transparent WebP in `as
 | `bubble` | Single glossy bubble |
 | `char-edge` | Scorched, glowing card-edge frame |
 
+**Delivered (all 14).** `assets/vfx/manifest.json` lists each texture's size and suggested blend mode (`additive` for glowing effects, `alpha` for solid ones such as water, smoke, shadow, the bubble and the char edge). `embers` and `droplets` also have `-atlas.webp` sprite sheets with one sprite per ember or droplet; their rectangles are in the manifest. Orientation: `water-jet` and `lightning` run left to right and rise slightly (about 15°), so rotate them to the attack direction. `shockwave` is a flattened ellipse, as if lying on the table, ready for ground rings.
+
 These are drawn procedurally rather than as textures: rain, sun shafts, heat haze, the foil sheen, the Fire Blast shape (built from `flame` sprites), and dust (tinted `smoke`).
