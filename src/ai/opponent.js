@@ -227,15 +227,33 @@ function burnPressure(s, side) {
 }
 
 // Each deck's plan, as weights on the general scoring (1 = as is):
+//   trainers  enemy Trainer Strength lost (attacks, Overrun, effects)
+//   strike    the bonus for attacking a Trainer directly
+//   trades    attacks on enemy Pokémon (defeats, trades, chip damage)
+//   burn / douse  Burn on the enemy / removed from its own cards
+//   overrun, heal, board, keep, zone  Overrun gained, healing, stats gained,
+//             its own Pokémon lost, summoning beside friendly Pokémon
 //   Fire (Aggressive · Burn): push damage onto Trainers, spread Burn, use Overrun.
 //   Water (Board-Based · Value-Midrange): build Zones, heal, Douse its own Burn,
 //   grow and hold its board.
+const NO_PLAN = { trainers: 1, strike: 1, trades: 1, burn: 1, douse: 1, overrun: 0, heal: 1, board: 1, keep: 1, zone: 0 };
 const PLANS = {
-  fire: { trainers: 1.5, burn: 1.5, douse: 1, overrun: 6, heal: 1, board: 1, keep: 1, zone: 0 },
-  water: { trainers: 1, burn: 1, douse: 1.6, overrun: 0, heal: 1.7, board: 1.3, keep: 1.4, zone: 3 },
+  fire: { ...NO_PLAN, trainers: 1.5, burn: 1.5, overrun: 6 },
+  water: { ...NO_PLAN, douse: 1.6, heal: 1.7, board: 1.3, keep: 1.4, zone: 3 },
 };
-const NO_PLAN = { trainers: 1, burn: 1, douse: 1, overrun: 0, heal: 1, board: 1, keep: 1, zone: 0 };
-const planOf = (s, who) => PLANS[s.players[who].deck] ?? NO_PLAN;
+// Alternative plans, off unless chosen with usePlan() (for balance experiments).
+//   fire 'pressure': Trainer damage worth double (trainers 1.5 → 3, and the
+//   direct-attack bonus ×2), attacks on Pokémon worth half.
+const PLAN_VARIANTS = {
+  fire: { pressure: { ...PLANS.fire, trainers: 3, strike: 2, trades: 0.5 } },
+};
+let plans = { ...PLANS };
+export function usePlan(deck, name = 'default') {
+  const plan = name === 'default' ? PLANS[deck] : PLAN_VARIANTS[deck]?.[name];
+  if (!plan) throw new Error(`Unknown AI plan: ${deck} ${name}`);
+  plans = { ...plans, [deck]: plan };
+}
+const planOf = (s, who) => plans[s.players[who].deck] ?? NO_PLAN;
 
 // Burn's change: on the enemy, worth having; on its own cards, worth removing (Douse).
 function burnScore(before, after, who) {
@@ -327,17 +345,17 @@ function scoreMove(state, who, move) {
   if (move.type === 'command') {
     if (move.target.kind === 'trainer') {
       const before = state.players[foe].zones[move.target.zone].trainer.strength;
-      return score + 40 + (15 - before) + plan.trainers * (before - after.players[foe].zones[move.target.zone].trainer.strength);
+      return score + plan.strike * (40 + (15 - before)) + plan.trainers * (before - after.players[foe].zones[move.target.zone].trainer.strength);
     }
-    if (enemyLost.length && !ownLost.length) return score + 60 + value(enemyLost);
+    if (enemyLost.length && !ownLost.length) return score + plan.trades * (60 + value(enemyLost));
     if (ownLost.length && !enemyLost.length) return score - 20 * plan.keep;
-    if (enemyLost.length) return score + 10 + value(enemyLost) - value(ownLost);
+    if (enemyLost.length) return score + plan.trades * (10 + value(enemyLost) - value(ownLost));
     // Chip damage: worth less on a target that will Regenerate it back (Shell is
     // already in the damage the try dealt).
     const hit = state.players[foe].zones[move.target.zone].pokemon[move.target.space];
     const left = after.players[foe].zones[move.target.zone].pokemon[move.target.space];
     const dealt = hit.currentStrength - left.currentStrength;
-    return score + 5 + dealt - Math.min(dealt, keywordAmount(hit, 'Regenerate'));
+    return score + plan.trades * (5 + dealt - Math.min(dealt, keywordAmount(hit, 'Regenerate')));
   }
 
   if (move.type === 'playPokemon') return score + summonScore(state, after, who, move);

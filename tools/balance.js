@@ -4,20 +4,23 @@
 //
 // --variant X tries a balance change for this run only, by changing the card
 // data in memory before the matches start (the card files never change).
-// Variants: A (current cards), B, C, D, E, and combinations such as BC, BCE,
-// BCDE (see VARIANTS below).
+// Variants: A (current cards), B, C, D, E, E2, E3, I (an AI plan, not a
+// card change), L, and combinations such as BCE or E2IL (see VARIANTS below).
+// --decks fire,fire plays a mirror match instead (for checking the seats).
 //
 // The same matches every time (seeds 1..N for each seat order, the AI's
 // choices seeded too), so two runs before and after a change compare like for
 // like. A match still going at Round 100 counts as stalled.
 import { createGame, applyAction, PLAYERS, legalActions, opponentOf, weatherCounts } from '../src/engine/game.js';
-import { chooseAction } from '../src/ai/opponent.js';
+import { chooseAction, usePlan } from '../src/ai/opponent.js';
 import { nextRandom } from '../src/engine/random.js';
 import { DECKS, POKEMON_CARDS, SUPPORTER_CARDS, LOCATION_CARDS, ITEM_CARDS, TRAINER_CARDS } from '../src/engine/cardData.js';
 
 const args = process.argv.slice(2);
 const flag = args.indexOf('--variant');
 const VARIANT = flag >= 0 ? args.splice(flag, 2)[1].toUpperCase() : 'A';
+const deckFlag = args.indexOf('--decks');
+const [SEAT1, SEAT2] = deckFlag >= 0 ? args.splice(deckFlag, 2)[1].split(',') : ['fire', 'water'];
 const MATCHES = Number(args[0] ?? 100);
 
 // Balance variants, applied to the card definitions in memory (decks and
@@ -42,13 +45,22 @@ const VARIANTS = {
   E: () => {   // Every Fire-deck Pokémon gets +1 Strength
     for (const c of POKEMON_CARDS) if (DECKS.fire.list[c.id]) c.strengthValue += 1;
   },
+  E2: () => {   // Every Fire-deck Pokémon gets +2 Strength
+    for (const c of POKEMON_CARDS) if (DECKS.fire.list[c.id]) c.strengthValue += 2;
+  },
+  E3: () => {   // Fire-deck Pokémon +1 Strength, +2 for those costing 2 or less
+    for (const c of POKEMON_CARDS) if (DECKS.fire.list[c.id]) c.strengthValue += c.energyCost <= 2 ? 2 : 1;
+  },
+  I: () => usePlan('fire', 'pressure'),   // Fire's AI: Trainer damage ×2, attacks on Pokémon ×0.5
+  L: () => {   // Match length: every Trainer +3 Strength
+    for (const t of TRAINER_CARDS) t.strength += 3;
+  },
 };
-for (const letter of VARIANT) {
-  if (!VARIANTS[letter]) throw new Error(`Unknown variant: ${letter}`);
-  if (typeof VARIANTS[letter] === 'function') VARIANTS[letter]();
-}
+const parts = VARIANT.match(/E[23]?|[A-DIL]/g) ?? [];
+if (parts.join('') !== VARIANT) throw new Error(`Unknown variant: ${VARIANT}`);
+for (const part of parts) if (typeof VARIANTS[part] === 'function') VARIANTS[part]();
 const STALL_ROUND = 100;
-const ORDERS = [{ player: 'fire', ai: 'water' }, { player: 'water', ai: 'fire' }];
+const ORDERS = [{ player: SEAT1, ai: SEAT2 }, { player: SEAT2, ai: SEAT1 }];
 
 // Pokémon a player still has to play: hand, Draw Pile and Discard Pile (not the arena).
 const pokemonToPlay = (p) => [...p.hand, ...p.drawPile, ...p.discard].filter((c) => c.cardType === 'Pokémon').length;
@@ -56,12 +68,16 @@ const trainerStrength = (p) => p.zones.reduce((sum, z) => sum + Math.max(0, z.tr
 
 const blank = () => ({
   matches: 0, wins: 0, losses: 0, draws: 0, stalls: 0, rounds: 0, winRounds: 0,
-  trainerDamage: 0, burnDamage: 0, ranDry: 0, keptPct: 0,
+  trainerDamage: 0, burnDamage: 0, attackDamage: 0, overrunDamage: 0, effectDamage: 0, ranDry: 0, keptPct: 0,
+  lostPokemon: 0, initiative: 0, initiativeWins: 0,
 });
 // The highest Rain and Sun counts each match reached.
 const weather = { Rain: 0, Sun: 0, rain6: 0, sun6: 0 };
-const byDeck = { fire: blank(), water: blank() };
-const byOrder = ORDERS.map(() => ({ player: 0, ai: 0, draws: 0, stalls: 0 }));
+// Per seat (and per deck in it): byDeck is keyed by deck, or by seat in a mirror match.
+const MIRROR = SEAT1 === SEAT2;
+const byDeck = MIRROR ? { player: blank(), ai: blank() } : { [SEAT1]: blank(), [SEAT2]: blank() };
+const keyOf = (decks, w) => (MIRROR ? w : decks[w]);
+const byOrder = ORDERS.map(() => ({ player: 0, ai: 0, draws: 0, stalls: 0, playerInitiative: 0 }));
 
 ORDERS.forEach((decks, order) => {
   for (let seed = 1; seed <= MATCHES; seed++) {
@@ -71,18 +87,35 @@ ORDERS.forEach((decks, order) => {
     const ranDry = { player: false, ai: false };
     let start = null;
     const peak = { Rain: 0, Sun: 0 };
+    let last = null;              // the action just applied
+    let firstInitiative = null;   // who had Round 1 initiative
     while (s.phase !== 'gameOver' && s.round < STALL_ROUND) {
       const who = PLAYERS.find((w) => legalActions(s, w).length) ?? 'player';
-      s = applyAction(s, chooseAction(s, who, { rng }) ?? { type: 'flipCoin' });
+      const action = chooseAction(s, who, { rng }) ?? { type: 'flipCoin' };
+      last = action.type;
+      s = applyAction(s, action);
+      if (action.type === 'flipCoin') {
+        byDeck[keyOf(decks, s.initiative)].initiative += 1;
+        if (s.initiative === 'player') byOrder[order].playerInitiative += 1;
+        firstInitiative = s.initiative;
+      }
       if (start === null && PLAYERS.every((w) => s.players[w].zones.every((z) => z.trainer))) {
         start = Object.fromEntries(PLAYERS.map((w) => [w, trainerStrength(s.players[w])]));
       }
+      // Damage to Trainers by source: Burn (at Supper), Overrun (follows its
+      // 'overrun' event), an attack (the rest during a Command), or an effect.
+      let overrun = false;
       for (const e of s.events) {
+        if (e.type === 'overrun') overrun = true;
+        if (e.type === 'defeated' && e.target.kind === 'pokemon') byDeck[keyOf(decks, e.target.owner)].lostPokemon += 1;
         if (e.type !== 'damage' || e.target.kind !== 'trainer') continue;
         const dealt = Math.max(0, e.before - Math.max(0, e.after));   // what was actually lost
-        const by = byDeck[decks[opponentOf(e.target.owner)]];
+        const by = byDeck[keyOf(decks, opponentOf(e.target.owner))];
         by.trainerDamage += dealt;
         if (e.cause === 'burn') by.burnDamage += dealt;
+        else if (overrun) { by.overrunDamage += dealt; overrun = false; }
+        else if (last === 'command') by.attackDamage += dealt;
+        else by.effectDamage += dealt;
       }
       if (s.round > 0) for (const w of PLAYERS) if (pokemonToPlay(s.players[w]) === 0) ranDry[w] = true;
       const now = weatherCounts(s);
@@ -93,7 +126,7 @@ ORDERS.forEach((decks, order) => {
     if (peak.Rain >= 6) weather.rain6 += 1;
     if (peak.Sun >= 6) weather.sun6 += 1;
     for (const w of PLAYERS) {
-      const d = byDeck[decks[w]];
+      const d = byDeck[keyOf(decks, w)];
       d.matches += 1;
       d.rounds += s.round;
       if (ranDry[w]) d.ranDry += 1;
@@ -101,6 +134,7 @@ ORDERS.forEach((decks, order) => {
       else if (!s.winner) d.draws += 1;
       else if (s.winner === w) {
         d.wins += 1;
+        if (firstInitiative === w) d.initiativeWins += 1;
         d.winRounds += s.round;
         d.keptPct += (100 * trainerStrength(s.players[w])) / start[w];
       } else d.losses += 1;
@@ -115,16 +149,18 @@ ORDERS.forEach((decks, order) => {
 const pct = (n, of) => `${((100 * n) / (of || 1)).toFixed(1)}%`;
 const avg = (n, of) => (of ? (n / of).toFixed(1) : '-');
 console.log(`Variant ${VARIANT}${VARIANT === 'A' ? ' (current cards)' : ''}`);
-console.log(`Balance report: Fire vs Water, ${MATCHES} seeded AI-vs-AI matches in each seat order (${2 * MATCHES} in all; stalled = still going at Round ${STALL_ROUND})`);
+console.log(`Balance report: ${DECKS[SEAT1].name} vs ${DECKS[SEAT2].name}${MIRROR ? ' (rows are seats)' : ''}, ${MATCHES} seeded AI-vs-AI matches in each seat order (${2 * MATCHES} in all; stalled = still going at Round ${STALL_ROUND})`);
 for (const [id, d] of Object.entries(byDeck)) {
-  console.log(`  ${DECKS[id].name.padEnd(6)} won ${pct(d.wins, d.matches)} · lost ${pct(d.losses, d.matches)} · drawn ${pct(d.draws, d.matches)} · stalled ${pct(d.stalls, d.matches)}`);
+  console.log(`  ${(DECKS[id]?.name ?? id).padEnd(6)} won ${pct(d.wins, d.matches)} · lost ${pct(d.losses, d.matches)} · drawn ${pct(d.draws, d.matches)} · stalled ${pct(d.stalls, d.matches)}`);
   console.log(`         ${avg(d.rounds, d.matches)} Rounds per match (${avg(d.winRounds, d.wins)} in its wins, keeping ${avg(d.keptPct, d.wins)}% of its Trainer Strength)`);
-  console.log(`         ${avg(d.trainerDamage, d.matches)} damage to enemy Trainers per match (${avg(d.burnDamage, d.matches)} of it from Burn)`);
+  console.log(`         ${avg(d.trainerDamage, d.matches)} damage to enemy Trainers per match: attacks ${avg(d.attackDamage, d.matches)} · Burn ${avg(d.burnDamage, d.matches)} · Overrun ${avg(d.overrunDamage, d.matches)} · effects ${avg(d.effectDamage, d.matches)}`);
+  console.log(`         ${avg(d.lostPokemon, d.matches)} of its Pokémon defeated per match`);
+  console.log(`         Round 1 initiative in ${pct(d.initiative, d.matches)} of matches; won ${pct(d.initiativeWins, d.initiative)} of those, ${pct(d.wins - d.initiativeWins, d.matches - d.initiative)} of the rest`);
   console.log(`         ran dry (no Pokémon left in hand, Draw Pile and Discard Pile) in ${pct(d.ranDry, d.matches)} of matches`);
 }
 ORDERS.forEach((decks, i) => {
   const o = byOrder[i];
-  console.log(`  You ${DECKS[decks.player].name} vs AI ${DECKS[decks.ai].name}: ${DECKS[decks.player].name} ${o.player}, ${DECKS[decks.ai].name} ${o.ai}, drawn ${o.draws}, stalled ${o.stalls}`);
+  console.log(`  You ${DECKS[decks.player].name} vs AI ${DECKS[decks.ai].name}: You ${o.player}, AI ${o.ai}, drawn ${o.draws}, stalled ${o.stalls}; you had Round 1 initiative in ${o.playerInitiative}`);
 });
 console.log(`  Weather: highest Rain per match ${avg(weather.Rain, 2 * MATCHES)} (6+ in ${pct(weather.rain6, 2 * MATCHES)} of matches); `
   + `highest Sun ${avg(weather.Sun, 2 * MATCHES)} (6+ in ${pct(weather.sun6, 2 * MATCHES)})`);
