@@ -10,7 +10,7 @@ import {
   summonSpaces, isFallen, attackOf, maxStrengthOf, playableStrategies, strategyTargets,
   playableSupporters, supporterTargets, giftMet, playableLocations, locationSpaces, weatherState,
   openBagOptions, itemTargets, BAG_SIZE, passEndsPhase, PASS_ENERGY, applyAction, passSpends,
-  summonCost, zoneReductions, cheapestCost,
+  summonCost, zoneReductions, cheapestCost, attackBlock,
 } from '../engine/game.js';
 import { EXERT_LIMIT, canPay } from '../engine/energy.js';
 import { keywordSummary, keywordLabel } from '../engine/keywords.js';
@@ -154,27 +154,83 @@ const key = (ref) => (ref.kind === 'trainer' ? `${ref.owner}:T${ref.zone}`
     : ref.kind === 'hand' ? `${ref.owner}:H${ref.uid}` : `${ref.owner}:P${ref.zone}${ref.space}`);
 
 // The Item chosen in the Open Bag flow (from hand or from the Bag).
-function bagItem(state) {
-  if (!ui.bag?.uid) return null;
+function bagItem(state, sel = ui) {
+  if (!sel.bag?.uid) return null;
   const p = state.players.player;
-  return (ui.bag.mode === 'buyHand' ? p.hand : p.bag).find((i) => i.uid === ui.bag.uid) ?? null;
+  return (sel.bag.mode === 'buyHand' ? p.hand : p.bag).find((i) => i.uid === sel.bag.uid) ?? null;
+}
+
+// What the player is choosing a target for right now, if anything: who asks
+// (a card, Power or effect), the legal targets as refs, the highlight (red for
+// attacks, green for effects) and whether it can be cancelled (the player's own
+// selections can; an effect already resolving can't). `sel` is the player's
+// selection: this module's own, or one a test passes in.
+function targeting(state, sel = ui) {
+  const me = state.players.player;
+  const pending = state.pending?.who === 'player' ? state.pending : null;
+  const named = (uid) => me.hand.find((c) => c.uid === uid)?.name ?? 'This card';
+  if (pending?.kind === 'target') return { source: pending.label, detail: pending.text ?? '', refs: pending.options, cls: ' power-target', cancel: false };
+  if (sel.attacker) {
+    const attacker = me.zones[sel.attacker.zone]?.pokemon[sel.attacker.space];
+    const refs = legalTargets(state, 'player', sel.attacker).map((t) => ({ ...t, owner: 'ai' }));
+    return { source: `${attacker?.name ?? 'Your Pokémon'} attacks`, refs, cls: ' attack-target', cancel: true };
+  }
+  if (sel.power != null) {
+    return { source: `${me.zones[sel.power]?.trainer?.name ?? 'Trainer'}'s Power`, refs: powerTargets(state, 'player', sel.power), cls: ' power-target', cancel: true };
+  }
+  if (sel.strategy) return { source: named(sel.strategy), refs: strategyTargets(state, 'player', sel.strategy), cls: ' power-target', cancel: true };
+  if (sel.supporter?.picking) return { source: named(sel.supporter.uid), refs: supporterTargets(state, 'player', sel.supporter.uid), cls: ' power-target', cancel: true };
+  if (sel.bag?.picking) return { source: bagItem(state, sel)?.name ?? 'Item', refs: itemTargets(state, 'player', bagItem(state, sel)), cls: ' power-target', cancel: true };
+  return null;
 }
 
 // Cards that can be clicked as the target of the current choice, as keys,
 // with the highlight to use: red for attacks, green for effects (either side).
-function targetKeys(state) {
-  if (state.pending?.who === 'player' && state.pending.kind === 'target') {
-    return { keys: new Set(state.pending.options.map(key)), cls: ' power-target' };
+export function targetKeys(state, sel = ui) {
+  const t = targeting(state, sel);
+  return t ? { keys: new Set(t.refs.map(key)), cls: t.cls } : { keys: new Set(), cls: '' };
+}
+
+// The words for a set of targets: "an enemy Pokémon or Trainer", "a card in your hand".
+export function describeTargets(refs) {
+  const nouns = (mine) => ['pokemon', 'trainer', 'zone']
+    .filter((kind) => refs.some((r) => r.kind === kind && (r.owner === 'player') === mine))
+    .map((kind) => ({ pokemon: 'Pokémon', trainer: mine ? 'Trainers' : 'Trainer', zone: mine ? 'Zones' : 'Zone' })[kind]);
+  const parts = [];
+  if (nouns(false).length) parts.push(`an enemy ${nouns(false).join(' or ')}`);
+  if (nouns(true).length) parts.push(`one of your ${nouns(true).join(' or ')}`);
+  if (refs.some((r) => r.kind === 'hand')) parts.push('a card in your hand');
+  return parts.join(', or ') || 'a target';
+}
+
+// The prompt bar over the board while choosing: exactly what to pick, e.g.
+// "Ember: choose an enemy Pokémon or Trainer". A free summon asks for a space.
+export function targetPrompt(state, sel = ui) {
+  const pending = state.pending?.who === 'player' ? state.pending : null;
+  if (pending?.kind === 'freeSummon') {
+    const name = state.players.player.hand.find((c) => c.uid === pending.uid)?.name ?? 'it';
+    return { text: `${pending.label}: choose an empty space to summon ${name} for free`, detail: 'or keep it in your hand', cancel: false };
   }
-  if (ui.attacker) {
-    const keys = legalTargets(state, 'player', ui.attacker).map((t) => key({ ...t, owner: 'ai' }));
-    return { keys: new Set(keys), cls: ' attack-target' };
+  const t = targeting(state, sel);
+  if (!t) return null;
+  return { text: `${t.source}: choose ${describeTargets(t.refs)}`, detail: t.detail ?? '', cancel: t.cancel };
+}
+
+// Why an enemy Trainer can't be chosen now (it gets a small shield): the
+// Pokémon guarding it from this attack, or that this choice can't reach it.
+// Null when it can be chosen, nothing is being chosen, or it is already out.
+export function trainerShield(state, zone, sel = ui) {
+  const trainer = state.players.ai.zones[zone]?.trainer;
+  const t = targeting(state, sel);
+  if (!t || !trainer || trainer.strength <= 0) return null;
+  // Only when the choice reaches enemy cards (choosing a card in hand isn't about them).
+  if (!t.refs.some((r) => r.owner === 'ai')) return null;
+  if (t.refs.some((r) => r.kind === 'trainer' && r.owner === 'ai' && r.zone === zone)) return null;
+  if (sel.attacker && !state.pending) {
+    const block = attackBlock(state, 'player', sel.attacker, { kind: 'trainer', zone });
+    if (block?.guards.length) return `Guarded by ${listNames([...new Set(block.guards)])}`;
   }
-  if (ui.power !== null) return { keys: new Set(powerTargets(state, 'player', ui.power).map(key)), cls: ' power-target' };
-  if (ui.strategy) return { keys: new Set(strategyTargets(state, 'player', ui.strategy).map(key)), cls: ' power-target' };
-  if (ui.supporter?.picking) return { keys: new Set(supporterTargets(state, 'player', ui.supporter.uid).map(key)), cls: ' power-target' };
-  if (ui.bag?.picking) return { keys: new Set(itemTargets(state, 'player', bagItem(state)).map(key)), cls: ' power-target' };
-  return { keys: new Set(), cls: '' };
+  return `${t.source} can't target ${trainer.name}`;
 }
 
 // Empty spaces that can be clicked: for playing a Pokémon, or a free summon.
@@ -225,8 +281,10 @@ export function render(root, state, actions) {
   previews = [];
   const c = controls(state);
 
+  const prompt = targetPrompt(state);
   root.innerHTML = `
-    <div class="table${isMyBattleTurn(state) && !ui.supporter ? ' my-turn' : ''}">
+    <div class="table${isMyBattleTurn(state) && !ui.supporter ? ' my-turn' : ''}${prompt ? ' targeting' : ''}">
+      ${promptBar(prompt)}
       <section class="res-row">${resources(state, 'ai')}${opponentHand(state.players.ai.hand.length)}${piles(state, 'ai')}</section>
       ${historyStrip()}
       <div class="arena">
@@ -281,6 +339,13 @@ export function render(root, state, actions) {
 }
 
 // --- Info bars, strip, panels ------------------------------------------------
+
+// Over the top of the board while choosing a target: what to pick, and Cancel when allowed.
+function promptBar(prompt) {
+  if (!prompt) return '';
+  return `<div class="target-bar" role="status"><span class="target-bar-text"><b>${attr(prompt.text)}</b>${prompt.detail ? `<small>${attr(prompt.detail)}</small>` : ''}</span>`
+    + `${prompt.cancel ? '<button data-action="cancel-target" class="secondary">Cancel</button>' : ''}</div>`;
+}
 
 const HISTORY_ICONS = { play: 'discard', item: 'dollar', attack: 'physical', power: 'power', pass: 'energy', choice: 'quest' };
 
@@ -704,8 +769,17 @@ function trainerSpace(state, who, i, targets) {
   if (zone.trainer) {
     const usable = who === 'player' && isMyBattleTurn(state) && !ui.supporter && canUsePower(state, 'player', i);
     content = card(zone.trainer, 'board', { selectable: usable, selected: who === 'player' && ui.power === i });
-    if (zone.trainer.strength <= 0) cls += ' down';
-    if (targets.keys.has(key({ kind: 'trainer', owner: who, zone: i }))) cls += targets.cls;
+    if (zone.trainer.strength <= 0) {
+      cls += ' down';
+      content += '<div class="defeated-stamp">Defeated</div>';
+    }
+    if (targets.keys.has(key({ kind: 'trainer', owner: who, zone: i }))) cls += `${targets.cls} legal-target`;
+    const shield = who === 'ai' && trainerShield(state, i);
+    if (shield) {
+      cls += ' shielded';
+      content += `<i class="shield-mark" title="${attr(shield)}">${icon('defence')}</i>`;
+    }
+    if (shield) return `<div class="${cls}" data-owner="${who}" data-zone="${i}" title="${attr(shield)}">${content}</div>`;
   } else if (who === 'player' && state.phase === 'trainers') {
     const placed = ui.placing[i] && p.trainers.find((t) => t.uid === ui.placing[i]);
     content = placed ? card(placed, 'board') : '<span class="empty">Click to place</span>';
@@ -730,11 +804,11 @@ function pokemonZone(state, who, z, targets, fallen) {
   const myTurn = isMyBattleTurn(state) && !ui.supporter;
   const zoneTarget = targets.keys.has(key({ kind: 'zone', owner: who, zone: z }));
   return `
-    <div class="zone${fallen ? ' fallen' : ''}${zoneTarget ? ' zone-target' : ''}" data-owner="${who}" data-zone="${z}">
+    <div class="zone${fallen ? ' fallen' : ''}${zoneTarget ? ' zone-target legal-target' : ''}" data-owner="${who}" data-zone="${z}">
       ${p.zones[z].pokemon.map((c, s) => {
         let cls = 'pokemon-space';
         if (placing.has(`${z}${s}`)) cls += ' target';
-        if (targets.keys.has(key({ kind: 'pokemon', owner: who, zone: z, space: s }))) cls += targets.cls;
+        if (targets.keys.has(key({ kind: 'pokemon', owner: who, zone: z, space: s }))) cls += `${targets.cls} legal-target`;
         const alert = c && isAlert(state, c);
         const opts = {
           alert,
@@ -804,12 +878,16 @@ function handCards(state) {
   const costNow = (c) => (c.cardType === 'Pokémon' ? cheapestCost(state, 'player', c) : c.energyCost ?? 0);
   const short = (c) => (c.cardType === 'Item' ? c.cost > me.dollars : costNow(c) > energy);
   const hand = (c, opts = {}) => card(c, 'hand', { ...opts, cantAfford: short(c), costNow: c.cardType === 'Pokémon' && costNow(c) < c.energyCost ? costNow(c) : undefined });
+  // An effect choosing a card in hand (Pelipper's Retain, a Held Item for a Pokémon in hand).
+  const targets = targetKeys(state);
+  const isTarget = (c) => targets.keys.has(key({ kind: 'hand', owner: 'player', uid: c.uid }));
   return fan(me.hand.map((c) => {
     if (mulligan) return hand(c, { selectable: true, selected: ui.mulligan.has(c.uid) });
     if (xpStep) {
       if (c.cardType !== 'Pokémon') return hand(c);
       return hand(c, { selectable: true, selected: ui.xpPick === c.uid, plan: plannedXp(c.uid) });
     }
+    if (state.pending?.who === 'player' && state.pending.kind === 'target') return hand(c, { selectable: isTarget(c), target: isTarget(c) });
     if (state.pending?.uid === c.uid) return hand(c, { selected: true, playable: true });
     if (ui.supporter) {
       // Paying for a Supporter: every other card can be marked Discard or Release.
@@ -819,8 +897,8 @@ function handCards(state) {
     }
     if (ui.bag?.picking) {
       // A Held Item can go on a Pokémon in hand.
-      const target = targetKeys(state).keys.has(key({ kind: 'hand', owner: 'player', uid: c.uid }));
-      return hand(c, { selectable: target, selected: target });
+      const target = isTarget(c);
+      return hand(c, { selectable: target, selected: target, target });
     }
     if (myTurn && c.cardType === 'Item') {
       const buyable = openBagOptions(state, 'player').some((o) => o.mode === 'buyHand' && o.uid === c.uid);
@@ -876,9 +954,9 @@ function attr(text) {
   return String(text).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 }
 
-function stateClasses({ selectable, selected, unavailable, pay, playable, cantAfford }) {
+function stateClasses({ selectable, selected, unavailable, pay, playable, cantAfford, target }) {
   return `${selectable ? ' selectable' : ''}${selected ? ' selected' : ''}${unavailable ? ' unavailable' : ''}${pay ? ` pay-${pay}` : ''}`
-    + `${playable ? ' playable' : ''}${cantAfford ? ' cant-afford' : ''}`;
+    + `${playable ? ' playable' : ''}${cantAfford ? ' cant-afford' : ''}${target ? ' legal-target' : ''}`;
 }
 
 // Marks a hand card chosen to pay a Supporter's Card-Cost.
@@ -1030,12 +1108,12 @@ function face(c, opts) {
       };
     }
     case 'Trainer': {
-      const used = c.powerUsedRound === ui.state.round;
+      const used = c.powerUsedRound === ui.state?.round;
       const out = c.strength <= 0;
       return {
         kind: 'trainer',
         corner: energy(c.power.cost, '', `Power cost ${c.power.cost}`),
-        str: cardIcon('strength-hitpoints', { cls: 'str stat', inner: num(c.strength, c.strength < c.maxStrength ? 'hurt' : ''), title: `Trainer Strength ${c.strength} of ${c.maxStrength}` }),
+        str: cardIcon('strength-hitpoints', { cls: 'str stat', inner: num(Math.max(0, c.strength), c.strength < c.maxStrength ? 'hurt' : ''), title: out ? 'Defeated: Strength 0' : `Trainer Strength ${c.strength} of ${c.maxStrength}` }),
         text: `${kw(`Power (${c.power.cost})`)}${body(boldKeywords(c.power.text))}${kw('Passive')}${body(boldKeywords(c.passive.text))}`,
         status: [used && !out && chip('used', 'Power used'), out && chip('spent', 'Removed')],
       };
@@ -1623,6 +1701,10 @@ function wire(root, state, actions) {
   on('.hand .card.selectable', (el) => {
     const uid = el.dataset.uid;
     const c = state.players.player.hand.find((h) => h.uid === uid);
+    if (state.pending?.kind === 'target') {
+      dispatch({ type: 'resolveChoice', who: 'player', target: { kind: 'hand', owner: 'player', uid } });
+      return;
+    }
     if (ui.bag?.picking) {
       dispatchBag({ kind: 'hand', owner: 'player', uid });
       return;
@@ -1692,7 +1774,11 @@ function wire(root, state, actions) {
       playSupporter(undefined);
     }
   });
-  on('.zone.zone-target', (el) => playSupporter({ kind: 'zone', owner: el.dataset.owner, zone: Number(el.dataset.zone) }));
+  on('.zone.zone-target', (el) => {
+    const ref = { kind: 'zone', owner: el.dataset.owner, zone: Number(el.dataset.zone) };
+    if (state.pending?.kind === 'target') dispatch({ type: 'resolveChoice', who: 'player', target: ref });
+    else playSupporter(ref);
+  });
 
   // Open Bag: choose a mode, then an Item, then (to use it) a target.
   const dispatchBag = (target) => {
@@ -1710,6 +1796,7 @@ function wire(root, state, actions) {
   };
   on('[data-action="open-bag"]', () => { clearSelection(); ui.bag = { mode: null }; redraw(); });
   on('[data-action="cancel-bag"]', () => { ui.bag = null; redraw(); });
+  on('[data-action="cancel-target"]', () => { clearSelection(); redraw(); });
   on('[data-action="bag-mode"]', (el) => { ui.bag = { mode: el.dataset.mode }; redraw(); });
   on('[data-action="bag-store"]', () => { ui.bag.then = 'store'; dispatchBag(undefined); });
   on('[data-action="bag-use"]', () => { ui.bag.then = 'use'; useNow(); });

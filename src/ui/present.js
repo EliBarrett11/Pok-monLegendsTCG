@@ -715,7 +715,7 @@ async function crystalFlight(root, who, t) {
   const b = centre(rectOf(to));
   const c = spawn('fx-crystal');
   const lift = Math.min(a.y, b.y) - 120;
-  const at = (x, y, s = 1) => `translate(${x - 14}px, ${y - 18}px) scale(${s})`;
+  const at = (x, y, s = 1) => `translate(${x - 20}px, ${y - 26}px) scale(${s})`;
   c.innerHTML = CRYSTAL;
   await play(c, [
     { transform: at(a.x, a.y, 0.4), opacity: 0 },

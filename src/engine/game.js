@@ -244,6 +244,24 @@ export function legalTargets(state, who, from) {
   return targets.map(({ kind, zone, space }) => (kind === 'pokemon' ? { kind, zone, space } : { kind, zone }));
 }
 
+// Why an attack from `from` can't target this enemy Pokémon or Trainer: the
+// Pokémon guarding it (with the Strength-Type that blocks this attacker), or
+// that a Trainer is already out. Null when it can be targeted (or isn't there).
+export function attackBlock(state, who, from, ref) {
+  const attacker = state.players[who].zones[from.zone]?.pokemon[from.space];
+  const enemy = state.players[opponentOf(who)];
+  const card = ref.kind === 'trainer' ? enemy.zones[ref.zone]?.trainer : enemy.zones[ref.zone]?.pokemon[ref.space];
+  if (!attacker || !card) return null;
+  if (legalTargets(state, who, from).some((t) => t.kind === ref.kind && t.zone === ref.zone && t.space === ref.space)) return null;
+  if (ref.kind === 'trainer' && card.strength <= 0) return { defeated: true, guards: [] };
+  const guard = { Physical: 'Defence', Special: 'Special Defence' }[attacker.attackType];
+  const guards = [];
+  enemy.zones.forEach((z, zone) => z.pokemon.forEach((g) => {
+    if (g && g.strengthType === guard && (!RULE_FLAGS.zoneGuards || zone === ref.zone)) guards.push(g.name);
+  }));
+  return { defeated: false, guards };
+}
+
 function canCommand(state, who) {
   return alertPokemon(state, who).some((a) => legalTargets(state, who, a).length);
 }

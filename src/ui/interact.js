@@ -169,7 +169,7 @@ function destinationAt(x, y, plan) {
   for (const el of document.elementsFromPoint(x, y)) {
     if (el.closest('#drag, #fx')) continue;
     const target = el.closest('.attack-target, .power-target, .player .pokemon-space.target, .player .location-space.target, '
-      + '.player .trainer-space.target, .zone.zone-target, .hand > .card.selectable.selected');
+      + '.player .trainer-space.target, .zone.zone-target, .hand > .card.selectable.selected, .hand > .card.legal-target');
     if (target && target.dataset.uid !== drag?.uid) return { el: target, type: 'click' };
     const bag = plan?.bag && el.closest('[data-pile="player-bag"]');
     if (bag) return { el: bag, type: 'bag' };

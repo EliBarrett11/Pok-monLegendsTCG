@@ -268,8 +268,42 @@ button.primary {
   box-shadow: 0 0 16px 5px rgba(110, 231, 160, 0.45) !important;
 }
 .zone.zone-target { cursor: pointer; border: 2px solid var(--green-bright); box-shadow: 0 0 18px 4px rgba(110, 231, 160, 0.4); background-color: rgba(60, 180, 110, 0.1); }
-.trainer-space.down .card { filter: grayscale(0.9) brightness(0.45); }
+.trainer-space { position: relative; }
+.trainer-space.down .card { filter: grayscale(1) brightness(0.38); }
 .trainer-space.down .card-name { text-decoration: line-through; }
+/* A defeated Trainer: unmistakable, with a stamp across it. */
+.defeated-stamp {
+  position: absolute; left: 50%; top: 50%; translate: -50% -50%; rotate: -14deg; z-index: 3; pointer-events: none;
+  padding: 3px 12px; border: 3px solid #e8231a; border-radius: 6px; background: rgba(30, 6, 4, 0.75);
+  font-family: var(--font-display); font-size: 22px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
+  color: #ff5a45; text-shadow: 0 0 6px rgba(0, 0, 0, 0.9);
+}
+/* An enemy Trainer that can't be chosen now (guarded, or out of this choice's reach): a small shield. */
+.shield-mark {
+  position: absolute; right: 6px; top: 6px; z-index: 3; width: 30px; height: 30px; display: grid; place-items: center;
+  border-radius: 50%; background: rgba(20, 30, 50, 0.85); border: 2px solid #9fc4ff; color: #cfe2ff; cursor: help;
+}
+.shield-mark svg { width: 18px; height: 18px; }
+/* Every legal target: a pulsing golden ring, lifted a little. */
+.legal-target > .card, .hand > .card.legal-target {
+  outline: 3px solid #ffd75a; outline-offset: 2px; translate: 0 -6px;
+  animation: legal-pulse 1.1s ease-in-out infinite;
+}
+.zone.legal-target { animation: zone-pulse 1.1s ease-in-out infinite; border-color: #ffd75a; }
+@keyframes legal-pulse {
+  0%, 100% { outline-color: rgba(255, 215, 90, 0.95); outline-offset: 2px; filter: drop-shadow(0 0 6px rgba(255, 200, 60, 0.7)); }
+  50% { outline-color: #fff0b0; outline-offset: 5px; filter: drop-shadow(0 0 18px rgba(255, 200, 60, 1)); }
+}
+@keyframes zone-pulse { 50% { box-shadow: 0 0 26px 8px rgba(255, 210, 90, 0.6); } }
+/* The prompt bar: exactly what to pick, over the centre strip (clear of every card). */
+.target-bar {
+  position: absolute; left: 940px; top: 507px; translate: -50% -50%; z-index: 40; display: flex; align-items: center; gap: 14px;
+  padding: 8px 10px 8px 20px; border-radius: 10px; background: var(--brass-plate); border: 2px solid var(--brass-dark);
+  box-shadow: var(--bevel), 0 8px 24px rgba(0, 0, 0, 0.6); color: var(--ink); font-family: var(--font-display); white-space: nowrap;
+  pointer-events: auto;
+}
+.target-bar-text b { font-size: 20px; }
+.target-bar-text small { display: block; font-size: 13px; opacity: 0.8; }
 
 /* The centre strip, on the mat's horizontal line: zone tabs above a slim
    brass bar (whose turn · Round and phase · initiative and Weather), and the
@@ -376,9 +410,12 @@ button.primary {
 .drop-hover { filter: brightness(1.25); }
 .player .bag.drop-ok { border-radius: 8px; box-shadow: 0 0 0 2px rgba(255, 214, 130, 0.9), 0 0 16px 5px rgba(255, 200, 110, 0.5); }
 /* While aiming, everything that isn't a legal target dims. */
-#stage.aiming .arena .pokemon-space:not(.attack-target):not(.power-target) .card:not(.selected),
-#stage.aiming .arena .trainer-space:not(.attack-target):not(.power-target) .card:not(.selected),
-#stage.aiming .arena .location-space .card { filter: brightness(0.5) saturate(0.6); }
+/* (Drawn from the game state, so nothing stays dim after a cancelled drag or the AI's turn.)
+   Only a light dim, still in colour: a defeated Trainer must never be mistaken for one. */
+.table.targeting .arena .pokemon-space:not(.legal-target) .card:not(.selected),
+.table.targeting .arena .trainer-space:not(.legal-target):not(.down) .card:not(.selected),
+.table.targeting .arena .location-space .card,
+.table.targeting .hand > .card:not(.legal-target):not(.selected) { filter: brightness(0.8); }
 .aim-arrow { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: visible; }
 .aim-label {
   position: absolute; transform: translate(-50%, -100%); padding: 2px 10px; border-radius: 6px; white-space: nowrap;
@@ -1338,5 +1375,5 @@ button.primary {
 .card.vfx-heat { filter: url(#vfx-heat); }
 
 /* Passing: an Energy crystal flies into the Energy counter. */
-.fx-crystal { position: absolute; left: 0; top: 0; width: 28px; height: 36px; pointer-events: none; z-index: 3; filter: drop-shadow(0 0 8px rgba(127, 245, 222, 0.9)); }
+.fx-crystal { position: absolute; left: 0; top: 0; width: 40px; height: 52px; pointer-events: none; z-index: 3; filter: drop-shadow(0 0 8px rgba(127, 245, 222, 0.9)); }
 .fx-crystal svg { width: 100%; height: 100%; display: block; }
