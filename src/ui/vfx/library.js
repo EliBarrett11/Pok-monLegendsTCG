@@ -174,8 +174,8 @@ export const EMITTERS = {
   splashDroplets: { tex: 'droplets', blend: 'alpha', count: 34, at: 'centre', dir: 'radial', push: 200, speed: R(320, 900), lift: 260, gravity: 1400, drag: 0.8, life: R(600, 1000), size: [R(0.45, 0.9), 0.3], alpha: [1, 0.2], spin: R(-6, 6) },
   splashMist: { tex: 'smoke', blend: 'alpha', count: 5, at: 'card', area: 0.6, offsetY: 0.1, dir: 'radial', speed: R(60, 160), life: R(700, 1000), size: [R(0.14, 0.2), R(0.36, 0.5)], alpha: [0.4, 0], fadeIn: 60, spin: R(-0.4, 0.4), tint: '#e6f6ff' },
   // Water Special: Hydro Pump (a spiralling jet, spray at the impact, droplets running down)
-  hydroJet: { tex: 'water-jet', blend: 'alpha', rate: 60, at: 'muzzle', dir: 'forward', speed: R(1200, 1500), spreadDeg: 4, drag: 0.4, life: R(300, 380), size: [R(0.12, 0.18), R(0.36, 0.5)], alpha: [0.9, 0.1], alignForward: true, texAngle: 0.35 },
-  jetDroplets: { tex: 'droplets', blend: 'alpha', rate: 80, at: 'muzzle', dir: 'forward', speed: R(800, 1300), spreadDeg: 14, gravity: 400, life: R(350, 600), size: [R(0.3, 0.55), 0.2], alpha: [1, 0], spin: R(-8, 8) },
+  hydroJet: { tex: 'water-jet', blend: 'alpha', rate: 95, at: 'muzzle', dir: 'forward', speed: R(1100, 1400), spreadDeg: 3, drag: 0.3, life: R(320, 420), size: [R(0.18, 0.24), R(0.38, 0.5)], alpha: [0.9, 0.5], alignForward: true, texAngle: 0.35, toTarget: true },
+  jetDroplets: { tex: 'droplets', blend: 'alpha', rate: 80, at: 'muzzle', dir: 'forward', speed: R(800, 1300), spreadDeg: 14, gravity: 400, toTarget: true, life: R(350, 600), size: [R(0.3, 0.55), 0.2], alpha: [1, 0], spin: R(-8, 8) },
   spray: { tex: 'splash', blend: 'alpha', rate: 22, at: 'centre', dir: 'back', speed: R(100, 260), life: R(300, 450), size: [R(0.12, 0.18), R(0.32, 0.46)], alpha: [0.9, 0], pivot: 0.8, alignBack: true },
   sprayDroplets: { tex: 'droplets', blend: 'alpha', count: 22, at: 'centre', dir: 'radial', speed: R(260, 620), lift: 120, gravity: 1100, drag: 0.6, life: R(450, 750), size: [R(0.35, 0.7), 0.25], alpha: [1, 0.1], spin: R(-6, 6) },
   dropletsBead: { tex: 'droplets', blend: 'alpha', rate: 26, at: 'card', area: 0.85, dir: 'down', speed: R(15, 50), gravity: 140, life: R(700, 1100), size: [R(0.26, 0.42), R(0.22, 0.34)], alpha: [0.95, 0], fadeIn: 120 },
@@ -187,12 +187,12 @@ export const EMITTERS = {
   strikeRing: { tex: 'shockwave', blend: 'add', count: 1, at: 'centre', life: 300, size: [0.15, 0.75], alpha: [0.9, 0], tint: '#ffb08a' },
   fistSparks: { tex: 'streak', blend: 'add', count: 14, at: 'centre', dir: 'radial', speed: R(380, 820), gravity: 700, drag: 1, life: R(200, 380), size: [R(0.45, 0.8), 0.2], alpha: [1, 0], tint: ['#ffb070', '#ffffff'], alignVelocity: true },
   // Dark Physical: Feint Attack (melts into shadow, slashes from behind)
-  shadowMelt: { tex: 'shadow', blend: 'alpha', rate: 40, at: 'card', area: 0.8, dir: 'up', speed: R(40, 120), life: R(400, 650), size: [R(0.14, 0.2), R(0.32, 0.45)], alpha: [0.85, 0], fadeIn: 60, rot: R(0, 6.28), spin: R(-1, 1) },
+  shadowMelt: { tex: 'shadow', blend: 'alpha', rate: 24, at: 'card', area: 0.8, dir: 'up', speed: R(40, 120), life: R(400, 650), size: [R(0.12, 0.17), R(0.24, 0.32)], alpha: [0.85, 0], fadeIn: 60, rot: R(0, 6.28), spin: R(-1, 1) },
   shadowPuff: { tex: 'shadow', blend: 'alpha', count: 6, at: 'card', area: 0.5, dir: 'radial', speed: R(40, 140), drag: 1.5, life: R(450, 700), size: [R(0.16, 0.22), R(0.34, 0.46)], alpha: [0.8, 0], rot: R(0, 6.28), spin: R(-1.2, 1.2) },
-  slashMarks: { tex: 'slash', blend: 'add', count: 1, at: 'centre', life: 380, size: [0.25, 0.72], alpha: [1, 0], rot: R(-0.2, 0.2) },
+  slashMarks: { tex: 'slash', blend: 'add', count: 1, at: 'centre', life: 440, size: [0.32, 0.88], alpha: [1, 0], rot: R(-0.2, 0.2) },
   slashSparks: { tex: 'streak', blend: 'add', count: 18, at: 'centre', dir: 'radial', speed: R(300, 800), drag: 1.2, life: R(200, 380), size: [R(0.4, 0.8), 0.15], alpha: [1, 0], tint: ['#c070ff', '#ffffff'], alignVelocity: true },
   // Normal Physical: Body Slam (a heavy drop, a dust burst)
-  dustBurst: { tex: 'smoke', blend: 'alpha', count: 14, at: 'centre', offsetY: 0.3, dir: 'radial', speed: R(160, 420), lift: 20, drag: 2.2, life: R(700, 1100), size: [R(0.14, 0.22), R(0.42, 0.6)], alpha: [0.6, 0], tint: '#c9a878', spin: R(-0.6, 0.6) },
+  dustBurst: { tex: 'smoke', blend: 'alpha', count: 20, at: 'centre', offsetY: 0.3, dir: 'radial', speed: R(180, 480), lift: 30, drag: 2.2, life: R(800, 1200), size: [R(0.16, 0.24), R(0.5, 0.75)], alpha: [0.8, 0], tint: '#e4cfa6', spin: R(-0.6, 0.6) },
   debris: { tex: 'shard', blend: 'alpha', count: 16, at: 'centre', dir: 'radial', speed: R(300, 700), lift: 300, gravity: 1500, life: R(500, 800), size: [R(0.4, 0.7), 0.3], alpha: [1, 0], tint: '#8a6a44', spin: R(-10, 10) },
   slamRing: { tex: 'shockwave', blend: 'add', count: 1, at: 'centre', offsetY: 0.2, life: 520, size: [0.3, 1.7], alpha: [0.6, 0], tint: '#f0dcb0' },
   // Keyword touches
@@ -207,7 +207,7 @@ export const EMITTERS = {
   overrunShadow: { tex: 'shadow', blend: 'alpha', rate: 50, at: 'centre', dir: 'back', speed: R(40, 120), life: R(260, 420), size: [R(0.12, 0.16), R(0.22, 0.3)], alpha: [0.75, 0], rot: R(0, 6.28), spin: R(-1, 1) },
   overrunDust: { tex: 'smoke', blend: 'alpha', rate: 40, at: 'centre', dir: 'back', speed: R(60, 160), life: R(400, 600), size: [R(0.1, 0.14), R(0.24, 0.32)], alpha: [0.55, 0], tint: '#c9a878', spin: R(-0.6, 0.6) },
   // Burn from a Pokémon's ability: embers cast from it to the target
-  emberStream: { tex: 'embers', blend: 'add', rate: 90, at: 'muzzle', dir: 'forward', speed: R(700, 1000), spreadDeg: 10, life: R(380, 520), size: [R(0.6, 0.9), 0.3], alpha: [1, 0.2], spin: R(-8, 8) },
+  emberStream: { tex: 'embers', blend: 'add', rate: 90, at: 'muzzle', dir: 'forward', speed: R(700, 1000), spreadDeg: 10, toTarget: true, life: R(380, 520), size: [R(0.6, 0.9), 0.3], alpha: [1, 0.2], spin: R(-8, 8) },
   // Status: Burn on a card (ambient, per second, scaled by level elsewhere)
   burnFlames: { tex: 'flame', blend: 'add', rate: 12, at: 'edges', dir: 'up', speed: R(40, 80), life: R(420, 700), size: [R(0.06, 0.1), R(0.11, 0.17)], alpha: [0.9, 0], fadeIn: 80, pivot: 0.9, rot: R(-0.2, 0.2) },
   burnEmbers: { tex: 'embers', blend: 'add', rate: 7, at: 'card', area: 0.9, offsetY: 0.2, dir: 'up', speed: R(70, 160), life: R(900, 1500), size: [R(0.35, 0.6), 0.15], alpha: [1, 0], spin: R(-4, 4) },
@@ -547,15 +547,15 @@ export const RIBBONS = {
   orbTrail: { tex: 'streak', width: 54, life: 260, color: 'type', alpha: 0.6, blend: 'add' },
   waterTrail: { tex: 'streak', width: 96, life: 220, color: '#4aa8ff', alpha: 0.4, blend: 'add' },
   // Hydro Pump: two strands twisting round each other, so the stream spirals.
-  hydroStream: { tex: 'streak', width: 50, life: 140, color: '#3a9cff', alpha: 0.5, blend: 'add', toTarget: true, wobble: 16, phase: 0 },
-  hydroStreamCore: { tex: 'streak', width: 26, life: 140, color: '#e6f6ff', alpha: 0.55, blend: 'add', toTarget: true, wobble: 16, phase: Math.PI },
+  hydroStream: { tex: 'streak', width: 72, life: 140, color: '#3a9cff', alpha: 0.55, blend: 'add', toTarget: true, wobble: 20, phase: 0 },
+  hydroStreamCore: { tex: 'streak', width: 34, life: 140, color: '#e6f6ff', alpha: 0.6, blend: 'add', toTarget: true, wobble: 20, phase: Math.PI },
 };
 
 // Beams: a texture stretched from the attacker's muzzle to the target, flickering
 // (the lightning bolt). texAngle: the direction the texture's art runs (radians;
 // lightning runs left to right, falling about 25°), so it can be turned to the attack.
 export const BEAMS = {
-  lightningBolt: { tex: 'lightning', texAngle: 0.44, color: '#fff7c0', glow: '#ffd51a', thickness: 1, flicker: true, jitter: 8 },
+  lightningBolt: { tex: 'lightning', texAngle: 0.44, color: '#ffe866', glow: '#ff9d00', thickness: 1.7, flicker: true, jitter: 8 },
 };
 
 // Real time a timeline takes at normal speed: its beats plus every hit-stop,

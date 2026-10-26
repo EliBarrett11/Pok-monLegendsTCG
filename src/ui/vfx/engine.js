@@ -157,6 +157,9 @@ function spawnOne(e, anchor, opts) {
     default: break;
   }
   vy -= rnd(e.lift) * unit;
+  // A stream that stops at its target (a jet): it lives just long enough to get there.
+  let life = rnd(e.life);
+  if (e.toTarget && anchor.goal && speed > 0) life = Math.min(life, (Math.hypot(anchor.goal.x - x, anchor.goal.y - y) / speed) * 1000 * rnd([0.92, 1.08]));
   const tintSpec = opts.tint ?? e.tint;
   const tint = tintSpec === 'type' ? hex((anchor.tint ?? ['#ffffff', '#ffffff'])[Math.random() < 0.6 ? 0 : 1])
     : Array.isArray(tintSpec) ? hex(tintSpec[Math.random() < 0.6 ? 0 : 1]) : tintSpec ? hex(tintSpec) : [1, 1, 1];
@@ -170,7 +173,7 @@ function spawnOne(e, anchor, opts) {
     tex: e.tex, sprite: sprites ? sprites[Math.floor(Math.random() * sprites.length)] : null,
     x, y, vx, vy, g: (e.gravity ?? 0) * unit, drag: e.drag ?? 0, rot, vr: rnd(e.spin),
     s0: rnd(s0) * unit, s1: rnd(s1) * unit, a0: e.alpha?.[0] ?? 1, a1: e.alpha?.[1] ?? 0,
-    life: rnd(e.life), age: 0, fadeIn: e.fadeIn ?? 0, pivot: e.pivot ?? 0.5, add: e.blend !== 'alpha',
+    life, age: 0, fadeIn: e.fadeIn ?? 0, pivot: e.pivot ?? 0.5, add: e.blend !== 'alpha',
     color: tint, alignVelocity: e.alignVelocity, rate: opts.rate ?? 1, ambient: Boolean(opts.ambient),
   });
 }
@@ -262,13 +265,13 @@ const MOTIONS = {
   drenched: (k, c) => {
     const spring = Math.exp(-5 * k) * Math.cos(k * 12);
     const t = Math.max(0, 1 - k * 1.6);
-    return { x: c.dir.x * 34 * spring * c.scale, y: c.dir.y * 34 * spring * c.scale, r: 0.06 * spring, filter: t > 0.01 ? `brightness(${1 + 0.25 * t}) saturate(${1 - 0.35 * t}) contrast(${1 + 0.1 * t})` : '' };
+    return { x: c.dir.x * 34 * spring * c.scale, y: c.dir.y * 34 * spring * c.scale, r: 0.06 * spring, filter: t > 0.01 ? `brightness(${1 + 0.1 * t}) saturate(${1 - 0.3 * t}) contrast(${1 + 0.08 * t})` : '' };
   },
   // Electric: the card crackles as it charges; the target jolts and flickers.
   charge: (k) => ({ x: Math.sin(k * 120) * 2.5 * k, y: -6 * ease.outCubic(k), s: 1 + 0.04 * k, filter: `brightness(${1 + 0.45 * k * (0.7 + 0.3 * Math.sin(k * 80))})` }),
   shocked: (k) => {
     const t = 1 - k;
-    return { x: Math.sin(k * 95) * 5 * t, y: Math.cos(k * 70) * 2 * t, filter: t > 0.02 ? `brightness(${1 + (Math.sin(k * 60) > 0 ? 0.9 : 0.25) * t}) saturate(${1 + 0.4 * t})` : '' };
+    return { x: Math.sin(k * 95) * 5 * t, y: Math.cos(k * 70) * 2 * t, filter: t > 0.02 ? `brightness(${1 + (Math.sin(k * 60) > 0 ? 0.5 : 0.1) * t}) saturate(${1 + 0.3 * t})` : '' };
   },
   // Fighting: three quick jabs at contact distance.
   flurry: (k, c) => { const f = Math.abs(Math.sin(k * Math.PI * 3)); return { x: c.contact.x * (1 - 0.14 * f), y: c.contact.y * (1 - 0.14 * f), s: 1.1 + 0.03 * f, r: 0.04 * Math.sin(k * Math.PI * 6) }; },
@@ -278,7 +281,14 @@ const MOTIONS = {
     const o = k < 0.5 ? 0 : (k - 0.5) * 2;
     return { x: c.behind.x, y: c.behind.y, s: 1.05, filter: `brightness(${0.3 + 0.7 * o}) opacity(${o})` };
   },
-  strikeBehind: (k, c) => { const e = Math.sin(k * Math.PI); return { x: c.behind.x - c.dir.x * 46 * e, y: c.behind.y - c.dir.y * 46 * e, s: 1.05 + 0.04 * e, r: -0.1 * e }; },
+  strikeBehind: (k, c) => {
+    const e = Math.sin(k * Math.PI);
+    // Lunge from beside the target into it.
+    const vx = c.dir.x * c.len - c.behind.x;
+    const vy = c.dir.y * c.len - c.behind.y;
+    const l = Math.hypot(vx, vy) || 1;
+    return { x: c.behind.x + (vx / l) * 50 * e, y: c.behind.y + (vy / l) * 50 * e, s: 1.05 + 0.04 * e, r: -0.1 * e };
+  },
   fadeBack: (k, c) => {
     if (k < 0.45) { const o = 1 - k / 0.45; return { x: c.behind.x, y: c.behind.y, s: 1.05, filter: `brightness(${0.3 + 0.7 * o}) opacity(${o})` }; }
     const o = k < 0.6 ? 0 : (k - 0.6) / 0.4;
@@ -368,15 +378,16 @@ export function playTimeline(idOrDef, ctx) {
     tint: ctx.tint ?? ['#ffffff', '#ffd36b'],
     self: ctx.self ?? ctx.attacker,
     muzzle: A ? { x: A.x + dir.x * (aRect.w * 0.45), y: A.y + dir.y * (aRect.h * 0.4) } : null,
-    // Feint Attack: where the attacker reappears, just behind the target (relative to its own place).
-    behind: { x: dir.x * (len + (tRect?.w ?? 120) * 0.95), y: dir.y * (len + (tRect?.h ?? 168) * 0.55) },
+    // Feint Attack: where the attacker reappears, beside and just behind the target
+    // (relative to its own place), on the side nearer the middle of the board, so it stays in view.
+    behind: feintSpot(A, B, dir, len, tRect),
     gRect: ctx.guard ? rectOf(ctx.guard) : null,
     oRect: ctx.overrunTarget ? rectOf(ctx.overrunTarget) : null,
   };
   const anchor = (on) => {
     const at = (el, r) => ({ rect: r ?? (el ? rectOf(el) : null), dir: c.dir, tint: c.tint, muzzle: livePoint('muzzle') });
     switch (on) {
-      case 'attacker': return { ...at(null, moved(c.attacker, c.aRect)), muzzle: livePoint('muzzle') };
+      case 'attacker': return { ...at(null, moved(c.attacker, c.aRect)), muzzle: livePoint('muzzle'), goal: B };
       case 'target': return at(null, moved(c.target, c.tRect));
       case 'impact': return { ...at(null, c.tRect ? { ...c.tRect, x: c.tRect.x - dir.x * 40, y: c.tRect.y - dir.y * 40 } : null) };
       case 'counterImpact': return at(null, c.tRect);
@@ -460,6 +471,16 @@ export function playTimeline(idOrDef, ctx) {
     running.push({ tl, ctx: c, rate: c.rate ?? 1, resolve, cut });
     wake();
   });
+}
+
+function feintSpot(A, B, dir, len, tRect) {
+  if (!A || !B) return { x: 0, y: 0 };
+  const w = tRect?.w ?? 120;
+  const h = tRect?.h ?? 168;
+  let px = -dir.y;
+  let py = dir.x;
+  if ((B.x + px * w) > 1500 || (B.x + px * w) < 380 || Math.abs(B.x + px * w - 940) > Math.abs(B.x - px * w - 940)) { px = -px; py = -py; }
+  return { x: dir.x * (len + h * 0.18) + px * w * 1.02, y: dir.y * (len + h * 0.18) + py * w * 1.02 };
 }
 
 // Where each moment happens, and its flash colour.
@@ -758,8 +779,10 @@ function beamQuads(b, out) {
   const uv = flip ? [0, 1, 1, 0] : [0, 0, 1, 1];
   const a = b.def.flicker ? 0.65 + Math.random() * 0.35 : 1;
   const rot = ang - (b.def.texAngle ?? 0) * (flip ? -1 : 1);
-  out.push(quad('glow', mid.x, mid.y, L * 1.1, Math.max(60, L * 0.18), ang, 0.5, [0, 0, 1, 1], hex(b.def.glow ?? b.def.color), 0.35 * a, true));
+  out.push(quad('glow', mid.x, mid.y, L * 1.25, Math.max(90, L * 0.35), ang, 0.5, [0, 0, 1, 1], hex(b.def.glow ?? b.def.color), 0.25 * a, true));
   out.push(quad(b.def.tex, mid.x, mid.y, w, h, rot, 0.5, uv, hex(b.def.color), a, true));
+  // A second, fainter fork alongside (mirrored), so the bolt reads as forked.
+  out.push(quad(b.def.tex, mid.x, mid.y, w * 0.9, h * 0.8, ang + (b.def.texAngle ?? 0) * (flip ? -1 : 1), 0.5, flip ? [0, 0, 1, 1] : [0, 1, 1, 0], hex(b.def.glow ?? b.def.color), 0.55 * a, true));
 }
 
 function ribbonQuads(rb, out) {
