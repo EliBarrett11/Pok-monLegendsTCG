@@ -11,7 +11,7 @@ import { createRenderer } from './gl.js';
 import { loadTextures } from './textures.js';
 import { Timeline } from './timeline.js';
 import {
-  EMITTERS, TIMELINES, RIBBONS, STATUS_VISUALS, tintOf, impactScale,
+  EMITTERS, TIMELINES, RIBBONS, BEAMS, STATUS_VISUALS, tintOf, impactScale,
 } from './library.js';
 
 const MAX_PARTICLES = 2600;
@@ -27,6 +27,7 @@ let parts = [];        // particles (and distortion sprites, distort: true)
 let streams = [];      // emitters streaming over time
 let ribbons = [];      // trails
 let flyers = [];       // coins and other sprites on a path
+let beams = [];        // textures stretched between two points (a lightning bolt)
 let running = [];      // timelines playing: { tl, ctx, rate, resolve }
 let ambient = [];      // cards with a status visual: { el, id, level, acc: {} }
 let heatEls = new Map();   // element → strength (SVG heat shimmer)
@@ -152,6 +153,7 @@ function spawnOne(e, anchor, opts) {
       break;
     }
     case 'inward': vx = (c.x - x) * speed; vy = (c.y - y) * speed; break;
+    case 'down': vx = rnd([-6, 6]); vy = speed; break;
     default: break;
   }
   vy -= rnd(e.lift) * unit;
@@ -162,7 +164,8 @@ function spawnOne(e, anchor, opts) {
   const sprites = TEX[e.tex]?.sprites;
   let rot = rnd(e.rot);
   if (e.alignBack) rot += Math.atan2(-dir.y, -dir.x) + Math.PI / 2 + rnd([-0.3, 0.3]);
-  if (e.alignForward) rot += Math.atan2(dir.y, dir.x) - Math.PI / 2;
+  // Turned to the attack: textures that point up (flames), or that run at texAngle (a water jet).
+  if (e.alignForward) rot += Math.atan2(dir.y, dir.x) - (e.texAngle ?? Math.PI / 2);
   parts.push({
     tex: e.tex, sprite: sprites ? sprites[Math.floor(Math.random() * sprites.length)] : null,
     x, y, vx, vy, g: (e.gravity ?? 0) * unit, drag: e.drag ?? 0, rot, vr: rnd(e.spin),
@@ -246,6 +249,48 @@ const MOTIONS = {
   },
   cool: (k) => { const t = 1 - ease.outCubic(k); return { filter: `brightness(${1 + 0.35 * t}) saturate(${1 - 0.4 * t})` }; },
   flinchForward: (k, c) => { const e = Math.sin(k * Math.PI); return { x: c.dir.x * 22 * e, y: c.dir.y * 22 * e, s: 1 + 0.04 * e }; },
+  // Water Physical: rises inside the column, surges up, crashes down onto the target.
+  rise: (k) => { const e = ease.outCubic(k); return { y: -40 * e, s: 1 + 0.05 * e }; },
+  surge: (k, c) => { const e = ease.outCubic(k); return { x: -c.dir.x * 20 * e, y: -40 - 80 * e, s: 1.05 + 0.08 * e, r: -0.05 * e }; },
+  crash: (k, c) => {
+    const e = ease.inQuad(k);
+    const sx = -c.dir.x * 20;
+    const hop = c.arc ? -Math.sin(k * Math.PI) * 90 : 0;
+    return { x: sx + (c.contact.x - sx) * e, y: -120 + (c.contact.y + 120) * e + hop, s: 1.13 - 0.05 * e, r: -0.05 + 0.13 * e };
+  },
+  // Water: the target is soaked (a springy recoil, washed bright and cool).
+  drenched: (k, c) => {
+    const spring = Math.exp(-5 * k) * Math.cos(k * 12);
+    const t = Math.max(0, 1 - k * 1.6);
+    return { x: c.dir.x * 34 * spring * c.scale, y: c.dir.y * 34 * spring * c.scale, r: 0.06 * spring, filter: t > 0.01 ? `brightness(${1 + 0.25 * t}) saturate(${1 - 0.35 * t}) contrast(${1 + 0.1 * t})` : '' };
+  },
+  // Electric: the card crackles as it charges; the target jolts and flickers.
+  charge: (k) => ({ x: Math.sin(k * 120) * 2.5 * k, y: -6 * ease.outCubic(k), s: 1 + 0.04 * k, filter: `brightness(${1 + 0.45 * k * (0.7 + 0.3 * Math.sin(k * 80))})` }),
+  shocked: (k) => {
+    const t = 1 - k;
+    return { x: Math.sin(k * 95) * 5 * t, y: Math.cos(k * 70) * 2 * t, filter: t > 0.02 ? `brightness(${1 + (Math.sin(k * 60) > 0 ? 0.9 : 0.25) * t}) saturate(${1 + 0.4 * t})` : '' };
+  },
+  // Fighting: three quick jabs at contact distance.
+  flurry: (k, c) => { const f = Math.abs(Math.sin(k * Math.PI * 3)); return { x: c.contact.x * (1 - 0.14 * f), y: c.contact.y * (1 - 0.14 * f), s: 1.1 + 0.03 * f, r: 0.04 * Math.sin(k * Math.PI * 6) }; },
+  // Dark: melts into shadow, reappears behind the target, slashes, fades back home.
+  melt: (k) => ({ y: 10 * k, s: 1 - 0.15 * k, filter: `brightness(${1 - 0.75 * k}) opacity(${1 - 0.95 * k})` }),
+  vanish: (k, c) => {
+    const o = k < 0.5 ? 0 : (k - 0.5) * 2;
+    return { x: c.behind.x, y: c.behind.y, s: 1.05, filter: `brightness(${0.3 + 0.7 * o}) opacity(${o})` };
+  },
+  strikeBehind: (k, c) => { const e = Math.sin(k * Math.PI); return { x: c.behind.x - c.dir.x * 46 * e, y: c.behind.y - c.dir.y * 46 * e, s: 1.05 + 0.04 * e, r: -0.1 * e }; },
+  fadeBack: (k, c) => {
+    if (k < 0.45) { const o = 1 - k / 0.45; return { x: c.behind.x, y: c.behind.y, s: 1.05, filter: `brightness(${0.3 + 0.7 * o}) opacity(${o})` }; }
+    const o = k < 0.6 ? 0 : (k - 0.6) / 0.4;
+    return { filter: o < 1 ? `brightness(${0.3 + 0.7 * o}) opacity(${o})` : '' };
+  },
+  // Normal: a slow, heavy lift, then a drop.
+  heave: (k) => { const e = ease.outCubic(k); return { y: -80 * e, s: 1 + 0.14 * e, r: 0.03 * Math.sin(k * 7) * e }; },
+  slam: (k, c) => {
+    const e = k * k * k;
+    const hop = c.arc ? -Math.sin(k * Math.PI) * 60 : 0;
+    return { x: c.contact.x * e, y: -80 + (c.contact.y + 80) * e + hop, s: 1.14 - 0.04 * e, r: 0.06 * e };
+  },
 };
 export const MOTION_NAMES = Object.keys(MOTIONS);
 
@@ -305,8 +350,9 @@ const SCORCH_CUES = ['scorch', 'scorchCatch'];
 //   rate: timeline ms per real ms (the speed setting), damage, tint ([main, highlight]),
 //   arc (Infiltrator), fire (the hit is Fire), on: { impact, scorch, scorchCatch, counterHit, flare, douse }
 // Resolves when it ends or is skipped.
-export function playTimeline(id, ctx) {
-  const def = TIMELINES[id];
+export function playTimeline(idOrDef, ctx) {
+  const def = typeof idOrDef === 'string' ? TIMELINES[idOrDef] : idOrDef;
+  const id = typeof idOrDef === 'string' ? idOrDef : def?.id;
   if (!def || !vfxReady()) return Promise.resolve();
   const scale = impactScale(ctx.damage);
   const aRect = ctx.attacker ? rectOf(ctx.attacker) : null;
@@ -322,6 +368,10 @@ export function playTimeline(id, ctx) {
     tint: ctx.tint ?? ['#ffffff', '#ffd36b'],
     self: ctx.self ?? ctx.attacker,
     muzzle: A ? { x: A.x + dir.x * (aRect.w * 0.45), y: A.y + dir.y * (aRect.h * 0.4) } : null,
+    // Feint Attack: where the attacker reappears, just behind the target (relative to its own place).
+    behind: { x: dir.x * (len + (tRect?.w ?? 120) * 0.95), y: dir.y * (len + (tRect?.h ?? 168) * 0.55) },
+    gRect: ctx.guard ? rectOf(ctx.guard) : null,
+    oRect: ctx.overrunTarget ? rectOf(ctx.overrunTarget) : null,
   };
   const anchor = (on) => {
     const at = (el, r) => ({ rect: r ?? (el ? rectOf(el) : null), dir: c.dir, tint: c.tint, muzzle: livePoint('muzzle') });
@@ -330,7 +380,10 @@ export function playTimeline(id, ctx) {
       case 'target': return at(null, moved(c.target, c.tRect));
       case 'impact': return { ...at(null, c.tRect ? { ...c.tRect, x: c.tRect.x - dir.x * 40, y: c.tRect.y - dir.y * 40 } : null) };
       case 'counterImpact': return at(null, c.tRect);
-      case 'projectile': return { x: c.proj?.x ?? 0, y: c.proj?.y ?? 0, dir: c.dir, tint: c.tint, unitRect: c.aRect };
+      case 'projectile': return { x: c.proj?.x ?? 0, y: c.proj?.y ?? 0, dir: c.projDir ?? c.dir, tint: c.tint, unitRect: c.aRect };
+      case 'behind': return at(null, c.aRect ? { ...c.aRect, x: c.aRect.x + c.behind.x, y: c.aRect.y + c.behind.y } : null);
+      case 'guard': return at(null, c.gRect ?? c.tRect);
+      case 'trainer': return at(null, c.oRect ?? c.tRect);
       default: return at(null, c.tRect);
     }
   };
@@ -348,6 +401,7 @@ export function playTimeline(id, ctx) {
   const handlers = {
     start(beat) {
       if (beat.emit) streams.push({ beat, preset: EMITTERS[beat.emit], name: beat.emit, anchor: () => anchor(beat.on), acc: 0, rate: c.rate, tint: beat.tint });
+      if (beat.beam) beams.push({ beat, def: BEAMS[beat.beam], ctx: c });
       if (beat.ribbon) ribbons.push({ beat, def: RIBBONS[beat.ribbon], points: [], active: true, anchor: () => anchor(beat.on), tint: c.tint, ctx: c, unit: unitOf(c.aRect) });
       if (beat.cue === 'heat') setHeat(c.target, 1);
       if (beat.track) c.from = c.mA;
@@ -361,7 +415,18 @@ export function playTimeline(id, ctx) {
         else c.mT = m;
         applyMotion(elFor(beat.track), m);
       }
-      if (beat.projectile && A && B) {
+      if (beat.projectile === 'overrun') {
+        // Overrun: the leftover blast travels on from the defeated Pokémon into its Trainer.
+        if (!c.tRect || !c.oRect) return;
+        const P = centre(c.tRect);
+        const Q = centre(c.oRect);
+        const e = ease.inQuad(k);
+        const d = Math.hypot(Q.x - P.x, Q.y - P.y) || 1;
+        c.projDir = { x: (Q.x - P.x) / d, y: (Q.y - P.y) / d };
+        c.proj = { x: P.x + (Q.x - P.x) * e, y: P.y + (Q.y - P.y) * e - Math.sin(k * Math.PI) * Math.min(80, d * 0.25) };
+        push({ tex: 'glow', x: c.proj.x, y: c.proj.y, s0: 0.8, s1: 0.8, life: 40, a0: 0.9, a1: 0.9, color: hex(c.tint[0]) });
+        push({ tex: 'glow', x: c.proj.x, y: c.proj.y, s0: 0.35, s1: 0.35, life: 40, a0: 1, a1: 1, color: [1, 1, 1] });
+      } else if (beat.projectile && A && B) {
         const e = ease.inQuad(k);
         const lift = -Math.sin(k * Math.PI) * Math.min(160, len * 0.3);
         c.proj = { x: c.muzzle.x + (B.x - c.muzzle.x) * e, y: c.muzzle.y + (B.y - c.muzzle.y) * e + lift };
@@ -372,6 +437,7 @@ export function playTimeline(id, ctx) {
     },
     end(beat) {
       streams = streams.filter((s) => s.beat !== beat);
+      beams = beams.filter((b) => b.beat !== beat);
       for (const rb of ribbons) if (rb.beat === beat) rb.active = false;
       if (beat.track) applyMotion(elFor(beat.track), null);
       if (beat.track === 'attacker') c.mA = null;
@@ -381,6 +447,7 @@ export function playTimeline(id, ctx) {
     fire(beat, { skipped }) {
       // The Scorch beats only play when the attack applies Burn.
       if (SCORCH_CUES.includes(beat.cue) && !c.scorch) return;
+      if (beat.on === 'guard' && !c.gRect) { if (beat.cue) c.on?.[beat.cue]?.({ skipped }); return; }
       if (!skipped && beat.emit) emit(beat.emit, anchor(beat.on), { scale: c.scale, countScale: beat.countScale, rate: c.rate, tint: beat.tint === 'type' ? 'type' : beat.tint });
       if (beat.cue) cue(beat, c, anchor, skipped);
     },
@@ -395,21 +462,30 @@ export function playTimeline(id, ctx) {
   });
 }
 
+// Where each moment happens, and its flash colour.
+const CUE_ANCHOR = { counterHit: 'counterImpact', impact: 'impact', jab: 'impact', overrunHit: 'trainer', infiltrate: 'guard', shell: 'target', bolt: 'attacker' };
+const FLASH = { fire: [1, 0.6, 0.25], water: [0.55, 0.8, 1], electric: [1, 0.95, 0.5], dark: [0.72, 0.45, 1], white: [1, 1, 1] };
+
 function cue(beat, c, anchor, skipped) {
   c.on?.[beat.cue]?.({ skipped });
   if (skipped) return;
   // For checks and recordings: a 'vfxcue' event on the canvas at each moment (e.g. the impact).
   canvasEl?.dispatchEvent(new CustomEvent('vfxcue', { detail: { cue: beat.cue, timeline: c.id } }));
-  const at = anchor(beat.cue === 'counterHit' ? 'counterImpact' : beat.cue === 'impact' ? 'impact' : 'target');
+  const at = anchor(CUE_ANCHOR[beat.cue] ?? 'target');
   const r = at.rect;
   const p = r ? centre(r) : { x: at.x, y: at.y };
   const k = (c.scale ?? 1) * unitOf(r ?? c.tRect);
   if (beat.shake && !reducedMotion()) shake = { amp: beat.shake * 0.7 * (c.scale ?? 1), t: 0, dur: 300 + 60 * (c.scale ?? 1) };
   if (beat.flash) {
-    const col = beat.flash === 'fire' ? [1, 0.6, 0.25] : beat.flash === 'type' ? hex(c.tint[1]) : [1, 0.95, 0.85];
+    const col = FLASH[beat.flash] ?? (beat.flash === 'type' ? hex(c.tint[1]) : [1, 0.95, 0.85]);
     push({ tex: 'glow', x: p.x, y: p.y, s0: 1.4 * k, s1: 2.4 * k, life: 240, a0: 0.55, a1: 0, color: col, rate: c.rate });
   }
   if (beat.bloom) bloomPulse = Math.max(bloomPulse, beat.bloom * k);
+  // A one-frame white flicker over the whole stage (the lightning bolt).
+  if (beat.flicker && !reducedMotion()) {
+    const s = 4200 / (TEX.glow?.w ?? 128);
+    push({ tex: 'glow', x: 960, y: 540, s0: s, s1: s, life: 45, a0: 0.42, a1: 0.42, color: [1, 1, 1], rate: 1 });
+  }
   if (beat.distort === 'shockwave' && !reducedMotion()) {
     push({ tex: 'ring-map', distort: true, x: p.x, y: p.y, s0: 0.6, s1: 5 * k, life: 420, a0: 1, a1: 0, rate: c.rate });
   }
@@ -425,6 +501,7 @@ function settleTimelines() {
   const done = running.filter((r) => r.tl.done);
   running = running.filter((r) => !r.tl.done);
   for (const r of done) {
+    beams = beams.filter((b) => b.ctx !== r.ctx);
     applyMotion(r.ctx.attacker, null);
     applyMotion(r.ctx.target, null);
     setHeat(r.ctx.target, 0);
@@ -481,14 +558,14 @@ function wake() {
 }
 
 function alive() {
-  return parts.length || streams.length || ribbons.length || flyers.length || running.length || ambient.length || shake || heatEls.size;
+  return parts.length || streams.length || ribbons.length || beams.length || flyers.length || running.length || ambient.length || shake || heatEls.size;
 }
 
 // While the only thing alive is ambient (burning cards smouldering), the layer
 // redraws at 30 fps: every other frame. Attacks and bursts get every frame.
 let odd = false;
 function ambientOnly() {
-  return !running.length && !streams.length && !ribbons.length && !flyers.length && !shake && !heatEls.size
+  return !running.length && !streams.length && !ribbons.length && !beams.length && !flyers.length && !shake && !heatEls.size
     && parts.every((p) => p.ambient);
 }
 
@@ -545,7 +622,9 @@ function streamFrame(dt) {
         const t = centre(rb.ctx.tRect);
         for (let i = 0; i <= 12; i++) {
           const k = i / 12;
-          const wob = Math.sin(performance.now() / 45 + i) * 10 * k;
+          // A twisting strand: wobble (px) and phase let two strands spiral round each other.
+          const amp = rb.def.wobble ? rb.def.wobble * Math.sin(k * Math.PI) : 10 * k;
+          const wob = Math.sin(performance.now() / 45 + i + (rb.def.phase ?? 0)) * amp;
           rb.points.push({ x: m.x + (t.x - m.x) * k - rb.ctx.dir.y * wob, y: m.y + (t.y - m.y) * k + rb.ctx.dir.x * wob, age: life * 0.3 * (1 - k) });
         }
       } else {
@@ -632,6 +711,7 @@ function collect() {
     (p.distort ? distort : p.add ? additive : alpha).push(q);
   }
   for (const rb of ribbons) ribbonQuads(rb, additive);
+  for (const b of beams) beamQuads(b, additive);
   for (const f of flyers) {
     if (f.t < 0) continue;
     const k = clamp01(f.t / f.ms);
@@ -656,6 +736,30 @@ function collect() {
     distortAmount: reducedMotion() ? 0 : 0.035,
     keep,
   };
+}
+
+// A beam: its texture stretched from the attacker's muzzle (moving with it) to
+// the target, turned to the attack, flickering and jittering like a real bolt.
+function beamQuads(b, out) {
+  const c = b.ctx;
+  const T = TEX[b.def.tex];
+  if (!T || !c.tRect || !c.muzzle) return;
+  const m = { x: c.muzzle.x + (c.mA?.x ?? 0), y: c.muzzle.y + (c.mA?.y ?? 0) };
+  const t = centre(c.tRect);
+  const L = Math.hypot(t.x - m.x, t.y - m.y);
+  if (L < 10) return;
+  const ang = Math.atan2(t.y - m.y, t.x - m.x);
+  const j = b.def.jitter ?? 0;
+  const mid = { x: (m.x + t.x) / 2 + (Math.random() - 0.5) * j, y: (m.y + t.y) / 2 + (Math.random() - 0.5) * j };
+  // The texture's art runs at texAngle: scale it so that run spans the gap.
+  const w = (L / Math.cos(b.def.texAngle ?? 0)) * 1.04;
+  const h = w * (T.h / T.w) * (b.def.thickness ?? 1) * 0.6;
+  const flip = Math.random() < 0.5;
+  const uv = flip ? [0, 1, 1, 0] : [0, 0, 1, 1];
+  const a = b.def.flicker ? 0.65 + Math.random() * 0.35 : 1;
+  const rot = ang - (b.def.texAngle ?? 0) * (flip ? -1 : 1);
+  out.push(quad('glow', mid.x, mid.y, L * 1.1, Math.max(60, L * 0.18), ang, 0.5, [0, 0, 1, 1], hex(b.def.glow ?? b.def.color), 0.35 * a, true));
+  out.push(quad(b.def.tex, mid.x, mid.y, w, h, rot, 0.5, uv, hex(b.def.color), a, true));
 }
 
 function ribbonQuads(rb, out) {
@@ -690,6 +794,7 @@ export function clearVfx() {
   parts = [];
   streams = [];
   ribbons = [];
+  beams = [];
   flyers = [];
   ambient = [];
   shake = null;

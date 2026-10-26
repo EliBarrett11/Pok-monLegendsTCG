@@ -4,7 +4,7 @@
 // it doesn't stack, it is on the right Fire cards, and the AI uses it.
 // Run with: node tests/infiltrator.test.js
 import assert from 'node:assert/strict';
-import { legalTargets } from '../src/engine/game.js';
+import { legalTargets, guardsBypassed } from '../src/engine/game.js';
 import { resolveEffects } from '../src/engine/effects.js';
 import { keywordList, hasKeyword } from '../src/engine/keywords.js';
 import { POKEMON_CARDS, INNATE_POWERS } from '../src/engine/cardData.js';
@@ -100,6 +100,28 @@ assert.deepEqual(POKEMON_CARDS.filter((c) => hasKeyword(c, 'Infiltrator')).map((
   s.players.player.zones.forEach((z, i) => { z.trainer.strength = i === 2 ? 3 : 0; });
   onTurn(s, 'ai');
   assert.deepEqual(chooseAction(s, 'ai'), { type: 'command', who: 'ai', from: { zone: 1, space: 0 }, target: { kind: 'trainer', zone: 2 } });
+}
+
+// --- For the animation (Step 21): the attack says which guards it went over -----------
+
+{
+  const s = fire();
+  place(s, 'ai', 0, 0, 'quagsire', { spent: true });          // Defence guard
+  place(s, 'ai', 2, 1, 'horsea', { spent: true });
+  place(s, 'player', 1, 0, 'ponyta');                         // Physical, Infiltrator
+  place(s, 'player', 1, 1, 'growlithe');                      // Physical, no Infiltrator
+  assert.deepEqual(guardsBypassed(s, 'player', { zone: 1, space: 0 }, { kind: 'trainer', zone: 1 }).map((g) => g.name), ['Quagsire'], 'over the guard to a Trainer');
+  assert.deepEqual(guardsBypassed(s, 'player', { zone: 1, space: 0 }, { kind: 'pokemon', zone: 0, space: 0 }), [], 'hitting the guard itself goes over nothing');
+  assert.deepEqual(guardsBypassed(s, 'player', { zone: 1, space: 1 }, { kind: 'pokemon', zone: 0, space: 0 }), [], 'no Infiltrator, nothing bypassed');
+  const after = act(s, 'player', { type: 'command', from: { zone: 1, space: 0 }, target: { kind: 'trainer', zone: 1 } });
+  const attack = after.events.find((e) => e.type === 'attack');
+  assert.deepEqual(attack.infiltrated.map((g) => g.uid), [at(s, 'ai', 0, 0).uid], 'the attack event names the guard');
+  // No guards on the board: an Infiltrator attack goes over nothing.
+  const t = fire();
+  place(t, 'ai', 2, 1, 'horsea', { spent: true });
+  place(t, 'player', 1, 0, 'ponyta');
+  const plain = act(t, 'player', { type: 'command', from: { zone: 1, space: 0 }, target: { kind: 'trainer', zone: 1 } });
+  assert.equal(plain.events.find((e) => e.type === 'attack').infiltrated, undefined);
 }
 
 console.log('All Infiltrator tests passed.');

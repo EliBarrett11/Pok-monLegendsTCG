@@ -220,7 +220,7 @@ export function alertPokemon(state, who) {
 // An Infiltrator attacker ignores both. Only Trainers above 0 Strength.
 // Balance experiment (tools/balance.js), off unless switched on:
 //   RULE_FLAGS.zoneGuards: a guard only restricts targets in its own Zone.
-export function legalTargets(state, who, from) {
+export function legalTargets(state, who, from, { ignoreInfiltrator = false } = {}) {
   const attacker = state.players[who].zones[from.zone]?.pokemon[from.space];
   if (!attacker) return [];
   const enemy = state.players[opponentOf(who)];
@@ -233,7 +233,7 @@ export function legalTargets(state, who, from) {
   const guard = { Physical: 'Defence', Special: 'Special Defence' }[attacker.attackType];
   const isGuard = (t) => t.kind === 'pokemon' && t.card.strengthType === guard;
   let targets;
-  if (hasKeyword(attacker, 'Infiltrator')) targets = [...pokemon, ...trainers];
+  if (hasKeyword(attacker, 'Infiltrator') && !ignoreInfiltrator) targets = [...pokemon, ...trainers];
   else if (RULE_FLAGS.zoneGuards) {
     const all = [...pokemon, ...trainers];
     targets = all.filter((t) => isGuard(t) || !all.some((g) => isGuard(g) && g.zone === t.zone));
@@ -242,6 +242,21 @@ export function legalTargets(state, who, from) {
     targets = guards.length ? guards : [...pokemon, ...trainers];
   }
   return targets.map(({ kind, zone, space }) => (kind === 'pokemon' ? { kind, zone, space } : { kind, zone }));
+}
+
+// The enemy guards an Infiltrator attack goes over to reach this target: the
+// Pokémon it would have had to attack first without Infiltrator (none if it
+// could have reached the target anyway). For the animation; no rule here.
+export function guardsBypassed(state, who, from, ref) {
+  const attacker = state.players[who].zones[from.zone]?.pokemon[from.space];
+  if (!attacker || !hasKeyword(attacker, 'Infiltrator')) return [];
+  const plain = legalTargets(state, who, from, { ignoreInfiltrator: true });
+  if (plain.some((t) => t.kind === ref.kind && t.zone === ref.zone && t.space === ref.space)) return [];
+  const enemy = state.players[opponentOf(who)];
+  return plain.filter((t) => t.kind === 'pokemon').map((t) => {
+    const card = enemy.zones[t.zone].pokemon[t.space];
+    return { kind: 'pokemon', owner: opponentOf(who), zone: t.zone, space: t.space, uid: card.uid, name: card.name };
+  });
 }
 
 // Why an attack from `from` can't target this enemy Pokémon or Trainer: the
@@ -720,6 +735,7 @@ const HANDLERS = {
     const name = `${whose(state, who)} ${attacker.name}`;
     const power = attackOf(attacker);
     const hitsBack = target.kind === 'pokemon' && isAlert(state, cardAt(state, targetRef));
+    const over = guardsBypassed(state, who, from, target);
     emit(state, 'attack', {
       who,
       attacker: { ...attackerRef, name: attacker.name },
@@ -727,6 +743,7 @@ const HANDLERS = {
       amount: power,
       trades: hitsBack,
       back: hitsBack ? attackOf(cardAt(state, targetRef)) : 0,
+      ...(over.length ? { infiltrated: over } : {}),
     });
     if (target.kind === 'trainer') {
       const before = cardAt(state, targetRef).strength;

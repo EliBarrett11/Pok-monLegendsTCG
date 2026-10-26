@@ -6,8 +6,9 @@
 // Run with: node tests/vfx.test.js
 import assert from 'node:assert/strict';
 import {
-  TIMELINES, EMITTERS, RIBBONS, BUDGETS, ATTACKS, STATUS_VISUALS, TEXTURES, BUILT_IN,
+  TIMELINES, EMITTERS, RIBBONS, BEAMS, BUDGETS, ATTACKS, COUNTERS, FALLBACKS, STATUS_VISUALS, TEXTURES, BUILT_IN,
   attackAnimation, counterAnimation, timelineDuration, statusLevel, impactScale, MAX_SCALE, tintOf,
+  composeAttack, composeCounter, effectAnimation, BURN_CAST,
 } from '../src/ui/vfx/library.js';
 import { Timeline } from '../src/ui/vfx/timeline.js';
 import { MOTION_NAMES } from '../src/ui/vfx/engine.js';
@@ -27,14 +28,37 @@ for (const c of deckPokemon) {
   assert.ok(TIMELINES[counterAnimation(c)], `${c.name}: a counter for trades`);
   assert.ok(tintOf(c.pokemonType).length === 2, `${c.name}: a Type tint`);
 }
-// Fire is built in full; the rest use the generic Physical / Special one (Step 21 adds theirs).
+// Step 21: every Pokémon in both decks has its own Type + Attack-Type
+// animation (docs/vfx.md section 3), never the generic fallback.
 const byId = (id) => attackAnimation(cardDefinition(id));
-for (const id of ['growlithe', 'ponyta', 'arcanine', 'blaziken']) assert.equal(byId(id), 'fire-physical', id);
-for (const id of ['charmander', 'magmar', 'houndoom']) assert.equal(byId(id), 'fire-special', id);
-assert.equal(byId('mankey'), 'generic-physical', 'Fighting Physical: generic until Step 21');
-assert.equal(byId('chinchou'), 'generic-special', 'Electric Special: generic until Step 21');
+const expected = {
+  'fire-physical': ['growlithe', 'ponyta', 'arcanine', 'blaziken'],
+  'fire-special': ['charmander', 'magmar', 'houndoom'],
+  'water-physical': ['goldeen', 'quagsire', 'gyarados'],
+  'water-special': ['horsea', 'wartortle', 'lapras', 'pelipper', 'vaporeon', 'kyogre'],
+  'electric-special': ['chinchou'],
+  'fighting-physical': ['mankey'],
+  'dark-physical': ['sneasel'],
+  'normal-physical': ['chansey'],
+};
+for (const [anim, ids] of Object.entries(expected)) for (const id of ids) assert.equal(byId(id), anim, id);
+assert.equal(Object.values(expected).flat().length, 20, 'all 20 Pokémon listed');
+for (const c of deckPokemon) {
+  assert.ok(!FALLBACKS.includes(attackAnimation(c)), `${c.name}: a specific animation, not the fallback`);
+  assert.ok(!counterAnimation(c).startsWith('generic'), `${c.name}: its own counter`);
+}
+// Types no deck uses yet keep the generic one, tinted by Type.
+assert.equal(attackAnimation({ pokemonType: 'Grass', attackType: 'Physical' }), 'generic-physical');
+assert.equal(attackAnimation({ pokemonType: 'Psychic', attackType: 'Special' }), 'generic-special');
+assert.equal(counterAnimation({ pokemonType: 'Grass', attackType: 'Special' }), 'generic-counter');
 assert.equal(counterAnimation(cardDefinition('magmar')), 'fire-counter');
-assert.equal(counterAnimation(cardDefinition('horsea')), 'generic-counter');
+assert.equal(counterAnimation(cardDefinition('horsea')), 'water-counter');
+for (const id of Object.values(COUNTERS)) assert.equal(TIMELINES[id].budget, 'counter', id);
+// Effect damage from a card reuses an attack animation: a Pokémon's own, Crasher Wake's Power as Water Special.
+assert.equal(effectAnimation({ name: 'Gyarados', ...cardDefinition('gyarados') }), 'water-physical');
+assert.equal(effectAnimation({ name: 'Crasher Wake' }), 'water-special');
+assert.equal(effectAnimation({ name: 'Misty' }), null, 'other Trainers keep the plain hit');
+assert.ok(TIMELINES[BURN_CAST].beats.some((b) => b.cue === 'scorch'), 'On Summon Burn uses the Scorch ember swirl');
 for (const id of Object.values(ATTACKS)) assert.ok(TIMELINES[id], id);
 assert.ok(POKEMON_CARDS.every((c) => TIMELINES[attackAnimation(c)]));
 
@@ -54,7 +78,52 @@ for (const [id, def] of Object.entries(TIMELINES)) {
     if (b.emit) assert.ok(EMITTERS[b.emit], `${id}: emitter ${b.emit}`);
     if (b.ribbon) assert.ok(RIBBONS[b.ribbon], `${id}: ribbon ${b.ribbon}`);
     if (b.track) assert.ok(MOTION_NAMES.includes(b.motion), `${id}: motion ${b.motion}`);
+    if (b.beam) assert.ok(BEAMS[b.beam] && textures.has(BEAMS[b.beam].tex), `${id}: beam ${b.beam}`);
   }
+}
+
+// --- Keyword touches: each adds its own beat to an attack's timeline ------------------------
+
+const ALL_ATTACKS = [...Object.values(ATTACKS), ...FALLBACKS];
+const KEYS = ['trade', 'shell', 'infiltrator', 'overrun'];
+const combos = [{}];
+for (const k of KEYS) for (const c of [...combos]) combos.push({ ...c, [k]: true });
+assert.equal(combos.length, 16);
+for (const id of ALL_ATTACKS) {
+  const plain = composeAttack(id, {});
+  assert.equal(plain.beats.length, TIMELINES[id].beats.length, `${id}: no keywords, no extra beats`);
+  assert.deepEqual(plain.keywords, []);
+  const impact = TIMELINES[id].beats.find((b) => b.cue === 'impact');
+  assert.ok(impact, `${id}: has an impact`);
+  const tagged = (def, kw) => def.beats.filter((b) => b.keyword === kw);
+  const tr = composeAttack(id, { trade: true });
+  assert.ok(tagged(tr, 'trade').some((b) => b.cue === 'trade' && b.at === impact.at), `${id}: the trade answer starts at the impact`);
+  const sh = composeAttack(id, { shell: true });
+  assert.ok(tagged(sh, 'Shell').some((b) => b.cue === 'shell' && b.emit === 'shellShimmer'), `${id}: a Shell shimmer`);
+  const inf = composeAttack(id, { infiltrator: true });
+  assert.ok(tagged(inf, 'Infiltrator').some((b) => b.cue === 'infiltrate' && b.on === 'guard'), `${id}: Infiltrator over a guard`);
+  assert.ok(tagged(inf, 'Infiltrator').every((b) => b.at < impact.at), `${id}: Infiltrator happens before the hit`);
+  const ov = composeAttack(id, { overrun: true });
+  const ovBeats = tagged(ov, 'Overrun');
+  assert.ok(ovBeats.some((b) => b.projectile === 'overrun') && ovBeats.some((b) => b.cue === 'overrunHit' && b.on === 'trainer'), `${id}: Overrun carries on into the Trainer`);
+  assert.ok(ovBeats.every((b) => b.at > impact.at), `${id}: Overrun follows the hit`);
+  assert.ok(ovBeats.every((b) => !b.emit || EMITTERS[b.emit]), `${id}: Overrun in the attack's own style`);
+  // Every combination stays a well-formed timeline within the attack budget.
+  for (const opts of combos) {
+    const def = composeAttack(id, opts);
+    const ms = timelineDuration(def, MAX_SCALE);
+    assert.ok(ms >= BUDGETS.attack.min && ms <= BUDGETS.attack.max, `${id} ${JSON.stringify(opts)}: ${ms} ms is outside the attack budget`);
+    for (const b of def.beats) {
+      assert.ok(b.at >= 0 && (b.end ?? b.at) <= def.duration, `${id}: a beat inside the timeline`);
+      if (b.emit) assert.ok(EMITTERS[b.emit], `${id}: emitter ${b.emit}`);
+    }
+  }
+}
+for (const id of Object.values(COUNTERS)) {
+  const def = composeCounter(id, { shell: true });
+  assert.ok(def.beats.some((b) => b.cue === 'shell' && b.keyword === 'Shell'), `${id}: Shell on the counter`);
+  const ms = timelineDuration(def, MAX_SCALE);
+  assert.ok(ms <= BUDGETS.counter.max, `${id}: within the counter budget`);
 }
 for (const [name, e] of Object.entries(EMITTERS)) {
   assert.ok(textures.has(e.tex), `${name}: texture ${e.tex}`);
@@ -69,7 +138,7 @@ assert.deepEqual([BUDGETS.attack.min <= 1000, BUDGETS.attack.max], [true, 1500])
 // Plays a timeline with handlers that record what happened.
 function record(id, scale = 1) {
   const log = { start: [], update: [], end: [], fire: [], skipped: [], done: 0 };
-  const tl = new Timeline(TIMELINES[id], {
+  const tl = new Timeline(FULL[id] ?? TIMELINES[id], {
     scale,
     handlers: {
       start: (b) => log.start.push(b),
@@ -81,11 +150,17 @@ function record(id, scale = 1) {
   });
   return { tl, log };
 }
-const withEnd = (id) => TIMELINES[id].beats.filter((b) => b.end !== undefined);
-const instant = (id) => TIMELINES[id].beats.filter((b) => b.end === undefined);
+const withEnd = (id) => (FULL[id] ?? TIMELINES[id]).beats.filter((b) => b.end !== undefined);
+const instant = (id) => (FULL[id] ?? TIMELINES[id]).beats.filter((b) => b.end === undefined);
+
+// Every library timeline, plus every attack with all its keyword touches.
+const FULL = Object.fromEntries([
+  ...Object.keys(TIMELINES).map((id) => [id, TIMELINES[id]]),
+  ...ALL_ATTACKS.map((id) => [`${id}+all`, composeAttack(id, { trade: true, shell: true, infiltrator: true, overrun: true })]),
+]);
 
 // Played through in frames: every beat runs once, in time, and it finishes.
-for (const id of Object.keys(TIMELINES)) {
+for (const id of Object.keys(FULL)) {
   const { tl, log } = record(id);
   let guard = 0;
   while (!tl.done && guard++ < 1000) tl.advance(16);
@@ -94,13 +169,13 @@ for (const id of Object.keys(TIMELINES)) {
   assert.equal(log.fire.length, instant(id).length, `${id}: every burst and cue once`);
   assert.equal(log.end.length, withEnd(id).length, `${id}: every motion and stream ends`);
   assert.ok(log.update.every(([, k]) => k >= 0 && k <= 1));
-  assert.ok(guard * 16 <= timelineDuration(TIMELINES[id], 1) + 32, `${id}: no longer than its duration plus hit-stop`);
+  assert.ok(guard * 16 <= timelineDuration(FULL[id], 1) + 32, `${id}: no longer than its duration plus hit-stop`);
 }
 
 // Skipping (click-to-skip) completes a timeline at any point: everything not
 // yet done finishes at once, cues still fire (flagged as skipped).
-for (const id of Object.keys(TIMELINES)) {
-  for (const at of [0, 120, TIMELINES[id].duration / 2]) {
+for (const id of Object.keys(FULL)) {
+  for (const at of [0, 120, FULL[id].duration / 2]) {
     const { tl, log } = record(id);
     tl.advance(at);
     const firedBefore = log.fire.length;
@@ -116,7 +191,7 @@ for (const id of Object.keys(TIMELINES)) {
 }
 
 // Instant speed: one huge step finishes everything too.
-for (const id of Object.keys(TIMELINES)) {
+for (const id of Object.keys(FULL)) {
   const { tl, log } = record(id);
   tl.advance(1e9);
   if (!tl.done) tl.advance(1e9);   // a hit-stop takes one more step

@@ -1099,7 +1099,6 @@ button.primary {
 /* Effects: Burn and Douse. */
 .fx-num.burn span { color: #ffb347; -webkit-text-stroke: 1.5px #5a1404; }
 .fx-num.douse span { color: #bfe6ff; -webkit-text-stroke: 1.5px #0e3550; font-size: 26px; }
-.fx-num .shell-raw { text-decoration: line-through; opacity: 0.7; font-size: 0.6em; margin-right: 4px; }
 .fx-num .shell-tag { display: block; font-size: 0.42em; color: #d6ffe4; -webkit-text-stroke: 0; text-shadow: 0 1px 2px #000; }
 .fx-overrun {
   position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; pointer-events: none;
@@ -1404,3 +1403,6 @@ button.primary {
 /* Coins paid at the PokéMart. */
 .fx-coin-img { position: absolute; pointer-events: none; filter: drop-shadow(0 0 6px rgba(255, 210, 90, 0.8)); }
 .fx-coin-img img { width: 100%; height: 100%; display: block; }
+
+/* Infiltrator: a shadowy afterimage of the attacker passing over a guard. */
+.fx-afterimage { pointer-events: none; filter: brightness(0.25) saturate(0.4) drop-shadow(0 0 10px rgba(120, 60, 200, 0.8)) !important; }

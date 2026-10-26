@@ -11,7 +11,9 @@ import { setCaption, cardElements, cardMarkup, STAGE } from './render.js';
 import { speedFactor, readableMs } from './settings.js';
 import { burst, edgeBurst, clearParticles, reducedMotion } from './particles.js';
 import { vfxReady, playTimeline, skipTimelines, clearVfx, coins as vfxCoins } from './vfx/engine.js';
-import { attackAnimation, counterAnimation, tintOf, STATUS_VISUALS } from './vfx/library.js';
+import {
+  attackAnimation, counterAnimation, tintOf, STATUS_VISUALS, composeAttack, composeCounter, effectAnimation, BURN_CAST,
+} from './vfx/library.js';
 import { phaseIcon } from './icons.js';
 
 // --- Timing and skipping -----------------------------------------------------------
@@ -222,10 +224,15 @@ function impact(root, el, hit, t, { style = null, trainer = false, big = false, 
   }
   if (hit) {
     // Shell: the reduced number, with what it would have been.
-    const text = hit.shell ? `<span class="shell-raw">−${hit.raw}</span>−${hit.amount}<span class="shell-tag">Shell −${hit.shell}</span>` : `−${hit.amount}`;
+    const text = shellText(hit);
     floatNumber(r, text, 'damage', t(1200));
     countBadge(el, hit.before, hit.after, t(450), 'damage');
   }
+}
+
+// A hit's number: "−4", or with Shell the sum that made it, e.g. "−4" over "5 − 1 Shell".
+function shellText(hit) {
+  return hit.shell ? `−${hit.amount}<span class="shell-tag">${hit.raw} − ${hit.shell} Shell</span>` : `−${hit.amount}`;
 }
 
 // The curved path the targeting arrow uses, from a to b (stage px).
@@ -335,12 +342,12 @@ function revealPanel(e, r) {
 
 // An attack: wind-up, a lunge along the targeting arrow's curve, the impact
 // (both sides at once in a trade), then the attacker springs back.
-async function attackBeat(root, e, hits, t, scorch = null) {
+async function attackBeat(root, e, hits, t, scorch = null, overrun = null) {
   const a = shown(e.attacker.uid);
   const b = shown(e.target.uid);
   const onTarget = hits.find((h) => h.target.uid === e.target.uid);
   const onAttacker = hits.find((h) => h.target.uid === e.attacker.uid);
-  if (a && b && vfxReady() && t(1) > 0) return attackVfx(root, e, a, b, onTarget, onAttacker, t, scorch);
+  if (a && b && vfxReady() && t(1) > 0) return attackVfx(root, e, a, b, onTarget, onAttacker, t, scorch, overrun);
   if (!a || !b) {
     impact(root, b, onTarget, t);
     impact(root, a, onAttacker, t);
@@ -387,17 +394,19 @@ function attackerData(el) {
 function hitNumbers(el, hit, t, { trainer = false, rect = null } = {}) {
   if (!el || !hit) return;
   const r = rect ?? rectOf(el);
-  const text = hit.shell ? `<span class="shell-raw">−${hit.raw}</span>−${hit.amount}<span class="shell-tag">Shell −${hit.shell}</span>` : `−${hit.amount}`;
+  const text = shellText(hit);
   floatNumber(r, text, 'damage', t(1200));
   countBadge(el, hit.before, hit.after, t(450), 'damage');
   if (trainer) el.animate([0, 1, 2, 3, 4, 5, 6].map((i) => ({ translate: i === 6 ? '0 0' : `${(i % 2 ? -1 : 1) * 6 * (1 - i / 6)}px 0` })), { duration: t(380) });
 }
 
 // An attack on the WebGL layer: the attacker's Type + Attack-Type animation
-// (docs/vfx.md section 3), hit-stop and shake scaled by the damage, the
-// defender's own shorter answer in a trade, and with Scorch the embers
+// (docs/vfx.md section 3), hit-stop and shake scaled by the damage, with its
+// keyword touches: the defender's own shorter answer in a trade, a Shell
+// shimmer absorbing part of the hit, an Infiltrator arcing over the guards, the
+// Overrun blast carrying on into the Trainer, and with Scorch the embers
 // swirling into the target as its Burn.
-async function attackVfx(root, e, a, b, onTarget, onAttacker, t, scorch) {
+async function attackVfx(root, e, a, b, onTarget, onAttacker, t, scorch, overrun) {
   glow(a, 'fx-attacker');
   glow(b, 'fx-target');
   const A = centre(rectOf(a));
@@ -408,19 +417,29 @@ async function attackVfx(root, e, a, b, onTarget, onAttacker, t, scorch) {
   const trainer = e.target.kind === 'trainer';
   const restA = rectOf(a);
   const answers = [];
-  await playTimeline(attackAnimation(me), {
-    attacker: a, target: b, rate, damage: onTarget?.amount ?? 1, tint: tintOf(me.pokemonType),
-    fire: me.pokemonType === 'Fire', trade: Boolean(e.trades && onAttacker), scorch: Boolean(scorch),
+  const guard = (e.infiltrated ?? []).map((g) => shown(g.uid)).find(Boolean) ?? null;
+  const trainerEl = overrun ? shown(overrun.e.target.uid) : null;
+  const trade = Boolean(e.trades && onAttacker);
+  const def = composeAttack(attackAnimation(me), {
+    trade, shell: Boolean(onTarget?.shell), infiltrator: Boolean(guard), overrun: Boolean(trainerEl),
+  });
+  await playTimeline(def, {
+    attacker: a, target: b, guard, overrunTarget: trainerEl, arc: Boolean(guard), rate, damage: onTarget?.amount ?? 1,
+    tint: tintOf(me.pokemonType), fire: me.pokemonType === 'Fire', trade, scorch: Boolean(scorch),
     on: {
-      impact: () => {
-        hitNumbers(b, onTarget, t, { trainer });
-        if (e.trades && onAttacker) {
-          const them = attackerData(b);
-          answers.push(playTimeline(counterAnimation(them), {
-            attacker: b, target: a, self: b, rate, damage: onAttacker.amount, tint: tintOf(them.pokemonType), fire: them.pokemonType === 'Fire',
-            on: { counterHit: () => hitNumbers(a, onAttacker, t, { rect: restA }) },
-          }));
-        }
+      impact: () => hitNumbers(b, onTarget, t, { trainer }),
+      trade: () => {
+        const them = attackerData(b);
+        answers.push(playTimeline(composeCounter(counterAnimation(them), { shell: Boolean(onAttacker.shell) }), {
+          attacker: b, target: a, self: b, rate, damage: onAttacker.amount, tint: tintOf(them.pokemonType), fire: them.pokemonType === 'Fire',
+          on: { counterHit: () => hitNumbers(a, onAttacker, t, { rect: restA }) },
+        }));
+      },
+      infiltrate: ({ skipped }) => { if (!skipped) infiltratorTouch(a, guard, t); },
+      overrunHit: () => {
+        if (!trainerEl) return;
+        floatNumber(rectOf(trainerEl), `Overrun ${overrun.e.amount}`, 'burn', t(1100));
+        hitNumbers(trainerEl, overrun.hit, t, { trainer: true });
       },
       scorchCatch: () => {
         if (!scorch) return;
@@ -431,6 +450,60 @@ async function attackVfx(root, e, a, b, onTarget, onAttacker, t, scorch) {
   await Promise.all(answers);
   line.remove();
   await wait(t(120));
+}
+
+// Infiltrator: a shadowy afterimage of the attacker passes over a guard, and
+// (the first time each match) a small "Infiltrator" label says why.
+let infiltratorShown = false;
+function infiltratorTouch(attacker, guard, t) {
+  if (!guard || skipping) return;
+  const g = rectOf(guard);
+  const ghost = attacker.cloneNode(true);
+  ghost.removeAttribute('data-uid');
+  ghost.className = `${ghost.className} fx-afterimage`;
+  Object.assign(ghost.style, { position: 'absolute', left: `${g.x + (g.w - attacker.offsetWidth) / 2}px`, top: `${g.y - 40}px`, transform: '', filter: '' });
+  fxEl().append(ghost);
+  play(ghost, [
+    { opacity: 0, transform: 'translateY(20px) scale(0.95)' },
+    { opacity: 0.55, transform: 'translateY(-10px) scale(1)', offset: 0.35 },
+    { opacity: 0, transform: 'translateY(-36px) scale(1.04)' },
+  ], t(520));
+  if (!infiltratorShown) {
+    infiltratorShown = true;
+    cardTag(attacker, '<b>Infiltrator</b> · over the guards', t(1400));
+  }
+}
+
+// Effect damage from a card (an ability or a Power): its own attack animation
+// (docs/vfx.md section 3), aimed at each target in turn, quicker when there
+// are several. Null when the card has no animation to reuse.
+function effectSource(src) {
+  const el = src && shown(src.uid);
+  if (!el) return null;
+  const data = el.dataset.ptype ? attackerData(el) : {};
+  const id = effectAnimation({ name: src.name, ...data });
+  return id ? { el, id, tint: tintOf(data.pokemonType ?? 'Water') } : null;
+}
+async function effectBeat(root, source, group, t) {
+  const quick = group.length > 1 ? 1.7 : 1;
+  for (const h of group) {
+    const el = shown(h.target.uid);
+    if (!el || skipping) continue;
+    const trainer = h.target.kind === 'trainer';
+    await playTimeline(composeAttack(source.id, { shell: Boolean(h.shell) }), {
+      attacker: source.el, target: el, rate: quick / t(1), damage: h.amount, tint: source.tint, fire: source.id.startsWith('fire'),
+      on: { impact: () => hitNumbers(el, h, t, { trainer }) },
+    });
+  }
+  await wait(t(100));
+}
+// Burn from a Pokémon's ability: embers cast from it swirl into the target.
+async function emberCast(source, e, t, quick) {
+  const el = shown(e.target.uid);
+  await playTimeline(BURN_CAST, {
+    attacker: source.el, target: el, rate: quick / t(1), damage: e.amount, fire: true, scorch: true,
+    on: { scorchCatch: () => floatNumber(rectOf(el), `Burn +${e.amount}`, 'burn', t(1100)) },
+  });
 }
 
 // A hit that isn't an attack (an ability, a Power): a smaller impact.
@@ -797,6 +870,7 @@ async function walk(root, events, t, late) {
   }
   const used = new Set();
   let lastDefeated = null;
+  let source = null;   // the card whose ability or Power is resolving (for effect damage)
   for (let i = 0; i < ev.length; i++) {
     const e = ev[i];
     if (used.has(e)) continue;
@@ -816,23 +890,47 @@ async function walk(root, events, t, late) {
         const scorch = ev.slice(i + 1, nextAttack < 0 ? ev.length : nextAttack)
           .find((x) => x.type === 'statusApplied' && x.status === 'burn' && x.target.uid === e.target.uid && !used.has(x));
         if (scorch && vfxReady() && t(1) > 0 && shown(e.target.uid)) used.add(scorch);
-        await attackBeat(root, e, hits, t, scorch && used.has(scorch) ? scorch : null);
+        // Overrun: the leftover blast and the Trainer's hit play as part of the attack.
+        let overrun = null;
+        const ov = ev.slice(i + 1, nextAttack < 0 ? ev.length : nextAttack).find((x) => x.type === 'overrun' && x.attacker?.uid === e.attacker.uid && !used.has(x));
+        if (ov && vfxReady() && t(1) > 0 && shown(e.attacker.uid) && shown(e.target.uid) && shown(ov.target.uid)) {
+          const hit = ev.slice(ev.indexOf(ov) + 1).find((x) => x.type === 'damage' && x.target.uid === ov.target.uid && !used.has(x));
+          if (hit) {
+            overrun = { e: ov, hit };
+            used.add(ov);
+            used.add(hit);
+          }
+        }
+        source = null;
+        await attackBeat(root, e, hits, t, scorch && used.has(scorch) ? scorch : null, overrun);
         break;
       }
-      case 'abilityTriggered': await triggerBanner(e, t); break;
-      case 'powerUsed': await powerBeat(e, t); break;
+      case 'abilityTriggered': source = e.source; await triggerBanner(e, t); break;
+      case 'powerUsed': source = { uid: e.uid, name: e.name }; await powerBeat(e, t); break;
+      case 'cardPlayed': case 'itemUsed': case 'phaseChanged': case 'roundStarted': source = null; break;
       case 'damage': {
         const group = [e];
         for (let j = i + 1; j < ev.length && ev[j].type === 'damage' && !used.has(ev[j]) && ev[j].cause === e.cause; j++) group.push(ev[j]);
         group.forEach((g) => used.add(g));
         const visible = group.filter((g) => shown(g.target.uid));
         late.push(...group.filter((g) => !shown(g.target.uid)));
+        const from = e.cause !== 'burn' && vfxReady() && t(1) > 0 ? effectSource(source) : null;
         if (e.cause === 'burn') await burnBeat(root, visible, t);
+        else if (from && visible.length) await effectBeat(root, from, visible, t);
         else if (visible.length >= 2) await waveBeat(root, visible, t);
         else if (visible.length) await hitBeat(root, visible[0], t);
         break;
       }
-      case 'statusApplied': if (shown(e.target.uid)) await burnApplied(e, t); else late.push(e); break;
+      case 'statusApplied': {
+        if (!shown(e.target.uid)) { late.push(e); break; }
+        // Burn from a Pokémon's ability (Charmander, Houndoom): the Scorch ember swirl, cast from it.
+        const caster = e.status === 'burn' && vfxReady() && t(1) > 0 && source && shown(source.uid)?.dataset.ptype ? { el: shown(source.uid) } : null;
+        if (caster) {
+          const more = ev.slice(i + 1).some((x) => x.type === 'statusApplied' && x.status === 'burn' && !used.has(x));
+          await emberCast(caster, e, t, more ? 1.6 : 1);
+        } else await burnApplied(e, t);
+        break;
+      }
       case 'statusCleared': if (shown(e.target.uid)) await douseBeat(e, t); break;
       case 'overrun': await overrunBeat(root, e, lastDefeated, t); break;
       case 'heal': if (shown(e.target.uid)) await healBeat(e, t); else late.push(e); break;
@@ -1251,6 +1349,7 @@ function clearFx() {
 }
 
 export function resetFx() {
+  infiltratorShown = false;
   skip();
   clearFx();
   clearParticles();
