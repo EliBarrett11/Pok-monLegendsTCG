@@ -9,6 +9,7 @@ import {
   TIMELINES, EMITTERS, RIBBONS, BEAMS, BUDGETS, ATTACKS, COUNTERS, FALLBACKS, STATUS_VISUALS, TEXTURES, BUILT_IN,
   attackAnimation, counterAnimation, timelineDuration, statusLevel, impactScale, MAX_SCALE, tintOf,
   composeAttack, composeCounter, effectAnimation, BURN_CAST,
+  STRATEGIES, STRATEGY_FALLBACK, STRATEGY_OPENING, SWEEPS, strategyAnimation, composeStrategy, strategyTint, DIVE_RISE,
 } from '../src/ui/vfx/library.js';
 import { Timeline } from '../src/ui/vfx/timeline.js';
 import { MOTION_NAMES } from '../src/ui/vfx/engine.js';
@@ -68,8 +69,10 @@ const textures = new Set([...TEXTURES, ...BUILT_IN]);
 for (const [id, def] of Object.entries(TIMELINES)) {
   const budget = BUDGETS[def.budget];
   assert.ok(budget, `${id}: a budget`);
+  // A Strategy Card's budget covers its whole timeline: the shared opening plus its effect.
+  const whole = def.budget === 'strategy' ? composeStrategy(id) : def;
   for (const scale of [impactScale(1), MAX_SCALE]) {
-    const ms = timelineDuration(def, scale);
+    const ms = timelineDuration(whole, scale);
     assert.ok(ms >= budget.min && ms <= budget.max, `${id}: ${ms} ms at scale ${scale} is outside ${budget.min}–${budget.max} ms`);
   }
   for (const b of def.beats) {
@@ -153,10 +156,49 @@ function record(id, scale = 1) {
 const withEnd = (id) => (FULL[id] ?? TIMELINES[id]).beats.filter((b) => b.end !== undefined);
 const instant = (id) => (FULL[id] ?? TIMELINES[id]).beats.filter((b) => b.end === undefined);
 
+// --- Strategy Cards (Step 22, docs/vfx.md section 4) ----------------------------------------
+
+const deckStrategies = Object.values(DECKS).flatMap((d) => Object.keys(d.list)).map(cardDefinition).filter((c) => c.cardType === 'Strategy');
+assert.equal(deckStrategies.length, 8, 'both decks: 8 Strategy Cards');
+for (const c of deckStrategies) {
+  const id = strategyAnimation(c);
+  assert.notEqual(id, STRATEGY_FALLBACK, `${c.name}: its own animation, not the fallback`);
+  assert.equal(id, `strategy-${c.id}`, `${c.name}: its own timeline`);
+  assert.ok(TIMELINES[id], `${c.name}: ${id} exists`);
+  assert.ok(strategyTint(c)[0] === tintOf('Fire')[0] || strategyTint(c)[0] === tintOf('Water')[0], `${c.name}: flares in its Type's colour`);
+  // Every one opens the same way: flare, its name, then it dissolves into the effect.
+  const def = composeStrategy(id);
+  for (const cue of ['flare', 'banner', 'dissolve']) assert.ok(def.beats.some((b) => b.cue === cue), `${c.name}: the opening's ${cue}`);
+  assert.ok(def.beats.filter((b) => !STRATEGY_OPENING.beats.includes(b)).every((b) => b.at >= STRATEGY_OPENING.length), `${c.name}: its effect starts after the opening`);
+  // "About 2–2.5 s" with the ~300 ms rise to centre stage.
+  const ms = timelineDuration(def, MAX_SCALE) + 300;
+  assert.ok(ms >= 1800 && ms <= 2600, `${c.name}: ${ms} ms in total`);
+}
+assert.equal(Object.keys(STRATEGIES).length, 8);
+assert.equal(strategyAnimation({ id: 'some-new-card' }), STRATEGY_FALLBACK, 'a card without its own animation yet gets the generic one');
+// What each one is made of (docs/vfx.md section 4).
+const uses = (id, pred) => TIMELINES[id].beats.some(pred);
+assert.ok(uses('strategy-ember', (b) => b.projectile === 'coal') && uses('strategy-ember', (b) => b.cue === 'catch'), 'Ember: a coal arcs over and catches');
+assert.ok(uses('strategy-flame-charge', (b) => b.emit === 'spiralFlames') && uses('strategy-flame-charge', (b) => b.cue === 'aura'), 'Flame Charge: fire spirals up');
+assert.ok(uses('strategy-heat-wave', (b) => b.sweep === 'heatWall') && SWEEPS.heatWall.distort === 'heat', 'Heat Wave: a wall of heat with shimmer');
+assert.ok(uses('strategy-fire-blast', (b) => b.emit === 'daiFlames' && EMITTERS[b.emit].at === 'dai' && EMITTERS[b.emit].tex === 'flame'), 'Fire Blast: the 大 from flame sprites');
+assert.ok(uses('strategy-fire-blast', (b) => b.cue === 'impact' && b.hitstop) && uses('strategy-fire-blast', (b) => b.cue === 'scorchCatch'), 'Fire Blast: hit-stop, then Burn');
+assert.ok(uses('strategy-aqua-ring', (b) => EMITTERS[b.emit]?.tex === 'ripple') && uses('strategy-aqua-ring', (b) => b.when === 'douse' && b.emit === 'steam'), 'Aqua Ring: water rings, steam when it Douses');
+assert.ok(uses('strategy-aqua-ring', (b) => EMITTERS[b.emit]?.tex === 'sparkle'), 'Aqua Ring: glistens as it heals');
+assert.ok(uses('strategy-bubble-beam', (b) => EMITTERS[b.emit]?.tex === 'bubble' && b.fuller), 'Bubble Beam: bubbles, fuller in Rain');
+assert.ok(uses('strategy-dive', (b) => b.on === 'pile' && EMITTERS[b.emit]?.tex === 'ripple') && TIMELINES[DIVE_RISE].beats.some((b) => b.cue === 'rise'), 'Dive: a water surface, then the Pokémon rises');
+assert.ok(uses('strategy-surf', (b) => b.sweep === 'surfWave') && SWEEPS.surfWave.sprite === 'wave' && SWEEPS.surfWave.hit.friend.length, 'Surf: the wave crashes over enemies and glints on friends');
+for (const [name, sw] of Object.entries(SWEEPS)) {
+  for (const e of [...sw.line, ...sw.hit.enemy, ...sw.hit.friend]) assert.ok(EMITTERS[e], `${name}: emitter ${e}`);
+  if (sw.sprite) assert.ok(textures.has(sw.sprite), `${name}: texture ${sw.sprite}`);
+}
+for (const tex of ['wave', 'ripple', 'sparkle', 'cracks']) assert.ok(TEXTURES.includes(tex), `the kit's ${tex} is loaded`);
+
 // Every library timeline, plus every attack with all its keyword touches.
 const FULL = Object.fromEntries([
   ...Object.keys(TIMELINES).map((id) => [id, TIMELINES[id]]),
   ...ALL_ATTACKS.map((id) => [`${id}+all`, composeAttack(id, { trade: true, shell: true, infiltrator: true, overrun: true })]),
+  ...[...Object.values(STRATEGIES), STRATEGY_FALLBACK].map((id) => [`${id}+opening`, composeStrategy(id)]),
 ]);
 
 // Played through in frames: every beat runs once, in time, and it finishes.
@@ -245,5 +287,29 @@ assert.equal(statusLevel('poison', 3), 0, 'a status with no visual yet');
 // Without WebGL the renderer is null, so the game keeps its 2D effects.
 assert.equal(createRenderer({ getContext: () => null }), null);
 assert.equal(createRenderer({ getContext: () => { throw new Error('no WebGL'); } }), null);
+
+// --- Flame Charge's aura: a "this Round" Attack buff, gone after Supper --------------------------
+
+{
+  const { battle, give, act, onTurn, place, at } = await import('./fixtures.js');
+  const { applyAction } = await import('../src/engine/game.js');
+  let s = battle({ passives: false });
+  place(s, 'player', 0, 0, 'growlithe');
+  const uid = give(s, 'player', 'flame-charge');
+  s = act(s, 'player', { type: 'playStrategy', uid, target: { kind: 'pokemon', owner: 'player', zone: 0, space: 0 } });
+  const charged = at(s, 'player', 0, 0);
+  assert.ok(STATUS_VISUALS.charged.levelOf(charged), 'a this-Round Attack buff');
+  assert.ok(cardMarkup(charged, 'board').includes('data-status-charged="1"'), 'the card shows the aura');
+  assert.ok(!cardMarkup(at(s, 'ai', 0, 0) ?? { ...cardDefinition('horsea'), uid: 'h', currentStrength: 4 }, 'board').includes('data-status-charged'));
+  for (const part of Object.values(STATUS_VISUALS.charged.ambient)) assert.ok(EMITTERS[part], part);
+  // Both players pass: the Battle Phase ends, Supper ends the Round's buffs.
+  let guard = 0;
+  while (s.round === 1 && guard++ < 10) s = applyAction(s, { type: 'pass', who: s.turn });
+  assert.equal(s.round, 2, 'the next Round');
+  assert.ok(!STATUS_VISUALS.charged.levelOf(at(s, 'player', 0, 0)), 'the buff has ended');
+  assert.ok(!cardMarkup(at(s, 'player', 0, 0), 'board').includes('data-status-charged'), 'and the aura is gone after Supper');
+  // An Attack buff that lasts (not "this Round") gets no aura.
+  assert.equal(STATUS_VISUALS.charged.levelOf({ attackBonus: 2 }), 0);
+}
 
 console.log('All VFX tests passed.');

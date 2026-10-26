@@ -11,7 +11,7 @@ import { createRenderer } from './gl.js';
 import { loadTextures } from './textures.js';
 import { Timeline } from './timeline.js';
 import {
-  EMITTERS, TIMELINES, RIBBONS, BEAMS, STATUS_VISUALS, tintOf, impactScale,
+  EMITTERS, TIMELINES, RIBBONS, BEAMS, SWEEPS, STATUS_VISUALS, tintOf, impactScale,
 } from './library.js';
 
 const MAX_PARTICLES = 2600;
@@ -105,7 +105,8 @@ function spawnOne(e, anchor, opts) {
   const c = centre(r);
   const dir = anchor.dir ?? { x: 0, y: -1 };
   let x = c.x;
-  let y = c.y + (e.offsetY ?? 0) * r.h;
+  let y = c.y + rnd(e.offsetY) * r.h;
+  let arm = null;
   switch (e.at) {
     case 'card': {
       const a = e.area ?? 1;
@@ -124,6 +125,25 @@ function spawnOne(e, anchor, opts) {
       const rad = rnd(e.radius) * (r.h / 350);
       x = c.x + Math.cos(a) * rad;
       y = c.y + Math.sin(a) * rad;
+      break;
+    }
+    case 'line': {
+      // Somewhere along a line (a wall rolling across the board).
+      const l = anchor.line;
+      if (!l) break;
+      const u = Math.random();
+      x = l[0].x + (l[1].x - l[0].x) * u;
+      y = l[0].y + (l[1].y - l[0].y) * u;
+      break;
+    }
+    case 'dai': {
+      // Fire Blast's 大: five arms (up, left, right, and two legs), flames along each.
+      const ARMS = [-Math.PI / 2, Math.PI, 0, Math.PI * 0.68, Math.PI * 0.32];
+      const a = ARMS[Math.floor(Math.random() * ARMS.length)];
+      const along = rnd([0.12, 1]) * r.h * 0.95;
+      arm = { x: Math.cos(a), y: Math.sin(a), a };
+      x = c.x + arm.x * along;
+      y = c.y + arm.y * along;
       break;
     }
     case 'muzzle': {
@@ -154,6 +174,7 @@ function spawnOne(e, anchor, opts) {
     }
     case 'inward': vx = (c.x - x) * speed; vy = (c.y - y) * speed; break;
     case 'down': vx = rnd([-6, 6]); vy = speed; break;
+    case 'arm': if (arm) { vx = arm.x * speed; vy = arm.y * speed; } break;
     default: break;
   }
   vy -= rnd(e.lift) * unit;
@@ -169,18 +190,23 @@ function spawnOne(e, anchor, opts) {
   if (e.alignBack) rot += Math.atan2(-dir.y, -dir.x) + Math.PI / 2 + rnd([-0.3, 0.3]);
   // Turned to the attack: textures that point up (flames), or that run at texAngle (a water jet).
   if (e.alignForward) rot += Math.atan2(dir.y, dir.x) - (e.texAngle ?? Math.PI / 2);
+  if (e.alignArm && arm) rot += arm.a + Math.PI / 2;   // the flame's tip points out along its arm
+  // Orbiting particles circle the anchor's centre in perspective (a flattened ring) as they rise.
+  const orbit = e.at === 'orbit' ? { cx: c.x, cy: y, a: Math.random() * Math.PI * 2, r: rnd(e.radius) * r.w, w: rnd(e.orbit), rise: rnd(e.rise) * unit } : null;
+  if (orbit) { x = orbit.cx + Math.cos(orbit.a) * orbit.r; y = orbit.cy + Math.sin(orbit.a) * orbit.r * 0.38; }
   parts.push({
     tex: e.tex, sprite: sprites ? sprites[Math.floor(Math.random() * sprites.length)] : null,
     x, y, vx, vy, g: (e.gravity ?? 0) * unit, drag: e.drag ?? 0, rot, vr: rnd(e.spin),
     s0: rnd(s0) * unit, s1: rnd(s1) * unit, a0: e.alpha?.[0] ?? 1, a1: e.alpha?.[1] ?? 0,
     life, age: 0, fadeIn: e.fadeIn ?? 0, pivot: e.pivot ?? 0.5, add: e.blend !== 'alpha',
     color: tint, alignVelocity: e.alignVelocity, rate: opts.rate ?? 1, ambient: Boolean(opts.ambient),
+    squash: e.squash ?? 1, orbit,
   });
 }
 
 // A raw particle (used by the 2D-compatible bursts below).
 function push(p) {
-  if (parts.length < MAX_PARTICLES) parts.push({ g: 0, drag: 0, rot: 0, vr: 0, a0: 1, a1: 0, fadeIn: 0, pivot: 0.5, add: true, color: [1, 1, 1], rate: 1, age: 0, ...p });
+  if (parts.length < MAX_PARTICLES) parts.push({ vx: 0, vy: 0, g: 0, drag: 0, rot: 0, vr: 0, a0: 1, a1: 0, fadeIn: 0, pivot: 0.5, add: true, color: [1, 1, 1], rate: 1, age: 0, ...p });
 }
 
 // The old 2D burst() kinds, drawn on the WebGL layer (sparks, dust, energy,
@@ -294,6 +320,8 @@ const MOTIONS = {
     const o = k < 0.6 ? 0 : (k - 0.6) / 0.4;
     return { filter: o < 1 ? `brightness(${0.3 + 0.7 * o}) opacity(${o})` : '' };
   },
+  // Flame Charge: the Pokémon glows hotter as the fire spirals round it.
+  charging: (k) => { const t = Math.sin(k * Math.PI); return { y: -10 * t, s: 1 + 0.05 * t, filter: `brightness(${1 + 0.35 * t}) saturate(${1 + 0.5 * t})` }; },
   // Normal: a slow, heavy lift, then a drop.
   heave: (k) => { const e = ease.outCubic(k); return { y: -80 * e, s: 1 + 0.14 * e, r: 0.03 * Math.sin(k * 7) * e }; },
   slam: (k, c) => {
@@ -382,6 +410,8 @@ export function playTimeline(idOrDef, ctx) {
     // (relative to its own place), on the side nearer the middle of the board, so it stays in view.
     behind: feintSpot(A, B, dir, len, tRect),
     gRect: ctx.guard ? rectOf(ctx.guard) : null,
+    pRect: ctx.pile ? rectOf(ctx.pile) : null,
+    regionRect: ctx.region ? rectOf(ctx.region) : null,
     oRect: ctx.overrunTarget ? rectOf(ctx.overrunTarget) : null,
   };
   const anchor = (on) => {
@@ -394,6 +424,9 @@ export function playTimeline(idOrDef, ctx) {
       case 'projectile': return { x: c.proj?.x ?? 0, y: c.proj?.y ?? 0, dir: c.projDir ?? c.dir, tint: c.tint, unitRect: c.aRect };
       case 'behind': return at(null, c.aRect ? { ...c.aRect, x: c.aRect.x + c.behind.x, y: c.aRect.y + c.behind.y } : null);
       case 'guard': return at(null, c.gRect ?? c.tRect);
+      case 'card': return { ...at(null, moved(c.attacker, c.aRect)), muzzle: livePoint('muzzle'), goal: B };
+      case 'pile': return at(null, c.pRect);
+      case 'sweep': return { rect: c.sw?.unitRect, line: c.sw?.line, dir: c.sw?.dir ?? c.dir, tint: c.tint };
       case 'trainer': return at(null, c.oRect ?? c.tRect);
       default: return at(null, c.tRect);
     }
@@ -411,13 +444,17 @@ export function playTimeline(idOrDef, ctx) {
   const elFor = (track) => (track === 'attacker' ? c.attacker : track === 'target' ? c.target : c.self);
   const handlers = {
     start(beat) {
-      if (beat.emit) streams.push({ beat, preset: EMITTERS[beat.emit], name: beat.emit, anchor: () => anchor(beat.on), acc: 0, rate: c.rate, tint: beat.tint });
+      if (beat.when && !c.when?.[beat.when]) return;
+      if (beat.emit) streams.push({ beat, preset: EMITTERS[beat.emit], name: beat.emit, anchor: () => anchor(beat.on), acc: 0, rate: c.rate, tint: beat.tint, boost: beat.fuller && c.full ? 2 : 1 });
+      if (beat.sweep) startSweep(beat, c, anchor);
       if (beat.beam) beams.push({ beat, def: BEAMS[beat.beam], ctx: c });
       if (beat.ribbon) ribbons.push({ beat, def: RIBBONS[beat.ribbon], points: [], active: true, anchor: () => anchor(beat.on), tint: c.tint, ctx: c, unit: unitOf(c.aRect) });
       if (beat.cue === 'heat') setHeat(c.target, 1);
       if (beat.track) c.from = c.mA;
     },
     update(beat, k) {
+      if (beat.when && !c.when?.[beat.when]) return;
+      if (beat.sweep) { sweepFrame(beat, c, k); return; }
       // In a trade the defender answers with its own counter, so the attack doesn't also recoil it.
       if (beat.track === 'target' && c.trade) return;
       if (beat.track) {
@@ -438,15 +475,20 @@ export function playTimeline(idOrDef, ctx) {
         push({ tex: 'glow', x: c.proj.x, y: c.proj.y, s0: 0.8, s1: 0.8, life: 40, a0: 0.9, a1: 0.9, color: hex(c.tint[0]) });
         push({ tex: 'glow', x: c.proj.x, y: c.proj.y, s0: 0.35, s1: 0.35, life: 40, a0: 1, a1: 1, color: [1, 1, 1] });
       } else if (beat.projectile && A && B) {
+        // An orb, Ember's coal or Fire Blast's fireball, arcing from the muzzle to the target.
         const e = ease.inQuad(k);
-        const lift = -Math.sin(k * Math.PI) * Math.min(160, len * 0.3);
+        const lift = -Math.sin(k * Math.PI) * Math.min(beat.projectile === 'coal' ? 220 : 160, len * (beat.projectile === 'coal' ? 0.45 : 0.3));
+        const prev = c.proj;
         c.proj = { x: c.muzzle.x + (B.x - c.muzzle.x) * e, y: c.muzzle.y + (B.y - c.muzzle.y) * e + lift };
-        push({ tex: 'glow', x: c.proj.x, y: c.proj.y, s0: 0.9, s1: 0.9, life: 40, a0: 1, a1: 1, color: hex(c.tint[0]) });
-        push({ tex: 'glow', x: c.proj.x, y: c.proj.y, s0: 0.45, s1: 0.45, life: 40, a0: 1, a1: 1, color: [1, 1, 1] });
+        if (prev) { const d = Math.hypot(c.proj.x - prev.x, c.proj.y - prev.y); if (d > 0.5) c.projDir = { x: (c.proj.x - prev.x) / d, y: (c.proj.y - prev.y) / d }; }
+        const sz = beat.size ?? 0.9;
+        push({ tex: 'glow', x: c.proj.x, y: c.proj.y, s0: sz, s1: sz, life: 40, a0: 1, a1: 1, color: hex(beat.glow ?? c.tint[0]) });
+        push({ tex: 'glow', x: c.proj.x, y: c.proj.y, s0: sz * 0.5, s1: sz * 0.5, life: 40, a0: 1, a1: 1, color: [1, 1, 1] });
       }
       if (beat.cue === 'heat') setHeat(c.target, Math.sin(k * Math.PI));
     },
     end(beat) {
+      if (beat.sweep) endSweep(beat, c);
       streams = streams.filter((s) => s.beat !== beat);
       beams = beams.filter((b) => b.beat !== beat);
       for (const rb of ribbons) if (rb.beat === beat) rb.active = false;
@@ -458,6 +500,7 @@ export function playTimeline(idOrDef, ctx) {
     fire(beat, { skipped }) {
       // The Scorch beats only play when the attack applies Burn.
       if (SCORCH_CUES.includes(beat.cue) && !c.scorch) return;
+      if (beat.when && !c.when?.[beat.when]) return;
       if (beat.on === 'guard' && !c.gRect) { if (beat.cue) c.on?.[beat.cue]?.({ skipped }); return; }
       if (!skipped && beat.emit) emit(beat.emit, anchor(beat.on), { scale: c.scale, countScale: beat.countScale, rate: c.rate, tint: beat.tint === 'type' ? 'type' : beat.tint });
       if (beat.cue) cue(beat, c, anchor, skipped);
@@ -481,6 +524,75 @@ function feintSpot(A, B, dir, len, tRect) {
   let py = dir.x;
   if ((B.x + px * w) > 1500 || (B.x + px * w) < 380 || Math.abs(B.x + px * w - 940) > Math.abs(B.x - px * w - 940)) { px = -px; py = -py; }
   return { x: dir.x * (len + h * 0.18) + px * w * 1.02, y: dir.y * (len + h * 0.18) + py * w * 1.02 };
+}
+
+// --- Sweeps: a wall rolling across the board (Heat Wave, Surf) -----------------------------
+//
+// The wall starts at the caster's edge of the region (ctx.region) and rolls to
+// the far edge, slanting so the far end trails (cards are hit one after another).
+// Each card in ctx.sweepTargets ({ el, side: 'enemy' | 'friend' }) is hit as the
+// wall passes it: its hit emitters burst and on.sweepHit({ index }) is called.
+function startSweep(beat, c, anchor) {
+  const def = SWEEPS[beat.sweep];
+  const r = c.regionRect;
+  if (!def || !r) return;
+  const sgn = c.casterBelow === false ? 1 : -1;   // the player's side is at the bottom: walls roll up
+  c.sw = { def, r, sgn, hit: new Set(), dir: { x: 0, y: sgn }, unitRect: c.tRect ?? { x: 0, y: 0, w: 130, h: 180 } };
+  for (const name of def.line) streams.push({ beat, preset: EMITTERS[name], name, anchor: () => anchor('sweep'), acc: 0, rate: c.rate, boost: 1 });
+}
+// How far the wall has travelled to reach a point (px from the caster's edge, plus the slant).
+function sweepDistance(sw, p) {
+  const fromEdge = sw.sgn > 0 ? p.y - sw.r.y : sw.r.y + sw.r.h - p.y;
+  return fromEdge + sw.def.skew * ((p.x - sw.r.x) / sw.r.w);
+}
+function sweepFrame(beat, c, k) {
+  const sw = c.sw;
+  if (!sw) return;
+  const travel = (sw.r.h + sw.def.skew) * k;
+  const edge = sw.sgn > 0 ? sw.r.y : sw.r.y + sw.r.h;
+  const yAt = (x) => edge + sw.sgn * (travel - sw.def.skew * ((x - sw.r.x) / sw.r.w));
+  sw.line = [{ x: sw.r.x, y: yAt(sw.r.x) }, { x: sw.r.x + sw.r.w, y: yAt(sw.r.x + sw.r.w) }];
+  // The wall itself: a texture tiled along it (Surf's wave), or heat shimmer.
+  if (sw.def.sprite && TEX[sw.def.sprite]) {
+    const T = TEX[sw.def.sprite];
+    const n = sw.def.tiles ?? 4;
+    const tw = (sw.r.w / n) * 1.25;
+    const th = tw * (T.h / T.w);
+    for (let i = 0; i < n; i++) {
+      const x = sw.r.x + (i + 0.5) * (sw.r.w / n);
+      push({ tex: sw.def.sprite, x, y: yAt(x) - sw.sgn * th * 0.25, s0: tw / T.w, s1: tw / T.w, life: 34, a0: 0.95, a1: 0.95, add: false, rate: 1 });
+    }
+  }
+  if (sw.def.distort === 'heat' && !reducedMotion()) {
+    for (let i = 0; i < 5; i++) {
+      const x = sw.r.x + ((i + Math.random()) / 5) * sw.r.w;
+      push({ tex: 'heat-map', distort: true, x, y: yAt(x) + sw.sgn * 20, s0: 2.4, s1: 2.6, life: 60, a0: 0.8, a1: 0, rate: 1 });
+    }
+  }
+  (c.sweepTargets ?? []).forEach((t, i) => {
+    if (sw.hit.has(i) || !t.el?.isConnected) return;
+    const p = centre(rectOf(t.el));
+    if (sweepDistance(sw, p) <= travel) hitBySweep(c, t, i, false);
+  });
+}
+function hitBySweep(c, t, i, skipped) {
+  const sw = c.sw;
+  sw.hit.add(i);
+  if (!skipped) {
+    const rect = rectOf(t.el);
+    for (const name of sw.def.hit[t.side] ?? []) emit(name, { rect, dir: sw.dir, tint: c.tint }, { scale: c.scale, rate: c.rate });
+    if (t.side === 'enemy' && sw.def.distort === 'heat') setHeat(t.el, 0.8);
+  }
+  c.on?.sweepHit?.({ index: i, skipped });
+}
+function endSweep(beat, c) {
+  const sw = c.sw;
+  if (!sw) return;
+  // Anything the wall didn't reach (a skip) is hit now, so every number still lands.
+  (c.sweepTargets ?? []).forEach((t, i) => { if (!sw.hit.has(i)) hitBySweep(c, t, i, true); });
+  for (const t of c.sweepTargets ?? []) setHeat(t.el, 0);
+  streams = streams.filter((s) => s.beat !== beat);
+  c.sw = null;
 }
 
 // Where each moment happens, and its flash colour.
@@ -622,7 +734,7 @@ function tick(now) {
 
 function streamFrame(dt) {
   for (const s of streams) {
-    const rate = (s.preset.rate ?? 0) * (reducedMotion() ? 0.35 : 1) * s.rate;
+    const rate = (s.preset.rate ?? 0) * (reducedMotion() ? 0.35 : 1) * s.rate * (s.boost ?? 1);
     s.acc += rate * dt / 1000;
     const anchor = s.anchor();
     while (s.acc >= 1) {
@@ -663,8 +775,16 @@ function simulate(dt) {
     p.age += d;
     p.vy += p.g * d / 1000;
     if (p.drag) { const f = Math.max(0, 1 - p.drag * d / 1000); p.vx *= f; p.vy *= f; }
-    p.x += p.vx * d / 1000;
-    p.y += p.vy * d / 1000;
+    if (p.orbit) {
+      const o = p.orbit;
+      o.a += o.w * d / 1000;
+      o.cy -= o.rise * d / 1000;
+      p.x = o.cx + Math.cos(o.a) * o.r;
+      p.y = o.cy + Math.sin(o.a) * o.r * 0.38;
+    } else {
+      p.x += p.vx * d / 1000;
+      p.y += p.vy * d / 1000;
+    }
     p.rot += p.vr * d / 1000;
   }
   parts = parts.filter((p) => p.age < p.life);
@@ -722,6 +842,7 @@ function collect() {
       w = sw * s; h = sh * s;
       uv = [sx / T.w, sy / T.h, (sx + sw) / T.w, (sy + sh) / T.h];
     } else { w = T.w * s; h = T.h * s; }
+    h *= p.squash ?? 1;
     let rot = p.rot;
     if (p.alignVelocity) {
       rot = Math.atan2(p.vy, p.vx);

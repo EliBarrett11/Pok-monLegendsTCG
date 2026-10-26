@@ -17,18 +17,22 @@
 // Textures in assets/vfx/<name>.webp (docs/vfx.md section 8). Missing ones
 // are drawn in code (textures.js), in the same cel-shaded style.
 export const TEXTURES = ['flame', 'fire-burst', 'embers', 'smoke', 'splash', 'droplets', 'water-jet', 'lightning',
-  'slash', 'shadow', 'impact', 'shockwave', 'bubble', 'char-edge'];
+  'slash', 'shadow', 'impact', 'shockwave', 'bubble', 'char-edge', 'wave', 'ripple', 'sparkle', 'cracks'];
 // Sprite sheets (one sprite per cell, rectangles in assets/vfx/manifest.json).
-export const ATLASES = { embers: 'embers-atlas', droplets: 'droplets-atlas' };
-// Always drawn in code: soft dot, glow, streak, sparkle, shard, ring, coin, and
-// the distortion maps for heat shimmer and shockwaves.
-export const BUILT_IN = ['dot', 'glow', 'streak', 'sparkle', 'shard', 'ring', 'coin', 'heat-map', 'ring-map'];
+export const ATLASES = { embers: 'embers-atlas', droplets: 'droplets-atlas', sparkle: 'sparkle-atlas' };
+// Always drawn in code: soft dot, glow, streak, shard, ring, coin, and the
+// distortion maps for heat shimmer and shockwaves.
+export const BUILT_IN = ['dot', 'glow', 'streak', 'shard', 'ring', 'coin', 'heat-map', 'ring-map'];
 
 // Timing budgets (docs/vfx.md section 1), ms at normal speed, hit-stop included.
 export const BUDGETS = {
   attack: { min: 900, max: 1500 },   // "an attack takes about 1–1.5 s"
   counter: { min: 200, max: 900 },   // a defender hitting back: a shorter version, at the same moment
   status: { min: 200, max: 1000 },   // a status flaring, catching or going out: one beat
+  // A Strategy Card, "about 2–2.5 s": the card's ~300 ms rise to centre stage,
+  // then this timeline (the flare, its name, the dissolve, and its effect).
+  strategy: { min: 1500, max: 2300 },
+  effect: { min: 300, max: 1500 },   // a follow-up moment (Dive's Pokémon rising out of the Discard Pile)
 };
 
 // Two colours per Pokémon Type (main, highlight), for tinting generic effects.
@@ -68,6 +72,64 @@ export const COUNTERS = {
   'dark-physical': 'dark-counter', 'normal-physical': 'normal-counter',
 };
 export const counterAnimation = (card) => COUNTERS[attackAnimation(card)] ?? 'generic-counter';
+
+// --- Strategy Cards (docs/vfx.md section 4) -------------------------------------------------
+//
+// Every Strategy Card opens the same way: it rises to centre stage (done by the
+// page, ~300 ms), flares in its Type's colour, shows its name, then dissolves
+// into its own effect. STRATEGIES maps each card id to its effect timeline;
+// composeStrategy puts the shared opening in front of it.
+export const STRATEGIES = {
+  ember: 'strategy-ember',
+  'flame-charge': 'strategy-flame-charge',
+  'heat-wave': 'strategy-heat-wave',
+  'fire-blast': 'strategy-fire-blast',
+  'aqua-ring': 'strategy-aqua-ring',
+  'bubble-beam': 'strategy-bubble-beam',
+  dive: 'strategy-dive',
+  surf: 'strategy-surf',
+};
+export const STRATEGY_FALLBACK = 'strategy-generic';
+// The Type colour each card flares in.
+export const STRATEGY_TYPES = {
+  ember: 'Fire', 'flame-charge': 'Fire', 'heat-wave': 'Fire', 'fire-blast': 'Fire',
+  'aqua-ring': 'Water', 'bubble-beam': 'Water', dive: 'Water', surf: 'Water',
+};
+export const strategyTint = (card) => tintOf(STRATEGY_TYPES[card?.id] ?? 'Normal');
+export const strategyAnimation = (card) => STRATEGIES[card?.id] ?? STRATEGY_FALLBACK;
+// Dive's second moment, when the chosen Pokémon comes back: it rises out of the Discard Pile.
+export const DIVE_RISE = 'dive-rise';
+export const STRATEGY_OPENING = {
+  length: 900,
+  beats: [
+    { at: 0, cue: 'flare', emit: 'strategyFlare', on: 'card', bloom: 0.9 },
+    { at: 0, emit: 'flareRing', on: 'card' },
+    { at: 0, end: 480, emit: 'flareSparks', on: 'card' },
+    { at: 60, cue: 'banner' },
+    { at: 640, cue: 'dissolve' },
+    { at: 640, end: 900, emit: 'dissolveMotes', on: 'card' },
+  ],
+};
+// The opening, then the card's own effect (its beats moved to start after the opening).
+export function composeStrategy(id) {
+  const def = TIMELINES[id];
+  const off = STRATEGY_OPENING.length;
+  const beats = [
+    ...STRATEGY_OPENING.beats,
+    ...def.beats.map((b) => ({ ...b, at: b.at + off, ...(b.end !== undefined ? { end: b.end + off } : {}) })),
+  ];
+  return { ...def, id, budget: 'strategy', beats, duration: def.duration + off, effectStart: off };
+}
+
+// Sweeps: a wall that rolls across a region of the board (from the caster's
+// side), hitting each card as it passes: Heat Wave's wall of heat, Surf's wave.
+//   line     emitters spawned along the wall · sprite: a texture tiled along it
+//   distort  heat shimmer along the wall · hit: emitters on each card it reaches
+//   skew     px: the far end of the wall trails, so cards are hit one after another
+export const SWEEPS = {
+  heatWall: { line: ['heatFlames', 'heatEmbers'], distort: 'heat', skew: 260, hit: { enemy: ['scorchCatch', 'heatIgnite'], friend: [] } },
+  surfWave: { line: ['surfSpray', 'surfFoam'], sprite: 'wave', tiles: 4, skew: 320, hit: { enemy: ['splashCrown', 'sprayDroplets'], friend: ['healGlints'] } },
+};
 
 // Bigger hits, bigger effects: particle counts, shake, flash and hit-stop scale with this.
 export const impactScale = (damage) => Math.max(0.7, Math.min(1.6, 0.55 + 0.13 * (damage ?? 1)));
@@ -208,6 +270,43 @@ export const EMITTERS = {
   overrunDust: { tex: 'smoke', blend: 'alpha', rate: 40, at: 'centre', dir: 'back', speed: R(60, 160), life: R(400, 600), size: [R(0.1, 0.14), R(0.24, 0.32)], alpha: [0.55, 0], tint: '#c9a878', spin: R(-0.6, 0.6) },
   // Burn from a Pokémon's ability: embers cast from it to the target
   emberStream: { tex: 'embers', blend: 'add', rate: 90, at: 'muzzle', dir: 'forward', speed: R(700, 1000), spreadDeg: 10, toTarget: true, life: R(380, 520), size: [R(0.6, 0.9), 0.3], alpha: [1, 0.2], spin: R(-8, 8) },
+  // Strategy Cards: the shared opening (a flare in the card's Type colour, then it dissolves)
+  strategyFlare: { tex: 'glow', blend: 'add', count: 1, at: 'centre', life: 560, size: [0.8, 3.4], alpha: [1, 0], tint: 'type' },
+  flareRing: { tex: 'shockwave', blend: 'add', count: 1, at: 'centre', life: 560, size: [0.3, 1.7], alpha: [0.85, 0], tint: 'type' },
+  flareSparks: { tex: 'streak', blend: 'add', rate: 50, at: 'edges', dir: 'radial', speed: R(200, 520), drag: 1.5, life: R(250, 450), size: [R(0.4, 0.8), 0.1], alpha: [1, 0], tint: 'type', alignVelocity: true },
+  dissolveMotes: { tex: 'sparkle', blend: 'add', rate: 110, at: 'card', area: 1, dir: 'up', speed: R(60, 200), lift: 40, drag: 1, life: R(400, 700), size: [R(0.16, 0.3), 0.04], alpha: [1, 0], tint: 'type', spin: R(-3, 3) },
+  // Ember: a glowing coal arcs over and catches on the target
+  coalSparks: { tex: 'embers', blend: 'add', rate: 80, at: 'centre', dir: 'back', speed: R(40, 160), gravity: 300, life: R(250, 450), size: [R(0.4, 0.7), 0.1], alpha: [1, 0], spin: R(-6, 6) },
+  emberCling: { tex: 'embers', blend: 'add', rate: 34, at: 'edges', dir: 'up', speed: R(30, 90), life: R(400, 700), size: [R(0.4, 0.6), 0.1], alpha: [1, 0], spin: R(-4, 4) },
+  // Flame Charge: fire spirals up around the Pokémon; the aura stays for the Round
+  spiralFlames: { tex: 'flame', blend: 'add', rate: 120, at: 'orbit', radius: R(0.58, 0.7), offsetY: 0.45, orbit: R(5, 7), rise: R(220, 320), life: R(420, 640), size: [R(0.1, 0.15), R(0.18, 0.26)], alpha: [0.95, 0], fadeIn: 40, pivot: 0.85 },
+  spiralEmbers: { tex: 'embers', blend: 'add', rate: 60, at: 'orbit', radius: R(0.5, 0.75), offsetY: 0.4, orbit: R(5, 8), rise: R(260, 380), life: R(500, 800), size: [R(0.4, 0.7), 0.1], alpha: [1, 0], spin: R(-6, 6) },
+  chargeBurst: { tex: 'fire-burst', blend: 'add', count: 1, at: 'centre', life: 420, size: [0.2, 0.8], alpha: [0.85, 0] },
+  auraFlames: { tex: 'flame', blend: 'add', rate: 9, at: 'edges', dir: 'up', speed: R(50, 100), life: R(350, 550), size: [R(0.06, 0.09), R(0.1, 0.14)], alpha: [0.8, 0], fadeIn: 60, pivot: 0.9, rot: R(-0.2, 0.2), tint: '#ffc060' },
+  auraMotes: { tex: 'embers', blend: 'add', rate: 6, at: 'orbit', radius: R(0.55, 0.65), offsetY: 0.3, orbit: R(2.5, 3.5), rise: R(40, 80), life: R(1200, 1700), size: [R(0.3, 0.45), 0.15], alpha: [0.9, 0], fadeIn: 200 },
+  // Heat Wave: a wall of heat rolling across the enemy side
+  heatFlames: { tex: 'flame', blend: 'add', rate: 240, at: 'line', dir: 'up', speed: R(80, 200), life: R(250, 420), size: [R(0.1, 0.16), R(0.2, 0.3)], alpha: [0.85, 0], pivot: 0.85, rot: R(-0.2, 0.2) },
+  heatEmbers: { tex: 'embers', blend: 'add', rate: 80, at: 'line', dir: 'forward', speed: R(100, 300), lift: 60, life: R(400, 700), size: [R(0.4, 0.7), 0.1], alpha: [1, 0], spin: R(-6, 6) },
+  heatIgnite: { tex: 'flame', blend: 'add', count: 16, at: 'edges', dir: 'up', speed: R(200, 380), life: R(350, 560), size: [R(0.14, 0.22), R(0.28, 0.4)], alpha: [1, 0], pivot: 0.85, rot: R(-0.2, 0.2) },
+  // Fire Blast: a fireball, then the 大-shaped five-pointed burst
+  blastFlames: { tex: 'flame', blend: 'add', rate: 160, at: 'centre', dir: 'back', speed: R(160, 320), life: R(200, 340), size: [R(0.22, 0.32), R(0.1, 0.16)], alpha: [0.95, 0], pivot: 0.75, alignBack: true },
+  daiFlames: { tex: 'flame', blend: 'add', count: 90, at: 'dai', dir: 'arm', speed: R(120, 300), life: R(420, 620), size: [R(0.16, 0.24), R(0.28, 0.42)], alpha: [1, 0], pivot: 0.8, alignArm: true },
+  daiCore: { tex: 'fire-burst', blend: 'add', count: 1, at: 'centre', life: 520, size: [0.3, 1.3], alpha: [1, 0] },
+  // Aqua Ring: rings of water around the Pokémon, steam if it was burning, glints as it heals
+  ringRipples: { tex: 'ripple', blend: 'alpha', rate: 16, at: 'centre', offsetY: R(-0.35, 0.4), dir: 'none', life: R(560, 760), size: [0.18, 0.56], alpha: [1, 0.1], squash: 0.32 },
+  ringDroplets: { tex: 'droplets', blend: 'alpha', rate: 50, at: 'orbit', radius: R(0.6, 0.7), offsetY: R(-0.3, 0.4), orbit: R(5, 7), rise: R(20, 60), life: R(400, 650), size: [R(0.3, 0.45), 0.15], alpha: [0.95, 0] },
+  healGlints: { tex: 'sparkle', blend: 'add', count: 14, at: 'card', area: 0.9, dir: 'up', speed: R(30, 90), life: R(500, 800), size: [R(0.16, 0.28), 0.04], alpha: [1, 0], spin: R(-2, 2), tint: '#f0fff6' },
+  healSparkle: { tex: 'sparkle', blend: 'add', rate: 22, at: 'card', area: 0.9, dir: 'up', speed: R(20, 70), life: R(500, 800), size: [R(0.14, 0.24), 0.04], alpha: [1, 0], spin: R(-2, 2), tint: '#e8fff0' },
+  // Bubble Beam: a stream of bubbles that pop on the target
+  bubbleStream: { tex: 'bubble', blend: 'alpha', rate: 26, at: 'muzzle', dir: 'forward', speed: R(500, 780), spreadDeg: 9, toTarget: true, life: R(600, 900), size: [R(0.05, 0.09), R(0.06, 0.1)], alpha: [0.9, 0.75] },
+  bubbleSmall: { tex: 'bubble', blend: 'alpha', rate: 30, at: 'muzzle', dir: 'forward', speed: R(450, 700), spreadDeg: 16, toTarget: true, life: R(600, 900), size: [R(0.025, 0.045), R(0.03, 0.05)], alpha: [0.85, 0.7] },
+  bubblePops: { tex: 'sparkle', blend: 'add', rate: 34, at: 'card', area: 0.7, dir: 'radial', speed: R(40, 120), life: R(150, 260), size: [R(0.12, 0.2), 0.04], alpha: [1, 0], tint: '#dff6ff' },
+  // Dive: a water surface spreads over the Discard Pile
+  pileRipple: { tex: 'ripple', blend: 'alpha', rate: 6, at: 'centre', dir: 'none', life: R(700, 900), size: [0.06, 0.4], alpha: [0.95, 0], squash: 0.45 },
+  pileDroplets: { tex: 'droplets', blend: 'alpha', rate: 30, at: 'card', area: 0.6, dir: 'up', speed: R(120, 260), gravity: 700, life: R(400, 650), size: [R(0.3, 0.5), 0.15], alpha: [0.95, 0] },
+  // Surf: spray and foam along the wave's front
+  surfSpray: { tex: 'droplets', blend: 'alpha', rate: 160, at: 'line', dir: 'forward', speed: R(120, 360), lift: 160, gravity: 900, life: R(350, 600), size: [R(0.4, 0.7), 0.2], alpha: [1, 0], spin: R(-6, 6) },
+  surfFoam: { tex: 'smoke', blend: 'alpha', rate: 40, at: 'line', dir: 'forward', speed: R(40, 120), life: R(500, 800), size: [R(0.1, 0.16), R(0.24, 0.34)], alpha: [0.6, 0], tint: '#eaf8ff', spin: R(-0.6, 0.6) },
   // Status: Burn on a card (ambient, per second, scaled by level elsewhere)
   burnFlames: { tex: 'flame', blend: 'add', rate: 12, at: 'edges', dir: 'up', speed: R(40, 80), life: R(420, 700), size: [R(0.06, 0.1), R(0.11, 0.17)], alpha: [0.9, 0], fadeIn: 80, pivot: 0.9, rot: R(-0.2, 0.2) },
   burnEmbers: { tex: 'embers', blend: 'add', rate: 7, at: 'card', area: 0.9, offsetY: 0.2, dir: 'up', speed: R(70, 160), life: R(900, 1500), size: [R(0.35, 0.6), 0.15], alpha: [1, 0], spin: R(-4, 4) },
@@ -511,6 +610,121 @@ export const TIMELINES = {
       { at: 160, end: 400, track: 'self', motion: 'settle' },
     ],
   },
+  // --- Strategy Cards: each card's own effect (the opening goes in front, composeStrategy) ---
+  // Ember: a single glowing coal arcs over and catches on the target (into the Burn visuals).
+  'strategy-ember': {
+    budget: 'strategy', duration: 1050,
+    beats: [
+      { at: 0, end: 440, projectile: 'coal', on: 'path', glow: '#ff7a1a', size: 0.7 },
+      { at: 0, end: 440, ribbon: 'coalTrail', on: 'projectile' },
+      { at: 0, end: 440, emit: 'coalSparks', on: 'projectile' },
+      { at: 440, cue: 'catch', flash: 'fire', bloom: 0.8 },
+      { at: 440, emit: 'scorchCatch', on: 'target' },
+      { at: 440, emit: 'fireImpactEmbers', on: 'target', countScale: 0.4 },
+      { at: 440, end: 960, emit: 'emberCling', on: 'target' },
+      { at: 440, end: 900, track: 'target', motion: 'scorched' },
+    ],
+  },
+  // Flame Charge: fire spirals up around the friendly Pokémon; a burning aura stays on it this Round.
+  'strategy-flame-charge': {
+    budget: 'strategy', duration: 1050,
+    beats: [
+      { at: 0, end: 820, emit: 'spiralFlames', on: 'target' },
+      { at: 0, end: 820, emit: 'spiralEmbers', on: 'target' },
+      { at: 0, end: 900, track: 'target', motion: 'charging' },
+      { at: 700, cue: 'aura', emit: 'chargeBurst', on: 'target', flash: 'fire', bloom: 0.8 },
+    ],
+  },
+  // Heat Wave: a shimmering wall of heat rolls across the whole enemy side,
+  // igniting every enemy Pokémon and Trainer as it passes.
+  'strategy-heat-wave': {
+    budget: 'strategy', duration: 1200,
+    beats: [
+      { at: 0, end: 1050, sweep: 'heatWall', on: 'enemySide' },
+      { at: 1050, cue: 'waveDone', bloom: 0.6 },
+    ],
+  },
+  // Fire Blast: a fireball, then the 大-shaped five-pointed fire burst slams into
+  // the target: hit-stop and the damage, then Burn.
+  'strategy-fire-blast': {
+    budget: 'strategy', duration: 1180,
+    beats: [
+      { at: 0, end: 340, projectile: 'blast', on: 'path', glow: '#ff6a1a', size: 1.5 },
+      { at: 0, end: 340, ribbon: 'blastTrail', on: 'projectile' },
+      { at: 0, end: 340, emit: 'blastFlames', on: 'projectile' },
+      { at: 340, cue: 'impact', hitstop: 110, shake: 18, flash: 'fire', bloom: 1.3, distort: 'shockwave' },
+      { at: 340, emit: 'daiFlames', on: 'target' },
+      { at: 340, emit: 'daiCore', on: 'target' },
+      { at: 340, emit: 'fireImpactEmbers', on: 'target' },
+      { at: 340, end: 900, track: 'target', motion: 'recoil' },
+      { at: 760, cue: 'scorch', emit: 'scorchSwirl', on: 'target' },
+      { at: 1120, cue: 'scorchCatch', emit: 'scorchCatch', on: 'target' },
+    ],
+  },
+  // Aqua Ring: rings of water circle the Pokémon, put out any Burn with a hiss
+  // of steam, and glisten as it heals.
+  'strategy-aqua-ring': {
+    budget: 'strategy', duration: 1100,
+    beats: [
+      { at: 0, end: 900, emit: 'ringRipples', on: 'target' },
+      { at: 0, end: 900, emit: 'ringDroplets', on: 'target' },
+      { at: 360, cue: 'douse', when: 'douse' },
+      { at: 360, emit: 'steam', on: 'target', when: 'douse' },
+      { at: 360, emit: 'steamHiss', on: 'target', when: 'douse' },
+      { at: 360, end: 900, track: 'target', motion: 'cool', when: 'douse' },
+      { at: 620, cue: 'heal', emit: 'healGlints', on: 'target', bloom: 0.5 },
+      { at: 620, end: 1050, emit: 'healSparkle', on: 'target' },
+    ],
+  },
+  // Bubble Beam: a stream of bubbles that pop on impact, fuller when Rain is 2 or more.
+  'strategy-bubble-beam': {
+    budget: 'strategy', duration: 1050,
+    beats: [
+      { at: 0, end: 620, emit: 'bubbleStream', on: 'card', fuller: true },
+      { at: 0, end: 620, emit: 'bubbleSmall', on: 'card', fuller: true },
+      { at: 320, cue: 'impact', hitstop: 50, shake: 7, flash: 'water', bloom: 0.6 },
+      { at: 320, end: 760, emit: 'bubblePops', on: 'target', fuller: true },
+      { at: 320, emit: 'sprayDroplets', on: 'target', countScale: 0.6 },
+      { at: 320, end: 1000, track: 'target', motion: 'drenched' },
+    ],
+  },
+  // Dive (when played): a water surface spreads over the Discard Pile. The chosen
+  // Pokémon rises out of it when it is picked (DIVE_RISE).
+  'strategy-dive': {
+    budget: 'strategy', duration: 900,
+    beats: [
+      { at: 0, end: 820, emit: 'pileRipple', on: 'pile' },
+      { at: 100, end: 700, emit: 'pileDroplets', on: 'pile' },
+      { at: 100, emit: 'splashCrown', on: 'pile', countScale: 0.5 },
+    ],
+  },
+  // Surf: a full wave sweeps from the caster's side across the board, crashing
+  // over every enemy Pokémon and leaving friendly ones glinting.
+  'strategy-surf': {
+    budget: 'strategy', duration: 1300,
+    beats: [
+      { at: 0, end: 1150, sweep: 'surfWave', on: 'board' },
+      { at: 1150, cue: 'waveDone', shake: 6 },
+    ],
+  },
+  // A Strategy Card with no animation of its own yet: the opening, then a burst on the target.
+  'strategy-generic': {
+    budget: 'strategy', duration: 700,
+    beats: [
+      { at: 0, cue: 'impact', flash: 'type', bloom: 0.7 },
+      { at: 0, emit: 'genericGlow', on: 'target' },
+      { at: 0, emit: 'genericOrbs', on: 'target' },
+    ],
+  },
+  'dive-rise': {
+    budget: 'effect', duration: 950,
+    beats: [
+      { at: 0, end: 800, emit: 'pileRipple', on: 'pile' },
+      { at: 80, cue: 'rise' },
+      { at: 120, emit: 'splashCrown', on: 'pile', countScale: 0.5 },
+      { at: 120, end: 600, emit: 'pileDroplets', on: 'pile' },
+    ],
+  },
   // Status beats
   'burn-flare': {
     budget: 'status', duration: 650,
@@ -546,6 +760,8 @@ export const RIBBONS = {
   tintTrail: { tex: 'streak', width: 80, life: 200, color: 'type', alpha: 0.5, blend: 'add' },
   orbTrail: { tex: 'streak', width: 54, life: 260, color: 'type', alpha: 0.6, blend: 'add' },
   waterTrail: { tex: 'streak', width: 96, life: 220, color: '#4aa8ff', alpha: 0.4, blend: 'add' },
+  coalTrail: { tex: 'streak', width: 34, life: 240, color: '#ff7a1a', alpha: 0.6, blend: 'add' },
+  blastTrail: { tex: 'streak', width: 110, life: 220, color: '#ff4a10', alpha: 0.45, blend: 'add' },
   // Hydro Pump: two strands twisting round each other, so the stream spirals.
   hydroStream: { tex: 'streak', width: 72, life: 140, color: '#3a9cff', alpha: 0.55, blend: 'add', toTarget: true, wobble: 20, phase: 0 },
   hydroStreamCore: { tex: 'streak', width: 34, life: 140, color: '#e6f6ff', alpha: 0.6, blend: 'add', toTarget: true, wobble: 20, phase: Math.PI },
@@ -583,6 +799,14 @@ export const STATUS_VISUALS = {
     tick: 'burn-flare',
     applied: 'burn-catch',
     cleared: 'douse-steam',
+  },
+  // Flame Charge (and any "this Round" Attack buff): a burning aura until the
+  // Round ends at Supper. Its level comes from the card, not a status count.
+  charged: {
+    maxLevel: 1,
+    levelOf: (card) => ((card?.roundBuffs ?? []).some((b) => b.attack > 0) ? 1 : 0),
+    levels: [null, { flames: 1, motes: 1 }],
+    ambient: { flames: 'auraFlames', motes: 'auraMotes' },
   },
 };
 // The visual level for a status count: 0 (none) up to the status's maximum.

@@ -13,6 +13,7 @@ import { burst, edgeBurst, clearParticles, reducedMotion } from './particles.js'
 import { vfxReady, playTimeline, skipTimelines, clearVfx, coins as vfxCoins } from './vfx/engine.js';
 import {
   attackAnimation, counterAnimation, tintOf, STATUS_VISUALS, composeAttack, composeCounter, effectAnimation, BURN_CAST,
+  strategyAnimation, composeStrategy, strategyTint, DIVE_RISE,
 } from './vfx/library.js';
 import { phaseIcon } from './icons.js';
 
@@ -278,7 +279,7 @@ function glow(el, cls) {
 const REVEAL = { cx: 940, w: 272, cy: { ai: 286, player: 730 } };
 
 // Shows a card face-up and large in the middle of the board.
-async function reveal(root, prev, e, t) {
+async function reveal(root, prev, e, t, { hold = 950 } = {}) {
   let el = shown(e.uid);
   let from;
   if (el) {
@@ -310,10 +311,143 @@ async function reveal(root, prev, e, t) {
   await flyFrom(el, from, t(320), { fade: !shown(e.uid), base: `scale(${sx})` });
   const target = shown(e.target?.uid);
   glow(target, 'fx-target');
-  await wait(t(950));
+  await wait(t(hold));
   panel?.remove();
   return el;
 }
+
+// --- Strategy Cards (docs/vfx.md section 4) ------------------------------------------------
+//
+// Events a Strategy Card's own animation has already shown (its damage, Burn,
+// heals…), so the walk through the events doesn't show them again.
+const consumed = new WeakSet();
+
+// Every Strategy Card: it rises to centre stage, flares in its Type's colour,
+// shows its name, then dissolves into its own effect (library.js
+// STRATEGIES). The opponent's comes from its side, so everything is mirrored.
+async function strategyVfx(root, prev, next, main, t) {
+  const p = prev.players[main.who];
+  const card = p.hand.find((c) => c.uid === main.uid);
+  if (!card) return false;
+  const ev = next.events;
+  const start = ev.indexOf(main);
+  const stop = ev.findIndex((x, j) => j > start && ['cardPlayed', 'attack', 'itemUsed', 'phaseChanged'].includes(x.type));
+  const mine = ev.slice(start + 1, stop < 0 ? ev.length : stop);
+  const el = await reveal(root, prev, main, t, { hold: 0 });
+  if (!el || skipping) return true;
+  const foe = main.who === 'player' ? 'ai' : 'player';
+  const sideOf = (who) => root.querySelector(`.side.${who === 'ai' ? 'opponent' : 'player'}`);
+  const target = shown(main.target?.uid) ?? null;
+  const take = (x) => { consumed.add(x); return x; };
+  const damage = mine.filter((x) => x.type === 'damage' && !x.cause);
+  const burns = mine.filter((x) => x.type === 'statusApplied' && x.status === 'burn');
+  const heals = mine.filter((x) => x.type === 'heal');
+  const cleared = mine.filter((x) => x.type === 'statusCleared');
+  const buffs = mine.filter((x) => x.type === 'buff');
+  const id = strategyAnimation(card);
+  // Area cards (Heat Wave, Surf): every card the wall passes, enemies and friends.
+  const sweepTargets = [
+    ...[...damage, ...burns].filter((x) => x.target.owner === foe).map((x) => ({ x, side: 'enemy' })),
+    ...heals.filter((x) => x.target.owner === main.who).map((x) => ({ x, side: 'friend' })),
+  ].map((h) => ({ ...h, el: shown(h.x.target.uid) })).filter((h) => h.el);
+  const sweeps = id === 'strategy-heat-wave' || id === 'strategy-surf';
+  const hitTarget = (x) => (x.type === 'damage' ? hitNumbers(shown(x.target.uid), take(x), t, { trainer: x.target.kind === 'trainer' })
+    : x.type === 'heal' ? healBeat(take(x), t)
+      : (take(x), floatNumber(rectOf(shown(x.target.uid)), `Burn +${x.amount}`, 'burn', t(1100))));
+  await playTimeline(composeStrategy(id), {
+    attacker: el, target, rate: 1 / t(1), damage: damage[0]?.amount ?? 2, tint: strategyTint(card), fire: strategyTint(card)[0] === tintOf('Fire')[0],
+    scorch: burns.length > 0, full: damage.some((x) => x.amount >= 3),
+    when: { douse: cleared.length > 0 },
+    pile: pile(root, `${main.who}-discard`),
+    region: id === 'strategy-surf' ? root.querySelector('.arena') : sideOf(foe),
+    casterBelow: main.who === 'player',
+    sweepTargets: sweeps ? sweepTargets : [],
+    on: {
+      banner: () => strategyName(el, card, t),
+      dissolve: () => {
+        el.animate([{ opacity: 1, scale: '1', filter: 'brightness(1)' }, { opacity: 0, scale: '1.12', filter: 'brightness(2.2) blur(2px)' }], { duration: t(260), fill: 'forwards' });
+      },
+      catch: () => burns.forEach(hitTarget),
+      impact: () => damage.forEach(hitTarget),
+      scorchCatch: () => burns.forEach(hitTarget),
+      aura: () => buffs.forEach((x) => { take(x); buffBeat(x, t); }),
+      douse: () => cleared.forEach((x) => {
+        take(x);
+        const d = shown(x.target.uid);
+        d?.querySelector('.burn-token')?.animate([{ opacity: 1 }, { opacity: 0, filter: 'grayscale(1) blur(2px)' }], { duration: t(450), fill: 'forwards' });
+        d?.removeAttribute('data-status-burn');
+        if (d) floatNumber(rectOf(d), 'Doused', 'douse', t(1100));
+      }),
+      heal: () => heals.forEach(hitTarget),
+      sweepHit: ({ index }) => {
+        const h = sweepTargets[index];
+        if (!h) return;
+        // Heat Wave burns; Surf damages enemies and heals friends.
+        const also = h.side === 'enemy' ? [...damage, ...burns].filter((x) => x.target.uid === h.x.target.uid) : [h.x];
+        also.forEach(hitTarget);
+      },
+    },
+  });
+  // (Whatever it didn't show, e.g. a card off screen, is left to the walk.)
+  el.style.opacity = '0';
+  return true;
+}
+
+// A card that just gained Retain in hand: a glint once it has landed.
+function retainGlint(el, t) {
+  wait(t(420)).then(() => {
+    if (!el.isConnected || skipping) return;
+    const r = rectOf(el);
+    burst(r.x + r.w / 2, r.y + r.h * 0.35, { kind: 'sparkle', colors: ['#fff3c4', '#ffd36b', '#ffffff'], count: 14, speed: 90, up: 60, life: t(800), size: 8, area: r.w * 0.6 });
+    floatNumber(r, 'Retain', 'buff', t(1100));
+  });
+}
+
+// The Strategy Card's name in a banner under it, held long enough to read.
+function strategyName(el, card, t) {
+  if (!el?.isConnected || skipping) return;
+  const r = rectOf(el);
+  const b = spawn('fx-strategy-name', null, `<b>${card.name}</b>`);
+  b.style.left = `${r.x + r.w / 2}px`;
+  b.style.top = `${r.y + r.h + 10}px`;
+  play(b, [
+    { opacity: 0, transform: 'translate(-50%, -8px) scale(0.9)' },
+    { opacity: 1, transform: 'translate(-50%, 0) scale(1)', offset: 0.12 },
+    { opacity: 1, offset: 0.85 },
+    { opacity: 0 },
+  ], readableMs(t(1100)));
+}
+
+// Dive's second moment: the chosen Pokémon rises out of a water surface on the
+// Discard Pile (it then flies into the hand, with a Retain glint, as the board redraws).
+async function diveRise(root, prev, e, t) {
+  const from = pile(root, `${e.who}-discard`);
+  if (!from || !vfxReady() || t(1) <= 0) return;
+  const p = prev.players[e.who];
+  const c = e.cards?.[0] && p.discard.find((x) => x.uid === e.cards[0].uid);
+  await playTimeline(DIVE_RISE, {
+    pile: from, rate: 1 / t(1), tint: tintOf('Water'),
+    on: {
+      rise: () => {
+        if (!c || skipping) return;
+        const r = rectOf(from);
+        const box = document.createElement('div');
+        box.innerHTML = cardMarkup(c, 'board');
+        const ghost = box.firstElementChild;
+        ghost.removeAttribute('data-uid');
+        ghost.classList.add('fx-rising');
+        Object.assign(ghost.style, { position: 'absolute', left: `${r.x + r.w / 2 - 60}px`, top: `${r.y - 40}px` });
+        fxEl().append(ghost);
+        play(ghost, [
+          { opacity: 0, transform: 'translateY(60px) scale(0.5)', clipPath: 'inset(60% 0 0 0)' },
+          { opacity: 1, transform: 'translateY(-40px) scale(0.9)', clipPath: 'inset(0 0 0 0)', offset: 0.6 },
+          { opacity: 0, transform: 'translateY(-90px) scale(0.95)' },
+        ], t(800));
+      },
+    },
+  });
+}
+
 
 // Once the effects of a revealed card start, it fades back so it never hides them.
 function stepAside(el, t) {
@@ -853,7 +987,7 @@ async function spentBeat(e, t) {
 // Walks an action's events in order, each one its own beat. Effects on cards
 // that aren't on screen yet (just summoned) wait until after the new state is
 // drawn (`late`).
-async function walk(root, events, t, late) {
+async function walk(root, events, t, late, prev) {
   // The engine counts an attack's quest progress before resolving its damage;
   // on screen the attack lands first, then the quest ticks.
   const ev = [...events];
@@ -873,7 +1007,7 @@ async function walk(root, events, t, late) {
   let source = null;   // the card whose ability or Power is resolving (for effect damage)
   for (let i = 0; i < ev.length; i++) {
     const e = ev[i];
-    if (used.has(e)) continue;
+    if (used.has(e) || consumed.has(e)) continue;
     if (skipping) return;
     switch (e.type) {
       case 'attack': {
@@ -908,6 +1042,7 @@ async function walk(root, events, t, late) {
       case 'abilityTriggered': source = e.source; await triggerBanner(e, t); break;
       case 'powerUsed': source = { uid: e.uid, name: e.name }; await powerBeat(e, t); break;
       case 'cardPlayed': case 'itemUsed': case 'phaseChanged': case 'roundStarted': source = null; break;
+      case 'returned': if (/Dive$/.test(e.source ?? '')) await diveRise(root, prev, e, t); break;
       case 'damage': {
         const group = [e];
         for (let j = i + 1; j < ev.length && ev[j].type === 'damage' && !used.has(ev[j]) && ev[j].cause === e.cause; j++) group.push(ev[j]);
@@ -958,7 +1093,9 @@ async function walk(root, events, t, late) {
 async function before(root, prev, next, actor, t, late) {
   const ev = next.events;
   const main = ev.find((e) => ['cardPlayed', 'itemUsed', 'pass', 'choiceMade', 'itemBought'].includes(e.type));
-  if (main?.type === 'cardPlayed' || main?.type === 'itemUsed') {
+  if (main?.type === 'cardPlayed' && main.cardType === 'Strategy' && vfxReady() && t(1) > 0 && await strategyVfx(root, prev, next, main, t)) {
+    // (its own animation, above)
+  } else if (main?.type === 'cardPlayed' || main?.type === 'itemUsed') {
     const shownCard = await reveal(root, prev, { ...main, cardType: main.cardType ?? 'Item', to: main.to ?? { kind: 'use' } }, t);
     const effects = ['damage', 'heal', 'buff', 'defeated', 'abilityTriggered', 'questComplete', 'trainerRemoved'];
     if (ev.some((e) => effects.includes(e.type))) stepAside(shownCard, t);
@@ -975,7 +1112,7 @@ async function before(root, prev, next, actor, t, late) {
     const counter = pile(root, `${actor}-energy`);
     if (counter) floatNumber(rectOf(counter), 'No Energy', 'douse', t(1300));
   }
-  await walk(root, ev, t, late);
+  await walk(root, ev, t, late, prev);
   // The Battle Phase ending (two passes in a row), then Supper, before the board changes.
   if (main?.type === 'pass' && main.endsPhase) {
     await phaseBanner('end', 'Battle ends', `${actor === 'player' ? 'You pass' : 'Opponent passes'}. ${passNoGain(actor)}`, t(800));
@@ -1085,7 +1222,10 @@ async function after(root, snap, next, actor, t, late) {
     } else if (!was) {
       const mine = fresh.closest('.hand');
       const theirs = fresh.closest('.side.opponent');
-      const from = mine ? pile(root, 'player-draw') : theirs ? pile(root, 'ai-hand') : null;
+      // A card returned from the Discard Pile (Dive) comes back from there.
+      const back = ev.find((x) => x.type === 'returned' && x.cards?.some((c) => c.uid === fresh.dataset.uid));
+      const from = mine ? pile(root, back ? 'player-discard' : 'player-draw') : theirs ? pile(root, 'ai-hand') : null;
+      if (mine && back?.retain) retainGlint(fresh, t);
       if (from) {
         const r = rectOf(from);
         moves.push(flyFrom(fresh, { x: r.x, y: r.y, w: fresh.offsetWidth * 0.3, h: fresh.offsetHeight * 0.3 }, t(380), { fade: true }));

@@ -994,8 +994,9 @@ function burnToken(c) {
 // charred edge in CSS.
 function vfxAttrs(c) {
   let out = c.cardType === 'Pokémon' ? ` data-ptype="${c.pokemonType}" data-atype="${c.attackType}"` : '';
-  for (const id of Object.keys(STATUS_VISUALS)) {
-    const level = statusLevel(id, statusCount(c, id));
+  for (const [id, v] of Object.entries(STATUS_VISUALS)) {
+    // A status's level, or for an aura (Flame Charge) one worked out from the card.
+    const level = v.levelOf ? v.levelOf(c) : statusLevel(id, statusCount(c, id));
     if (level) out += ` data-status-${id}="${level}"`;
   }
   return out;
