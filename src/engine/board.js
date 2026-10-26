@@ -262,12 +262,18 @@ export function damage(state, ref, amount, opts = {}) {
   return [before, card.currentStrength];
 }
 
+// Rule switches for balance experiments (tools/balance.js). All off: the
+// rules as written.
+//   burnBlocksHealing: a card with any Burn on it can't be healed.
+export const RULE_FLAGS = { burnBlocksHealing: false };
+
 // Healing never goes above maximum Strength (a Trainer's starting Strength).
 export function heal(state, ref, amount) {
   const card = cardAt(state, ref);
   const key = ref.kind === 'trainer' ? 'strength' : 'currentStrength';
   const before = card[key];
-  card[key] = Math.min(maxStrengthOf(card), before + amount);
+  const blocked = RULE_FLAGS.burnBlocksHealing && (card.status?.burn?.count ?? 0) > 0;
+  card[key] = blocked ? before : Math.min(maxStrengthOf(card), before + amount);
   emit(state, 'heal', { target: info(state, ref), amount: card[key] - before, before, after: card[key] });
   return [before, card[key]];
 }
