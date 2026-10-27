@@ -39,7 +39,16 @@ export const BUDGETS = {
   heal: { min: 300, max: 1000 },
   trainer: { min: 250, max: 1800 },   // a Trainer flinching, or cracking and falling
   supporter: { min: 900, max: 2000 },   // a Supporter's portrait moment
+  ending: { min: 2500, max: 4000 },   // the Victory or Defeat crest and what falls round it
 };
+
+// The end of the match (docs/vfx.md section 6, item 7): Victory rains gold
+// sparkle and confetti-like embers or droplets in the winning deck's style;
+// Defeat lets ash or rain fall (in the player's own deck's style).
+export function endingAnimation(stats) {
+  if (stats.result === 'victory') return { id: 'ending-victory', style: stats.deck.player === 'water' ? 'water' : 'fire' };
+  return { id: 'ending-defeat', style: stats.deck.player === 'water' ? 'water' : 'fire' };
+}
 
 // Two colours per Pokémon Type (main, highlight), for tinting generic effects.
 export const TYPE_TINT = {
@@ -381,6 +390,15 @@ export const EMITTERS = {
   portraitGlints: { tex: 'sparkle', blend: 'add', rate: 24, at: 'edges', dir: 'up', speed: R(30, 90), life: R(500, 800), size: [R(0.16, 0.26), 0.04], alpha: [1, 0], spin: R(-2, 2), tint: '#fff0c0' },
   giftSparkles: { tex: 'sparkle', blend: 'add', count: 36, at: 'centre', dir: 'radial', speed: R(200, 520), drag: 1.6, life: R(600, 1000), size: [R(0.2, 0.36), 0.05], alpha: [1, 0], spin: R(-4, 4), tint: ['#ffd36b', '#fff6c8'] },
   giftRing: { tex: 'shockwave', blend: 'add', count: 1, at: 'centre', offsetY: 0.12, life: 700, size: [0.2, 0.95], alpha: [0.85, 0], tint: '#ffcf5a' },
+  // The end of the match: across the whole screen, falling from the top
+  crestSparkle: { tex: 'sparkle', blend: 'add', count: 40, at: 'centre', offsetY: -0.22, dir: 'radial', speed: R(200, 600), drag: 1.4, life: R(700, 1200), size: [R(0.06, 0.12), 0.02], alpha: [1, 0], spin: R(-4, 4), tint: ['#ffd36b', '#fff6c8'] },
+  crestRing: { tex: 'shockwave', blend: 'add', count: 1, at: 'centre', offsetY: -0.22, life: 800, size: [0.1, 0.9], alpha: [0.9, 0], tint: '#ffcf5a' },
+  confettiEmbers: { tex: 'embers', blend: 'add', rate: 60, at: 'top', dir: 'down', speed: R(160, 320), gravity: 60, life: R(2200, 3200), size: [R(0.3, 0.55), R(0.2, 0.4)], alpha: [1, 0.3], spin: R(-6, 6) },
+  confettiDroplets: { tex: 'droplets', blend: 'alpha', rate: 60, at: 'top', dir: 'down', speed: R(200, 380), gravity: 80, life: R(2000, 3000), size: [R(0.3, 0.5), R(0.25, 0.4)], alpha: [1, 0.4], spin: R(-4, 4) },
+  confettiGold: { tex: 'sparkle', blend: 'add', rate: 30, at: 'top', dir: 'down', speed: R(120, 260), life: R(2200, 3200), size: [R(0.05, 0.09), 0.03], alpha: [1, 0.2], spin: R(-4, 4), tint: ['#ffd36b', '#fff6c8'] },
+  ashFall: { tex: 'shard', blend: 'alpha', rate: 50, at: 'top', dir: 'down', speed: R(60, 140), life: R(3000, 4000), size: [R(0.2, 0.4), R(0.15, 0.3)], alpha: [0.85, 0.2], tint: ['#5a4a42', '#2a201a'], spin: R(-3, 3) },
+  ashFlakes: { tex: 'smoke', blend: 'alpha', rate: 6, at: 'top', dir: 'down', speed: R(40, 90), life: R(3000, 4000), size: [R(0.06, 0.1), R(0.12, 0.18)], alpha: [0.35, 0], tint: '#3a302a', spin: R(-0.5, 0.5) },
+  rainFall: { tex: 'streak', blend: 'add', rate: 140, at: 'top', dir: 'down', speed: R(1100, 1500), life: R(700, 1000), size: [R(0.5, 0.9), R(0.5, 0.9)], alpha: [0.45, 0.15], tint: ['#7a9cc8', '#b8cce8'], alignVelocity: true },
   // Status: Burn on a card (ambient, per second, scaled by level elsewhere)
   burnFlames: { tex: 'flame', blend: 'add', rate: 12, at: 'edges', dir: 'up', speed: R(40, 80), life: R(420, 700), size: [R(0.06, 0.1), R(0.11, 0.17)], alpha: [0.9, 0], fadeIn: 80, pivot: 0.9, rot: R(-0.2, 0.2) },
   burnEmbers: { tex: 'embers', blend: 'add', rate: 7, at: 'card', area: 0.9, offsetY: 0.2, dir: 'up', speed: R(70, 160), life: R(900, 1500), size: [R(0.35, 0.6), 0.15], alpha: [1, 0], spin: R(-4, 4) },
@@ -984,6 +1002,27 @@ export const TIMELINES = {
       { at: 950, emit: 'giftSparkles', on: 'target', when: 'gift' },
       { at: 950, emit: 'giftRing', on: 'target', when: 'gift' },
       { at: 1400, cue: 'portraitOut' },
+    ],
+  },
+  // --- The end of the match (the 'target' is the crest) ---
+  'ending-victory': {
+    budget: 'ending', duration: 3200,
+    beats: [
+      { at: 0, cue: 'victory', bloom: 1.2 },
+      { at: 600, emit: 'crestSparkle', on: 'target' },
+      { at: 600, emit: 'crestRing', on: 'target' },
+      { at: 300, end: 3000, emit: 'confettiGold', on: 'screen' },
+      { at: 300, end: 3000, emit: 'confettiEmbers', on: 'screen', when: 'fire' },
+      { at: 300, end: 3000, emit: 'confettiDroplets', on: 'screen', when: 'water' },
+    ],
+  },
+  'ending-defeat': {
+    budget: 'ending', duration: 3200,
+    beats: [
+      { at: 0, cue: 'defeat' },
+      { at: 200, end: 3100, emit: 'ashFall', on: 'screen', when: 'fire' },
+      { at: 200, end: 3100, emit: 'ashFlakes', on: 'screen', when: 'fire' },
+      { at: 200, end: 3100, emit: 'rainFall', on: 'screen', when: 'water' },
     ],
   },
   // Status beats

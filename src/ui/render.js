@@ -15,11 +15,12 @@ import {
 import { canPay } from '../engine/energy.js';
 import { keywordSummary, keywordLabel } from '../engine/keywords.js';
 import { statusCount } from '../engine/status.js';
-import { pileDepth, panelView, pipTip, martView } from './resources.js';
+import { pileDepth, panelView, pipTip, martView, matchStats } from './resources.js';
 import { heldBonus, weatherTotal, speedOf, cardAt, hasRetain } from '../engine/board.js';
 import { INNATE_POWERS, WEATHER, SPEED_TIERS } from '../engine/cardData.js';
 import { SPEEDS, getSpeed, setSpeed, speedFactor } from './settings.js';
 import { wireInteractions } from './interact.js';
+import { syncWeather } from './weather.js';
 import { icon, statIcon, speedIcon, weatherIcon } from './icons.js';
 import { cardIcon, iconName } from './cardIcons.js';
 import { STATUS_VISUALS, statusLevel } from './vfx/library.js';
@@ -336,6 +337,8 @@ export function render(root, state, actions) {
   adoptCards(root);
   applyCost(root, state);
   animateResources(root, state);
+  syncWeather(root, state.round ? weatherState(state) : null);   // Rain and Sun behind the cards
+  trackFoil();
   const logBody = root.querySelector('.log-body');
   logBody.scrollTop = logBody.scrollHeight;
   wire(root, state, actions);
@@ -634,7 +637,7 @@ function centreStrip(state) {
       const pips = WEATHER[type].brackets.map((b) => `<i class="pip${w.active.includes(b) ? ' on' : ''}${w.active.includes(b) && !w.effective.includes(b) ? ' replaced' : ''}" data-at="${b.at}"></i>`).join('');
       const effects = w.effective.map((b) => b.text).join(' ') || 'No effect yet.';
       const brackets = WEATHER[type].brackets.map((b) => `${b.at}: ${b.text}`).join('\n');
-      return `<span class="weather-type ${slug(type)}" title="${attr(`${type} ${w.count} — ${effects}\n\nBrackets:\n${brackets}`)}"><b>${weatherIcon(type)}${w.count}</b><span class="pips">${pips}</span></span>`;
+      return `<span class="weather-type ${slug(type)}" title="${attr(`${type} ${w.count} — ${effects}\n\nBrackets:\n${brackets}`)}"><b>${cardIcon(`weather-${slug(type)}`, { cls: 'wx-ico' })}${w.count}</b><span class="pips">${pips}</span></span>`;
     }).join('') : '<span class="weather-chip">No Weather</span>';
   }
   // Brass tabs above the bar, one centred on each zone column; a fallen zone says which side.
@@ -894,15 +897,32 @@ function plannedXp(uid) {
   return plan;
 }
 
+// The end of the match: a Victory crest drops in (or a Defeat crest sinks in)
+// over the brightened (or darkened) board, with the match stats, then New
+// match (the same decks again) and Choose deck.
 function gameOverScreen(state) {
   if (state.phase !== 'gameOver') return '';
-  const [title, text] = state.winner === 'player' ? ['Victory!', 'All 3 enemy Trainers are at 0 Strength.']
-    : state.winner === 'ai' ? ['Defeat', 'All 3 of your Trainers are at 0 Strength.']
-    : ['Draw', 'Neither player has a Pokémon left, so nobody can win.'];
-  return `<div class="game-over"><div class="game-over-box ${state.winner ?? 'draw'}">
-    <h2>${title}</h2><p>${text}</p><p class="hint">Round ${state.round}</p>
-    <button data-action="new-game">New match</button>
-  </div></div>`;
+  const m = matchStats(state);
+  const [title, text] = m.result === 'victory' ? ['Victory', 'All 3 enemy Trainers are at 0 Strength.']
+    : m.result === 'defeat' ? ['Defeat', 'All 3 of your Trainers are at 0 Strength.']
+      : ['Draw', 'Neither player can win.'];
+  const row = (label, k, tip) => `<tr title="${attr(tip)}"><th>${label}</th><td>${m.player[k]}</td><td>${m.ai[k]}</td></tr>`;
+  return `<div class="game-over ${m.result}" data-deck="${m.deck.player}" data-winner-deck="${m.winner ? m.deck[m.winner] : ''}">
+    <div class="game-over-box ${state.winner ?? 'draw'}">
+      <div class="end-crest ${m.result}"><i class="crest-gem">${icon(m.result === 'defeat' ? 'flame' : 'xp')}</i><h2>${title}</h2></div>
+      <p>${text}</p>
+      <table class="end-stats">
+        <thead><tr><th>Rounds played: <b>${m.rounds}</b></th><th>You</th><th>Opponent</th></tr></thead>
+        <tbody>
+          ${row('Damage to Trainers', 'trainerDamage', 'Damage dealt to the enemy Trainers over the match')}
+          ${row('Pokémon defeated', 'defeated', "How many of the other side's Pokémon each side defeated")}
+          ${row('Pokémon lost', 'lost', 'How many of their own Pokémon each side lost')}
+          ${row('Cards played', 'cardsPlayed', 'Pokémon, Strategy, Supporter, Location and Item cards played from the hand')}
+        </tbody>
+      </table>
+      <div class="end-buttons"><button data-action="rematch">New match</button><button data-action="new-game" class="secondary">Choose deck</button></div>
+    </div>
+  </div>`;
 }
 
 // --- The card component ---------------------------------------------------------
@@ -1160,13 +1180,35 @@ function cardClasses(c, f, size, opts) {
 //   'full'  (hover preview, inspect) and 'hand': the whole layout
 //   'board' no rules panel and no rarity icon
 //   'mini'  (Bag, PokéMart, pickers) art, name and cost only
+// Foil: Epic and Legendary cards get a holographic sheen when hovered (a
+// rainbow band and a glint following the cursor; Legendary stronger and golder).
+export function foilOf(c) {
+  return c?.rarity === 'Legendary' ? 'legendary' : c?.rarity === 'Epic' ? 'epic' : null;
+}
+const FOIL = '<i class="foil" aria-hidden="true"></i>';
+let foilTracking = false;
+// One listener for the whole page: the hovered foil card's sheen follows the cursor.
+function trackFoil() {
+  if (foilTracking || typeof document === 'undefined') return;
+  foilTracking = true;
+  document.addEventListener('pointermove', (e) => {
+    const el = e.target.closest?.('.card[data-foil]');
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty('--fx', `${(((e.clientX - r.left) / r.width) * 100).toFixed(1)}%`);
+    el.style.setProperty('--fy', `${(((e.clientY - r.top) / r.height) * 100).toFixed(1)}%`);
+  }, { passive: true });
+}
+
 function card(c, size, opts = {}) {
   const f = face(c, { ...opts, size });
   const pv = previews.push({ c, opts }) - 1;
-  const head = `class="${cardClasses(c, f, size, opts)}" data-uid="${c.uid}" data-pv="${pv}"${vfxAttrs(c)}`;
+  const foil = foilOf(c);
+  const head = `class="${cardClasses(c, f, size, opts)}" data-uid="${c.uid}" data-pv="${pv}"${vfxAttrs(c)}${foil ? ` data-foil="${foil}"` : ''}`;
   const name = `<div class="plate"><span class="card-name">${c.name}</span></div>`;
-  if (size === 'mini') return `<div ${head}><div class="inner">${art(c, f)}${name}</div>${f.corner ?? ''}</div>`;
-  if (size === 'thumb') return `<div ${head}><div class="inner">${art(c, f)}<span class="thumb-name">${c.name}</span></div></div>`;
+  const sheen = foil ? FOIL : '';
+  if (size === 'mini') return `<div ${head}><div class="inner">${art(c, f)}${name}</div>${f.corner ?? ''}${sheen}</div>`;
+  if (size === 'thumb') return `<div ${head}><div class="inner">${art(c, f)}<span class="thumb-name">${c.name}</span></div>${sheen}</div>`;
   const wide = size === 'hand' || size === 'full';
   const badges = [retainMark(c), ...(f.badges ?? []), burnToken(c)].filter(Boolean).join('');
   const status = (f.status ?? []).filter(Boolean).join('');
@@ -1181,7 +1223,7 @@ function card(c, size, opts = {}) {
     </div>
     ${f.corner ?? ''}${f.type ?? ''}${f.speed ?? ''}${f.atk ?? ''}${f.str ?? ''}
     ${f.bl ?? ''}${f.br ?? ''}
-    ${wide && c.rarity ? cardIcon(iconName.rarity(c.rarity), { cls: 'rarity', title: c.rarity }) : ''}
+    ${wide && c.rarity ? cardIcon(iconName.rarity(c.rarity), { cls: 'rarity', title: c.rarity }) : ''}${sheen}
   </div>`;
 }
 
@@ -1591,6 +1633,7 @@ function wire(root, state, actions) {
     root.querySelector('[data-action="settings"]').textContent = `⚙ ${SPEEDS[getSpeed()].label}`;
   });
   on('[data-action="new-game"]', () => { pileView = null; martOpen = false; newGame(); });
+  on('[data-action="rematch"]', () => { pileView = null; martOpen = false; (actions.rematch ?? newGame)(); });
   // The card picker: mark cards (one at a time when only one may be taken), then confirm.
   on('[data-pick]', (el) => {
     const uid = el.dataset.pick;

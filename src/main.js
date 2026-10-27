@@ -128,6 +128,13 @@ function newGame() {
   else draw();
 }
 
+// Rematch (the end screen's New match): the same decks again, straight in.
+function rematch() {
+  const deck = state?.players.player.deck;
+  newGame();
+  if (deck && !autoplay) startMatch(deck);
+}
+
 // The player plays `deck`; the AI plays the other one. ?seed= applies to the first match.
 let firstMatch = true;
 function startMatch(deck) {
@@ -140,7 +147,7 @@ function startMatch(deck) {
 
 function draw() {
   if (!state) renderDeckSelect(root, { build: BUILD, choose: startMatch });
-  else render(root, state, { dispatch, newGame, build: BUILD });
+  else render(root, state, { dispatch, newGame, rematch, build: BUILD });
   syncStatus(root);   // burning cards keep smouldering on the effects layer
 }
 

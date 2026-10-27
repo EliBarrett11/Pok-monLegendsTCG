@@ -16,7 +16,7 @@ const DIR = 'assets/ui/icons/';
 const slug = (s) => s.toLowerCase().replace(/\s+/g, '-');
 
 const NAMES = [
-  'energy', 'coin', 'exert', 'xp',
+  'energy', 'coin', 'exert', 'xp', 'weather-rain', 'weather-sun',
   ...POKEMON_TYPES.map((t) => `type-${slug(t)}`),
   'rarity-common', 'rarity-rare', 'rarity-epic', 'rarity-legendary',
   'speed-slow', 'speed-steady', 'speed-swift',
@@ -56,6 +56,7 @@ function vector(name) {
     case 'coin': return coinMedallion();
     case 'exert': return energyCrystal();
     case 'xp': return '<b class="xp-word">XP</b>';
+    case 'weather': return '';
     case 'type': return typeMedallion(POKEMON_TYPES.find((t) => slug(t) === value) ?? 'Normal');
     case 'rarity': return rarityGem(title(value));
     case 'speed': return speedIcon(title(value));

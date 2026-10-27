@@ -10,7 +10,7 @@ import { newEnergy, refreshEnergy, canPay, payCost, splitCost } from './energy.j
 import {
   PLAYERS, opponentOf, log, whose, draw, arenaPokemon, cardAt, emptySpaces, summonSpaces, isFallen,
   attackOf, damage, describeRef, sameRef, dropXp, weatherCounts, speedOf, release as releaseCards, earnDollars, toMart, emit, info,
-  maxStrengthOf, hasRetain, RULE_FLAGS,
+  maxStrengthOf, hasRetain, RULE_FLAGS, newStats,
 } from './board.js';
 import { hasKeyword, keywordAmount } from './keywords.js';
 import { resolveSupperStatuses } from './status.js';
@@ -81,6 +81,7 @@ export function createGame(seed = Date.now(), { decks = { player: 'fire', ai: 'w
     winner: null,
     log: [],
     events: [],          // what the last action did, as structured events (see emit in board.js)
+    stats: newStats(),   // for the end screen (board.js tally)
   };
   state.players = {
     player: newPlayer('You', 'player', state, decks.player),

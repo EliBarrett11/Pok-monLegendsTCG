@@ -26,6 +26,20 @@ export function log(state, message) {
 // show it step by step. Each names the cards and places involved.
 export function emit(state, type, data = {}) {
   (state.events ??= []).push({ type, ...data });
+  tally(state, type, data);
+}
+
+// Match stats for the end screen, kept as the match goes (no rule reads them):
+// damage each side dealt to enemy Trainers, Pokémon each side lost, cards each side played.
+export const newStats = () => ({
+  player: { trainerDamage: 0, pokemonLost: 0, cardsPlayed: 0 },
+  ai: { trainerDamage: 0, pokemonLost: 0, cardsPlayed: 0 },
+});
+function tally(state, type, d) {
+  const s = (state.stats ??= newStats());
+  if (type === 'damage' && d.target?.kind === 'trainer') s[d.target.owner === 'player' ? 'ai' : 'player'].trainerDamage += d.amount;
+  else if (type === 'defeated' && d.target?.owner) s[d.target.owner].pokemonLost += 1;
+  else if (type === 'cardPlayed' && s[d.who]) s[d.who].cardsPlayed += 1;
 }
 
 // A card's place and identity for an event: { kind, owner, zone, space?, uid, name }.

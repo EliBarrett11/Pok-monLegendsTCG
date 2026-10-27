@@ -107,3 +107,29 @@ export function martView(state, who = 'player') {
     canBuyAny: slots.some((s) => s.canBuy),
   };
 }
+
+// --- The end of the match -----------------------------------------------------------------
+//
+// The end screen's numbers, from the finished match: who won, Rounds played,
+// and for each side the damage dealt to enemy Trainers, the enemy Pokémon it
+// defeated (and its own it lost), and the cards it played.
+export function matchStats(state) {
+  const s = state.stats ?? {};
+  const side = (who) => {
+    const foe = who === 'player' ? 'ai' : 'player';
+    return {
+      trainerDamage: s[who]?.trainerDamage ?? 0,
+      defeated: s[foe]?.pokemonLost ?? 0,
+      lost: s[who]?.pokemonLost ?? 0,
+      cardsPlayed: s[who]?.cardsPlayed ?? 0,
+    };
+  };
+  return {
+    winner: state.winner ?? null,
+    result: state.winner === 'player' ? 'victory' : state.winner === 'ai' ? 'defeat' : 'draw',
+    rounds: state.round,
+    deck: { player: state.players.player.deck, ai: state.players.ai.deck },
+    player: side('player'),
+    ai: side('ai'),
+  };
+}

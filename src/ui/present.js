@@ -14,9 +14,11 @@ import { vfxReady, playTimeline, skipTimelines, clearVfx, coins as vfxCoins } fr
 import {
   attackAnimation, counterAnimation, tintOf, STATUS_VISUALS, composeAttack, composeCounter, effectAnimation, BURN_CAST,
   strategyAnimation, composeStrategy, strategyTint, DIVE_RISE,
-  summonAnimation, composeSummon, DEFEATS, defeatStyle,
+  summonAnimation, composeSummon, DEFEATS, defeatStyle, endingAnimation,
 } from './vfx/library.js';
+import { matchStats } from './resources.js';
 import { phaseIcon } from './icons.js';
+import { pulseWeather, clearWeather } from './weather.js';
 
 // --- Timing and skipping -----------------------------------------------------------
 
@@ -1397,8 +1399,23 @@ function land(el, t) {
   }, t(200));
 }
 
+// The end of the match: after the last Trainer's fall and a beat, gold
+// sparkle round the Victory crest and confetti-like embers or droplets in the
+// winning deck's style; or ash or rain falling round the Defeat crest.
+async function endingVfx(root, next) {
+  const stats = matchStats(next);
+  if (stats.result === 'draw' || !vfxReady()) return;
+  const crest = root.querySelector('.end-crest');
+  if (!crest) return;
+  const { id, style } = endingAnimation(stats);
+  await wait(600);   // the crest drops (or sinks) in after the screen's short beat
+  if (!crest.isConnected) return;
+  playTimeline(id, { target: crest, rate: 1, tint: ['#ffd36b', '#fff6c8'], when: { fire: style === 'fire', water: style === 'water' } });
+}
+
 async function after(root, snap, next, actor, t, late) {
   const ev = next.events;
+  if (ev.some((x) => x.type === 'matchOver') && t(1) > 0) endingVfx(root, next);
   const moves = [];
   // A card lifted off the PokéMart counter flies from where it was lifted to.
   lifts.splice(0).forEach((a) => a.cancel());
@@ -1493,6 +1510,13 @@ async function after(root, snap, next, actor, t, late) {
   }
   // A Weather bracket that switched on: its pip lights up.
   for (const e of ev.filter((x) => x.type === 'weatherChanged' && x.on)) {
+    // A bracket crossed: the Weather on the board pulses and its counter flashes.
+    if (t(1) > 0) pulseWeather(e.weather);
+    root.querySelector(`.weather-type.${e.weather.toLowerCase()}`)?.animate([
+      { transform: 'scale(1)', filter: 'none' },
+      { transform: 'scale(1.35)', filter: `brightness(1.8) drop-shadow(0 0 8px ${e.weather === 'Sun' ? '#ffb030' : '#5ab4ff'})`, offset: 0.3 },
+      { transform: 'scale(1)', filter: 'none' },
+    ], { duration: Math.max(1, t(900)) });
     const pip = root.querySelector(`.weather-type.${e.weather.toLowerCase()} .pip[data-at="${e.at}"]`);
     pip?.animate([{ transform: 'scale(1)' }, { transform: 'scale(2.2)', filter: 'brightness(2)' }, { transform: 'scale(1)' }], { duration: t(700) });
   }
@@ -1682,6 +1706,7 @@ function clearFx() {
 
 export function resetFx() {
   infiltratorShown = false;
+  clearWeather();
   skip();
   clearFx();
   clearParticles();

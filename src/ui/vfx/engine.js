@@ -100,7 +100,7 @@ const unitOf = (r) => (r && r.w > 20 ? Math.max(0.45, Math.min(1.3, (r.w / 250) 
 
 function spawnOne(e, anchor, opts) {
   if (parts.length >= MAX_PARTICLES) return;
-  const unit = opts.unit ?? unitOf(anchor.rect ?? anchor.unitRect);
+  const unit = opts.unit ?? unitOf(anchor.unitRect ?? anchor.rect);
   const r = anchor.rect ?? { x: anchor.x - 1, y: anchor.y - 1, w: 2, h: 2 };
   const c = centre(r);
   const dir = anchor.dir ?? { x: 0, y: -1 };
@@ -125,6 +125,12 @@ function spawnOne(e, anchor, opts) {
       const rad = rnd(e.radius) * (r.h / 350);
       x = c.x + Math.cos(a) * rad;
       y = c.y + Math.sin(a) * rad;
+      break;
+    }
+    case 'top': {
+      // Anywhere along the top edge (things falling across the whole screen).
+      x = r.x + Math.random() * r.w;
+      y = r.y - 30;
       break;
     }
     case 'line': {
@@ -449,6 +455,7 @@ export function playTimeline(idOrDef, ctx) {
       case 'guard': return at(null, c.gRect ?? c.tRect);
       case 'card': return { ...at(null, moved(c.attacker, c.aRect)), muzzle: livePoint('muzzle'), goal: B };
       case 'ground': return at(null, c.tRect);
+      case 'screen': return { rect: { x: 0, y: 0, w: 1920, h: 1080 }, unitRect: { x: 0, y: 0, w: 200, h: 280 }, dir: { x: 0, y: 1 }, tint: c.tint };
       case 'pile': return at(null, c.pRect);
       case 'sweep': return { rect: c.sw?.unitRect, line: c.sw?.line, dir: c.sw?.dir ?? c.dir, tint: c.tint };
       case 'trainer': return at(null, c.oRect ?? c.tRect);
