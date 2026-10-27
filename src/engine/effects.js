@@ -17,6 +17,9 @@
 //   burn         { amount, target }                Burn X: adds X Burn counters (Pokémon or Trainer)
 //   applyStatus  { status, amount, target }        the same for any status in STATUSES (status.js)
 //   douse        { target }                        removes all Burn
+//   cure         { target }                        removes every status (Burn, Sleep, Leech Seed)
+//   gainGrowth   { amount, each? }                 gain Growth (each: true, both players)
+//   applyStatus with status 'sleep' or 'leechSeed' (Pokémon only, no amount needed)
 //   grant        { keyword, amount?, thisRound?, target }  the card gains an Innate keyword
 //   gainDollars  { amount }                        gain PokéDollars
 //   buff and grant with thisRound: true expire at Supper (after Burn and On Supper)
@@ -54,7 +57,7 @@
 //             recalculated whenever the board changes
 //   triggers  [{ on, match, effects }]
 //             on: 'summon' | 'attack' | 'defend' | 'defeated' | 'breakfast' | 'supper' |
-//                 'knockout' | 'trainerStrike' | 'heal'
+//                 'knockout' | 'trainerStrike' | 'heal' | 'evolve'
 //             match: { side?, zone?: 'source', self?: true, notSelf?: true, kind?, targetKind? }
 //             for the event's card (Rally: on 'summon', another friendly Pokémon in its Zone)
 //
@@ -80,11 +83,11 @@ import { WEATHER } from './cardData.js';
 import {
   PLAYERS, opponentOf, log, whose, draw, canDraw, arenaPokemon, activeTrainers, cardAt, sameRef, weatherCounts, weatherTotal,
   describeRef, summonSpaces, damage, heal, releaseDefeated, maxStrengthOf, strengthOf, inPlay, heldBonus, toMart, emit, info,
-  enterHand, earnDollars, secretOf, verbFor, yourOf,
+  enterHand, earnDollars, secretOf, verbFor, yourOf, weatherRule, nameOf,
 } from './board.js';
 import { shuffle } from './random.js';
 import { hasKeyword, keywordAmount, afterShell } from './keywords.js';
-import { applyStatus, clearStatus, STATUSES } from './status.js';
+import { applyStatus, clearStatus, cureAll, STATUSES } from './status.js';
 
 export { hasKeyword };
 
@@ -264,8 +267,21 @@ const OPS = {
     if (!STATUSES[e.status]) throw new Error(`Unknown status: ${e.status}`);
     for (const ref of refs) {
       if (e.status === 'burn') burnCard(state, ref, e.amount, ctx.who, ctx.source.kind === 'pokemon' ? ctx.source : null);
-      else applyStatus(state, ref, e.status, e.amount, ctx.who);
+      else if (applyStatus(state, ref, e.status, e.amount ?? 1, ctx.who) && ref.owner !== ctx.who
+        && (e.status === 'sleep' || e.status === 'leechSeed')) {
+        // "Put to Sleep or Leech Seed N times": each one applied to an enemy Pokémon.
+        questEvent(state, ctx.who, { type: 'sleepSeed' });
+      }
     }
+  },
+
+  // Cure all statuses (Full Heal).
+  cure(state, ctx, e, refs) {
+    for (const ref of refs) cureAll(state, ref, `${ctx.label}: cured`);
+  },
+
+  gainGrowth(state, ctx, e) {
+    for (const who of e.each ? PLAYERS : [ctx.who]) gainGrowth(state, who, amountOf(state, e), `from ${ctx.label}`);
   },
 
   // Retain until the card leaves your hand.
@@ -305,7 +321,7 @@ const OPS = {
   freeSummon(state, ctx, e, refs, job) {
     const p = state.players[ctx.who];
     if (job.picked === undefined) {
-      const options = p.hand.filter((c) => c.cardType === 'Pokémon' && passesFilter(c, e.filter ?? {})).map((c) => c.uid);
+      const options = p.hand.filter((c) => c.cardType === 'Pokémon' && !isEvolution(c) && passesFilter(c, e.filter ?? {})).map((c) => c.uid);
       if (!options.length || !summonSpaces(state, ctx.who).length) {
         emit(state, 'noTarget', { source: ctx.label });
         log(state, `${ctx.label}: ${!options.length ? 'no matching Pokémon in hand' : 'no empty Pokémon Space'}, so nothing happens.`);
@@ -400,6 +416,11 @@ const OPS = {
 
   ready(state, ctx, e, refs) {
     for (const ref of refs) {
+      // An Asleep Pokémon stays Spent until it wakes at Breakfast.
+      if (cardAt(state, ref).status?.sleep) {
+        log(state, `${ctx.label}: ${describeRef(state, ref)} is Asleep and stays Spent.`);
+        continue;
+      }
       cardAt(state, ref).spent = false;
       emit(state, 'ready', { target: info(state, ref) });
       log(state, `${ctx.label}: ${describeRef(state, ref)} becomes Active.`);
@@ -435,8 +456,55 @@ export function burnCard(state, ref, amount, by, source = null) {
   const trainer = source && state.players[source.owner].zones[source.zone]?.trainer;
   const bonus = trainer && trainer.strength > 0 ? trainer.passive?.burnBonus ?? 0 : 0;
   if (bonus) log(state, `${whose(state, source.owner)} ${trainer.name}'s Passive: Burn +${bonus}.`);
-  applyStatus(state, ref, 'burn', amount + bonus, by);
+  // Sun 2: each Burn applied is increased by 1.
+  const sun = weatherRule(state, 'burnPlus') ? 1 : 0;
+  if (sun) log(state, 'Weather (☀ Sun 2): Burn +1.');
+  applyStatus(state, ref, 'burn', amount + bonus + sun, by);
   if (by) questEvent(state, by, { type: 'burn' });
+}
+
+// Growth (docs/decks.md 2.7): a player's pool, kept between Rounds. Every gain
+// counts for "Gain N Growth" quests.
+export function gainGrowth(state, who, amount, why) {
+  if (!amount) return;
+  const p = state.players[who];
+  p.growth = (p.growth ?? 0) + amount;
+  emit(state, 'growthGained', { who, amount, after: p.growth });
+  log(state, `${nameOf(who)} ${verbFor(who, 'gain', 'gains')} ${amount} Growth ${why} (now ${p.growth}).`);
+  questEvent(state, who, { type: 'growth', amount });
+}
+
+// Leech Seed at Supper, after Burn (docs/decks.md 2.9). Each seed deals 1
+// effect damage to its Pokémon (Shell applies, minimum 1), heals the seeder's
+// most-damaged Pokémon by 1 and gives the seeder +1 Growth; with Rain 6 it
+// drains 2 (2 damage, heals 2). A defeat counts as the seeder's.
+export function resolveLeechSeeds(state) {
+  const seeds = arenaPokemon(state).filter(({ card }) => card.status?.leechSeed)
+    .map(({ ref, card }) => ({ ref: { ...ref, uid: card.uid }, card, by: card.status.leechSeed.by }));
+  if (!seeds.length) return;
+  const drain = weatherRule(state, 'leechTwo') ? 2 : 1;
+  for (const s of seeds) {
+    if (cardAt(state, s.ref)?.uid !== s.card.uid) continue;
+    const what = describeRef(state, s.ref);
+    const [before, after] = damage(state, s.ref, drain, { cause: 'leechSeed', by: s.by, hitBy: { kind: 'leechSeed' } });
+    log(state, `Leech Seed${drain > 1 ? ' (☔ Rain 6: drains 2)' : ''}: ${before - Math.max(after, 0)} damage to ${what}. Strength ${before} → ${Math.max(after, 0)}.`);
+    const target = mostDamaged(state, s.by);
+    const ctx = { who: s.by, source: { kind: 'status', name: 'Leech Seed', owner: s.by, uid: s.card.uid }, label: `${whose(state, s.by)} Leech Seed` };
+    emit(state, 'leechDrain', { who: s.by, from: info(state, s.ref), to: target ? info(state, target) : null, amount: drain });
+    if (target) OPS.heal(state, ctx, { amount: drain }, [target]);
+    gainGrowth(state, s.by, 1, 'from Leech Seed');
+  }
+}
+
+// The seeder's Pokémon that has taken the most damage (ties: the first, zone 1 → 3, left to right).
+function mostDamaged(state, who) {
+  let best = null;
+  for (const { ref, card } of arenaPokemon(state)) {
+    if (ref.owner !== who || card.currentStrength <= 0) continue;
+    const hurt = maxStrengthOf(card) - card.currentStrength;
+    if (hurt > 0 && (!best || hurt > best.hurt)) best = { ref: { ...ref, uid: card.uid }, hurt };
+  }
+  return best?.ref ?? null;
 }
 
 // An effect's amount: amountIf swaps in another while a Weather count is high enough.
@@ -591,8 +659,10 @@ export function summon(state, who, card, zone, space) {
   if (!summonSpaces(state, who).some((s) => s.zone === zone && s.space === space)) {
     throw new Error(`Zone ${zone + 1} has fallen on this side; no new Pokémon can go there`);
   }
+  if (isEvolution(card)) throw new Error(`${card.name} evolves from ${card.evolvesFrom}: it can't be summoned on its own`);
   p.hand = p.hand.filter((h) => h.uid !== card.uid);
-  p.zones[zone].pokemon[space] = inPlay(card, { spent: !hasKeyword(card, 'Quick Attack') });
+  // arrivedRound: it can't Evolve until a later Round (docs/decks.md 2.8).
+  p.zones[zone].pokemon[space] = { ...inPlay(card, { spent: !hasKeyword(card, 'Quick Attack') }), arrivedRound: state.round };
   (p.summonedInto ??= {})[zone] = state.round;   // the first summon into this Zone this Round is done
   const ref = { kind: 'pokemon', owner: who, zone, space, uid: card.uid };
   emit(state, 'summoned', { who, target: { ...ref, name: card.name } });
@@ -602,11 +672,68 @@ export function summon(state, who, card, zone, space) {
   return ref;
 }
 
+// --- Evolution (docs/decks.md 2.8) ------------------------------------------------
+
+export const isEvolution = (card) => card?.cardType === 'Pokémon' && (card.stage ?? 'Basic') !== 'Basic';
+
+// The fields only a card in the arena has: what's left is the printed card.
+const RUNTIME = ['currentStrength', 'spent', 'attackBonus', 'strengthBonus', 'aura', 'weather', 'status', 'roundBuffs',
+  'granted', 'lastHit', 'heldItem', 'stack', 'arrivedRound', 'abilityRound', 'xp', 'retainGranted', 'costDown'];
+export function printedCard(card) {
+  const out = { ...card };
+  for (const key of RUNTIME) delete out[key];
+  return out;
+}
+
+// The evolution card `card` (from `who`'s hand, already paid for) goes onto
+// the Pokémon at `ref`. It takes the new card's name, Type, Attack, Strength,
+// Speed, Innate Powers, abilities and Weather Tokens; damage carries over
+// (new current = new maximum − damage taken). It keeps its Held Item, XP and
+// other permanent buffs, "this Round" effects, and Active or Spent. Every
+// status is cured. The card underneath stays under it (the stack). Not a
+// summon: On Summon, Rally, summon quests and summon Passives don't fire;
+// On Evolve does. Returns the new ref.
+export function evolvePokemon(state, who, card, ref) {
+  const p = state.players[who];
+  const target = cardAt(state, ref);
+  const taken = maxStrengthOf(target) - target.currentStrength;
+  cureAll(state, ref, 'Evolved');
+  const { xp = { attack: 0, strength: 0 }, retainGranted, costDown, heldItem: ownItem, ...printed } = card;
+  // A Held Item put on the evolution card in hand: kept if the Pokémon has none, else it goes to the PokéMart.
+  if (ownItem && target.heldItem) toMart(state, ownItem, `was held by ${card.name}, but ${target.name} already holds ${target.heldItem.name}`);
+  const evolved = {
+    ...printed,
+    spent: target.spent,
+    attackBonus: (target.attackBonus ?? 0) + xp.attack,
+    strengthBonus: (target.strengthBonus ?? 0) + xp.strength,
+    aura: {},
+    weather: {},
+    ...(target.roundBuffs ? { roundBuffs: target.roundBuffs } : {}),
+    ...(target.granted ? { granted: target.granted } : {}),
+    ...(target.heldItem ?? ownItem ? { heldItem: target.heldItem ?? ownItem } : {}),
+    ...(target.lastHit ? { lastHit: target.lastHit } : {}),
+    arrivedRound: state.round,
+    stack: [...(target.stack ?? []), printedCard(target)],
+  };
+  // Passive bonuses are added back by refreshAuras (raising current with maximum).
+  evolved.currentStrength = maxStrengthOf(evolved) - taken;
+  p.hand = p.hand.filter((h) => h.uid !== card.uid);
+  p.zones[ref.zone].pokemon[ref.space] = evolved;
+  const at = { kind: 'pokemon', owner: who, zone: ref.zone, space: ref.space, uid: evolved.uid };
+  emit(state, 'evolved', { who, card: printedCard(evolved), uid: evolved.uid, name: evolved.name, from: { uid: target.uid, name: target.name }, target: { ...at, name: evolved.name } });
+  log(state, `${whose(state, who)} ${target.name} evolved into ${evolved.name} (Zone ${ref.zone + 1}, Space ${ref.space + 1}).${taken ? ` It keeps ${taken} damage: Strength ${Math.max(evolved.currentStrength, 0)}.` : ''}`);
+  refreshAuras(state);
+  fireTriggers(state, [{ type: 'evolve', ref: at, card: evolved, from: printedCard(target) }]);
+  questEvent(state, who, { type: 'evolve', card: evolved, zone: ref.zone });
+  settle(state);   // (an evolution with less Strength than its damage is defeated)
+  return at;
+}
+
 // --- Quests ---------------------------------------------------------------------
 
 // Something `who` did that quests count:
-//   { type: 'summon' | 'attack' | 'power' | 'burn' | 'trainerStrike' | 'defeat', card?, zone? }  +1
-//   { type: 'heal', amount }                                                     +amount
+//   { type: 'summon' | 'attack' | 'power' | 'burn' | 'trainerStrike' | 'defeat' | 'evolve' | 'sleepSeed', card?, zone? }  +1
+//   { type: 'heal' | 'growth', amount }                                          +amount
 //   { type: 'presence', zone, value }   (checked at Supper) progress becomes value
 // Every one of their Locations whose quest it fits moves on, each counting
 // separately. A completed quest gives its XP, then its effect and the

@@ -38,8 +38,16 @@ function pokemon(name, energyCost, pokemonType, attackType, attackValue, strengt
     rarity,
     innatePower: null,
     weatherTokens: null,   // e.g. { Sun: 1 }: counted while it is in the arena
+    stage: 'Basic',        // 'Basic' | 'Stage 1' | 'Stage 2' (docs/decks.md 2.8)
     ...extras,
   };
+}
+
+// An evolution card: a Pokémon with a Stage, what it evolves from (by name)
+// and an Evolve cost instead of an Energy Cost. It can't be summoned on its
+// own; it's played onto that Pokémon with the Evolve Battle Action.
+export function evolution(stage, evolvesFrom, evolveCost, card) {
+  return { ...card, stage, evolvesFrom, evolveCost, energyCost: null };
 }
 
 // Innate Powers: keywords the rules check directly (see keywords.js). A card
@@ -66,6 +74,7 @@ export const TRIGGER_WORDS = {
   'On Trainer Strike': 'trainerStrike', // this Pokémon damages an enemy Trainer (attack or Overrun)
   Rally: 'summon',             // another friendly Pokémon is summoned into this Pokémon's Zone (same side)
   'On Heal': 'heal',           // this Pokémon is healed by at least 1
+  'On Evolve': 'evolve',       // this Pokémon has just evolved into this card
 };
 
 // Which card of the event a Trigger Word listens for: this Pokémon itself,
@@ -148,34 +157,40 @@ function heldItem(id, name, cost, rarity, effectText, held) {
 //
 // Each Weather type has milestone brackets by combined token count (both
 // players' cards). A bracket is active while the count is at or above `at`.
-//   mode   'also' adds to the brackets before it; 'instead' replaces the
-//          bracket just before it (and whatever that one replaced)
-//   stats  continuous modifiers: [{ filter, attack?, strength? }] for every
-//          matching Pokémon in the arena, both sides (like a Passive)
+// Every bracket bends a game mechanic for everyone (docs/decks.md 2.12), and
+// each adds to the ones below it.
+//   rule   a named rule the engine checks where it applies (weatherRule in board.js):
+//          'burnPlus'  each Burn applied +1          'healPlus'   each heal +1
+//          'noSleep'   Sleep can't be applied        'burnMinus'  Burn deals 1 less at Supper (min 0)
+//          'drought'   no healing of any kind        'leechTwo'   Leech Seed drains 2 instead of 1
 //   timed  [{ at: 'breakfast' | 'supper', effects }] resolving at that moment,
-//          before Pokémon abilities that trigger then
+//          before Pokémon abilities (and Burn) at the same moment
+//   mode / stats   (still supported, unused now) 'instead' replaces the bracket below;
+//          stats are continuous modifiers for matching Pokémon
 
 export const WEATHER = {
   Rain: {
     icon: '☔',
+    theme: 'washing and renewal',
     brackets: [
-      { at: 2, mode: 'also', text: 'Water Pokémon gain +1 Attack.', stats: [{ filter: WATER, attack: 1 }] },
-      { at: 4, mode: 'instead', text: 'Water Pokémon gain +1/+1 (instead).', stats: [{ filter: WATER, attack: 1, strength: 1 }] },
-      { at: 6, mode: 'also', text: 'Fire Pokémon have −1 Attack.', stats: [{ filter: FIRE, attack: -1 }] },
-      { at: 8, mode: 'also', text: 'At Supper, each Water Pokémon heals 2 Strength.', timed: [{
-        at: 'supper', effects: [{ op: 'heal', amount: 2, target: { mode: 'area', side: 'any', filter: WATER, damaged: true } }],
+      { at: 2, mode: 'also', rule: 'healPlus', text: 'Each heal is increased by 1.' },
+      { at: 4, mode: 'also', rule: 'burnMinus', text: 'Burn deals 1 less damage at Supper (minimum 0).' },
+      { at: 6, mode: 'also', rule: 'leechTwo', text: 'Leech Seed drains 2 instead of 1.' },
+      { at: 8, mode: 'also', text: 'Downpour: at Supper, before Burn, all Burn is removed from every card.', timed: [{
+        at: 'supper', effects: [{ op: 'douse', target: { mode: 'area', side: 'any', kinds: ['pokemon', 'trainer'] } }],
       }] },
     ],
   },
   Sun: {
     icon: '☀',
+    theme: 'intensity and growth',
     brackets: [
-      { at: 2, mode: 'also', text: 'Fire Pokémon gain +1 Attack.', stats: [{ filter: FIRE, attack: 1 }] },
-      { at: 4, mode: 'instead', text: 'Fire Pokémon gain +2 Attack (instead).', stats: [{ filter: FIRE, attack: 2 }] },
-      { at: 6, mode: 'also', text: 'Water Pokémon have −1 Attack.', stats: [{ filter: WATER, attack: -1 }] },
-      { at: 8, mode: 'also', text: 'At Breakfast, each non-Fire Pokémon takes 1 damage.', timed: [{
-        at: 'breakfast', effects: [{ op: 'damage', amount: 1, target: { mode: 'area', side: 'any', filter: { pokemonType: { not: 'Fire' } } } }],
+      { at: 2, mode: 'also', rule: 'burnPlus', text: 'Each Burn applied is increased by 1.' },
+      { at: 4, mode: 'also', text: 'At Breakfast, each player gains +1 Growth.', timed: [{
+        at: 'breakfast', effects: [{ op: 'gainGrowth', amount: 1, each: true }],
       }] },
+      { at: 6, mode: 'also', rule: 'noSleep', text: 'Sleep can\'t be applied.' },
+      { at: 8, mode: 'also', rule: 'drought', text: 'Drought: no healing of any kind (Regenerate and Leech Seed included).' },
     ],
   },
 };
@@ -399,10 +414,10 @@ export const WATER_ITEMS = [
   heldItem('mystic-water', 'Mystic Water', 2, 'Common', "Holder gains +1 Attack. If it's a Water Pokémon, it also gains +1 Strength.",
     { attack: 1, also: { ...WATER, strength: 1 } }),
   heldItem('leftovers', 'Leftovers', 3, 'Common', 'Holder gains Regenerate 1.', { keywords: [{ key: 'Regenerate', amount: 1 }] }),
-  item('full-heal', 'Full Heal', 'Consumed', 1, 'Common', 'Douse a friendly Pokémon or Trainer and heal it 2. Retain.', {
+  item('full-heal', 'Full Heal', 'Consumed', 1, 'Common', 'Cure a friendly Pokémon or Trainer of all statuses and heal it 2. Retain.', {
     retain: true,
     effects: [
-      { op: 'douse', target: { mode: 'targeted', side: 'friendly', kinds: ['pokemon', 'trainer'] } },
+      { op: 'cure', target: { mode: 'targeted', side: 'friendly', kinds: ['pokemon', 'trainer'] } },
       { op: 'heal', amount: 2, target: CHOSEN },
     ],
   }),

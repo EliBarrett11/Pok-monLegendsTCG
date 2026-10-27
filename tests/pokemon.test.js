@@ -413,8 +413,9 @@ for (let seed = 1; seed <= 20; seed++) {
     hurt(s, { kind: 'pokemon', owner: 'ai', zone: 1, space: 0 }, 1);
     s = playCard(s, 'player', 'kyogre', 1, 1);
     assert.equal(weatherCounts(s).Rain, 2);
-    assert.equal(at(s, 'player', 2, 0).currentStrength, 3);
-    assert.equal(trainerAt(s, 'player', 0).strength, 12);
+    // Kyogre's own 2 Rain: ☔ Rain 2 adds 1 to each heal, so heal 2 heals 3.
+    assert.equal(at(s, 'player', 2, 0).currentStrength, 4);
+    assert.equal(trainerAt(s, 'player', 0).strength, 13);
     assert.equal(trainerAt(s, 'ai', 0).strength, 10, 'friendly only');
     assert.equal(at(s, 'ai', 1, 0).currentStrength, 1);
   }

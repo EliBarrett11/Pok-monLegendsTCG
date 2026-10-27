@@ -299,7 +299,7 @@ Curve: cost 1 ×2, 2 ×4, 3 ×5, 4 ×4, 5 ×2, 6 ×1.
 |---|---|---|---|---|---|---|
 | mystic-water | Mystic Water | 2 | Common | Held | 2 | Holder gains +1 Attack. If it's a Water Pokémon, it also gains +1 Strength. |
 | leftovers | Leftovers | 2 | Common | Held | 3 | Holder gains Regenerate 1. |
-| full-heal | Full Heal | 2 | Common | Consumed | 1 | Douse a friendly Pokémon or Trainer and heal it 2. Retain. |
+| full-heal | Full Heal | 2 | Common | Consumed | 1 | Cure a friendly Pokémon or Trainer of all statuses and heal it 2. Retain. |
 
 ### Trainers (total Strength 48)
 

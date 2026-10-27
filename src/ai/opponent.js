@@ -11,7 +11,7 @@ import {
   applyAction, legalActions, playablePokemon, summonSpaces, alertPokemon, legalTargets,
   usablePowers, powerTargets, playableStrategies, strategyTargets, opponentOf, maxStrengthOf, attackOf,
   playableSupporters, supporterTargets, giftMet, playableLocations, locationSpaces,
-  openBagOptions, itemTargets, passEndsPhase, PASS_ENERGY, passSpends, summonCost,
+  openBagOptions, itemTargets, passEndsPhase, PASS_ENERGY, passSpends, summonCost, evolveOptions, isEvolution,
 } from '../engine/game.js';
 import { baseEnergyFor } from '../engine/energy.js';
 import { cardAt } from '../engine/board.js';
@@ -52,6 +52,14 @@ function candidateMoves(state, who) {
       seen.add(key);
       moves.push({ type: 'playPokemon', who, uid: card.uid, zone, space });
     }
+  }
+  // Evolve (Grass G1): as much Growth as it has, the rest from Base Energy only.
+  const seenEvolve = new Set();
+  for (const opt of evolveOptions(state, who)) {
+    const key = `${p.hand.find((c) => c.uid === opt.uid).id}:${opt.zone}:${opt.space}`;
+    if (seenEvolve.has(key) || opt.cost - opt.maxGrowth > p.baseEnergy) continue;
+    seenEvolve.add(key);
+    moves.push({ type: 'evolve', who, uid: opt.uid, zone: opt.zone, space: opt.space, growth: opt.maxGrowth });
   }
   for (const zone of usablePowers(state, who)) {
     if (p.zones[zone].trainer.power.cost > p.baseEnergy) continue;
@@ -359,6 +367,7 @@ function scoreMove(state, who, move) {
   }
 
   if (move.type === 'playPokemon') return score + summonScore(state, after, who, move);
+  if (move.type === 'evolve') return score + evolveScore(state, after, who, move);
 
   // Strategy Cards and Powers: what trying them changed, less the Energy spent.
   // (Burn, Trainer damage and XP are already in `score`; evaluate counts them too,
@@ -390,7 +399,7 @@ function locationScore(state, who, { uid, zone }) {
 // affordable Pokémon it keeps the XP.
 function spendXp(state, who) {
   const p = state.players[who];
-  const affordable = p.hand.filter((c) => c.cardType === 'Pokémon' && c.energyCost <= p.baseEnergy);
+  const affordable = p.hand.filter((c) => c.cardType === 'Pokémon' && !isEvolution(c) && c.energyCost <= p.baseEnergy);
   if (!affordable.length) return { type: 'spendXp', who, spend: [] };
   const cheapest = Math.min(...affordable.map((c) => c.energyCost));
   const options = affordable.filter((c) => c.energyCost === cheapest);
@@ -428,6 +437,14 @@ function summonScore(before, after, who, { uid, zone, space }) {
   const zoneBuild = planOf(before, who).zone * friends + quest;
   const arrival = evaluate(before, after, who) - 2 * (attackOf(placed) + maxStrengthOf(placed));   // its own stats aside
   return 20 + 2 * card.energyCost + 3 * bonus - 8 * hurt + zoneBuild + Math.max(0, arrival);
+}
+
+// Evolving: what trying it changed (stats gained, statuses cured, its On
+// Evolve), like a summon of a bigger Pokémon, less the Energy and Growth spent.
+function evolveScore(before, after, who, { uid, growth = 0 }) {
+  const card = before.players[who].hand.find((c) => c.uid === uid);
+  const energy = card.evolveCost - growth;
+  return 18 + evaluate(before, after, who) - burnAndTrainers(before, after, who) - energyCost(energy) - growth;
 }
 
 // How much a card is worth keeping in hand for next Round: most for a

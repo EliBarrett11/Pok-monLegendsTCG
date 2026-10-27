@@ -102,14 +102,7 @@ const burnAll = { op: 'burn', amount: 1, target: { mode: 'area', side: 'opponent
   assert.equal(progress(s, 'player', 0), 9, "healing the opponent's cards doesn't count");
   heal(9, { kind: 'trainer', owner: 'player', zone: 1 });
   assert.equal(progress(s, 'player', 0), 9, 'at full Strength: nothing healed');
-  // Weather healing (Rain 8 at Supper) doesn't count.
-  const wet = place(s, 'player', 2, 0, mon('test-ripple'));
-  at(s, wet).currentStrength = 1;
-  s.players.ai.zones[2].location = { uid: 'wx', name: 'Weather test', cardType: 'Location', weatherTokens: { Rain: 8 }, quest: null };
-  refreshAuras(s);
-  s = nextRound(s);
-  assert.ok(s.players.player.zones[2].pokemon[0].currentStrength > 1, 'Rain healed it');
-  assert.equal(progress(s, 'player', 0), 9, 'Weather healing does not count');
+  // (Since the Grass G1 Weather rework no Weather heals; Rain 2's +1 is part of the heal it adds to.)
   heal(3, mine);
   assert.ok(done(s, 'player', 0), '9 + 3 ≥ 10: complete');
 }
@@ -146,7 +139,7 @@ const burnAll = { op: 'burn', amount: 1, target: { mode: 'area', side: 'opponent
 // --- Defeat N enemy Pokémon --------------------------------------------------------
 
 // Defeated by my cards or effects, on anyone's turn: my attack, my Pokémon's
-// hit back in a trade, Burn I applied. Not Weather.
+// hit back in a trade, Burn I applied. Not one defeated by the other side's own effect.
 {
   let s = match();
   location(s, 'player', 0, { label: 'Defeat 4 enemy Pokémon', on: 'defeat', count: 4 });
@@ -164,15 +157,14 @@ const burnAll = { op: 'burn', amount: 1, target: { mode: 'area', side: 'opponent
   const c = place(s, 'ai', 2, 0, mon('test-ripple'));
   at(s, c).currentStrength = 1;
   cast(s, 'player', [{ op: 'burn', amount: 1, target: { mode: 'targeted', side: 'opponent' } }], c);
-  // Weather (Sun 8 at Breakfast) defeating one doesn't count.
+  // One defeated by Burn its own side applied doesn't count. (No Weather deals damage since the Grass G1 rework.)
   const d = place(s, 'ai', 2, 1, mon('test-ripple'));
   at(s, d).currentStrength = 1;
-  s.players.ai.zones[1].location = { uid: 'wx', name: 'Weather test', cardType: 'Location', weatherTokens: { Sun: 8 }, quest: null };
-  refreshAuras(s);
+  cast(s, 'ai', [{ op: 'burn', amount: 1, target: { mode: 'targeted', side: 'friendly' } }], d);
   s = nextRound(s);
   assert.equal(at(s, c), null);
   assert.equal(at(s, d), null);
-  assert.equal(progress(s, 'player', 0), 3, 'Burn counts, Weather does not');
+  assert.equal(progress(s, 'player', 0), 3, 'my Burn counts, theirs does not');
   const e = place(s, 'ai', 0, 0, mon('test-ripple'));
   at(s, e).currentStrength = 1;
   cast(s, 'player', [{ op: 'damage', amount: 1, target: { mode: 'targeted', side: 'opponent' } }], e);

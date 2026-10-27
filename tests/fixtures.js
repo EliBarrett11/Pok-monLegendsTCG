@@ -5,7 +5,7 @@ import { cardDefinition } from '../src/engine/cards.js';
 import { createGame, applyAction, legalActions, attackOf, maxStrengthOf, PLAYERS } from '../src/engine/game.js';
 import { inPlay } from '../src/engine/board.js';
 import { refreshAuras } from '../src/engine/effects.js';
-import { ability } from '../src/engine/cardData.js';
+import { ability, evolution } from '../src/engine/cardData.js';
 
 // Test-only abilities (the retired placeholder ones), for the rules tests.
 export const SUMMON_STRIKE = ability('On Summon', "Deal 1 damage to an opponent Pokémon in this Pokémon's Zone.", [
@@ -49,6 +49,20 @@ export const TEST_POKEMON = Object.fromEntries([
   testPokemon('test-shadow', 'Test Shadow', 5, 'Dark', 'Physical', 6, 'Hitpoints', 9, 'Swift', { innatePower: 'Quick Attack', ...TRAINER_HUNTER, rarity: 'Epic' }),
   testPokemon('test-inferno', 'Test Inferno', 6, 'Fire', 'Physical', 7, 'Defence', 12, 'Slow', { ...SUMMON_STRIKE, rarity: 'Legendary' }),
   testPokemon('test-dragon', 'Test Dragon', 6, 'Dragon', 'Special', 7, 'Hitpoints', 11, 'Steady', { rarity: 'Epic' }),
+  // Grass G1: a test-only evolution line (docs/decks.md 2.8). Test Sprout is a
+  // Basic; Test Bloom evolves from it (Evolve cost 2, On Evolve: gain 1 Growth);
+  // Test Blossom evolves from Test Bloom (Evolve cost 3).
+  testPokemon('test-sprout', 'Test Sprout', 2, 'Grass', 'Physical', 2, 'Hitpoints', 5, 'Slow', { weatherTokens: { Sun: 1 } }),
+  evolution('Stage 1', 'Test Sprout', 2, testPokemon('test-bloom', 'Test Bloom', 2, 'Grass', 'Special', 4, 'Defence', 8, 'Steady', {
+    innatePower: 'Shell 1', weatherTokens: { Rain: 1 }, rarity: 'Rare',
+    ...ability('On Evolve', 'Gain 1 Growth.', [{ op: 'gainGrowth', amount: 1 }]),
+  })),
+  evolution('Stage 2', 'Test Bloom', 3, testPokemon('test-blossom', 'Test Blossom', 3, 'Grass', 'Special', 6, 'Hitpoints', 11, 'Swift', { rarity: 'Epic' })),
+  // On Summon: put an enemy Pokémon in this Zone to Sleep; and one that seeds.
+  testPokemon('test-dozer', 'Test Dozer', 1, 'Normal', 'Physical', 1, 'Hitpoints', 4, 'Slow',
+    ability('On Summon', "Put an enemy Pokémon in this Pokémon's Zone to Sleep.", [{ op: 'applyStatus', status: 'sleep', target: { mode: 'targeted', side: 'opponent', zone: 'source' } }])),
+  testPokemon('test-seeder', 'Test Seeder', 1, 'Grass', 'Physical', 1, 'Hitpoints', 4, 'Slow',
+    ability('On Summon', 'Leech Seed an enemy Pokémon.', [{ op: 'applyStatus', status: 'leechSeed', target: { mode: 'targeted', side: 'opponent' } }])),
   // A test-only Strategy Card.
   { id: 'test-hypervoice', name: 'Test Hypervoice', cardType: 'Strategy', energyCost: 3, image: null, rarity: 'Common',
     effectText: 'Deal 2 damage to all opponent Pokémon.', effects: [{ op: 'damage', amount: 2, target: { mode: 'area', side: 'opponent' } }] },

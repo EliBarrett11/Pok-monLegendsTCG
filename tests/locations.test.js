@@ -128,7 +128,8 @@ for (const c of LOCATION_CARDS) {
   assert.equal(p.xp, 2);
   assert.equal(loc(s, 'player', 2), null);
   assert.equal(p.released.at(-1).name, 'Mt. Ember');
-  assert.deepEqual(s.players.ai.zones.map((z) => burn(z.trainer)), [2 + 1 + 2, 1 + 2, 1 + 2]);
+  // Mt. Ember's own 2 Sun: ☀ Sun 2 adds 1 to each Burn applied (Ember, Heat Wave, the quest's Burn).
+  assert.deepEqual(s.players.ai.zones.map((z) => burn(z.trainer)), [3 + 2 + 3, 2 + 3, 2 + 3]);
   assert.ok(logged(s, 'Your Mt. Ember quest complete! You gain 2 XP (now 2).'));
   assert.ok(logged(s, 'Your Mt. Ember goes to the Released Pile.'));
 }
@@ -242,7 +243,7 @@ for (const c of LOCATION_CARDS) {
   s = act(s, 'player', { type: 'pass' });
   s = applyAction(s, { type: 'pass', who: 'ai' });
   assert.equal(s.players.player.xp, 2);
-  assert.equal(trainerAt(s, 'player', 1).strength, 13);
+  assert.equal(trainerAt(s, 'player', 1).strength, 14, "heal 3, +1 for Route 119's own ☔ Rain 3 (Rain 2: each heal +1)");
   assert.equal(loc(s, 'player', 0), null);
 }
 

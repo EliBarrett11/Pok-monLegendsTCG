@@ -8,7 +8,7 @@
 //   { kind: 'hand', owner, uid }               a Pokémon card in hand (Held Items)
 
 import { shuffle } from './random.js';
-import { SPEED_TIERS } from './cardData.js';
+import { SPEED_TIERS, WEATHER } from './cardData.js';
 import { afterShell } from './keywords.js';
 
 export const PLAYERS = ['player', 'ai'];
@@ -81,7 +81,7 @@ function tally(state, type, d) {
   const s = (state.stats ??= newStats());
   if (type === 'damage' && d.target?.kind === 'trainer') s[d.target.owner === 'player' ? 'ai' : 'player'].trainerDamage += d.amount;
   else if (type === 'defeated' && d.target?.owner) s[d.target.owner].pokemonLost += 1;
-  else if (type === 'cardPlayed' && s[d.who]) s[d.who].cardsPlayed += 1;
+  else if ((type === 'cardPlayed' || type === 'evolved') && s[d.who]) s[d.who].cardsPlayed += 1;   // (an Evolve plays a card too)
 }
 
 // A card's place and identity for an event: { kind, owner, zone, space?, uid, name }.
@@ -296,6 +296,12 @@ export function weatherCounts(state) {
   return counts;
 }
 
+// Is the Weather bracket with this rule active ('healPlus', 'drought', ... see WEATHER)?
+export function weatherRule(state, rule) {
+  const counts = weatherCounts(state);
+  return Object.entries(WEATHER).some(([type, def]) => def.brackets.some((b) => b.rule === rule && (counts[type] ?? 0) >= b.at));
+}
+
 // --- Damage, healing, defeat ------------------------------------------------------
 
 // One instance of damage. A Pokémon's Shell reduces it (to a minimum of 1).
@@ -324,6 +330,12 @@ export function damage(state, ref, amount, opts = {}) {
   // (hitBy: the kind, Type or card id of what dealt it, so the defeat can be shown to match.)
   card.lastHit = { cause: opts.cause ?? 'damage', by: opts.by ?? null, hitBy: opts.hitBy ?? null };
   emit(state, 'damage', { target: info(state, ref), amount: dealt, before, after: card.currentStrength, ...extra });
+  // Any damage wakes a sleeping Pokémon (it stays Spent for the rest of the Round).
+  if (card.status?.sleep && dealt > 0 && card.currentStrength > 0) {
+    delete card.status.sleep;
+    emit(state, 'statusCleared', { status: 'sleep', target: info(state, ref), before: 1, why: 'woke up' });
+    log(state, `${describeRef(state, ref, true)} wakes up (it stays Spent this Round).`);
+  }
   return [before, card.currentStrength];
 }
 
@@ -334,12 +346,16 @@ export function damage(state, ref, amount, opts = {}) {
 export const RULE_FLAGS = { burnBlocksHealing: false, zoneGuards: false };
 
 // Healing never goes above maximum Strength (a Trainer's starting Strength).
+// Weather: Rain 2 adds 1 to each heal; Sun 8 (Drought) stops all healing.
 export function heal(state, ref, amount) {
   const card = cardAt(state, ref);
   const key = ref.kind === 'trainer' ? 'strength' : 'currentStrength';
   const before = card[key];
-  const blocked = RULE_FLAGS.burnBlocksHealing && (card.status?.burn?.count ?? 0) > 0;
-  card[key] = blocked ? before : Math.min(maxStrengthOf(card), before + amount);
+  const drought = weatherRule(state, 'drought');
+  const blocked = drought || (RULE_FLAGS.burnBlocksHealing && (card.status?.burn?.count ?? 0) > 0);
+  const total = amount > 0 && weatherRule(state, 'healPlus') ? amount + 1 : amount;
+  card[key] = blocked ? before : Math.min(maxStrengthOf(card), before + total);
+  if (drought && amount > 0) log(state, `Drought (☀ Sun 8): ${describeRef(state, ref)} can't be healed.`);
   emit(state, 'heal', { target: info(state, ref), amount: card[key] - before, before, after: card[key] });
   return [before, card[key]];
 }
@@ -359,11 +375,25 @@ export function releaseDefeated(state) {
     emit(state, 'defeated', { target: info(state, ref), cause: d.cause, by: d.by, hitBy: card.lastHit?.hitBy ?? null });
     leaveArena(card);
     p.zones[ref.zone].pokemon[ref.space] = null;
-    log(state, `${whose(state, ref.owner)} ${card.name} was defeated and goes to the Released Pile.`);
-    earnDollars(state, opponentOf(ref.owner), card.energyCost, `for defeating ${card.name}`);
-    release(state, ref.owner, [card]);
+    log(state, `${whose(state, ref.owner)} ${card.name} was defeated and goes to the Released Pile${card.stack?.length ? ', with the cards under it' : ''}.`);
+    earnDollars(state, opponentOf(ref.owner), pokemonValue(card), `for defeating ${card.name}`);
+    release(state, ref.owner, withStack(card));
   }
   return defeated;
+}
+
+// What defeating a Pokémon is worth in PokéDollars: its Energy Cost, or for
+// an evolved one, the Basic's Energy Cost plus each Evolve cost in its stack.
+export function pokemonValue(card) {
+  const cards = [...(card.stack ?? []), card];
+  return cards.reduce((sum, c) => sum + (c.stage && c.stage !== 'Basic' ? c.evolveCost ?? 0 : c.energyCost ?? 0), 0);
+}
+
+// An evolved Pokémon and the cards under it, Basic first, as they go to a pile together.
+export function withStack(card) {
+  const under = card.stack ?? [];
+  delete card.stack;
+  return [...under, card];
 }
 
 // A card leaving the arena keeps nothing that only lasts while it is in play:

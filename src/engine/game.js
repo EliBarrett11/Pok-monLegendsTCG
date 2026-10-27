@@ -6,20 +6,20 @@
 
 import { shuffle, nextRandom } from './random.js';
 import { buildDeck, buildTrainers, buildMartStock } from './cards.js';
-import { newEnergy, refreshEnergy, canPay, payCost, splitCost } from './energy.js';
+import { newEnergy, refreshEnergy, canPay, payCost, splitCost, availableExert } from './energy.js';
 import {
   PLAYERS, opponentOf, log, whose, draw, arenaPokemon, cardAt, emptySpaces, summonSpaces, isFallen,
   attackOf, damage, describeRef, sameRef, dropXp, weatherCounts, speedOf, release as releaseCards, earnDollars, toMart, emit, info,
   maxStrengthOf, hasRetain, RULE_FLAGS, newStats, nameOf, verbFor, yourOf, youOf, secretOf, newUids,
 } from './board.js';
 import { hasKeyword, keywordAmount } from './keywords.js';
-import { resolveSupperStatuses } from './status.js';
+import { resolveSupperStatuses, clearStatus } from './status.js';
 import {
   summon, candidates, canResolve, targetedEffect, queueEffects, queueStep, run, refreshAuras, settle, fireTriggers,
-  matchesCard, questEvent, queueWeather, weatherState, burnCard,
+  matchesCard, questEvent, queueWeather, weatherState, burnCard, resolveLeechSeeds, gainGrowth, isEvolution, evolvePokemon,
 } from './effects.js';
 
-export { PLAYERS, opponentOf, emptySpaces, summonSpaces, isFallen, attackOf, weatherCounts, weatherState };
+export { PLAYERS, opponentOf, emptySpaces, summonSpaces, isFallen, attackOf, weatherCounts, weatherState, isEvolution };
 export { weatherTotal } from './board.js';
 export { maxStrengthOf } from './board.js';
 
@@ -52,6 +52,7 @@ function newPlayer(name, owner, state, deck) {
     xp: 0,               // stored indefinitely; spent at Breakfast on Pokémon in hand
     xpChoice: null,      // the XP step: this player's locked-in spending, revealed together
     dollars: 0,          // PokéDollars: earned for defeating Pokémon, spent on Items; kept between Rounds
+    growth: 0,           // Growth: gained by card effects (and Sun 4), spent on Evolve costs; kept between Rounds
     bag: [],             // up to BAG_SIZE Items; { ...item, inDelivery } until the next Breakfast
     trainers: buildTrainers(owner, deck),
     // The Battle Arena row: 3 zones, each with 1 Trainer Space and 3 Pokémon Spaces.
@@ -176,7 +177,42 @@ export function cheapestCost(state, who, card) {
 export function playablePokemon(state, who) {
   const p = state.players[who];
   if (!summonSpaces(state, who).length) return [];
-  return p.hand.filter((c) => c.cardType === 'Pokémon' && summonZones(state, who, c).some((z) => canPay(p, z.cost)));
+  return p.hand.filter((c) => c.cardType === 'Pokémon' && !isEvolution(c) && summonZones(state, who, c).some((z) => canPay(p, z.cost)));
+}
+
+// --- Evolve (docs/decks.md 2.8) ---------------------------------------------------
+
+// The Pokémon in `who`'s arena this evolution card can go onto now: the one
+// it evolves from (by name), in the arena since before this Round began.
+export function evolveTargets(state, who, uid) {
+  const card = state.players[who].hand.find((c) => c.uid === uid);
+  if (!isEvolution(card)) return [];
+  const out = [];
+  state.players[who].zones.forEach((z, zone) => z.pokemon.forEach((c, space) => {
+    if (c && c.name === card.evolvesFrom && (c.arrivedRound ?? 0) < state.round) out.push({ zone, space });
+  }));
+  return out;
+}
+
+// How an Evolve cost can be paid: 1 Growth replaces 1 Energy, mixed as the
+// player chooses. { minGrowth, maxGrowth } (Growth to use), or null if it can't be paid.
+export function evolvePayment(p, cost) {
+  const maxGrowth = Math.min(p.growth ?? 0, cost);
+  const minGrowth = Math.max(0, cost - (p.baseEnergy + availableExert(p)));
+  return minGrowth <= maxGrowth ? { minGrowth, maxGrowth } : null;
+}
+
+// Every Evolve `who` can make now: { uid, zone, space, cost, minGrowth, maxGrowth }.
+export function evolveOptions(state, who) {
+  if (state.phase !== 'battle') return [];
+  const p = state.players[who];
+  const out = [];
+  for (const card of p.hand.filter(isEvolution)) {
+    const pay = evolvePayment(p, card.evolveCost);
+    if (!pay) continue;
+    for (const t of evolveTargets(state, who, card.uid)) out.push({ uid: card.uid, ...t, cost: card.evolveCost, ...pay });
+  }
+  return out;
 }
 
 // How paying a cost would split: { fromBase, fromExert }. For a card in hand
@@ -494,6 +530,7 @@ export function legalActions(state, who) {
       return [
         'pass',
         ...(playablePokemon(state, who).length ? ['playPokemon'] : []),
+        ...(evolveOptions(state, who).length ? ['evolve'] : []),
         ...(canCommand(state, who) ? ['command'] : []),
         ...(usablePowers(state, who).length ? ['usePower'] : []),
         ...(playableStrategies(state, who).length ? ['playStrategy'] : []),
@@ -627,6 +664,12 @@ const STEPS = {
     settle(state);
   },
 
+  // After Burn (and its defeats): every Leech Seed drains its Pokémon.
+  leechSeed(state) {
+    resolveLeechSeeds(state);
+    settle(state);
+  },
+
   supperAbilities(state) {
     fireTriggers(state, everyPokemon(state, 'supper'));
   },
@@ -722,12 +765,38 @@ const HANDLERS = {
     if (PLAYERS.every((w) => state.players[w].pending)) resolveMulligans(state);
   },
 
+  // Battle Action: Evolve. Play an evolution card from hand onto the Pokémon it
+  // evolves from, paying its Evolve cost with Energy (Base Energy, then Exert)
+  // and/or Growth. growth: how much Growth to use (default: as much as it can).
+  evolve(state, { who, uid, zone, space, growth }) {
+    const p = state.players[who];
+    const card = p.hand.find((h) => h.uid === uid);
+    if (!isEvolution(card)) throw new Error('Choose an evolution card from your hand');
+    const target = p.zones[zone]?.pokemon[space];
+    if (!target || target.name !== card.evolvesFrom) throw new Error(`${card.name} evolves from ${card.evolvesFrom}: choose your ${card.evolvesFrom}`);
+    if ((target.arrivedRound ?? 0) >= state.round) throw new Error(`${target.name} arrived this Round: it can Evolve from next Round`);
+    const pay = evolvePayment(p, card.evolveCost);
+    if (!pay) throw new Error(`Not enough Energy and Growth to Evolve (cost ${card.evolveCost})`);
+    const fromGrowth = growth ?? pay.maxGrowth;
+    if (!Number.isInteger(fromGrowth) || fromGrowth < pay.minGrowth || fromGrowth > pay.maxGrowth) {
+      throw new Error(`Use between ${pay.minGrowth} and ${pay.maxGrowth} Growth for this Evolve`);
+    }
+    p.growth -= fromGrowth;
+    const paid = payCost(p, card.evolveCost - fromGrowth, state.round);
+    const payment = [paid.fromBase || paid.fromExert || !fromGrowth ? describePayment(paid) : '', fromGrowth ? `${fromGrowth} Growth` : ''].filter(Boolean).join(' + ');
+    log(state, `${p.name} played ${card.name} onto ${target.name}, paying ${payment}.`);
+    emit(state, 'evolvePaid', { who, uid, cost: card.evolveCost, growth: fromGrowth, ...paid });
+    queueStep(state, 'endTurn', { who, passed: false });
+    evolvePokemon(state, who, card, { kind: 'pokemon', owner: who, zone, space });
+  },
+
   // Battle Action: play a Pokémon from hand into an empty Pokémon Space on
   // your side (not in a fallen zone), paying its Energy Cost.
   playPokemon(state, { who, uid, zone, space }) {
     const p = state.players[who];
     const c = p.hand.find((h) => h.uid === uid);
     if (!c || c.cardType !== 'Pokémon') throw new Error('Choose a Pokémon from your hand');
+    if (isEvolution(c)) throw new Error(`${c.name} evolves from ${c.evolvesFrom}: it can't be summoned on its own`);
     if (p.zones[zone]?.pokemon[space] !== null) throw new Error('Choose an empty Pokémon Space');
     if (isFallen(state, who, zone)) throw new Error(`Zone ${zone + 1} has fallen on this side; no new Pokémon can go there`);
     const cost = summonCost(state, who, c, zone);
@@ -1105,8 +1174,12 @@ function startBreakfast(state) {
       log(state, `${p.name} recovered ${recovered.length} Exhaust point${recovered.length === 1 ? '' : 's'} into Exert.`);
     }
     log(state, `${p.name}: ${p.baseEnergy} Base Energy, Exert ${p.exertMax - p.exhaust.length}/${p.exertMax}.`);
-    const readied = p.zones.flatMap((z) => z.pokemon).filter((c) => c?.spent);
+    // An Asleep Pokémon stays Spent this Breakfast, then wakes (it missed one Round).
+    const sleepers = [];
+    p.zones.forEach((z, zone) => z.pokemon.forEach((c, space) => { if (c?.status?.sleep) sleepers.push({ kind: 'pokemon', owner: who, zone, space, uid: c.uid }); }));
+    const readied = p.zones.flatMap((z) => z.pokemon).filter((c) => c?.spent && !c.status?.sleep);
     readied.forEach((c) => { c.spent = false; });
+    for (const ref of sleepers) clearStatus(state, ref, 'sleep', 'wakes up at Breakfast, still Spent this Round');
     for (const c of readied) emit(state, 'ready', { target: { owner: who, uid: c.uid, name: c.name } });
     if (readied.length) log(state, `${whose(state, who)} Spent Pokémon became Active: ${readied.map((c) => c.name).join(', ')}.`);
     const n = draw(state, who, HAND_SIZE).length;
@@ -1195,11 +1268,12 @@ function startSupper(state) {
   state.turn = null;
   emit(state, 'phaseChanged', { phase: 'supper', round: state.round });
   log(state, 'Supper Phase.');
-  // Weather → Burn → On Supper → "this Round" effects expire → hands discarded.
+  // Weather → Burn → Leech Seed → On Supper → "this Round" effects expire → hands discarded.
   queueStep(state, 'supperDiscard');
   queueStep(state, 'expireRound');
   queueStep(state, 'supperQuests');
   queueStep(state, 'supperAbilities');
+  queueStep(state, 'leechSeed');
   queueStep(state, 'burn');
   queueWeather(state, 'supper');      // on top: Weather first
 }

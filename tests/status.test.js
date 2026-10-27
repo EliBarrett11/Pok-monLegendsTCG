@@ -65,10 +65,10 @@ const triggered = (s, word) => s.events.filter((e) => e.type === 'abilityTrigger
 
 // --- The status system --------------------------------------------------------
 
-assert.deepEqual(Object.keys(STATUSES), ['burn'], 'only Burn exists for now');
+assert.deepEqual(Object.keys(STATUSES), ['burn', 'sleep', 'leechSeed'], 'Burn, and (Grass G1) Sleep and Leech Seed');
 {
   const s = match();
-  assert.throws(() => cast(s, 'player', [{ op: 'applyStatus', status: 'sleep', amount: 1, target: { mode: 'area', side: 'opponent', kinds: ['trainer'] } }]), /Unknown status/);
+  assert.throws(() => cast(s, 'player', [{ op: 'applyStatus', status: 'poison', amount: 1, target: { mode: 'area', side: 'opponent', kinds: ['trainer'] } }]), /Unknown status/);
 }
 
 // --- Burn: stacking and decay ---------------------------------------------------
@@ -187,22 +187,35 @@ assert.deepEqual(Object.keys(STATUSES), ['burn'], 'only Burn exists for now');
 
 // --- The Supper order ---------------------------------------------------------------
 
-// Weather timed effects → Burn → On Supper → "this Round" effects expire → hands discarded.
+// Weather timed effects → Burn → Leech Seed → On Supper → "this Round" effects expire → hands discarded.
 {
   let s = match();
   const pud = place(s, 'player', 0, 0, mon('test-ripple', ability('On Supper', 'Gain 1 extra Base Energy this Round.', [{ op: 'gainEnergy', amount: 1 }])));
-  at(s, pud).currentStrength = 2;
-  s.players.player.zones[1].location = { uid: 'wx', name: 'Weather test', cardType: 'Location', weatherTokens: { Rain: 8 }, quest: null };
-  refreshAuras(s);
+  const other = place(s, 'player', 1, 0, mon('test-ripple'));
+  at(s, pud).currentStrength = 5;
   burn(s, 'ai', pud, 3);
+  burn(s, 'ai', other, 2);
+  cast(s, 'ai', [{ op: 'applyStatus', status: 'leechSeed', target: { mode: 'targeted', side: 'opponent' } }], pud);
   cast(s, 'player', [{ op: 'buff', attack: 2, strength: 0, thisRound: true, target: { mode: 'targeted', side: 'friendly' } }], pud);
   s.players.player.hand.push(s.players.player.drawPile.shift());
+  // Rain 4 (Burn 1 less), not 8: Burn still deals damage, after the Weather step.
+  s.players.player.zones[1].location = { uid: 'wx', name: 'Weather test', cardType: 'Location', weatherTokens: { Rain: 4 }, quest: null };
+  refreshAuras(s);
   s = nextRound(s);
-  const order = ['(☔ Rain 8): healed', 'Burn 3:', "Test Ripple's On Supper", '"This Round" effects end', 'You discarded'].map((t) => logIndex(s, t));
+  const order = ['Burn 3 (☔ Rain 4: 2)', 'Leech Seed:', "Test Ripple's On Supper", '"This Round" effects end', 'You discarded'].map((t) => logIndex(s, t));
   assert.ok(order.every((i) => i >= 0), `all logged: ${order}`);
   assert.deepEqual([...order].sort((a, b) => a - b), order, 'in that order');
-  // 2, +1 when Rain 4's +1/+1 switched on → 3; Rain 8 heals 2 → 5; then Burn 3 → 2.
+  // 5; Burn 3 deals 2 (Rain 4) → 3; Leech Seed 1 → 2.
   assert.equal(at(s, pud).currentStrength, 2);
+  // Rain 8 removes every Burn first, so Burn does nothing at all.
+  let t = match();
+  const wet = place(t, 'player', 0, 0, mon('test-ripple'));
+  burn(t, 'ai', wet, 3);
+  t.players.player.zones[1].location = { uid: 'wx', name: 'Weather test', cardType: 'Location', weatherTokens: { Rain: 8 }, quest: null };
+  refreshAuras(t);
+  t = nextRound(t);
+  assert.ok(logIndex(t, '(☔ Rain 8): Douse') >= 0 && logIndex(t, 'Burn 3:') < 0, 'Downpour first: no Burn left to resolve');
+  assert.equal(at(t, wet).currentStrength, 6);
 }
 
 // A Pokémon defeated by Burn doesn't fire its On Supper.

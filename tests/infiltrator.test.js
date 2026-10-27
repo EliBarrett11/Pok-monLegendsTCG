@@ -82,12 +82,12 @@ assert.deepEqual(POKEMON_CARDS.filter((c) => hasKeyword(c, 'Infiltrator')).map((
 {
   let s = fire();
   place(s, 'ai', 0, 0, 'quagsire', { spent: true });
-  place(s, 'ai', 1, 0, 'pelipper', { currentStrength: 9, strengthValue: 9 });   // Swift and Active: Alert; Attack 5 (+1 in its own Rain 2)
+  place(s, 'ai', 1, 0, 'pelipper', { currentStrength: 9, strengthValue: 9 });   // Swift and Active: Alert; Attack 5 (Weather no longer adds by Type)
   place(s, 'player', 1, 0, 'arcanine');                       // Swift, Infiltrator, 5/6
   s = act(s, 'player', { type: 'command', from: { zone: 1, space: 0 }, target: { kind: 'pokemon', zone: 1, space: 0 } });
   assert.equal(at(s, 'ai', 1, 0).currentStrength, 9 - 5, 'Arcanine hit Pelipper');
-  assert.ok(logged(s, 'Pelipper was Alert and hit back for 6'));
-  assert.equal(at(s, 'player', 1, 0), null, 'and Pelipper\'s 6 back defeated Arcanine (Strength 6)');
+  assert.ok(logged(s, 'Pelipper was Alert and hit back for 5'));
+  assert.equal(at(s, 'player', 1, 0).currentStrength, 6 - 5, "and Pelipper's 5 back hit Arcanine (Strength 6)");
 }
 
 // --- AI -----------------------------------------------------------------------
