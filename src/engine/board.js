@@ -343,7 +343,10 @@ export function damage(state, ref, amount, opts = {}) {
 // rules as written.
 //   burnBlocksHealing: a card with any Burn on it can't be healed.
 //   zoneGuards: a Defence / Special Defence Pokémon only guards its own Zone.
-export const RULE_FLAGS = { burnBlocksHealing: false, zoneGuards: false };
+// breakfastEvolve (a balance experiment, tools/balance.js --grass BE / BL): a Breakfast step, after the XP
+// step, where each player may Evolve any number of Pokémon without using an Action. 'strict': in the arena
+// since the start of the previous Round's Battle; 'lenient': in the arena before this Breakfast.
+export const RULE_FLAGS = { burnBlocksHealing: false, zoneGuards: false, breakfastEvolve: null };
 
 // Healing never goes above maximum Strength (a Trainer's starting Strength).
 // Weather: Rain 2 adds 1 to each heal; Sun 8 (Drought) stops all healing.

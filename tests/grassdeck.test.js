@@ -5,8 +5,9 @@
 import assert from 'node:assert/strict';
 import {
   createGame, applyAction, legalActions, PLAYERS, evolveOptions, evolveCost, attackOf, maxStrengthOf, itemTargets,
-  attackPower, playableStrategies,
+  attackPower, playableStrategies, breakfastEvolveTargets,
 } from '../src/engine/game.js';
+import { RULE_FLAGS } from '../src/engine/board.js';
 import { resolveEffects } from '../src/engine/effects.js';
 import { hasKeyword, keywordAmount } from '../src/engine/keywords.js';
 import { weatherCounts } from '../src/engine/board.js';
@@ -454,6 +455,40 @@ assert.equal(ITEM_CARDS.length, 11, 'the PokéMart holds 11 Items');
   sun6.rule = saved.rule;
   assert.equal(WEATHER.Sun.brackets.find((b) => b.at === 6).rule, 'noSleep', 'restored');
 }
+
+// --- Balance experiment rule (off by default): Breakfast Evolve (RULE_FLAGS.breakfastEvolve) ------------------
+
+function toBreakfastEvolve(s) {
+  s.turn = 'player';
+  s.passesInARow = 0;
+  s = applyAction(s, { type: 'pass', who: 'player' });
+  s = applyAction(s, { type: 'pass', who: 'ai' });
+  for (const who of PLAYERS) if (legalActions(s, who).includes('spendXp')) s = applyAction(s, { type: 'spendXp', who, spend: [] });
+  return s;
+}
+for (const mode of ['strict', 'lenient']) {
+  RULE_FLAGS.breakfastEvolve = mode;
+  let s = grass();
+  place(s, 'player', 1, 0, 'bulbasaur');                                   // here since before this Round
+  place(s, 'player', 1, 1, 'bulbasaur', { arrivedRound: s.round });       // summoned in this Round's Battle
+  const ivy = give(s, 'player', 'ivysaur', { retainGranted: true });      // (kept through Supper)
+  const ivy2 = give(s, 'player', 'ivysaur', { retainGranted: true });
+  s = toBreakfastEvolve(s);
+  assert.equal(s.phase, 'breakfast');
+  assert.deepEqual(legalActions(s, 'player'), ['breakfastEvolve'], `${mode}: the Breakfast Evolve step`);
+  const targets = breakfastEvolveTargets(s, 'player', ivy).map((t) => t.space);
+  assert.deepEqual(targets, mode === 'strict' ? [0] : [0, 1], `${mode}: which Bulbasaur can Evolve at Breakfast`);
+  const growth = s.players.player.growth = 2;
+  s = applyAction(s, { type: 'breakfastEvolve', who: 'player', evolves: [{ uid: ivy, zone: 1, space: 0, growth }] });
+  while (s.pending) s = choose(s, { target: s.pending.options[0] });
+  assert.equal(s.phase, 'battle', 'then the Battle Phase');
+  assert.equal(at(s, 'player', 1, 0).name, 'Ivysaur');
+  // Once per Pokémon per Round: not again in this Battle.
+  assert.ok(!evolveOptions(s, 'player').some((o) => o.zone === 1 && o.space === 0));
+  assert.ok(ivy2);
+}
+RULE_FLAGS.breakfastEvolve = null;
+assert.equal(grass().phase, 'battle', 'off by default');
 
 // --- Whole matches: Grass against every deck, seeded, to the end ------------------------------------------
 

@@ -34,9 +34,10 @@ s = applyAction(s, chooseAction(s, 'ai'));
 assert.equal(s.events[0].type, 'trainersLocked');
 assert.ok(s.events.some((e) => e.type === 'trainersRevealed' && e.who === 'ai' && e.trainers.length === 3));
 
-// Every Action type was taken at least once above. (Not Evolve yet: no Fire or
-// Water card evolves; tests/grass.test.js checks it with test-only cards.)
-for (const type of ACTION_TYPES.filter((t) => t !== 'evolve')) assert.ok(seen[type], `no match used ${type}`);
+// Every Action type was taken at least once above. (Not Evolve: no Fire or
+// Water card evolves, tests/grass.test.js checks it; nor the Breakfast Evolve
+// step, a balance experiment that is off by default, tests/grassdeck.test.js.)
+for (const type of ACTION_TYPES.filter((t) => !['evolve', 'breakfastEvolve'].includes(t))) assert.ok(seen[type], `no match used ${type}`);
 
 // Key events name the cards and places involved.
 for (const type of ['cardPlayed', 'attack', 'damage', 'defeated', 'powerUsed', 'pass', 'phaseChanged', 'cardMoved', 'buff', 'questProgress', 'weatherChanged']) {

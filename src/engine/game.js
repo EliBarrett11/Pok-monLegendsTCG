@@ -52,6 +52,7 @@ function newPlayer(name, owner, state, deck) {
     supporterRound: null, // the Round this player last played a Supporter (1 per Round)
     xp: 0,               // stored indefinitely; spent at Breakfast on Pokémon in hand
     xpChoice: null,      // the XP step: this player's locked-in spending, revealed together
+    evolveChoice: null,  // the Breakfast Evolve step (RULE_FLAGS.breakfastEvolve): this player's locked-in Evolves
     dollars: 0,          // PokéDollars: earned for defeating Pokémon, spent on Items; kept between Rounds
     growth: 0,           // Growth: gained by card effects (and Sun 4), spent on Evolve costs; kept between Rounds
     bag: [],             // up to BAG_SIZE Items; { ...item, inDelivery } until the next Breakfast
@@ -578,6 +579,7 @@ export function legalActions(state, who) {
     case 'initiative':
       return ['flipCoin'];
     case 'breakfast':
+      if (state.evolveStep) return p.evolveChoice ? [] : ['breakfastEvolve'];
       if (state.xpStep) return p.xpChoice ? [] : ['spendXp'];
       return state.round === 1 && !p.pending ? ['mulligan'] : [];
     case 'battle':
@@ -758,6 +760,27 @@ const STEPS = {
       ended.push(card.name);
     }
     if (ended.length) log(state, `"This Round" effects end: ${ended.join(', ')}.`);
+  },
+
+  // One Breakfast Evolve: skipped if it is no longer legal or affordable.
+  breakfastEvolve(state, { who, evolve: { uid, zone, space, growth } }) {
+    const p = state.players[who];
+    const card = p.hand.find((h) => h.uid === uid);
+    if (!card || !breakfastEvolveTargets(state, who, uid).some((t) => t.zone === zone && t.space === space)) return;
+    const cost = evolveCost(state, who, card, zone);
+    const pay = evolvePayment(p, cost);
+    if (!pay) return;
+    const fromGrowth = Math.max(pay.minGrowth, Math.min(pay.maxGrowth, growth ?? pay.maxGrowth));
+    p.growth -= fromGrowth;
+    p.evolvedThisRound = state.round;
+    const paid = payCost(p, cost - fromGrowth, state.round);
+    log(state, `${p.name} evolved ${p.zones[zone].pokemon[space].name} at Breakfast, paying ${[describePayment(paid), fromGrowth && `${fromGrowth} Growth`].filter(Boolean).join(' + ')}.`);
+    emit(state, 'evolvePaid', { who, uid, cost, growth: fromGrowth, ...paid });
+    evolvePokemon(state, who, card, { kind: 'pokemon', owner: who, zone, space });
+  },
+
+  breakfastDone(state) {
+    finishBreakfast(state);
   },
 
   afterBreakfast(state) {
@@ -1046,6 +1069,22 @@ const HANDLERS = {
     queueStep(state, 'endTurn', { who, passed: false });
   },
 
+  // Breakfast Evolve step (RULE_FLAGS.breakfastEvolve): evolves: [{ uid, zone, space, growth? }],
+  // locked in secret; both reveal together, then resolve (initiative first).
+  breakfastEvolve(state, { who, evolves = [] }) {
+    const p = state.players[who];
+    const uids = evolves.map((e) => e.uid);
+    if (new Set(uids).size !== uids.length) throw new Error('Each evolution card once');
+    const spaces = evolves.map((e) => `${e.zone}:${e.space}`);
+    if (new Set(spaces).size !== spaces.length) throw new Error('Each Pokémon Evolves at most once per Round');
+    for (const e of evolves) {
+      if (!breakfastEvolveTargets(state, who, e.uid).some((t) => t.zone === e.zone && t.space === e.space)) throw new Error('That Pokémon cannot Evolve now');
+    }
+    p.evolveChoice = evolves;
+    emit(state, 'evolveLocked', { who });
+    if (PLAYERS.every((w) => state.players[w].evolveChoice)) resolveEvolveStep(state);
+  },
+
   // Breakfast XP step: spend: [{ uid, stat: 'attack' | 'strength' }], one
   // entry per XP point, on Pokémon in hand. Locked in secret; both reveal together.
   spendXp(state, { who, spend = [] }) {
@@ -1258,8 +1297,63 @@ function startBreakfast(state) {
 }
 
 function endBreakfast(state) {
+  if (RULE_FLAGS.breakfastEvolve) {
+    startEvolveStep(state);
+    return;
+  }
+  finishBreakfast(state);
+}
+
+function finishBreakfast(state) {
   log(state, 'Breakfast Phase ends.');
   startBattle(state);
+}
+
+// --- Breakfast Evolve (a balance experiment: RULE_FLAGS.breakfastEvolve, off by default) ---
+
+// The Pokémon this evolution card can go onto at Breakfast: the one it evolves
+// from, not evolved this Round, and in the arena since the start of the previous
+// Round's Battle ('strict') or before this Breakfast ('lenient').
+export function breakfastEvolveTargets(state, who, uid) {
+  const card = state.players[who].hand.find((c) => c.uid === uid);
+  if (!isEvolution(card)) return [];
+  const since = RULE_FLAGS.breakfastEvolve === 'strict' ? state.round - 1 : state.round;
+  const out = [];
+  state.players[who].zones.forEach((z, zone) => z.pokemon.forEach((c, space) => {
+    if (c && c.name === card.evolvesFrom && c.evolvedRound !== state.round && (c.arrivedRound ?? 0) < since) out.push({ zone, space });
+  }));
+  return out;
+}
+
+export function breakfastEvolveOptions(state, who) {
+  const p = state.players[who];
+  const out = [];
+  for (const card of p.hand.filter(isEvolution)) {
+    for (const t of breakfastEvolveTargets(state, who, card.uid)) {
+      const cost = evolveCost(state, who, card, t.zone);
+      const pay = evolvePayment(p, cost);
+      if (pay) out.push({ uid: card.uid, ...t, cost, ...pay });
+    }
+  }
+  return out;
+}
+
+// Each player with something to Evolve chooses in secret; both reveal together.
+function startEvolveStep(state) {
+  state.evolveStep = true;
+  for (const who of PLAYERS) state.players[who].evolveChoice = breakfastEvolveOptions(state, who).length ? null : [];
+  if (PLAYERS.every((w) => state.players[w].evolveChoice)) resolveEvolveStep(state);
+  else log(state, 'Breakfast Evolve: each player may Evolve any number of Pokémon.');
+}
+
+// The player with initiative's Evolves first, each checked again as it resolves.
+function resolveEvolveStep(state) {
+  state.evolveStep = false;
+  const order = [state.initiative, opponentOf(state.initiative)];
+  const jobs = order.flatMap((who) => state.players[who].evolveChoice.map((evolve) => ({ who, evolve })));
+  for (const who of PLAYERS) state.players[who].evolveChoice = null;
+  queueStep(state, 'breakfastDone');
+  for (const job of jobs.reverse()) queueStep(state, 'breakfastEvolve', job);
 }
 
 // --- The XP step (Breakfast, after drawing and any mulligan) ---

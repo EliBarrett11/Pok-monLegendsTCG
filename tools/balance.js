@@ -19,6 +19,13 @@
 //   W2 Sun 6 does nothing     S Grass makes less Sun     P the Oddish line is Physical
 //   I  Venusaur and Bellossom gain Infiltrator     E Grass Basics +1/+1
 //   G  every Evolve cost −1     B Solar Beam costs 2 and spends up to 10
+// G3b (join with +, as in W1+E+BE+GD):
+//   BE Breakfast Evolve step (rule flag, all decks): Pokémon in the arena since the start of the
+//      previous Round's Battle;  BL the same, any Pokémon in the arena before this Breakfast
+//   GD Grass guards: Bulbasaur and Venusaur Special Defence, Sunkern Defence
+//   TS Grass Trainers +2 (Erika 17, Gardenia 18, Ramos 17)
+//   GX Oddish, Sunkern and Sewaddle also gain "On Breakfast: gain 1 Growth"
+//   T4 every Trainer in every deck +4 Strength
 // --json FILE also writes the numbers as JSON.
 //
 // The same matches every time (seeds 1..N for each seat order, the AI's
@@ -32,7 +39,7 @@ import { chooseAction, usePlan } from '../src/ai/opponent.js';
 import { nextRandom } from '../src/engine/random.js';
 import { writeFileSync } from 'node:fs';
 import {
-  WEATHER, DECK_IDS, DECKS, POKEMON_CARDS, STRATEGY_CARDS, SUPPORTER_CARDS, LOCATION_CARDS, ITEM_CARDS, TRAINER_CARDS,
+  WEATHER, DECK_IDS, DECKS, POKEMON_CARDS, ability, STRATEGY_CARDS, SUPPORTER_CARDS, LOCATION_CARDS, ITEM_CARDS, TRAINER_CARDS,
 } from '../src/engine/cardData.js';
 
 const args = process.argv.slice(2);
@@ -154,8 +161,28 @@ const GRASS_VARIANTS = {
     beam.effects.find((e) => e.op === 'spendGrowth').max = 10;
   },
 };
-const grassParts = GRASS.match(/W[12]|[SPIEGB]/g) ?? [];
-if (grassParts.join('') !== GRASS) throw new Error(`Unknown --grass variant: ${GRASS}`);
+Object.assign(GRASS_VARIANTS, {
+  BE: () => { RULE_FLAGS.breakfastEvolve = 'strict'; },
+  BL: () => { RULE_FLAGS.breakfastEvolve = 'lenient'; },
+  GD: () => {
+    card(POKEMON_CARDS, 'bulbasaur').strengthType = 'Special Defence';
+    card(POKEMON_CARDS, 'sunkern').strengthType = 'Defence';
+    card(POKEMON_CARDS, 'venusaur').strengthType = 'Special Defence';
+  },
+  TS: () => { for (const [id, n] of [['erika', 17], ['gardenia', 18], ['ramos', 17]]) card(TRAINER_CARDS, id).strength = n; },
+  GX: () => {
+    const extra = ability('On Breakfast', 'Gain 1 Growth.', [{ op: 'gainGrowth', amount: 1 }]);
+    for (const id of ['oddish', 'sunkern', 'sewaddle']) {
+      const c = card(POKEMON_CARDS, id);
+      const own = [c.ability].flat().filter(Boolean).map((a) => ({ ...a, word: a.word ?? c.effectTrigger, text: a.text ?? c.effectText }));
+      c.ability = [...own, { ...extra.ability, word: 'On Breakfast', text: 'Gain 1 Growth.' }];
+      c.effectText = [c.effectText, 'On Breakfast: gain 1 Growth.'].filter(Boolean).join(' ');
+    }
+  },
+  T4: () => { for (const t of TRAINER_CARDS) t.strength += 4; },
+});
+const grassParts = GRASS.includes('+') ? GRASS.split('+') : (GRASS.match(/W[12]|[SPIEGB]/g) ?? []);
+if (grassParts.join(GRASS.includes('+') ? '+' : '') !== GRASS || grassParts.some((x) => !GRASS_VARIANTS[x])) throw new Error(`Unknown --grass variant: ${GRASS}`);
 for (const part of grassParts) GRASS_VARIANTS[part]();
 
 const STALL_ROUND = 100;
@@ -170,7 +197,7 @@ const blank = () => ({
   trainerDamage: 0, burnDamage: 0, attackDamage: 0, overrunDamage: 0, effectDamage: 0, beamTrainer: 0, ranDry: 0, keptPct: 0,
   lostPokemon: 0, initiative: 0, initiativeWins: 0,
   atkGuard: 0, atkOther: 0, atkTrainer: 0, alertChecks: 0, alertBlocked: 0, guardHealed: 0,
-  growthGained: 0, growthSpent: 0, evolves: 0, beams: 0, beamDamage: 0, firstEvolve: 0, evolvedIn: 0, lostUnevolved: 0,
+  growthGained: 0, growthSpent: 0, evolves: 0, evolvesBreakfast: 0, beams: 0, beamDamage: 0, firstEvolve: 0, evolvedIn: 0, lostUnevolved: 0,
 });
 // Defence and Special Defence Pokémon guard their Trainers (rules 4.2.1).
 const GUARD = ['Defence', 'Special Defence'];
@@ -241,6 +268,7 @@ function runMatchup(SEAT1, SEAT2) {
           if (e.type === 'evolvePaid') byDeck[keyOf(decks, e.who)].growthSpent += e.growth;
           if (e.type === 'evolved') {
             byDeck[keyOf(decks, e.who)].evolves += 1;
+            if (e.phase === 'breakfast') byDeck[keyOf(decks, e.who)].evolvesBreakfast += 1;
             firstEvolve[e.who] ??= round;
           }
           if (e.type === 'defeated' && e.target.kind === 'pokemon') byDeck[keyOf(decks, e.target.owner)].lostPokemon += 1;
@@ -325,6 +353,7 @@ for (const [SEAT1, SEAT2] of MATCHUPS) {
     console.log(`         ran dry (no Pokémon left in hand, Draw Pile and Discard Pile) in ${pct(d.ranDry, d.matches)} of matches`);
     console.log(`         Growth per match: gained ${avg(d.growthGained, d.matches)} · spent ${avg(d.growthSpent, d.matches)}`);
     if (grows) {
+      console.log(`         Evolves: ${avg(d.evolvesBreakfast, d.matches)} at Breakfast, ${avg(d.evolves - d.evolvesBreakfast, d.matches)} in Battle per match`);
       console.log(`         ${avg(d.evolves, d.matches)} Evolves per match; first Evolve in Round ${avg(d.firstEvolve, d.evolvedIn)} on average (in ${pct(d.evolvedIn, d.matches)} of matches); `
         + `lost before evolving anything in ${pct(d.lostUnevolved, d.losses)} of its losses`);
       console.log(`         Solar Beam: played ${avg(d.beams, d.matches)} per match, ${avg(d.beamDamage, d.matches)} damage per match (${avg(d.beamDamage, d.beams)} per Solar Beam)`);

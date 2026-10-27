@@ -42,6 +42,7 @@ export function viewFor(state, seat) {
     // Locked in, but what they chose stays secret until both have.
     if (p.pending) p.pending = { locked: true };
     if (p.xpChoice) p.xpChoice = [];
+    if (p.evolveChoice) p.evolveChoice = [];
   }
   v.mart.deck = v.mart.deck.map(() => ({ ...HIDDEN }));
 

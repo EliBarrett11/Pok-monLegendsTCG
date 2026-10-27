@@ -12,6 +12,7 @@ import {
   usablePowers, powerTargets, playableStrategies, strategyTargets, opponentOf, maxStrengthOf, attackOf,
   playableSupporters, supporterTargets, giftMet, playableLocations, locationSpaces,
   openBagOptions, itemTargets, passEndsPhase, PASS_ENERGY, passSpends, summonCost, evolveOptions, isEvolution,
+  breakfastEvolveOptions,
 } from '../engine/game.js';
 import { POKEMON_CARDS } from '../engine/cardData.js';
 import { baseEnergyFor } from '../engine/energy.js';
@@ -29,6 +30,7 @@ export function chooseAction(state, who = 'ai', { rng = Math.random } = {}) {
   if (legal.includes('assignTrainers')) return assignTrainers(state, who);
   if (legal.includes('mulligan')) return mulligan(state, who);
   if (legal.includes('spendXp')) return spendXp(state, who);
+  if (legal.includes('breakfastEvolve')) return breakfastEvolves(state, who);
   if (legal.includes('resolveChoice')) return resolveChoice(state, who);
   if (legal.includes('pass')) return bestMove(state, who);
   return null;
@@ -432,6 +434,40 @@ function locationScore(state, who, { uid, zone }) {
   const card = p.hand.find((c) => c.uid === uid);
   const here = p.zones[zone].pokemon.filter(Boolean).length;
   return 14 + 2 * card.xp + (card.quest.inZone ? 3 * here : 0);
+}
+
+// Breakfast Evolve (a rule experiment): every Evolve it can afford with Growth
+// and Base Energy (never Exert), the biggest evolution first, as much Growth as it has.
+// (Only the first each Round gets the Sun 6 discount, if that rule is on: later ones cost 1 more.)
+function breakfastEvolves(state, who) {
+  const p = state.players[who];
+  let growth = p.growth ?? 0;
+  let energy = p.baseEnergy;
+  const options = breakfastEvolveOptions(state, who);
+  const discounted = options.some((o) => o.cost < evolveCostPrinted(p, o.uid, o.zone, state));
+  const size = (o) => { const c = p.hand.find((h) => h.uid === o.uid); return c.attackValue + c.strengthValue; };
+  options.sort((a, b) => size(b) - size(a) || random() - 0.5);
+  const picked = [];
+  const cards = new Set();
+  const spaces = new Set();
+  for (const o of options) {
+    if (cards.has(o.uid) || spaces.has(`${o.zone}:${o.space}`)) continue;
+    const cost = o.cost + (picked.length && discounted ? 1 : 0);
+    const g = Math.min(growth, cost);
+    if (cost - g > energy) continue;
+    growth -= g;
+    energy -= cost - g;
+    cards.add(o.uid);
+    spaces.add(`${o.zone}:${o.space}`);
+    picked.push({ uid: o.uid, zone: o.zone, space: o.space, growth: g });
+  }
+  return { type: 'breakfastEvolve', who, evolves: picked };
+}
+// Its Evolve cost without the first-Evolve Weather discount (Gardenia's still counts).
+function evolveCostPrinted(p, uid, zone) {
+  const card = p.hand.find((h) => h.uid === uid);
+  const t = p.zones[zone].trainer;
+  return Math.max(0, card.evolveCost - (t && t.strength > 0 ? t.passive?.evolveCost ?? 0 : 0));
 }
 
 // Breakfast XP: all of it on the cheapest Pokémon in hand it can afford this
