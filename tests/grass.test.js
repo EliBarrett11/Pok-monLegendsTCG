@@ -170,6 +170,24 @@ const evolve = (s, who, id, zone, space, extra = {}) => act(s, who, { type: 'evo
   assert.equal(at(t, 'player', 0, 0).spent, false);
 }
 
+// --- Evolving never defeats: at or below its damage, it stays at 1 Strength (Elliott, G1 answers) ----------
+
+for (const lower of [3, 4]) {
+  const s = grass();
+  place(s, 'player', 0, 0, 'test-sprout');
+  at(s, 'player', 0, 0).currentStrength = 1;   // 4 damage taken
+  const uid = give(s, 'player', 'test-bloom');
+  const card = s.players.player.hand.find((c) => c.uid === uid);
+  card.strengthValue = lower;   // (a test evolution weaker than its damage: max 3, or exactly 4)
+  card.effects = [];
+  const after = act(s, 'player', { type: 'evolve', uid, zone: 0, space: 0 });
+  const bloom = at(after, 'player', 0, 0);
+  assert.equal(bloom?.name, 'Test Bloom', 'still in the arena');
+  assert.equal(bloom.currentStrength, 1, `max ${lower}, 4 damage: Strength 1`);
+  assert.equal(maxStrengthOf(bloom), lower);
+  assert.equal(after.players.player.released.length, 0, 'nothing Released');
+}
+
 // --- Not a summon: no On Summon, summon Passives or summon quests; On Evolve fires ------------------------
 
 {

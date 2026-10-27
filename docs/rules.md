@@ -146,7 +146,7 @@ Keyword abilities on Pokémon that always apply. A Pokémon can have more than o
 
 | Bracket | ☀ Sun: intensity and growth | ☔ Rain: washing and renewal |
 |---|---|---|
-| **2** | Each Burn applied is increased by 1 (Scorch included). | Each heal is increased by 1 (Regenerate and Leech Seed included). |
+| **2** | Each Burn applied is increased by 1 (Scorch and Burn boosted by Blaine included). | Each heal is increased by 1 (Regenerate and Leech Seed's heal included: under Rain 6 a seed drains 2 and heals 3). |
 | **4** | At Breakfast, each player gains +1 Growth. | Burn deals 1 less damage at Supper (minimum 0). |
 | **6** | Sleep can't be applied. | Leech Seed drains 2 instead of 1. |
 | **8** | **Drought:** no healing of any kind (Regenerate and Leech Seed included). | **Downpour:** at Supper, before Burn, all Burn is removed from every card (Pokémon and Trainers, both sides). |
@@ -203,6 +203,7 @@ A Status Effect is a counter or flag on a Pokémon or a Trainer, shown on the ca
 - If it takes any damage, it wakes immediately. It stays Spent for the rest of this Round, but becomes Active normally at the next Breakfast.
 - An Asleep (Spent) Pokémon can't hit back in a trade.
 - Cured by Evolving and Full Heal.
+- "Becomes Active" effects (Kabu's Power, Chili's Gift, Sneasel) skip an Asleep Pokémon: they can't wake it.
 - **Sun 6:** Sleep can't be applied.
 
 **Leech Seed** (Pokémon only, placed on an enemy Pokémon; it belongs to whoever applied it, the "seeder")
@@ -251,7 +252,12 @@ A Status Effect is a counter or flag on a Pokémon or a Trainer, shown on the ca
 - **Not a summon:** it doesn't trigger On Summon, Rally, summon quests or summon Passives. It triggers **On Evolve** (section 8).
 - **The stack:** the card underneath stays under it (the inspect view lists it). If the Pokémon is defeated or Released, the whole stack goes to the Released Pile. PokéDollars earned = the Basic's Energy Cost + each Evolve cost in the stack.
 - **Returned or Searched cards:** evolution cards are Pokémon cards for Search, Return, Supporter costs and Gift Challenges.
-- **In the build** (not settled; see Open questions): cost reductions (Wallace, cost-down effects) don't apply to Evolve costs; XP put on an evolution card in hand is added when it Evolves; a Held Item on an evolution card in hand is kept if the Pokémon has none, otherwise it goes to the PokéMart.
+- **Evolving never defeats a Pokémon:** if the new maximum Strength is at or below the damage it had taken, its current Strength becomes 1 (the same rule as losing a stat effect, section 7.1).
+- **Cost reductions** (Wallace, cost-down effects) don't apply to Evolve costs: they lower Energy Costs of summons. (A card that says "Evolving … costs less", like Gardenia, does.)
+- **XP** put on an evolution card in hand is added to the Pokémon when it Evolves.
+- **A Held Item on an evolution card in hand** is kept if the Pokémon has none; if both have one, the evolution card's goes to the PokéMart.
+- **A fallen Zone:** you can still Evolve a Pokémon there (only playing new Pokémon there is blocked).
+- **"Costing N or less"** (Gift Challenges, free summons): an evolution card has no Energy Cost, so it never counts as "costing N or less". It does count as "a Pokémon card".
 
 ## 2. The Battle Arena
 
@@ -583,17 +589,6 @@ Two decks, as approved in `docs/decks.md` (the source of truth for them). The ga
 - **Timed Weather order:** if two Weather types have timed effects at the same moment, the build resolves them in Weather order (Rain, then Sun). Is that right?
 - **Trainer vs Pokémon order:** when a Trainer's Passive and a Pokémon in the same zone trigger at the same moment, which goes first? (The build puts the Trainer after the Pokémon in its zone.)
 - **On Supper:** no card uses it yet; the hook is built and tested.
-- **Grass G1 (Growth, Evolution, statuses, new Weather): choices the build made that the rules don't settle yet.** Each is easy to change:
-  - **Rain 2 and Leech Seed:** Rain 2's +1 also applies to Leech Seed's heal (so under Rain 6 a seed heals 3, while it drains 2). Right?
-  - **Drought and Rain 2:** with both at 8/2+, Drought wins and nothing heals. Right?
-  - **Sun 2 and Scorch:** Sun 2's +1 applies to every Burn applied, Scorch and Blaine-boosted Burn included. Right?
-  - **Readying an Asleep Pokémon:** "becomes Active" effects (Kabu's Power, Chili's Gift, Sneasel) skip an Asleep Pokémon, so Sleep can't be undone that way. Right?
-  - **Cost reductions and Evolve costs:** Wallace's Passive and cost-down effects don't lower Evolve costs (they talk about summons and Energy Costs). Right?
-  - **XP on an evolution card in hand:** it's added to the Pokémon when it Evolves. Right?
-  - **A Held Item on an evolution card in hand:** kept if the Pokémon has none; if both have one, the evolution card's goes to the PokéMart. Right?
-  - **Evolving in a fallen Zone:** allowed (only playing new Pokémon there is blocked). Right?
-  - **An evolution with less Strength than its damage** (only possible with a Stage that has lower Strength): it's defeated straight away. Right?
-  - **"Costing N or less"** (Gift Challenges, free summons) for an evolution card: it has no Energy Cost, so the build never counts it as "costing N or less" (it still counts as "a Pokémon card"). Should its Evolve cost count instead?
 
 ## Placeholders in the current build
 

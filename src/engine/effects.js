@@ -721,11 +721,13 @@ export function evolvePokemon(state, who, card, ref) {
   p.zones[ref.zone].pokemon[ref.space] = evolved;
   const at = { kind: 'pokemon', owner: who, zone: ref.zone, space: ref.space, uid: evolved.uid };
   emit(state, 'evolved', { who, card: printedCard(evolved), uid: evolved.uid, name: evolved.name, from: { uid: target.uid, name: target.name }, target: { ...at, name: evolved.name } });
-  log(state, `${whose(state, who)} ${target.name} evolved into ${evolved.name} (Zone ${ref.zone + 1}, Space ${ref.space + 1}).${taken ? ` It keeps ${taken} damage: Strength ${Math.max(evolved.currentStrength, 0)}.` : ''}`);
+  // Evolving never defeats: with no Strength left after its damage, it stays at 1 (rules 7.1).
+  evolved.currentStrength = Math.max(1, evolved.currentStrength);
+  log(state, `${whose(state, who)} ${target.name} evolved into ${evolved.name} (Zone ${ref.zone + 1}, Space ${ref.space + 1}).${taken ? ` It keeps ${taken} damage: Strength ${evolved.currentStrength}.` : ''}`);
   refreshAuras(state);
   fireTriggers(state, [{ type: 'evolve', ref: at, card: evolved, from: printedCard(target) }]);
   questEvent(state, who, { type: 'evolve', card: evolved, zone: ref.zone });
-  settle(state);   // (an evolution with less Strength than its damage is defeated)
+  settle(state);
   return at;
 }
 
