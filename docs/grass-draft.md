@@ -181,14 +181,8 @@ Basic curve: cost 1 ×11, 3 ×1, 4 ×1. Evolutions: Evolve 2 ×6, Evolve 3 ×1.
 - **PokéMart:** add Miracle Seed, Oran Berry, Rare Candy and Big Root (11 Items in all).
 - **Full Heal:** cures all statuses (A.3).
 - **Weather:** the new table (A.6) replaces section 1.6's brackets.
-- **Art reused:** mallow, professor-oak, floaroma-meadow, miracle-seed, oran-berry, sewaddle.
-- **Art needed (Elliott):**
-  - Pokémon: bulbasaur, ivysaur, venusaur, oddish, gloom, bellossom, sunkern, sunflora, celebi, sudowoodo.
-  - Strategy: leech-seed, sleep-powder, synthesis, solar-beam.
-  - Supporter: pokemon-breeder.
-  - Locations: eterna-forest, petalburg-woods.
-  - Items: rare-candy, big-root.
-  - Trainers: erika, gardenia, ramos.
+- **Art delivered (27 Oct):** bulbasaur, ivysaur, venusaur, oddish, gloom, bellossom, sunkern, sunflora, celebi, sewaddle (new), sudowoodo, leech-seed, sleep-powder, synthesis, solar-beam, mallow (new, cropped to head and shoulders), pokemon-breeder, professor-oak (new), floaroma-meadow (new), eterna-forest.
+- **Art still needed (Elliott):** petalburg-woods; Items miracle-seed and oran-berry (new versions, optional: old art exists), rare-candy, big-root; Trainers erika, gardenia, ramos.
 - **Icons needed:** growth, type-grass, type-bug, type-rock, plus status badges for sleep and leech-seed.
 - **VFX (a later step):**
   - attacks: Grass Special, Bug Physical, Rock Physical;
