@@ -468,7 +468,8 @@ function revealPanel(e, r) {
       e.paid.release.length && `Released: ${e.paid.release.join(', ')}`].filter(Boolean).join('<br>');
     p.innerHTML = `${paid}<div class="${e.gift.met ? 'met' : 'unmet'}">Gift ${e.gift.met ? `met ✓ ${e.gift.bonus}` : 'not met'}</div>`;
   } else {
-    p.innerHTML = `Bought for $${e.cost}${e.to.kind === 'bag' ? ' · stored in the Bag' : ''}`;
+    // An Item bought from the hand (stored or used at once), or one used from the Bag.
+    p.innerHTML = e.cost !== undefined ? `Bought for $${e.cost}${e.to.kind === 'bag' ? ' · stored in the Bag' : ''}` : 'Used from the Bag';
   }
   // Beside the card, so it never covers the caption.
   p.style.left = `${r.x + r.w + 16}px`;
@@ -1405,11 +1406,12 @@ function land(el, t) {
 async function endingVfx(root, next) {
   const stats = matchStats(next);
   if (stats.result === 'draw' || !vfxReady()) return;
+  const { id, style } = endingAnimation(stats);
+  // The crest drops (or sinks) in after the screen's short beat. (Looked up
+  // afterwards: the end screen may have been redrawn in the meantime.)
+  await new Promise((resolve) => { setTimeout(resolve, 600); });
   const crest = root.querySelector('.end-crest');
   if (!crest) return;
-  const { id, style } = endingAnimation(stats);
-  await wait(600);   // the crest drops (or sinks) in after the screen's short beat
-  if (!crest.isConnected) return;
   playTimeline(id, { target: crest, rate: 1, tint: ['#ffd36b', '#fff6c8'], when: { fire: style === 'fire', water: style === 'water' } });
 }
 

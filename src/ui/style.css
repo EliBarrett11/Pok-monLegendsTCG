@@ -1465,16 +1465,16 @@ button.primary {
     linear-gradient(115deg, transparent calc(var(--fx) - 48%), rgba(255, 70, 170, 0.55) calc(var(--fx) - 28%), rgba(255, 230, 70, 0.55) calc(var(--fx) - 12%),
       rgba(70, 255, 190, 0.55) calc(var(--fx) + 2%), rgba(70, 170, 255, 0.55) calc(var(--fx) + 16%), rgba(180, 100, 255, 0.55) calc(var(--fx) + 30%), transparent calc(var(--fx) + 48%));
 }
-.card[data-foil]:hover > .foil, #inspect .card[data-foil] > .foil { opacity: 0.55; }
+.card[data-foil]:hover > .foil, #inspect .card[data-foil] > .foil { opacity: 0.38; }
 /* Legendary: stronger and golder, with a second glint. */
 .card[data-foil="legendary"] > .foil {
   background:
-    radial-gradient(circle at var(--fx) var(--fy), rgba(255, 255, 240, 1) 0, rgba(255, 230, 150, 0.5) 4%, transparent 15%),
+    radial-gradient(circle at var(--fx) var(--fy), rgba(255, 255, 240, 1) 0, rgba(255, 230, 150, 0.45) 3%, transparent 10%),
     radial-gradient(circle at calc(100% - var(--fx)) calc(100% - var(--fy)), rgba(255, 245, 200, 0.7) 0, transparent 7%),
     linear-gradient(115deg, transparent calc(var(--fx) - 48%), rgba(255, 190, 60, 0.65) calc(var(--fx) - 26%), rgba(255, 240, 150, 0.75) calc(var(--fx) - 8%),
       rgba(255, 120, 200, 0.5) calc(var(--fx) + 6%), rgba(120, 220, 255, 0.5) calc(var(--fx) + 20%), rgba(255, 200, 80, 0.65) calc(var(--fx) + 32%), transparent calc(var(--fx) + 48%));
 }
-.card[data-foil="legendary"]:hover > .foil, #inspect .card[data-foil="legendary"] > .foil { opacity: 0.8; }
+.card[data-foil="legendary"]:hover > .foil, #inspect .card[data-foil="legendary"] > .foil { opacity: 0.5; }
 @media (prefers-reduced-motion: reduce) { .card > .foil { transition: none; } }
 
 /* Step 24: the end of the match. After a short beat (the last Trainer's hit-stop),
