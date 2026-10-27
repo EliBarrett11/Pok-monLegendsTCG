@@ -137,6 +137,8 @@ Keyword abilities on Pokémon that always apply. A Pokémon can have more than o
 - **Stat effects are continuous**, like Trainer Passives: recalculated whenever the count changes. When a stat effect switches off, the rule for losing a Passive applies (current Strength only drops if it's above the new maximum; Weather changing never defeats a Pokémon). Weather modifiers add up with each other and with other buffs. **Attack can't go below 0.**
 - **Timed effects** (at Breakfast / at Supper) resolve before Pokémon abilities that trigger at the same moment: at Breakfast after cards are drawn and Energy is gained (before On Breakfast and the XP step), at Supper before On Supper and before hands are discarded. Pokémon defeated by Weather go to the Released Pile and trigger On Defeated as normal. Weather damage is effect damage (it never triggers On Defend), and Weather only affects Pokémon in the arena (not Trainers, not cards in hand).
 
+> **Changing (approved by Elliott, 27 Oct):** this Type-based table is being replaced by the mechanics-based Weather in `docs/decks.md` section 2.12, together with Growth, Evolution, Sleep, Leech Seed and the Grass deck (`docs/decks.md` 2.7–2.11 and 5). Until that build lands, the game still uses the table below. The build that lands it rewrites this section and adds the new rules here.
+
 | Bracket | ☔ Rain | ☀ Sun |
 |---|---|---|
 | **2** | Water Pokémon gain +1 Attack. | Fire Pokémon gain +1 Attack. |
