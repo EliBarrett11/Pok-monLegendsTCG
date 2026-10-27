@@ -11,7 +11,7 @@ import { newEnergy, refreshEnergy, canPay, payCost, splitCost, availableExert } 
 import {
   PLAYERS, opponentOf, log, whose, draw, arenaPokemon, cardAt, emptySpaces, summonSpaces, isFallen,
   attackOf, damage, describeRef, sameRef, dropXp, weatherCounts, speedOf, release as releaseCards, earnDollars, toMart, emit, info,
-  maxStrengthOf, hasRetain, RULE_FLAGS, newStats, nameOf, verbFor, yourOf, youOf, secretOf, newUids,
+  maxStrengthOf, hasRetain, RULE_FLAGS, newStats, nameOf, verbFor, yourOf, youOf, secretOf, newUids, weatherRule,
 } from './board.js';
 import { hasKeyword, keywordAmount } from './keywords.js';
 import { resolveSupperStatuses, clearStatus } from './status.js';
@@ -217,9 +217,14 @@ export function evolveCost(state, who, card, zone) {
 }
 
 export function evolveReductions(state, who, zone) {
-  const trainer = state.players[who].zones[zone]?.trainer;
+  const p = state.players[who];
+  const trainer = p.zones[zone]?.trainer;
   const cut = trainer && trainer.strength > 0 ? trainer.passive?.evolveCost : 0;
-  return cut ? [{ amount: cut, name: trainer.name }] : [];
+  const out = cut ? [{ amount: cut, name: trainer.name }] : [];
+  // Weather rule 'firstEvolveLess' (unused by the current brackets; a balance experiment,
+  // tools/balance.js --grass W1): each player's first Evolve each Round costs 1 less.
+  if (weatherRule(state, 'firstEvolveLess') && p.evolvedThisRound !== state.round) out.push({ amount: 1, name: 'Weather' });
+  return out;
 }
 
 // How an Evolve cost can be paid: 1 Growth replaces 1 Energy, mixed as the
@@ -836,6 +841,7 @@ const HANDLERS = {
       throw new Error(`Use between ${pay.minGrowth} and ${pay.maxGrowth} Growth for this Evolve`);
     }
     p.growth -= fromGrowth;
+    p.evolvedThisRound = state.round;
     const paid = payCost(p, cost - fromGrowth, state.round);
     const payment = [paid.fromBase || paid.fromExert || !fromGrowth ? describePayment(paid) : '', fromGrowth ? `${fromGrowth} Growth` : ''].filter(Boolean).join(' + ');
     log(state, `${p.name} played ${card.name} onto ${target.name}, paying ${payment}${cost !== card.evolveCost ? ` (cost ${card.evolveCost} → ${cost}: ${cuts.join(', ')})` : ''}.`);

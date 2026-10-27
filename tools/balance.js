@@ -12,7 +12,14 @@
 // rule from round 3. E3 and X were adopted in Step 19 — Fire +1 Strength, +2
 // for cost 2 or less, and Infiltrator — so they are the real cards now and no
 // longer variants.)
-// --decks fire,grass plays only that matchup (fire,fire: a mirror, for checking the seats).
+// --decks fire,grass plays only that matchup (fire,fire: a mirror, for checking the seats);
+// --matchups grass-fire,grass-water plays those.
+// --grass X tries Grass G3a variants (docs: README build log), combined as in W1SPE:
+//   W1 Sun 6: no Sleep block; each player's first Evolve each Round costs 1 less
+//   W2 Sun 6 does nothing     S Grass makes less Sun     P the Oddish line is Physical
+//   I  Venusaur and Bellossom gain Infiltrator     E Grass Basics +1/+1
+//   G  every Evolve cost −1     B Solar Beam costs 2 and spends up to 10
+// --json FILE also writes the numbers as JSON.
 //
 // The same matches every time (seeds 1..N for each seat order, the AI's
 // choices seeded too), so two runs before and after a change compare like for
@@ -23,8 +30,9 @@ import {
 import { RULE_FLAGS, cardAt } from '../src/engine/board.js';
 import { chooseAction, usePlan } from '../src/ai/opponent.js';
 import { nextRandom } from '../src/engine/random.js';
+import { writeFileSync } from 'node:fs';
 import {
-  DECK_IDS, DECKS, POKEMON_CARDS, STRATEGY_CARDS, SUPPORTER_CARDS, LOCATION_CARDS, ITEM_CARDS, TRAINER_CARDS,
+  WEATHER, DECK_IDS, DECKS, POKEMON_CARDS, STRATEGY_CARDS, SUPPORTER_CARDS, LOCATION_CARDS, ITEM_CARDS, TRAINER_CARDS,
 } from '../src/engine/cardData.js';
 
 const args = process.argv.slice(2);
@@ -32,6 +40,12 @@ const flag = args.indexOf('--variant');
 const VARIANT = flag >= 0 ? args.splice(flag, 2)[1].toUpperCase() : 'A';
 const deckFlag = args.indexOf('--decks');
 const ONLY = deckFlag >= 0 ? args.splice(deckFlag, 2)[1].split(',') : null;
+const listFlag = args.indexOf('--matchups');
+const LIST = listFlag >= 0 ? args.splice(listFlag, 2)[1].split(',').map((m) => m.split('-')) : null;
+const grassFlag = args.indexOf('--grass');
+const GRASS = grassFlag >= 0 ? args.splice(grassFlag, 2)[1].toUpperCase() : '';
+const jsonFlag = args.indexOf('--json');
+const JSON_OUT = jsonFlag >= 0 ? args.splice(jsonFlag, 2)[1] : null;
 const MATCHES = Number(args[0] ?? 100);
 
 // Balance variants, applied to the card definitions in memory (decks and
@@ -111,8 +125,41 @@ const VARIANTS = {
 const parts = VARIANT.match(/E2?|[A-DGILNSTUWZ]/g) ?? [];
 if (parts.join('') !== VARIANT) throw new Error(`Unknown variant: ${VARIANT}`);
 for (const part of parts) if (typeof VARIANTS[part] === 'function') VARIANTS[part]();
+// Grass G3a experiments (--grass): in memory only, like the variants above.
+const sunAt = (n) => WEATHER.Sun.brackets.find((b) => b.at === n);
+const GRASS_VARIANTS = {
+  W1: () => Object.assign(sunAt(6), { rule: 'firstEvolveLess', text: "Each player's first Evolve each Round costs 1 less." }),
+  W2: () => Object.assign(sunAt(6), { rule: undefined, text: '(no effect)' }),
+  S: () => {
+    card(LOCATION_CARDS, 'floaroma-meadow').weatherTokens = { Sun: 1 };
+    card(LOCATION_CARDS, 'eterna-forest').weatherTokens = { Sun: 1 };
+    card(LOCATION_CARDS, 'petalburg-woods').weatherTokens = { Rain: 1 };
+    card(POKEMON_CARDS, 'sunflora').weatherTokens = { Sun: 1 };
+  },
+  P: () => { for (const id of ['oddish', 'gloom', 'bellossom']) card(POKEMON_CARDS, id).attackType = 'Physical'; },
+  I: () => {
+    card(POKEMON_CARDS, 'venusaur').innatePower = 'Shell 1, Infiltrator';
+    card(POKEMON_CARDS, 'bellossom').innatePower = 'Infiltrator';
+  },
+  E: () => {
+    for (const id of ['bulbasaur', 'oddish', 'sunkern', 'sewaddle']) {
+      card(POKEMON_CARDS, id).attackValue += 1;
+      card(POKEMON_CARDS, id).strengthValue += 1;
+    }
+  },
+  G: () => { for (const c of POKEMON_CARDS) if (c.evolveCost) c.evolveCost -= 1; },
+  B: () => {
+    const beam = card(STRATEGY_CARDS, 'solar-beam');
+    Object.assign(beam, { energyCost: 2, spendsGrowth: 10, effectText: beam.effectText.replace('up to 8', 'up to 10') });
+    beam.effects.find((e) => e.op === 'spendGrowth').max = 10;
+  },
+};
+const grassParts = GRASS.match(/W[12]|[SPIEGB]/g) ?? [];
+if (grassParts.join('') !== GRASS) throw new Error(`Unknown --grass variant: ${GRASS}`);
+for (const part of grassParts) GRASS_VARIANTS[part]();
+
 const STALL_ROUND = 100;
-const MATCHUPS = ONLY ? [ONLY] : DECK_IDS.flatMap((a, i) => DECK_IDS.slice(i + 1).map((b) => [a, b]));
+const MATCHUPS = LIST ?? (ONLY ? [ONLY] : DECK_IDS.flatMap((a, i) => DECK_IDS.slice(i + 1).map((b) => [a, b])));
 
 // Pokémon a player still has to play: hand, Draw Pile and Discard Pile (not the arena).
 const pokemonToPlay = (p) => [...p.hand, ...p.drawPile, ...p.discard].filter((c) => c.cardType === 'Pokémon').length;
@@ -251,9 +298,11 @@ function runMatchup(SEAT1, SEAT2) {
 const pct = (n, of) => `${((100 * n) / (of || 1)).toFixed(1)}%`;
 const avg = (n, of) => (of ? (n / of).toFixed(1) : '-');
 const overall = {};
-console.log(`Variant ${VARIANT}${VARIANT === 'A' ? ' (current cards)' : ''}`);
+const json = { variant: VARIANT, grass: GRASS, matches: MATCHES, matchups: [] };
+console.log(`Variant ${VARIANT}${VARIANT === 'A' ? ' (current cards)' : ''}${GRASS ? ` · Grass variant ${GRASS}` : ''}`);
 for (const [SEAT1, SEAT2] of MATCHUPS) {
   const { MIRROR, ORDERS, byDeck, byOrder, weather } = runMatchup(SEAT1, SEAT2);
+  json.matchups.push({ decks: [SEAT1, SEAT2], byDeck, byOrder, weather });
   console.log('');
   console.log(`Balance report: ${DECKS[SEAT1].name} vs ${DECKS[SEAT2].name}${MIRROR ? ' (rows are seats)' : ''}, ${MATCHES} seeded AI-vs-AI matches in each seat order (${2 * MATCHES} in all; stalled = still going at Round ${STALL_ROUND})`);
   for (const [id, d] of Object.entries(byDeck)) {
@@ -292,3 +341,4 @@ if (MATCHUPS.length > 1) {
   console.log('');
   console.log(`Overall: ${Object.entries(overall).map(([id, o]) => `${DECKS[id].name} ${pct(o.wins, o.matches)}`).join(' · ')}`);
 }
+if (JSON_OUT) writeFileSync(JSON_OUT, JSON.stringify(json, null, 1));

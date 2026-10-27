@@ -11,7 +11,7 @@ import { resolveEffects } from '../src/engine/effects.js';
 import { hasKeyword, keywordAmount } from '../src/engine/keywords.js';
 import { weatherCounts } from '../src/engine/board.js';
 import { chooseAction } from '../src/ai/opponent.js';
-import { ITEM_CARDS } from '../src/engine/cardData.js';
+import { ITEM_CARDS, WEATHER } from '../src/engine/cardData.js';
 import {
   battle, give, act, play, place, nextRound, at, trainerAt, pref, tref, choose, logged,
 } from './fixtures.js';
@@ -432,6 +432,27 @@ assert.equal(ITEM_CARDS.length, 11, 'the PokéMart holds 11 Items');
   assert.equal(q - at(s, 'ai', 2, 0).currentStrength, 2 - 2, 'Quagsire Regenerates 2 at Breakfast');
   assert.ok(logged(s, "Ramos's Passive: +1"));
   assert.equal(l - at(s, 'ai', 0, 0).currentStrength, 1, 'outside his Zone: 1');
+}
+
+// --- Balance experiment rule (off by default): "each player's first Evolve each Round costs 1 less" ----------
+
+{
+  const sun6 = WEATHER.Sun.brackets.find((b) => b.at === 6);
+  const saved = { ...sun6 };
+  Object.assign(sun6, { rule: 'firstEvolveLess' });   // (as tools/balance.js --grass W1 does)
+  let s = grass();
+  for (const [zone, space] of [[2, 0], [2, 1], [2, 2]]) place(s, 'player', zone, space, 'sunflora');   // Sun 6
+  place(s, 'player', 0, 0, 'bulbasaur');
+  place(s, 'player', 0, 1, 'bulbasaur');
+  const first = give(s, 'player', 'ivysaur');
+  assert.equal(evolveCost(s, 'player', s.players.player.hand.find((c) => c.uid === first), 0), 1, 'first Evolve this Round: 1 less');
+  s = act(s, 'player', { type: 'evolve', uid: first, zone: 0, space: 0 });
+  if (s.pending) s = choose(s, { target: s.pending.options[0] });
+  const second = give(s, 'player', 'ivysaur');
+  assert.equal(evolveCost(s, 'player', s.players.player.hand.find((c) => c.uid === second), 0), 2, 'the second: full cost');
+  Object.assign(sun6, saved);
+  sun6.rule = saved.rule;
+  assert.equal(WEATHER.Sun.brackets.find((b) => b.at === 6).rule, 'noSleep', 'restored');
 }
 
 // --- Whole matches: Grass against every deck, seeded, to the end ------------------------------------------
