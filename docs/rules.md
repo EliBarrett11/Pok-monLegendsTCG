@@ -397,6 +397,15 @@ Two decks, as approved in `docs/decks.md` (the source of truth for them). The ga
 - Before each match the player chooses **Fire**, **Water** or **Random** on the deck selection screen. The player plays the chosen deck and the AI plays the other one, each with that deck's three Trainers.
 - **New match** goes back to deck selection. The screen marks the deck chosen last time (remembered in this browser only).
 - `?autoplay` (the AI plays both sides) picks the decks at random.
+- **Against a friend** (section 10), each player chooses their own deck freely, in secret; both may choose the same deck (a mirror match). Each player's choice is revealed when both have locked in. Random picks one of the decks for that player.
+
+## 10. Playing a friend online
+
+- A match can be played against a friend instead of the AI: one player **hosts** and sends an invite link; the friend opens it to **join**. Two players only, no spectators.
+- The rules are exactly the same as against the AI, including the coin flip for initiative in Round 1 (section 3).
+- **No turn timer:** a player may take as long as they like over any decision.
+- Each player sees only what they're allowed to see: their own hand, both arenas, and public information (pile sizes, Bag contents, revealed cards). Never the opponent's hand or either Draw Pile's order.
+- **No extras for now:** no emotes and no chat.
 
 ### 9.2 🔥 Fire — Aggressive · Burn
 
