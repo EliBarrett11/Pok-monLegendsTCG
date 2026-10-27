@@ -2,8 +2,7 @@
 // its showcase cards, with its name, archetype, specialization, plan and
 // three Trainers. The player picks Fire, Water or Random; the AI plays the
 // other deck. The last choice is remembered (in this browser only).
-// Hot-seat: each player picks in turn, in secret, any deck (mirrors allowed);
-// nothing is remembered or marked, so the second player can't see the first's pick.
+// Hot-seat and online: each player picks in secret, any deck (mirrors allowed).
 import { DECKS, DECK_IDS, TRAINER_CARDS } from '../engine/cardData.js';
 import { cardDefinition } from '../engine/cards.js';
 import { cardMarkup } from './render.js';
@@ -50,32 +49,34 @@ function deckPanel(deck, last) {
 }
 
 // Draws the screen into root; choose(deckId) is called with the player's deck.
-// Against the AI, twoPlayers() switches to hot-seat. In hot-seat, `hotseat` is
-// the name of the player choosing, and vsAi() switches back.
-export function renderDeckSelect(root, { build, choose, twoPlayers, hotseat, vsAi }) {
-  const last = hotseat ? null : lastDeck();
-  const hint = hotseat
-    ? 'Choose in secret: the other player won\'t see it until the match starts. You may both pick the same deck.'
-    : 'You play the deck you choose; the AI plays the other.';
-  root.innerHTML = `<div class="table deck-select${hotseat ? ' hotseat' : ''}">
+// back() returns to the start screen. Hot-seat: `who` is the name of the
+// player choosing (nothing is remembered or marked, so the other player can't
+// see the pick). Online: `online` is set, and friendLocked once the friend has
+// chosen (not what).
+export function renderDeckSelect(root, { build, choose, back, who, online, friendLocked }) {
+  const last = who ? null : lastDeck();
+  const hint = online
+    ? `Connected to your friend. Choose in secret: both decks are revealed once you've both chosen. You may both pick the same deck.${friendLocked ? ' <b class="friend-chose">Your friend has chosen.</b>' : ''}`
+    : who ? 'Choose in secret: the other player won\'t see it until the match starts. You may both pick the same deck.'
+      : 'You play the deck you choose; the AI plays the other.';
+  root.innerHTML = `<div class="table deck-select${who ? ' hotseat' : ''}${online ? ' online' : ''}">
     <header class="deck-head">
-      <h1>${hotseat ? `${hotseat}, choose your deck` : 'Choose your deck'}</h1>
+      <h1>${who ? `${who}, choose your deck` : 'Choose your deck'}</h1>
       <p class="hint">${hint} <span class="build-tag">${build ?? ''}</span></p>
     </header>
     <div class="deck-options">${DECK_IDS.map((id) => deckPanel(DECKS[id], last)).join('')}</div>
     <div class="deck-foot">
       <button data-deck="random" class="secondary deck-random">Random</button>
-      ${hotseat ? '<button data-mode="ai" class="secondary deck-mode">Play against the AI</button>'
-    : '<button data-mode="two" class="secondary deck-mode">Two players, one screen</button>'}
+      ${back ? `<button data-action="back" class="secondary deck-mode">${online ? 'Leave' : 'Back'}</button>` : ''}
     </div>
   </div>`;
   for (const button of root.querySelectorAll('[data-deck]')) {
     button.onclick = () => {
       const pick = button.dataset.deck === 'random' ? randomDeck() : button.dataset.deck;
-      if (!hotseat) remember(pick);
+      if (!who) remember(pick);
       choose(pick);
     };
   }
-  const mode = root.querySelector('[data-mode]');
-  if (mode) mode.onclick = () => (hotseat ? vsAi?.() : twoPlayers?.());
+  const leave = root.querySelector('[data-action="back"]');
+  if (leave) leave.onclick = back;
 }

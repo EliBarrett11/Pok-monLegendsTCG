@@ -19,6 +19,9 @@ import { chooseAction } from '../src/ai/opponent.js';
   const hot = { player: 'Player 1', ai: 'Player 2' };
   assert.equal(localize(line, 'player', hot), 'Player 2 wins! Your hand: Surf.');
   assert.equal(localize(line, 'ai', hot), "You win! Player 1's hand: a card.");
+  // Online the other player is "Your friend": "your friend's" mid-sentence.
+  const online = { player: 'Your friend', ai: 'Your friend' };
+  assert.equal(localize(`${whose(null, 'ai')} Kyogre hit ${whose(null, 'ai', false)} Misty.`, 'player', online), "Your friend's Kyogre hit your friend's Misty.");
   // A secret can hold other seat words.
   assert.equal(localize(secretOf('ai', `${whose(null, 'ai')} Kyogre`, 'a card'), 'ai', hot), 'Your Kyogre');
 }

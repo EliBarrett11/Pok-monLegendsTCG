@@ -48,7 +48,8 @@ export function viewFor(state, seat) {
   // A choice in progress: the opponent's shows only that they are choosing.
   if (v.pending?.who === foe) {
     const { who, kind, from, op, label, min, max } = v.pending;
-    v.pending = { who, kind, from, op, label, min, max, secret: true };
+    // (Only the fields it has: a view must survive being sent as JSON unchanged.)
+    v.pending = Object.fromEntries(Object.entries({ who, kind, from, op, label, min, max, secret: true }).filter(([, x]) => x !== undefined));
   }
   blank(v, secret);
   // The seat's own Search: the matching cards it may choose from its Draw Pile.

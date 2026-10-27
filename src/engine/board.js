@@ -42,7 +42,8 @@ export function localize(text, seat, names) {
     const me = who === seat;
     switch (kind) {
       case 'name': return me ? 'You' : other(who);
-      case 'whose': return me ? (a ? 'Your' : 'your') : `${other(who)}'s`;
+      // Mid-sentence, "Your friend's" is "your friend's" (a name like "Player 2" stays as it is).
+      case 'whose': return me ? (a ? 'Your' : 'your') : `${!a && other(who).startsWith('Your ') ? `y${other(who).slice(1)}` : other(who)}'s`;
       case 'verb': return me ? a : b;
       case 'your': return me ? 'your' : 'their';
       case 'you': return me ? 'you' : 'the opponent';

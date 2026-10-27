@@ -1,11 +1,29 @@
 # Pokémon Legends TCG
 
-A browser version of Elliott's custom card game, played against an AI opponent (or two players on one screen). Built from scratch one small feature at a time.
+A browser version of Elliott's custom card game, played against an AI opponent, a friend online, or two players on one screen. Built from scratch one small feature at a time.
 
 ## Play
 
 - **Online:** the GitHub Pages link for this repo (Settings → Pages).
 - **Locally:** run `python3 -m http.server` in this folder and open http://localhost:8000. (Opening `index.html` directly won't work, because browsers block JS modules from `file://`.)
+
+## How to play a friend
+
+1. Click **Play a friend**. You get a 5-letter room code and an invite link.
+2. Send your friend the link (the **Copy** button copies it). They open it, or click Play a friend and type the code.
+3. When it says **Connected**, you both choose your decks in secret. Once you've both chosen, the decks are revealed and the match starts.
+
+Your browser runs the match. Keep the tab open until it ends; if either of you closes it, the match ends. You both need the same version of the game, so if it says you're on different versions, both refresh the page.
+
+### If your friend can't connect
+
+Most home networks connect directly. Some (strict firewalls, some school, office or mobile networks) block that, and then the connection needs a relay (a TURN server). To add a free one:
+
+1. Sign up at https://www.metered.ca/tools/openrelay/ (the free plan has a monthly allowance).
+2. Create an app and copy its name and its TURN API key.
+3. In `src/net/ice.js`, put them in `METERED_TURN` (`app: 'your-app-name'`, `apiKey: 'your key'`), then commit and push to `main`.
+
+The game fetches fresh relay credentials each time; with the key left empty it connects directly only. (For testing without the PeerJS cloud server, `?peerserver=127.0.0.1:9000` uses a local PeerServer.)
 
 ## Layout
 
@@ -16,6 +34,8 @@ A browser version of Elliott's custom card game, played against an AI opponent (
 | `src/engine/effects.js` | The effect system: what every card effect means, as data. |
 | `src/ai/` | The AI opponent's decision-making. |
 | `src/ui/` | Drawing the board and handling clicks. |
+| `src/net/` | Playing a friend online: the messages, the host and guest sessions, the PeerJS link, the ICE servers. |
+| `src/vendor/` | Third-party code copied in (PeerJS), with licences. |
 | `docs/rules.md` | The game's rules, written as they're settled. |
 | `docs/decks.md` | The approved Fire and Water decks (the source of truth for their cards). |
 | `assets/cards/` | Card art: `<card id>.jpg`, e.g. `growlithe.jpg`, `crasher-wake.jpg`. Cards without a file keep the placeholder look. |
@@ -119,8 +139,38 @@ No build step: plain HTML, CSS and JavaScript modules. Working rules for each se
     - `tests/seat.test.js` checks a whole match from the second seat (the same moves, summon spaces and attack targets as the engine gives that seat, and the end screen) and the action round trip.
     - `tests/mirror.test.js` plays seeded Fire vs Fire and Water vs Water matches to the end with every uid unique.
   - **Checked unchanged:** 8 seeded AI-vs-AI matches play the same actions, winners and Rounds as before, and the log differs only in the two fixed leaks. The board drawn from the player's view matches the old one at 17 points of a match. `?autoplay` plays to the end with no errors.
+- **Multiplayer M2** — play a friend online (rules section 10), peer-to-peer.
+  - **Connection:** WebRTC through PeerJS 1.5.5, vendored in `src/vendor/` with its licence, so nothing loads from a CDN. It is loaded only when you play a friend. The free PeerJS cloud server introduces the two browsers; the match then runs directly between them. ICE servers are in `src/net/ice.js`: Google's public STUN servers, plus an empty slot for an optional Metered Open Relay TURN key (see "If your friend can't connect" above).
+  - **Host-authoritative:**
+    - the host's browser runs the real game exactly as against the AI;
+    - the guest's browser never runs the engine on the real state; it sends its actions, and the host checks each one with `applyAction` (an illegal one is refused and nothing changes);
+    - a player can only ever act for their own seat;
+    - after every action, from either player, the host sends the guest only `viewFor(state, guest)` and the redacted events, which play through the normal presentation;
+    - simultaneous steps (Trainers, mulligan, XP) let both lock in independently, and the host flips the coin for initiative.
+  - **Messages:** small JSON with a protocol version (`src/net/protocol.js`). The log is sent as new lines only; a message averages about 24 KB. On connecting, both sides swap their BUILD; if they differ, both see "Your friend is on a different version" and the match doesn't start.
+  - **Lobby:**
+    - a new start screen: Play the AI, Play a friend, Two players, one screen;
+    - Play a friend makes a 5-letter room code (no look-alike letters, and no vowels so it never spells a word) and an invite link with a Copy button: "Waiting for your friend to join…";
+    - `?join=CODE`, or typing the code, joins;
+    - once connected, both choose decks in secret (mirrors allowed; "Your friend has chosen" shows, but not what), then both decks are revealed ("Fire vs Water").
+  - **During the match:**
+    - "Opponent is choosing…" in the caption on the friend's move;
+    - their actions play with the same animations, banners and captions as the AI's;
+    - "Opponent ready" in simultaneous steps;
+    - the log calls them "Your friend";
+    - speed is each player's own setting.
+  - **Afterwards:** New match or Choose deck takes both back to choosing decks on the same connection.
+  - **Leaving or losing the connection:** the other player is told "Your friend has left". Closing the tab says goodbye at once; a heartbeat every 5 seconds catches a connection that just drops (within about 20 seconds).
+  - **Connecting reliably:** each side answers the first hello it hears with its own, so a message sent the instant the connection opens can't be lost and stall the lobby (seen in testing).
+  - **Tests:** `tests/online.test.js` plays a whole seeded match between a host and a guest session over an in-memory link (both choosing with the AI) and checks:
+    - it reaches a winner;
+    - after every action, and at the end, the guest's view is exactly `viewFor(hostState, guest)`;
+    - no message to the guest held the RNG, a Draw Pile card or a card in the host's hand;
+    - the host's deck isn't sent before both have chosen;
+    - illegal guest actions (and acting for the host) are rejected with nothing changed;
+    - a different build or protocol blocks the match.
 
-Add `?seed=123` to the URL to replay the same shuffle and coin flip. Add `?hotseat` for two players on one screen.
+Add `?seed=123` to the URL to replay the same shuffle and coin flip. Add `?hotseat` for two players on one screen, or `?join=CODE` to join a friend's room.
 
 ## Balance report
 

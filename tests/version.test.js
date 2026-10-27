@@ -15,7 +15,8 @@ const files = [];
 (function walk(dir) {
   for (const name of readdirSync(join(root, dir))) {
     const path = `${dir}/${name}`;
-    if (statSync(join(root, path)).isDirectory()) walk(path);
+    // (src/vendor holds plain scripts, not modules; their file names carry their versions.)
+    if (statSync(join(root, path)).isDirectory()) { if (path !== 'src/vendor') walk(path); }
     else if (name.endsWith('.js')) files.push(path);
   }
 })('src');
