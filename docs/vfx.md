@@ -125,7 +125,14 @@ Elliott generates these images. Each is processed into a transparent WebP in `as
 | `ripple` | Water ripple rings seen from above; flatten for perspective (Aqua Ring, Dive, rain splashes) |
 | `sparkle` | Four-pointed gold glints; `sparkle-atlas.webp` has 24 single sprites (healing, Retain, foil, victory) |
 | `cracks` | Web of cracks with gold light shining through (a Trainer falling) |
+| `leaves` | Green leaves; `leaves-atlas.webp` has single sprites (Razor Leaf, evolution) |
+| `petals` | Pink and white petals; `petals-atlas.webp` has single sprites (evolution, Bellossom, hits) |
+| `vines` | Curling vines with leaves (Leech Seed wrap and status) |
+| `seed` | Glowing seed pod cracking open (Leech Seed arc) |
+| `powder` | Glittering purple-blue powder cloud (Sleep Powder) |
+| `rocks` | Angular rock shards; `rocks-atlas.webp` has single sprites (Rock Throw, Sudowoodo) |
+| `sleep-z` | Three glowing "Z"s (the Sleep status) |
 
-**Delivered (all 18).** `assets/vfx/manifest.json` lists each texture's size and suggested blend mode (`additive` for glowing effects, `alpha` for solid ones such as water, smoke, shadow, the bubble and the char edge). `embers`, `droplets` and `sparkle` also have `-atlas.webp` sprite sheets with one sprite per ember or droplet; their rectangles are in the manifest. Orientation: `water-jet` and `lightning` run left to right and rise slightly (about 15°), so rotate them to the attack direction. `shockwave` is a flattened ellipse, as if lying on the table, ready for ground rings.
+**Delivered (all 25).** `assets/vfx/manifest.json` lists each texture's size and suggested blend mode (`additive` for glowing effects, `alpha` for solid ones such as water, smoke, shadow, the bubble and the char edge). `embers`, `droplets`, `sparkle`, `leaves`, `petals` and `rocks` also have `-atlas.webp` sprite sheets with one sprite per ember or droplet; their rectangles are in the manifest. Orientation: `water-jet` and `lightning` run left to right and rise slightly (about 15°), so rotate them to the attack direction. `shockwave` is a flattened ellipse, as if lying on the table, ready for ground rings.
 
 These are drawn procedurally rather than as textures: rain, sun shafts, heat haze, the foil sheen, the Fire Blast shape (built from `flame` sprites), and dust (tinted `smoke`).
