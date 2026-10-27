@@ -333,7 +333,7 @@ Stat guideline: Basics use the normal budget (Attack + Strength ≈ 2 × Cost + 
 | sewaddle | Sewaddle | 2 | Basic | 1 | Bug | 2 Physical | 5 Hitpoints | Steady | Common | On Defeated: gain 2 Growth. |
 | sudowoodo | Sudowoodo | 1 | Basic | 3 | Rock | 3 Physical | 9 Defence | Slow | Rare | (none: a sturdy guard) |
 
-Basic curve: cost 1 ×11, 3 ×1, 4 ×1. Evolutions: Evolve 2 ×6, Evolve 3 ×1.
+Basic curve: cost 1 ×9, 3 ×1, 4 ×1 (11 Basics). Evolutions: Evolve 2 ×6, Evolve 3 ×1.
 
 ### Strategy (8)
 
