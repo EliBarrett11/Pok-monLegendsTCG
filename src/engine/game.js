@@ -101,6 +101,20 @@ export function createGame(seed = Date.now(), { decks = { player: 'fire', ai: 'w
   return state;
 }
 
+// A game saved as JSON (to resume a match after a refresh): JSON can't keep one
+// object in two places, so each zone's Trainer is joined back to the same card
+// in that player's Trainers (damage to one must be damage to the other).
+export function restoreState(saved) {
+  const state = structuredClone(saved);
+  for (const who of PLAYERS) {
+    const p = state.players[who];
+    for (const z of p.zones) {
+      if (z.trainer) z.trainer = p.trainers.find((t) => t.uid === z.trainer.uid) ?? z.trainer;
+    }
+  }
+  return state;
+}
+
 // A player wins immediately when all 3 enemy Trainers are at 0 Strength.
 // If both players' last Trainers reach 0 at the same moment (Burn at
 // Supper), nobody wins: see bothBeaten.

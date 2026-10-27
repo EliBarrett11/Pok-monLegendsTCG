@@ -3,8 +3,9 @@
 // server only introduces the two browsers; the match itself goes directly
 // between them (or through TURN, if set up in ice.js).
 //
-// hostRoom() makes a room code and waits for one friend; joinRoom(code)
-// connects to it. Both hand back a link for session.js.
+// hostRoom() makes a room code (or re-opens one, to resume after a refresh)
+// and hands over every connection that arrives; joinRoom(code) connects to
+// it. Both hand back links for session.js, which decides who may play.
 //
 // For testing without the cloud server, ?peerserver=host:port uses a local
 // PeerServer instead (e.g. `npx peer --port 9000`).
@@ -37,34 +38,49 @@ async function peerOptions() {
   return options;
 }
 
-// A PeerJS connection as a link: send(text), listen(handler), close(); onClose(fn) for drops.
+// A PeerJS connection as a link for session.js: send(text), listen(handler),
+// onClose(fn), close(); onHealth(fn) hears 'good', 'slow' or 'lost'.
 // Made as soon as the connection exists, before it opens: the friend's first
 // message can arrive before this side's 'open' event, and must not be lost.
 // A heartbeat every few seconds tells each side the other is still there: a
 // tab closed without saying goodbye is noticed after LOST_AFTER of silence.
 const PING = '"ping"';
-const BEAT = 5000;
+const BEAT = 3000;
+const SLOW_AFTER = 7000;
 const LOST_AFTER = 20000;
-function linkFor(conn, peer) {
+function linkFor(conn) {
   const inbox = [];
   let handler = null;
   let closed = false;
   let heard = Date.now();
+  let health = 'good';
   const closers = [];
+  const watchers = [];
+  const setHealth = (h) => {
+    if (h === health) return;
+    health = h;
+    for (const fn of watchers) fn(h);
+  };
   const beat = setInterval(() => {
     if (!conn.open) return;
-    if (Date.now() - heard > LOST_AFTER) close();
-    else conn.send(PING);
+    const quiet = Date.now() - heard;
+    if (quiet > LOST_AFTER) close();
+    else {
+      setHealth(quiet > SLOW_AFTER ? 'slow' : 'good');
+      conn.send(PING);
+    }
   }, BEAT);
   const close = () => {
     if (closed) return;
     closed = true;
     clearInterval(beat);
+    setHealth('lost');
     for (const fn of closers) fn();
   };
   conn.on('open', () => { heard = Date.now(); });
   conn.on('data', (data) => {
     heard = Date.now();
+    setHealth('good');
     const text = typeof data === 'string' ? data : String(data);
     if (text === PING) return;
     if (handler) handler(text);
@@ -72,10 +88,6 @@ function linkFor(conn, peer) {
   });
   conn.on('close', close);
   conn.on('error', close);
-  peer.on('disconnected', () => {
-    // Lost the matchmaking server: the direct connection to the friend can live on.
-    if (!peer.destroyed) peer.reconnect();
-  });
   return {
     send(text) {
       if (!closed && conn.open) conn.send(text);
@@ -87,53 +99,83 @@ function linkFor(conn, peer) {
     onClose(fn) {
       closers.push(fn);
     },
+    onHealth(fn) {
+      watchers.push(fn);
+    },
     close() {
       close();
       conn.close();
-      peer.destroy();
     },
   };
 }
 
+// What went wrong, in plain words.
+export const MESSAGES = {
+  blocked: 'Couldn\'t connect. Some networks (offices, schools, some mobile hotspots) block direct connections. '
+    + 'Try another network, or see "If your friend can\'t connect" in the README to add a free relay server.',
+  server: 'The matchmaking server (PeerJS) isn\'t responding, so a match can\'t be set up right now. '
+    + 'It\'s probably down for a while: try again later. (If other websites don\'t load either, check your internet connection.)',
+  noRoom: 'No match is waiting with that code. Check the code, or ask your friend for a new link (their match may have ended).',
+  taken: 'That room code is still in use. Wait a few seconds and try again.',
+  browser: 'This browser can\'t play online (no WebRTC). Try an up-to-date Chrome, Edge, Firefox or Safari.',
+};
 const ERRORS = {
-  'browser-incompatible': 'This browser can\'t play online (no WebRTC). Try an up-to-date Chrome, Edge, Firefox or Safari.',
-  network: 'Couldn\'t reach the matchmaking server. Check your internet connection and try again.',
-  'server-error': 'The matchmaking server isn\'t answering right now. Try again in a minute.',
-  'socket-error': 'Lost the connection to the matchmaking server. Try again.',
-  'socket-closed': 'Lost the connection to the matchmaking server. Try again.',
-  'peer-unavailable': 'No match is waiting with that code. Check the code, or ask your friend for a new link.',
-  'webrtc': 'Couldn\'t connect to your friend directly. One of your networks may be blocking it (see "If your friend can\'t connect" in the README).',
+  'browser-incompatible': MESSAGES.browser,
+  network: MESSAGES.server,
+  'server-error': MESSAGES.server,
+  'socket-error': MESSAGES.server,
+  'socket-closed': MESSAGES.server,
+  'peer-unavailable': MESSAGES.noRoom,
+  'unavailable-id': MESSAGES.taken,
+  webrtc: MESSAGES.blocked,
 };
 const explain = (err) => ERRORS[err?.type] ?? err?.message ?? 'Something went wrong with the connection.';
 
-// Hosts a room. on: code(code), connected(link), error(message). Returns { cancel }.
-export async function hostRoom(on, { tries = 5 } = {}) {
+// How long to wait for the matchmaking server, and for a direct connection.
+const SERVER_TIMEOUT = 15000;
+const CONNECT_TIMEOUT = 20000;
+
+// Hosts a room: a new code, or `code` to re-open the same room after a refresh
+// (the server may still hold it for a few seconds: it's tried again).
+// on: code(code), connected(link) for every connection, error(message). Returns { cancel }.
+export async function hostRoom(on, { code: reuse = null, tries = 6 } = {}) {
   const Peer = await loadPeerJs();
   const options = await peerOptions();
   let peer = null;
   let cancelled = false;
-  let guest = null;
+  let opened = false;
+  const timer = setTimeout(() => { if (!opened && !cancelled) on.error(MESSAGES.server); }, SERVER_TIMEOUT);
   const open = (left) => {
-    const code = roomCode();
+    const code = reuse ?? roomCode();
     peer = new Peer(peerId(code), options);
-    peer.on('open', () => { if (!cancelled) on.code(code); });
+    peer.on('open', () => {
+      opened = true;
+      clearTimeout(timer);
+      if (!cancelled) on.code(code);
+    });
     peer.on('connection', (conn) => {
-      // Two players only: anyone after the first is turned away.
-      if (guest || cancelled) { conn.on('open', () => conn.close()); return; }
-      guest = conn;
-      const link = linkFor(conn, peer);
+      if (cancelled) return;
+      const link = linkFor(conn);
       conn.on('open', () => on.connected(link));
+    });
+    peer.on('disconnected', () => {
+      // Lost the matchmaking server: connections to the friend live on; keep the room open for comebacks.
+      if (!cancelled && !peer.destroyed) setTimeout(() => { if (!cancelled && !peer.destroyed) peer.reconnect(); }, 2000);
     });
     peer.on('error', (err) => {
       if (cancelled) return;
-      if (err.type === 'unavailable-id' && left > 1) {   // that code is taken: another
+      if (err.type === 'unavailable-id' && left > 1) {
+        // A new room: that code is taken, try another. A resumed room: the server hasn't let go of it yet.
         peer.destroy();
-        open(left - 1);
-      } else if (!guest || err.type !== 'peer-unavailable') on.error(explain(err));
+        setTimeout(() => { if (!cancelled) open(left - 1); }, reuse ? 2500 : 0);
+      } else if (err.type !== 'peer-unavailable') {
+        clearTimeout(timer);
+        on.error(explain(err));
+      }
     });
   };
   open(tries);
-  return { cancel() { cancelled = true; peer?.destroy(); } };
+  return { cancel() { cancelled = true; clearTimeout(timer); peer?.destroy(); } };
 }
 
 // Joins the room with this code. on: connected(link), error(message). Returns { cancel }.
@@ -142,15 +184,31 @@ export async function joinRoom(code, on) {
   const peer = new Peer(await peerOptions());
   let cancelled = false;
   let connected = false;
+  let failed = false;
+  const fail = (message) => {
+    if (cancelled || connected || failed) return;
+    failed = true;
+    clearTimeout(serverTimer);
+    clearTimeout(connectTimer);
+    peer.destroy();
+    on.error(message);
+  };
+  let connectTimer = null;
+  const serverTimer = setTimeout(() => fail(MESSAGES.server), SERVER_TIMEOUT);
   peer.on('open', () => {
+    clearTimeout(serverTimer);
     if (cancelled) return;
     const conn = peer.connect(peerId(code), { reliable: true });
-    const link = linkFor(conn, peer);
+    const link = linkFor(conn);
+    // The server knows the room, but no direct connection opens: a network is blocking it.
+    connectTimer = setTimeout(() => fail(MESSAGES.blocked), CONNECT_TIMEOUT);
     conn.on('open', () => {
+      clearTimeout(connectTimer);
       connected = true;
       if (!cancelled) on.connected(link);
     });
+    link.onClose(() => { if (connected) peer.destroy(); });
   });
-  peer.on('error', (err) => { if (!cancelled && !connected) on.error(explain(err)); });
-  return { cancel() { cancelled = true; peer.destroy(); } };
+  peer.on('error', (err) => fail(explain(err)));
+  return { cancel() { cancelled = true; clearTimeout(serverTimer); clearTimeout(connectTimer); peer.destroy(); } };
 }

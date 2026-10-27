@@ -13,7 +13,7 @@ A browser version of Elliott's custom card game, played against an AI opponent, 
 2. Send your friend the link (the **Copy** button copies it). They open it, or click Play a friend and type the code.
 3. When it says **Connected**, you both choose your decks in secret. Once you've both chosen, the decks are revealed and the match starts.
 
-Your browser runs the match. Keep the tab open until it ends; if either of you closes it, the match ends. You both need the same version of the game, so if it says you're on different versions, both refresh the page.
+The host's browser runs the match. If either of you refreshes or loses the connection, the match waits: the friend just opens the same link again, and the host clicks **Resume your match with your friend** on the start screen. **Leave match** ends it for both of you. After a match, **Rematch** starts another once you've both accepted. You both need the same version of the game, so if it says you're on different versions, both refresh the page.
 
 ### If your friend can't connect
 
@@ -169,6 +169,33 @@ No build step: plain HTML, CSS and JavaScript modules. Working rules for each se
     - the host's deck isn't sent before both have chosen;
     - illegal guest actions (and acting for the host) are rejected with nothing changed;
     - a different build or protocol blocks the match.
+- **Multiplayer M3** — reconnect and rematch: playing a friend now survives refreshes and dropped connections.
+  - **The friend (guest) drops or refreshes:**
+    - the host keeps the match and stays usable, with "Your friend disconnected — waiting for them to reconnect…" (no timer) and a red indicator;
+    - the guest's browser keeps a reconnect token for the room, so reopening the same invite link (or a dropped connection retrying by itself every few seconds) rejoins;
+    - the guest gets the current view and play carries on, and the host sees "Your friend reconnected";
+    - only that guest can rejoin: anyone else opening the link is told "This match already has two players".
+  - **The host refreshes:**
+    - the host's browser saves the whole match after every action (localStorage, guarded so play goes on if storage is blocked);
+    - the start screen then offers "Resume your match with your friend" (or Forget it), which re-opens the same room code, so the friend's link still works;
+    - meanwhile the friend sees "trying to reconnect…", then "Host reconnected".
+    - A save from an older version isn't offered.
+  - **Leave match** (the side panel button, or Leave on the lobby screens): after a confirmation the friend is told, and both go back to the start screen ("Your friend left the match.").
+  - **Rematch:** the end screen keeps Step 24's Victory and Defeat on both sides, now with Rematch and Leave match. A rematch needs both: the other player sees "Your friend wants a rematch" and Accept rematch. Then both choose decks again, and a new seed means a new shuffle and a new coin flip.
+  - **Connection:**
+    - a small indicator top right: green connected, amber slow or reconnecting, red disconnected (a heartbeat every 3 seconds);
+    - plain words when a connection can't be made: a network blocking direct connections (with the README's relay-server tip), or the PeerJS matchmaking server being down.
+  - **Fixed:**
+    - a refreshed host's restored match never ended: JSON had split each zone's Trainer from the same card in the player's Trainers, so damage reached one but not the other. The engine's new `restoreState` joins them back.
+    - Views and events are now plain JSON, so what the guest receives is exactly what the host computed.
+  - **Tests** (`tests/online.test.js`, same in-memory transport):
+    - the guest drops mid-match while the host plays on, comes back as a new session with its token, gets the same view, and play continues to the end;
+    - the host is saved and restored mid-match, with an identical state, and finishes exactly as an unbroken match does;
+    - leaving, either way;
+    - a rematch: both must accept, with new decks and a new coin flip;
+    - late messages on a dropped link (actions, updates, a leave, junk) are ignored;
+    - a stranger is turned away while the real guest plays on.
+  - **Checked in two browser windows:** I refreshed the guest mid-match (it rejoined), then the host (resumed from the start screen; the guest got "Host reconnected"), played on, and had the guest leave. No console errors.
 
 Add `?seed=123` to the URL to replay the same shuffle and coin flip. Add `?hotseat` for two players on one screen, or `?join=CODE` to join a friend's room.
 

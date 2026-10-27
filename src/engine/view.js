@@ -60,7 +60,8 @@ export function viewFor(state, seat) {
 
   v.log = logSource ? logSource.map((line) => localize(line, seat, state.names)) : seat === 'player' ? [...log] : [];
   v.events = redactEvents(events, seat, state.names);
-  return localizeAll(v, seat, state.names);
+  // Plain JSON (no undefined fields): the same before and after being sent to a friend.
+  return JSON.parse(JSON.stringify(localizeAll(v, seat, state.names)));
 }
 
 // What the last action did, as the seat may see it.
@@ -93,7 +94,7 @@ export function redactEvents(events = [], seat, names) {
       default:
     }
     hideHandRefs(e, foe);
-    return localizeAll(e, seat, names);
+    return JSON.parse(JSON.stringify(localizeAll(e, seat, names)));   // plain JSON, like viewFor
   });
 }
 

@@ -317,7 +317,7 @@ export function render(root, state, actions) {
       <div class="medallion-seat">${c.primary}</div>
       <div class="panel-foot">
         <button data-action="toggle-log" class="secondary">${logOpen ? 'Hide log' : 'Log'}</button>
-        <button data-action="new-game" class="secondary">New match</button>
+        <button data-action="new-game" class="secondary">${actions.online ? 'Leave match' : 'New match'}</button>
         <div class="settings-wrap">
           <button data-action="settings" class="secondary" title="Settings">⚙ ${SPEEDS[getSpeed()].label}</button>
           <div class="settings"${settingsOpen ? '' : ' hidden'}>
@@ -336,7 +336,7 @@ export function render(root, state, actions) {
     ${pickerBox(state)}
     ${pileViewBox(state)}
     ${martOverlay(state)}
-    ${gameOverScreen(state)}
+    ${gameOverScreen(state, actions.online)}
     <div class="preview" hidden></div>
   `;
 
@@ -907,7 +907,16 @@ function plannedXp(uid) {
 // The end of the match: a Victory crest drops in (or a Defeat crest sinks in)
 // over the brightened (or darkened) board, with the match stats, then New
 // match (the same decks again) and Choose deck.
-function gameOverScreen(state) {
+function onlineEndButtons({ rematch }) {
+  const ask = rematch === 'waiting' ? '<button data-action="rematch" disabled>Waiting for your friend…</button>'
+    : rematch === 'accept' ? '<button data-action="rematch" class="pulse">Accept rematch</button>'
+      : '<button data-action="rematch">Rematch</button>';
+  return `${rematch === 'accept' ? '<p class="end-note">Your friend wants a rematch.</p>' : ''}${ask}<button data-action="new-game" class="secondary">Leave match</button>`;
+}
+
+// Online (Multiplayer M3): Rematch, which both must accept, and Leave match.
+// online.rematch: 'ask' (nobody has yet), 'waiting' (I have), 'accept' (my friend has).
+function gameOverScreen(state, online = null) {
   if (state.phase !== 'gameOver') return '';
   const m = matchStats(state);
   const [title, text] = m.result === 'victory' ? ['Victory', 'All 3 enemy Trainers are at 0 Strength.']
@@ -927,7 +936,7 @@ function gameOverScreen(state) {
           ${row('Cards played', 'cardsPlayed', 'Pokémon, Strategy, Supporter, Location and Item cards played from the hand')}
         </tbody>
       </table>
-      <div class="end-buttons"><button data-action="rematch">New match</button><button data-action="new-game" class="secondary">Choose deck</button></div>
+      <div class="end-buttons">${online ? onlineEndButtons(online) : '<button data-action="rematch">New match</button><button data-action="new-game" class="secondary">Choose deck</button>'}</div>
     </div>
   </div>`;
 }

@@ -40,9 +40,11 @@ const objectsWithUid = (node, uid, out = []) => {
   return out;
 };
 // The full state's words as this seat reads them.
-const local = (node, seat, names) => (typeof node === 'string' ? localize(node, seat, names)
-  : Array.isArray(node) ? node.map((x) => local(x, seat, names))
-    : node && typeof node === 'object' ? Object.fromEntries(Object.entries(node).map(([k, x]) => [k, local(x, seat, names)])) : node);
+// (As plain JSON, like a view: no undefined fields.)
+const local = (node, seat, names) => JSON.parse(JSON.stringify(localWords(node, seat, names)) ?? 'null');
+const localWords = (node, seat, names) => (typeof node === 'string' ? localize(node, seat, names)
+  : Array.isArray(node) ? node.map((x) => localWords(x, seat, names))
+    : node && typeof node === 'object' ? Object.fromEntries(Object.entries(node).map(([k, x]) => [k, localWords(x, seat, names)])) : node);
 const PUBLIC_FIELDS = ['discard', 'released', 'bag', 'dollars', 'xp', 'trainers', 'zones', 'deck', 'supporterRound',
   'baseEnergy', 'exertMax', 'exhaust'];
 const ALL_NAMES = new Set();
