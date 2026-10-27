@@ -225,6 +225,30 @@ No build step: plain HTML, CSS and JavaScript modules. Working rules for each se
     - Overall: Fire 76.3% · Water 72.5% · Grass 1.3%. No stalls. Without its AI plan (variant N, 60 matches) Grass still loses every match to Fire, so the cards, not the plan, decide it.
   - **Tests:** `tests/grassdeck.test.js` checks every Grass card's effect and plays Grass vs Fire, Water vs Grass and Grass vs Grass to the end; `tests/decks.test.js` checks the Grass decklist, its printed data and its legality; `tests/view.test.js` plays three Grass matches checking nothing hidden leaks; older count tests now include Grass.
   - **Checked in the browser:** the three-deck screen with the AI's deck choice; Solar Beam's Growth dialog (chose 4 of 6, the Trainer took 4); Ivysaur, Bellossom and Celebi show each ability; six AI-vs-AI matches with no console errors. Grass attacks and Strategy Cards use the generic animations for now.
+- **G2 answers** — Sunflora's +2 is for its own attacks only (not when it hits back in a trade); Celebi still allows one Evolve per Pokémon per Round; Big Root unchanged; Synthesis can be played for its Growth alone with no friendly Pokémon to heal; Solar Beam needs at least 1 Growth. In the rulebook (section 9.4) and tested in `tests/grassdeck.test.js`. The Grass Basic curve in `docs/decks.md` was corrected to match its table.
+- **Grass G3a** — a balance experiment; no card or rule changes committed. `node tools/balance.js 100 --grass W1SPE --matchups grass-fire,grass-water` tries the variants in memory (W1 Sun 6: first Evolve each Round −1 instead of blocking Sleep · W2 Sun 6 does nothing · S Grass makes less Sun · P Oddish line Physical · I Venusaur and Bellossom gain Infiltrator · E Grass Basics +1/+1 · G Evolve costs −1 · B Solar Beam costs 2, spends up to 10); `--json FILE` writes the numbers. The W1 rule exists in the engine but no Weather bracket uses it. 200 matches per matchup:
+
+  | Variant | Grass v Fire | Grass v Water | Rounds (vF / vW) | Grass Trainer damage (vF / vW) | Solar Beam damage | Grass guarded (vW) |
+  |---|---|---|---|---|---|---|
+  | current | 0% | 3.0% | 4.2 / 6.7 | 15.0 / 21.9 | 5.5 / 15.0 | 71% |
+  | W1 | 0% | 4.0% | 4.2 / 6.8 | 15.3 / 22.2 | 5.6 / 15.4 | 71% |
+  | W2 | 0% | 3.5% | 4.2 / 6.8 | 15.2 / 22.2 | 5.5 / 15.3 | 71% |
+  | S | 0% | 3.0% | 4.3 / 6.7 | 15.6 / 21.4 | 5.5 / 13.9 | 73% |
+  | P | 0% | 1.0% | 4.2 / 6.8 | 15.0 / 16.1 | 5.5 / 14.8 | 81% |
+  | I | 0% | 3.0% | 4.2 / 6.7 | 15.0 / 21.9 | 5.5 / 15.0 | 71% |
+  | E | 0% | 8.0% | 4.1 / 6.4 | 19.0 / 29.2 | 5.3 / 13.0 | 69% |
+  | G | 0% | 3.5% | 4.2 / 6.8 | 14.9 / 22.6 | 5.9 / 14.8 | 71% |
+  | B | 0% | 5.0% | 4.2 / 6.8 | 15.7 / 24.6 | 6.5 / 16.7 | 72% |
+  | W1S | 0% | 3.0% | 4.3 / 6.7 | 15.8 / 21.4 | 5.7 / 13.9 | 73% |
+  | W1SP | 0% | 1.5% | 4.3 / 6.7 | 15.8 / 14.5 | 5.7 / 13.5 | 83% |
+  | W1SPE | 0% | 1.5% | 4.2 / 6.4 | 19.2 / 20.9 | 5.5 / 12.0 | 82% |
+  | W1SPEG | 1.0% | 1.0% | 4.2 / 6.6 | 20.2 / 21.6 | 5.9 / 13.6 | 82% |
+  | W1SPEB | 1.5% | 2.5% | 4.2 / 6.5 | 20.1 / 24.4 | 5.9 / 14.0 | 81% |
+  | W1SIE | 0% | 5.0% | 4.2 / 6.3 | 19.3 / 27.3 | 5.5 / 11.6 | 70% |
+
+  - Fire–Water is unaffected by the Weather variants: Fire 52.5%, 5.6 Rounds, with the current Weather, W1 and W2.
+  - Grass Evolves about 1.7 times against Fire (first in Round 2.8) and about 3 times against Water (Round 3.1); it gains about 15 Growth against Fire and 30 against Water. S drops peak Sun from 8.2 to 6.4 against Fire, and from 5.4 to 3.1 against Water. Grass is never guarded against Fire.
+  - **No variant reaches 45–55%.** Against Water, E (Basics +1/+1) moved Grass most, then B; P made it worse (Water's Defence Pokémon then guard against Grass's Physical attackers too). Against Fire nothing on its own won a match: Fire wins in about 4.2 Rounds, before the engine runs. Elliott decides what to try next.
 
 Add `?seed=123` to the URL to replay the same shuffle and coin flip. Add `?hotseat` for two players on one screen, or `?join=CODE` to join a friend's room.
 

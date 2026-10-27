@@ -652,7 +652,7 @@ Three decks, as approved in `docs/decks.md` (the source of truth for them). The 
 - **Timed Weather order:** if two Weather types have timed effects at the same moment, the build resolves them in Weather order (Rain, then Sun). Is that right?
 - **Trainer vs Pokémon order:** when a Trainer's Passive and a Pokémon in the same zone trigger at the same moment, which goes first? (The build puts the Trainer after the Pokémon in its zone.)
 - **On Supper:** no card uses it yet; the hook is built and tested.
-- **Grass G2 balance:** see the round-robin in the README's build log. Elliott decides every number.
+- **Grass balance:** Grass wins about 0% against Fire and 3% against Water. The G3a experiment (README build log, `tools/balance.js --grass`) tried Weather, Sun, attack-type, Infiltrator, early-stat, Evolve-cost and Solar Beam changes and their combinations; none reached 45–55%. Elliott decides what to try next.
 
 ## Placeholders in the current build
 
