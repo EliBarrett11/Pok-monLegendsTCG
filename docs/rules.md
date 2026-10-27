@@ -410,7 +410,7 @@ Two decks, as approved in `docs/decks.md` (the source of truth for them). The ga
   - The opponent's hand: how many cards, not which. A card they **Search** for goes into their hand unseen ("searched the Draw Pile for 1 card"); a card they **Return** from the Discard Pile is seen, since the Discard Pile is public.
   - Both Draw Piles: how many cards, not which or in what order. Your own Search shows you only the matching cards.
   - The PokéMart: the 3 Items on sale and how many are left in its deck, not their order.
-  - Simultaneous steps (placing Trainers, the mulligan, spending XP): only that the opponent has locked in, until both have. Then the Trainers are revealed and the mulligan count shows; for **XP**, how much the opponent spent and on which stat (e.g. "+1 Attack, +2 Strength"), but not which Pokémon in their hand got it.
+  - Simultaneous steps (placing Trainers, the mulligan, spending XP): only that the opponent has locked in, until both have. Then the Trainers are revealed and the mulligan count shows; for **XP**, how much the opponent spent and on which stat (e.g. "+1 Attack, +2 Strength"), but not which Pokémon in their hand got it (settled by Elliott: it stays hidden, since naming it would reveal a card in hand; the buff shows once that Pokémon is summoned).
   - Card uids (how the game tells cards apart) don't say which card it is, and are renumbered whenever a Discard Pile is shuffled into a new Draw Pile, so a card can't be followed into a hidden hand.
 - **Two players, one screen (hot-seat):** for testing and local play, two players can share one screen (the "Two players, one screen" button, or `?hotseat`). Each chooses a deck in turn, in secret. Whenever control passes to the other player (including either half of a simultaneous step), a "Pass to Player 2" screen hides the board until they click "I'm ready"; the board is then drawn from their side, and the last action is shown again from there.
 
@@ -523,7 +523,6 @@ Two decks, as approved in `docs/decks.md` (the source of truth for them). The ga
 - **Timed Weather order:** if two Weather types have timed effects at the same moment, the build resolves them in Weather order (Rain, then Sun). Is that right?
 - **Trainer vs Pokémon order:** when a Trainer's Passive and a Pokémon in the same zone trigger at the same moment, which goes first? (The build puts the Trainer after the Pokémon in its zone.)
 - **On Supper:** no card uses it yet; the hook is built and tested.
-- **XP against a friend:** once both lock in, the build shows how much XP the opponent spent and on which stat, but not which Pokémon in their hand got it (that would reveal part of their hand). Is that right, or should the Pokémon be shown too?
 
 ## Placeholders in the current build
 
