@@ -57,6 +57,7 @@
 //           a matching card; the effect applies to every matching card there
 //   filter  a card condition (see matchesCard)     Pokémon only
 //   damaged true: only cards below their maximum Strength
+//   optional true (with mode 'targeted'): the card can be played with no legal target; that part does nothing
 //
 // PASSIVE      { aura?, triggers? }
 //   aura      { attack, strength, target: selector } continuous stat bonus,
@@ -209,7 +210,7 @@ export function canResolve(state, ctx, effects) {
     // Return needs something to return (the Discard Pile is public), unless it says "up to".
     // Search can always be played: the Draw Pile is hidden.
     if (e.op === 'return') return e.upTo || pileMatches(state.players[ctx.who].discard, e.filter).length > 0;
-    if (e.target?.mode === 'targeted') return candidates(state, ctx, e.target, e).length > 0;
+    if (e.target?.mode === 'targeted') return e.target.optional || candidates(state, ctx, e.target, e).length > 0;
     return true;
   });
 }

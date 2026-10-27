@@ -379,6 +379,13 @@ export function attackBlock(state, who, from, ref) {
   return { defeated: false, guards };
 }
 
+// What a Pokémon deals when it attacks (a Command): its Attack, plus a bonus
+// only its own attacks get (Sunflora: +2 while Sun is 4 or more; not when it hits back).
+export function attackPower(state, card) {
+  const bonus = card.attackIf && (weatherCounts(state)[card.attackIf.weather] ?? 0) >= card.attackIf.min ? card.attackIf.amount : 0;
+  return attackOf(card) + bonus;
+}
+
 function canCommand(state, who) {
   return alertPokemon(state, who).some((a) => legalTargets(state, who, a).length);
 }
@@ -429,9 +436,11 @@ function strategyCtx(state, who, card, target) {
 
 // Strategy Cards in hand this player could play now: affordable, and with
 // something to affect (a legal target, a card to draw).
+// A card that spends Growth (Solar Beam) needs at least 1 Growth (Elliott, G2 answers).
 export function playableStrategies(state, who) {
   const p = state.players[who];
   return p.hand.filter((c) => c.cardType === 'Strategy' && canPay(p, c.energyCost)
+    && (!c.spendsGrowth || (p.growth ?? 0) >= 1)
     && canResolve(state, strategyCtx(state, who, c), c.effects));
 }
 
@@ -872,7 +881,7 @@ const HANDLERS = {
     questEvent(state, who, { type: 'attack', card: attacker, zone: from.zone });
     const scorch = keywordAmount(attacker, 'Scorch');
     const name = `${whose(state, who)} ${attacker.name}`;
-    const power = attackOf(attacker);
+    const power = attackPower(state, attacker);
     const hitsBack = target.kind === 'pokemon' && isAlert(state, cardAt(state, targetRef));
     const over = guardsBypassed(state, who, from, target);
     emit(state, 'attack', {
@@ -948,8 +957,8 @@ const HANDLERS = {
     if (!card || card.cardType !== 'Strategy') throw new Error('Choose a Strategy Card from your hand');
     if (!playableStrategies(state, who).includes(card)) throw new Error(`${card.name} cannot be played now`);
     const most = card.spendsGrowth ? Math.min(card.spendsGrowth, p.growth ?? 0) : 0;
-    if (growth !== undefined && (!Number.isInteger(growth) || growth < 0 || growth > most)) {
-      throw new Error(`Spend between 0 and ${most} Growth`);
+    if (growth !== undefined && (!Number.isInteger(growth) || growth < 1 || growth > most)) {
+      throw new Error(`Spend between 1 and ${most} Growth`);
     }
     const paid = payCost(p, card.energyCost, state.round);
     p.hand = p.hand.filter((c) => c !== card);   // out of hand while it resolves, so a draw can't draw it

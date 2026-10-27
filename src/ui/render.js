@@ -1953,7 +1953,7 @@ function wire(root, state, actions) {
     const c = state.players.player.hand.find((h) => h.uid === ui.strategy);
     const most = c?.spendsGrowth ? Math.min(c.spendsGrowth, state.players.player.growth ?? 0) : 0;
     if (most > 0 && !ui.growthAsk) {
-      ui.growthAsk = { mode: 'spend', target: ref, min: 0, max: most, growth: most };
+      ui.growthAsk = { mode: 'spend', target: ref, min: 1, max: most, growth: most };
       redraw();
       return;
     }

@@ -466,8 +466,8 @@ export const GRASS_POKEMON = [
   evolution('Stage 1', 'Sunkern', 2, pokemon('Sunflora', null, 'Grass', 'Special', 5, 'Hitpoints', 8, 'Slow', 'Rare', {
     weatherTokens: { Sun: 2 },
     effectText: 'Deals +2 damage with its attack while Sun is 4 or more.',
-    // A Weather modifier of its own (see refreshWeather in effects.js): +2 Attack while Sun is 4 or more.
-    weatherStats: [{ weather: 'Sun', min: 4, attack: 2 }],
+    // Only when it attacks (a Command), not when it hits back in a trade (Elliott, G2 answers): see attackPower in game.js.
+    attackIf: { weather: 'Sun', min: 4, amount: 2 },
   })),
   pokemon('Celebi', 4, 'Grass', 'Special', 3, 'Hitpoints', 7, 'Swift', 'Legendary', {
     ...abilities(
@@ -489,7 +489,8 @@ export const GRASS_STRATEGY = [
   ]),
   strategy('synthesis', 'Synthesis', 1, 'Common', 'Gain 2 Growth, or 3 if Sun is 2 or more. Heal a friendly Pokémon 2.', [
     { op: 'gainGrowth', amount: 2, amountIf: { weather: 'Sun', min: 2, amount: 3 } },
-    { op: 'heal', amount: 2, target: { mode: 'targeted', side: 'friendly' } },
+    // (With no friendly Pokémon to heal it can still be played, for the Growth alone: Elliott, G2 answers.)
+    { op: 'heal', amount: 2, target: { mode: 'targeted', side: 'friendly', optional: true } },
   ]),
   // "Spend up to 8 Growth": the player chooses how much as they play it (the action's growth; all of it, up to 8, by default).
   strategy('solar-beam', 'Solar Beam', 3, 'Rare', 'Spend up to 8 Growth: deal that much damage to an enemy Pokémon or Trainer. Retain.', [

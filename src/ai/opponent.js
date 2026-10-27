@@ -81,7 +81,7 @@ function candidateMoves(state, who) {
     // A card that spends Growth (Solar Beam): all it has, up to its limit.
     const spend = card.spendsGrowth ? { growth: Math.min(card.spendsGrowth, p.growth ?? 0) } : {};
     if (targets.length) targets.forEach((target) => moves.push({ type: 'playStrategy', who, uid: card.uid, target, ...spend }));
-    else if (!card.effects.some((e) => e.target?.mode === 'targeted')) moves.push({ type: 'playStrategy', who, uid: card.uid });
+    else if (!card.effects.some((e) => e.target?.mode === 'targeted' && !e.target.optional)) moves.push({ type: 'playStrategy', who, uid: card.uid });
   }
   // Supporters: one payment each (random cards, but meeting the Gift when it can).
   const seenSupporter = new Set();

@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict';
 import {
   createGame, applyAction, legalActions, PLAYERS, evolveOptions, evolveCost, attackOf, maxStrengthOf, itemTargets,
+  attackPower, playableStrategies,
 } from '../src/engine/game.js';
 import { resolveEffects } from '../src/engine/effects.js';
 import { hasKeyword, keywordAmount } from '../src/engine/keywords.js';
@@ -109,20 +110,28 @@ function breakfastGrowth(s) {
   s = act(s, 'player', { type: 'command', from: { zone: 2, space: 0 }, target: { kind: 'pokemon', zone: 0, space: 0 } });
   assert.equal(growthOf(s), before + 1);
 }
-// Sunkern and Sunflora: Sun tokens; Sunflora deals +2 with its attack while Sun is 4 or more.
+// Sunkern and Sunflora: Sun tokens; Sunflora deals +2 with its attack while Sun is 4 or more,
+// but not when it hits back in a trade (Elliott, G2 answers).
 {
-  const s = grass();
-  place(s, 'player', 0, 0, 'sunkern');
-  assert.equal(weatherCounts(s).Sun, 1);
-  s.players.player.zones[0].pokemon[0] = null;
-  place(s, 'player', 0, 0, 'sunflora');
-  assert.equal(weatherCounts(s).Sun, 2);
-  assert.equal(attackOf(at(s, 'player', 0, 0)), 5, 'Sun 2: printed Attack');
+  let s = grass();
   place(s, 'player', 1, 0, 'sunkern');
-  place(s, 'player', 2, 0, 'sunkern');
+  assert.equal(weatherCounts(s).Sun, 1);
+  s.players.player.zones[1].pokemon[0] = null;
+  place(s, 'player', 1, 0, 'sunflora');   // (Zone 2: no Passive bonuses)
+  assert.equal(weatherCounts(s).Sun, 2);
+  assert.equal(attackPower(s, at(s, 'player', 1, 0)), 5, 'Sun 2: printed Attack');
+  place(s, 'player', 2, 1, 'sunkern');
+  place(s, 'player', 2, 2, 'sunkern');
   assert.equal(weatherCounts(s).Sun, 4);
-  assert.equal(attackOf(at(s, 'player', 0, 0)), 7, 'Sun 4: +2');
-  assert.equal(attackOf(at(s, 'player', 1, 0)), 2, 'only Sunflora');
+  assert.deepEqual([attackOf(at(s, 'player', 1, 0)), attackPower(s, at(s, 'player', 1, 0))], [5, 7], 'Sun 4: +2 on its attacks; its Attack stays 5');
+  // Its attack: 7 damage.
+  place(s, 'ai', 1, 1, 'quagsire', { spent: true });
+  const t = act(structuredClone(s), 'player', { type: 'command', from: { zone: 1, space: 0 }, target: { kind: 'pokemon', zone: 1, space: 1 } });
+  assert.equal(t.events.find((e) => e.type === 'attack').amount, 7, '(before Crasher Wake\'s Shell 1)');
+  // Hitting back in a trade (a Slow attacker, so Sunflora is Alert): 5, less the Shell 1.
+  place(s, 'ai', 1, 2, 'quagsire');
+  s = act(s, 'ai', { type: 'command', from: { zone: 1, space: 2 }, target: { kind: 'pokemon', zone: 1, space: 0 } });
+  assert.ok(logged(s, 'hit back for 4 (Shell: 5 → 4)'), 'no +2 when hitting back');
 }
 // Celebi: On Summon +3 Growth; your Pokémon can Evolve the Round they're summoned (not twice in one Round).
 {
@@ -182,12 +191,23 @@ function breakfastGrowth(s) {
   s = strategy(s, 'synthesis', pref('player', 0, 0));
   assert.equal(growthOf(s), before + 3, 'Sun 2: 3 Growth');
 }
+// With no friendly Pokémon to heal, Synthesis can still be played for the Growth (Elliott, G2 answers).
+{
+  let s = grass();
+  const before = growthOf(s);
+  const uid = give(s, 'player', 'synthesis');
+  assert.ok(playableStrategies(s, 'player').some((c) => c.uid === uid));
+  s = act(s, 'player', { type: 'playStrategy', uid });
+  assert.equal(growthOf(s), before + 2);
+  assert.equal(s.pending, null);
+}
 // Solar Beam: spend up to 8 Growth (the player's choice; all of it up to 8 by default); that much damage.
 {
   let s = grass();
   place(s, 'ai', 0, 0, 'quagsire');
   s.players.player.growth = 5;
-  assert.throws(() => strategy(s, 'solar-beam', tref('ai', 1), { growth: 6 }), /Spend between 0 and 5 Growth/);
+  assert.throws(() => strategy(s, 'solar-beam', tref('ai', 1), { growth: 6 }), /Spend between 1 and 5 Growth/);
+  assert.throws(() => strategy(s, 'solar-beam', tref('ai', 1), { growth: 0 }), /Spend between 1 and 5 Growth/);
   s = strategy(s, 'solar-beam', tref('ai', 1), { growth: 3 });
   assert.equal(growthOf(s), 2);
   assert.equal(trainerAt(s, 'ai', 1).strength, trainerAt(s, 'ai', 1).maxStrength - 3);
@@ -195,9 +215,12 @@ function breakfastGrowth(s) {
   s = strategy(s, 'solar-beam', tref('ai', 2));
   assert.equal(growthOf(s), 4, 'by default all of it, up to 8');
   assert.equal(trainerAt(s, 'ai', 2).strength, trainerAt(s, 'ai', 2).maxStrength - 8);
-  s = strategy(s, 'solar-beam', pref('ai', 0, 0), { growth: 0 });
-  assert.equal(at(s, 'ai', 0, 0).currentStrength, maxStrengthOf(at(s, 'ai', 0, 0)), '0 Growth: no damage');
-  assert.ok(s.players.player.discard.some((c) => c.id === 'solar-beam'));
+  assert.ok(s.players.player.discard.some((c) => c.id === 'solar-beam'), 'played: to the Discard Pile');
+  // It needs at least 1 Growth to be played (Elliott, G2 answers).
+  s.players.player.growth = 0;
+  const beam = give(s, 'player', 'solar-beam');
+  assert.ok(!playableStrategies(s, 'player').some((c) => c.uid === beam), 'no Growth: not playable');
+  s.players.player.hand = s.players.player.hand.filter((c) => c.uid !== beam);
   assert.ok(give(s, 'player', 'solar-beam') && s.players.player.hand.at(-1).retain, 'Retain');
 }
 

@@ -627,15 +627,15 @@ Three decks, as approved in `docs/decks.md` (the source of truth for them). The 
 | Gardenia | 16 | (1) Gain 1 Growth. | Evolving a Pokémon in Gardenia's Zone costs 1 less (minimum 0). |
 | Ramos | 15 | (1) Leech Seed an enemy Pokémon in Ramos's Zone. | Leech Seeds on enemy Pokémon in Ramos's Zone drain 1 more. |
 
-**How the Grass cards work in the build** (the ones marked *ask* are under Open questions):
+**How the Grass cards work** (settled with Elliott after G2):
 - **Several abilities on one card** (Ivysaur, Bellossom, Celebi) each trigger on their own, with their own Trigger Word.
-- **Sunflora** gains +2 Attack while Sun is 4 or more, shown on the card like a Weather bonus, so it also counts when it hits back in a trade. *Ask.*
-- **Celebi:** while it's in your arena, your Pokémon summoned this Round can Evolve, including ones summoned before Celebi. It doesn't lift "evolved this Round": a Pokémon still Evolves at most once a Round. *Ask.*
-- **Solar Beam:** you choose how much Growth to spend, from 0 up to 8 (or all you have): the screen asks after you pick the target, starting at as much as possible. It can be played with no Growth (0 damage). Its damage is effect damage (Shell reduces it, no On Defend).
-- **Synthesis, Oran Berry and Mallow's Gift** heal and do something else, so (like Aqua Ring, section 7.1) they can target a friendly Pokémon that isn't damaged. Synthesis and Oran Berry still need a friendly Pokémon in the arena to be played. Mallow's Gift chooses its heal target after the cost is paid, as the effect resolves. *Ask* (Synthesis with no Pokémon).
+- **Sunflora** deals +2 damage when it attacks (a Command) while Sun is 4 or more. Not when it hits back in a trade, and its Attack Value stays the same.
+- **Celebi:** while it's in your arena, your Pokémon summoned this Round can Evolve, including ones summoned before Celebi. A Pokémon still Evolves at most once per Round.
+- **Solar Beam:** you choose how much Growth to spend, from 1 up to 8 (or all you have): the screen asks after you pick the target, starting at as much as possible. It needs at least 1 Growth to be played. Its damage is effect damage (Shell reduces it, no On Defend).
+- **Synthesis, Oran Berry and Mallow's Gift** heal and do something else, so (like Aqua Ring, section 7.1) they can target a friendly Pokémon that isn't damaged. **Synthesis** can be played with no friendly Pokémon in the arena, for the Growth alone. Oran Berry needs a friendly Pokémon to heal. Mallow's Gift chooses its heal target after the cost is paid, as the effect resolves.
 - **Pokémon Breeder** finds Pokémon whose "evolves from" names one of your Pokémon in the arena (an Ivysaur in the arena lets it find Venusaur). Its Gift Challenge "an evolution card" is a Stage 1 or Stage 2 card.
 - **Rare Candy** can only target a Basic that has a Stage 2 (Bulbasaur, Oddish). That Basic may then Evolve straight into its Stage 2 this Round, paying the Stage 2's Evolve cost (Gardenia's discount still applies); only the Basic goes into the stack.
-- **Big Root:** a seed you applied heals the Big Root holder instead of your most-damaged Pokémon, if the holder is damaged (otherwise the most-damaged one as usual). *Ask.*
+- **Big Root:** a seed you applied heals the Big Root holder instead of your most-damaged Pokémon, if the holder is damaged (otherwise the most-damaged one as usual).
 - **Ramos:** "drain 1 more" is 1 more damage and 1 more healing, on top of Rain 6.
 - **Gardenia** lowers the Evolve cost of a Pokémon in her Zone while she's in play; the screen and the AI show the lower cost.
 - **Sewaddle's** Growth goes to its owner. **Petalburg Woods'** seeds belong to its owner.
@@ -652,13 +652,6 @@ Three decks, as approved in `docs/decks.md` (the source of truth for them). The 
 - **Timed Weather order:** if two Weather types have timed effects at the same moment, the build resolves them in Weather order (Rain, then Sun). Is that right?
 - **Trainer vs Pokémon order:** when a Trainer's Passive and a Pokémon in the same zone trigger at the same moment, which goes first? (The build puts the Trainer after the Pokémon in its zone.)
 - **On Supper:** no card uses it yet; the hook is built and tested.
-- **Grass G2: wording the build had to interpret** (section 9.4; each is easy to change):
-  - **Basic curve:** `docs/decks.md` says "cost 1 ×11", but its table has 9 cost-1 Basics (3 Bulbasaur, 2 Oddish, 2 Sunkern, 2 Sewaddle). The build follows the table. Is a card or a copy missing?
-  - **Sunflora:** "+2 damage with its attack while Sun is 4 or more" is built as +2 Attack, so it also adds when Sunflora hits back in a trade. Attacks only?
-  - **Celebi:** it lets Pokémon summoned this Round Evolve, but not a second Evolve in one Round (no Bulbasaur → Ivysaur → Venusaur in one Round). Right?
-  - **Big Root:** "heal the holder first": the holder gets the seed's heal if it is damaged, otherwise the most-damaged Pokémon does. Or should the holder always get it (even at full Strength, wasting it), or should a seed heal both?
-  - **Synthesis** can't be played with no friendly Pokémon in the arena (its heal needs a target), though its Growth would still be useful. Should it be playable then (gaining Growth only)?
-  - **Solar Beam** can be played with 0 Growth (it deals nothing). Should it need at least 1?
 - **Grass G2 balance:** see the round-robin in the README's build log. Elliott decides every number.
 
 ## Placeholders in the current build

@@ -35,7 +35,7 @@ for (const c of POKEMON_CARDS) {
     || Object.entries(c.weatherTokens).every(([type, n]) => WEATHER_TYPES.includes(type) && n >= 1), `${c.name} weather`);
   // A trigger word always has its text; text without one is several abilities (abilityParts) or a rule the engine checks (Sunflora).
   if (c.effectTrigger !== null) assert.ok(c.effectText, `${c.name}: trigger word and effect text go together`);
-  if (c.effectText && c.effectTrigger === null) assert.ok(c.abilityParts || c.weatherStats, `${c.name}: text without a trigger word`);
+  if (c.effectText && c.effectTrigger === null) assert.ok(c.abilityParts || c.attackIf, `${c.name}: text without a trigger word`);
 }
 assert.equal(POKEMON_TYPES.length, 18);
 assert.deepEqual(new Set(POKEMON_CARDS.map((c) => c.rarity)), new Set(Object.keys(RARITIES)), 'every rarity used');
