@@ -1142,7 +1142,7 @@ function questTitle(c) {
 // over the placeholder (the darkened frame material with the Card-Type's
 // icon), so a missing file just leaves the placeholder showing, and a file
 // added later shows up without any code change.
-function artUrl(c) {
+export function artUrl(c) {
   return c.image ?? `assets/cards/${c.id}.jpg`;
 }
 

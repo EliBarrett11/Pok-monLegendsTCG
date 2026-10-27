@@ -10,6 +10,7 @@ import {
   attackAnimation, counterAnimation, timelineDuration, statusLevel, impactScale, MAX_SCALE, tintOf,
   composeAttack, composeCounter, effectAnimation, BURN_CAST,
   STRATEGIES, STRATEGY_FALLBACK, STRATEGY_OPENING, SWEEPS, strategyAnimation, composeStrategy, strategyTint, DIVE_RISE,
+  SUMMONS, LEGENDARY_SUMMONS, summonAnimation, composeSummon, DEFEATS, defeatStyle,
 } from '../src/ui/vfx/library.js';
 import { Timeline } from '../src/ui/vfx/timeline.js';
 import { MOTION_NAMES } from '../src/ui/vfx/engine.js';
@@ -194,11 +195,85 @@ for (const [name, sw] of Object.entries(SWEEPS)) {
 }
 for (const tex of ['wave', 'ripple', 'sparkle', 'cracks']) assert.ok(TEXTURES.includes(tex), `the kit's ${tex} is loaded`);
 
+// --- Summons, defeats, healing, Trainers, Supporters (Step 23, docs/vfx.md section 6) ---------
+
+// Every rarity has an entrance; Kyogre and Blaziken have their own Legendary cinematics.
+for (const rarity of ['Common', 'Rare', 'Epic', 'Legendary']) assert.ok(TIMELINES[SUMMONS[rarity]], `${rarity}: an entrance`);
+for (const c of deckPokemon) {
+  const id = summonAnimation(c);
+  assert.ok(TIMELINES[id], `${c.name}: ${id}`);
+  assert.ok(TIMELINES[id].beats.some((b) => b.cue === 'land'), `${c.name}: it lands`);
+}
+assert.equal(summonAnimation(cardDefinition('kyogre')), 'summon-kyogre');
+assert.equal(summonAnimation(cardDefinition('blaziken')), 'summon-blaziken');
+assert.equal(summonAnimation({ id: 'mew', rarity: 'Legendary' }), 'summon-legendary', 'other Legendaries: the general cinematic');
+assert.equal(summonAnimation(cardDefinition('horsea')), 'summon-common');
+{
+  const has = (id, pred) => TIMELINES[id].beats.some(pred);
+  assert.ok(has('summon-common', (b) => b.emit === 'landRing') && has('summon-common', (b) => EMITTERS[b.emit]?.tex === 'smoke'), 'Common: a dust ring');
+  assert.ok(has('summon-rare', (b) => b.emit === 'typeFlare') && !has('summon-common', (b) => b.emit === 'typeFlare'), 'Rare adds a Type flare');
+  assert.ok(has('summon-epic', (b) => b.emit === 'epicFlare') && has('summon-epic', (b) => b.emit === 'lightShaft'), 'Epic: a larger flare and a light shaft');
+  for (const id of ['summon-legendary', ...Object.values(LEGENDARY_SUMMONS)]) {
+    assert.equal(TIMELINES[id].budget, 'cinematic', id);
+    for (const m of ['descend', 'shrinkHome']) assert.ok(has(id, (b) => b.motion === m), `${id}: ${m}`);
+    assert.ok(has(id, (b) => b.cue === 'dim') && has(id, (b) => b.cue === 'undim'), `${id}: the board dims, then comes back`);
+  }
+  assert.ok(has('summon-kyogre', (b) => EMITTERS[b.emit]?.tex === 'wave') && has('summon-kyogre', (b) => b.emit === 'rainBurst'), 'Kyogre: a wave and rain');
+  assert.ok(has('summon-blaziken', (b) => b.emit === 'eruption' && b.on === 'ground'), 'Blaziken: an eruption from its space');
+  // Quick Attack: lands Active, with a speed streak.
+  const quick = composeSummon('summon-common', { quick: true });
+  assert.ok(quick.beats.some((b) => b.ribbon === 'speedStreak') && quick.beats.some((b) => b.cue === 'active'), 'Quick Attack: a speed streak');
+  assert.equal(composeSummon('summon-common').beats.length, TIMELINES['summon-common'].beats.length);
+  assert.ok(timelineDuration(composeSummon('summon-kyogre', { quick: true }), MAX_SCALE) <= BUDGETS.cinematic.max);
+  for (const r of ['Common', 'Rare', 'Epic']) assert.ok(timelineDuration(composeSummon(SUMMONS[r], { quick: true }), MAX_SCALE) <= BUDGETS.summon.max);
+}
+// A defeat's dissolve follows its cause.
+assert.equal(defeatStyle({ cause: 'burn' }), 'ash', 'Burn: burnt to ash');
+assert.equal(defeatStyle({ cause: 'damage', hitBy: { kind: 'pokemon', type: 'Fire' } }), 'ash', 'a Fire attack: burnt to ash');
+assert.equal(defeatStyle({ cause: 'damage', hitBy: { kind: 'pokemon', type: 'Water' } }), 'wash', 'Water: washed away');
+assert.equal(defeatStyle({ cause: 'damage', hitBy: { kind: 'strategy', id: 'fire-blast' } }), 'ash', 'Fire Blast: ash');
+assert.equal(defeatStyle({ cause: 'damage', hitBy: { kind: 'strategy', id: 'surf' } }), 'wash', 'Surf: washed away');
+assert.equal(defeatStyle({ cause: 'damage', hitBy: { kind: 'pokemon', type: 'Fighting' } }), 'shatter', 'anything else: shattered');
+assert.equal(defeatStyle({ cause: 'damage', hitBy: null }), 'shatter');
+for (const [style, id] of Object.entries(DEFEATS)) {
+  assert.equal(TIMELINES[id].budget, 'defeat', id);
+  assert.ok(TIMELINES[id].beats.some((b) => b.cue === 'gone'), `${style}: the pieces go to the Released Pile`);
+}
+assert.ok(TIMELINES['defeat-ash'].beats.some((b) => b.emit === 'risingEmbers') && TIMELINES['defeat-ash'].beats.some((b) => b.motion === 'char'), 'ash: chars and embers rise');
+assert.ok(TIMELINES['defeat-wash'].beats.some((b) => b.emit === 'dripDroplets'), 'wash: drips away');
+assert.ok(TIMELINES['defeat-shatter'].beats.some((b) => b.emit === 'cardShards'), 'shatter: shards');
+// Through the engine: the defeated event says what dealt the last hit.
+{
+  const { battle, act, place, onTurn } = await import('./fixtures.js');
+  const { applyAction } = await import('../src/engine/game.js');
+  const knockout = (attacker, deckA, deckB) => {
+    let s = battle({ player: deckA, ai: deckB, passives: false });
+    place(s, 'player', 1, 0, attacker);
+    place(s, 'ai', 1, 0, 'horsea', { spent: true });
+    s.players.ai.zones[1].pokemon[0].currentStrength = 1;
+    s = act(s, 'player', { type: 'command', from: { zone: 1, space: 0 }, target: { kind: 'pokemon', zone: 1, space: 0 } });
+    return s.events.find((e) => e.type === 'defeated');
+  };
+  assert.equal(defeatStyle(knockout('growlithe', 'fire', 'water')), 'ash', 'Growlithe (Fire) burns it to ash');
+  assert.equal(defeatStyle(knockout('mankey', 'fire', 'water')), 'shatter', 'Mankey (Fighting) shatters it');
+  assert.equal(defeatStyle(knockout('goldeen', 'water', 'water')), 'wash', 'Goldeen (Water) washes it away');
+}
+// Healing, Regenerate, Trainers and Supporters each have their beat.
+const cueOf = (id, cue) => TIMELINES[id]?.beats.some((b) => b.cue === cue);
+assert.ok(cueOf('heal-glow', 'heal') && TIMELINES['heal-glow'].beats.some((b) => EMITTERS[b.emit]?.tex === 'sparkle'), 'heal: a glow with sparkle glints');
+assert.ok(cueOf('regenerate-glow', 'heal'), 'Regenerate: a softer one');
+assert.ok(EMITTERS.regenRise.count < EMITTERS.healRise.count && EMITTERS.regenRise.alpha[0] < EMITTERS.healRise.alpha[0], 'Regenerate is softer');
+assert.ok(cueOf('trainer-hit', 'flinch') && TIMELINES['trainer-hit'].beats.some((b) => b.motion === 'knockBack'), 'a Trainer hit: flinch and knock-back');
+assert.ok(cueOf('trainer-fall', 'crack') && cueOf('trainer-fall', 'fall') && cueOf('trainer-fall', 'dimZone'), 'a Trainer falling: cracks, falls, the Zone dims');
+assert.ok(TIMELINES['trainer-fall'].beats.some((b) => EMITTERS[b.emit]?.tex === 'cracks'), 'with the cracks texture');
+assert.ok(cueOf('supporter-moment', 'portrait') && cueOf('supporter-moment', 'paid') && TIMELINES['supporter-moment'].beats.some((b) => b.cue === 'gift' && b.when === 'gift'), 'a Supporter: portrait, paid cards, Gift flourish when met');
+
 // Every library timeline, plus every attack with all its keyword touches.
 const FULL = Object.fromEntries([
   ...Object.keys(TIMELINES).map((id) => [id, TIMELINES[id]]),
   ...ALL_ATTACKS.map((id) => [`${id}+all`, composeAttack(id, { trade: true, shell: true, infiltrator: true, overrun: true })]),
   ...[...Object.values(STRATEGIES), STRATEGY_FALLBACK].map((id) => [`${id}+opening`, composeStrategy(id)]),
+  ...[...Object.values(SUMMONS), ...Object.values(LEGENDARY_SUMMONS)].map((id) => [`${id}+quick`, composeSummon(id, { quick: true })]),
 ]);
 
 // Played through in frames: every beat runs once, in time, and it finishes.

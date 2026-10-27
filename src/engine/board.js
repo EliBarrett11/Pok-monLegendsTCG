@@ -257,7 +257,8 @@ export function damage(state, ref, amount, opts = {}) {
   const before = card.currentStrength;
   card.currentStrength -= dealt;
   // What last hit it, so a defeat can say what caused it.
-  card.lastHit = { cause: opts.cause ?? 'damage', by: opts.by ?? null };
+  // (hitBy: the kind, Type or card id of what dealt it, so the defeat can be shown to match.)
+  card.lastHit = { cause: opts.cause ?? 'damage', by: opts.by ?? null, hitBy: opts.hitBy ?? null };
   emit(state, 'damage', { target: info(state, ref), amount: dealt, before, after: card.currentStrength, ...extra });
   return [before, card.currentStrength];
 }
@@ -291,7 +292,7 @@ export function releaseDefeated(state) {
     const p = state.players[ref.owner];
     d.cause = card.lastHit?.cause ?? 'damage';
     d.by = card.lastHit?.by ?? null;
-    emit(state, 'defeated', { target: info(state, ref), cause: d.cause, by: d.by });
+    emit(state, 'defeated', { target: info(state, ref), cause: d.cause, by: d.by, hitBy: card.lastHit?.hitBy ?? null });
     leaveArena(card);
     p.zones[ref.zone].pokemon[ref.space] = null;
     log(state, `${whose(state, ref.owner)} ${card.name} was defeated and goes to the Released Pile.`);

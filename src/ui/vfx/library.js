@@ -33,6 +33,12 @@ export const BUDGETS = {
   // then this timeline (the flare, its name, the dissolve, and its effect).
   strategy: { min: 1500, max: 2300 },
   effect: { min: 300, max: 1500 },   // a follow-up moment (Dive's Pokémon rising out of the Discard Pile)
+  summon: { min: 400, max: 1300 },   // a Pokémon landing in its space
+  cinematic: { min: 2000, max: 2800 },   // a Legendary's entrance, "about 2.5 s"
+  defeat: { min: 500, max: 1300 },   // a Pokémon burnt to ash, washed away or shattered
+  heal: { min: 300, max: 1000 },
+  trainer: { min: 250, max: 1800 },   // a Trainer flinching, or cracking and falling
+  supporter: { min: 900, max: 2000 },   // a Supporter's portrait moment
 };
 
 // Two colours per Pokémon Type (main, highlight), for tinting generic effects.
@@ -130,6 +136,38 @@ export const SWEEPS = {
   heatWall: { line: ['heatFlames', 'heatEmbers'], distort: 'heat', skew: 260, hit: { enemy: ['scorchCatch', 'heatIgnite'], friend: [] } },
   surfWave: { line: ['surfSpray', 'surfFoam'], sprite: 'wave', tiles: 4, skew: 320, hit: { enemy: ['splashCrown', 'sprayDroplets'], friend: ['healGlints'] } },
 };
+
+// --- Summons, defeats, healing, Trainers, Supporters (docs/vfx.md section 6) ----------------
+
+// A Pokémon's entrance by rarity; Legendaries have their own cinematic.
+export const SUMMONS = { Common: 'summon-common', Rare: 'summon-rare', Epic: 'summon-epic', Legendary: 'summon-legendary' };
+export const LEGENDARY_SUMMONS = { kyogre: 'summon-kyogre', blaziken: 'summon-blaziken' };
+export function summonAnimation(card) {
+  if (card?.rarity === 'Legendary') return LEGENDARY_SUMMONS[card.id] ?? SUMMONS.Legendary;
+  return SUMMONS[card?.rarity] ?? SUMMONS.Common;
+}
+// Quick Attack: it lands already Active, with a quick speed streak.
+export function composeSummon(id, { quick = false } = {}) {
+  const def = TIMELINES[id];
+  const land = def.beats.find((b) => b.cue === 'land')?.at ?? 0;
+  const beats = [...def.beats];
+  if (quick) {
+    beats.push({ at: Math.max(0, land - 140), end: land, ribbon: 'speedStreak', on: 'target', keyword: 'Quick Attack' });
+    beats.push({ at: land, emit: 'speedLines', on: 'target', keyword: 'Quick Attack' });
+    beats.push({ at: land, cue: 'active', flash: 'white', bloom: 0.5, keyword: 'Quick Attack' });
+  }
+  return { ...def, id, beats, keywords: quick ? ['Quick Attack'] : [] };
+}
+
+// How a defeated Pokémon goes, by what defeated it: burnt to ash (Fire attacks,
+// Fire cards and Burn), washed away (Water), shattered (everything else).
+export const DEFEATS = { ash: 'defeat-ash', wash: 'defeat-wash', shatter: 'defeat-shatter' };
+export function defeatStyle(e) {
+  if (e?.cause === 'burn') return 'ash';
+  const hit = e?.hitBy ?? {};
+  const type = hit.type ?? (hit.kind === 'strategy' ? STRATEGY_TYPES[hit.id] : null);
+  return type === 'Fire' ? 'ash' : type === 'Water' ? 'wash' : 'shatter';
+}
 
 // Bigger hits, bigger effects: particle counts, shake, flash and hit-stop scale with this.
 export const impactScale = (damage) => Math.max(0.7, Math.min(1.6, 0.55 + 0.13 * (damage ?? 1)));
@@ -307,6 +345,42 @@ export const EMITTERS = {
   // Surf: spray and foam along the wave's front
   surfSpray: { tex: 'droplets', blend: 'alpha', rate: 160, at: 'line', dir: 'forward', speed: R(120, 360), lift: 160, gravity: 900, life: R(350, 600), size: [R(0.4, 0.7), 0.2], alpha: [1, 0], spin: R(-6, 6) },
   surfFoam: { tex: 'smoke', blend: 'alpha', rate: 40, at: 'line', dir: 'forward', speed: R(40, 120), life: R(500, 800), size: [R(0.1, 0.16), R(0.24, 0.34)], alpha: [0.6, 0], tint: '#eaf8ff', spin: R(-0.6, 0.6) },
+  // Summons: a slam with a dust ring; a Type flare (Rare); a bigger flare and a light shaft (Epic)
+  landRing: { tex: 'shockwave', blend: 'add', count: 1, at: 'centre', offsetY: 0.45, life: 480, size: [0.2, 1], alpha: [0.7, 0], tint: '#f0d8a8' },
+  landDust: { tex: 'smoke', blend: 'alpha', count: 9, at: 'card', area: 0.8, offsetY: 0.42, dir: 'radial', speed: R(90, 240), lift: 20, drag: 2, life: R(600, 900), size: [R(0.08, 0.12), R(0.22, 0.32)], alpha: [0.6, 0], tint: '#d2b488', spin: R(-0.6, 0.6) },
+  typeFlare: { tex: 'glow', blend: 'add', count: 1, at: 'centre', life: 520, size: [0.6, 2.4], alpha: [0.9, 0], tint: 'type' },
+  epicFlare: { tex: 'glow', blend: 'add', count: 2, at: 'centre', life: 700, size: [0.8, 3.6], alpha: [1, 0], tint: 'type' },
+  epicSparks: { tex: 'sparkle', blend: 'add', count: 18, at: 'card', area: 1, dir: 'radial', speed: R(120, 320), drag: 1.6, life: R(500, 800), size: [R(0.18, 0.3), 0.05], alpha: [1, 0], tint: 'type', spin: R(-3, 3) },
+  lightShaft: { tex: 'glow', blend: 'add', count: 1, at: 'centre', offsetY: -0.9, life: 900, size: [0.9, 1.1], squash: 7, alpha: [0.75, 0], fadeIn: 120, tint: 'type' },
+  speedLines: { tex: 'streak', blend: 'add', count: 14, at: 'card', area: 0.9, dir: 'back', speed: R(500, 900), drag: 2, life: R(160, 300), size: [R(0.6, 1), 0.2], alpha: [1, 0], tint: ['#fff6c8', '#ffffff'], alignVelocity: true },
+  // Legendary cinematics
+  bigLandRing: { tex: 'shockwave', blend: 'add', count: 2, at: 'centre', offsetY: 0.45, life: 700, size: [0.3, 2.4], alpha: [0.8, 0], tint: 'type' },
+  kyogreWave: { tex: 'wave', blend: 'alpha', count: 2, at: 'card', area: 1.2, offsetY: 0.4, dir: 'radial', speed: R(40, 120), life: R(800, 1000), size: [R(0.5, 0.7), R(1.1, 1.4)], alpha: [0.95, 0], fadeIn: 120 },
+  rainBurst: { tex: 'streak', blend: 'add', rate: 160, at: 'card', area: 7, offsetY: -2.4, dir: 'down', speed: R(1300, 1800), life: R(450, 700), size: [R(0.5, 0.8), R(0.5, 0.8)], alpha: [0.75, 0.2], tint: ['#8fd0ff', '#e0f4ff'], alignVelocity: true },
+  rainDrops: { tex: 'droplets', blend: 'alpha', rate: 50, at: 'card', area: 6, offsetY: -2, dir: 'down', speed: R(900, 1300), life: R(500, 800), size: [R(0.3, 0.5), 0.3], alpha: [0.9, 0.3] },
+  eruption: { tex: 'fire-burst', blend: 'add', count: 3, at: 'centre', offsetY: 0.2, life: R(500, 700), size: [R(0.3, 0.4), R(1.4, 1.9)], alpha: [1, 0], spin: R(-1, 1) },
+  eruptionFlames: { tex: 'flame', blend: 'add', count: 46, at: 'card', area: 0.9, offsetY: 0.3, dir: 'up', speed: R(500, 1100), gravity: 300, life: R(500, 800), size: [R(0.2, 0.32), R(0.4, 0.6)], alpha: [1, 0], pivot: 0.85, rot: R(-0.3, 0.3) },
+  eruptionColumn: { tex: 'flame', blend: 'add', rate: 120, at: 'edges', dir: 'up', speed: R(400, 700), life: R(300, 500), size: [R(0.16, 0.24), R(0.3, 0.44)], alpha: [0.9, 0], pivot: 0.85, rot: R(-0.2, 0.2) },
+  // Defeats: burnt to ash, washed away, shattered
+  charEdges: { tex: 'flame', blend: 'add', rate: 80, at: 'edges', dir: 'up', speed: R(80, 180), life: R(300, 500), size: [R(0.08, 0.13), R(0.16, 0.24)], alpha: [0.95, 0], pivot: 0.85, rot: R(-0.2, 0.2) },
+  ashCrumble: { tex: 'shard', blend: 'alpha', rate: 70, at: 'card', area: 0.9, dir: 'down', speed: R(40, 120), gravity: 500, life: R(500, 800), size: [R(0.3, 0.6), 0.2], alpha: [1, 0], tint: '#2a1a12', spin: R(-6, 6) },
+  ashSmoke: { tex: 'smoke', blend: 'alpha', rate: 14, at: 'card', area: 0.8, dir: 'up', speed: R(40, 90), life: R(700, 1000), size: [R(0.1, 0.14), R(0.26, 0.36)], alpha: [0.55, 0], tint: '#3a302a', spin: R(-0.5, 0.5) },
+  risingEmbers: { tex: 'embers', blend: 'add', rate: 70, at: 'card', area: 0.9, dir: 'up', speed: R(80, 220), lift: 40, life: R(600, 1000), size: [R(0.4, 0.7), 0.15], alpha: [1, 0], spin: R(-5, 5) },
+  dripDroplets: { tex: 'droplets', blend: 'alpha', rate: 60, at: 'card', area: 0.9, dir: 'down', speed: R(60, 160), gravity: 900, life: R(400, 700), size: [R(0.3, 0.5), 0.25], alpha: [1, 0] },
+  cardShards: { tex: 'shard', blend: 'alpha', count: 30, at: 'card', area: 0.9, dir: 'radial', speed: R(180, 520), lift: 160, gravity: 1400, life: R(600, 900), size: [R(0.4, 0.75), 0.3], alpha: [1, 0], tint: ['#c8b48a', '#6a4a2c'], spin: R(-10, 10) },
+  breakSparks: { tex: 'streak', blend: 'add', count: 16, at: 'centre', dir: 'radial', speed: R(300, 700), drag: 1.5, life: R(200, 360), size: [R(0.4, 0.7), 0.1], alpha: [1, 0], tint: ['#fff3c4', '#ffffff'], alignVelocity: true },
+  // Healing and Regenerate: a rising green-gold glow with glints
+  healRise: { tex: 'glow', blend: 'add', count: 5, at: 'card', area: 0.6, offsetY: 0.3, dir: 'up', speed: R(60, 140), life: R(600, 900), size: [R(0.5, 0.8), R(0.9, 1.2)], alpha: [0.6, 0], tint: ['#7dffb0', '#ffe48a'] },
+  regenRise: { tex: 'glow', blend: 'add', count: 3, at: 'card', area: 0.6, offsetY: 0.3, dir: 'up', speed: R(40, 100), life: R(600, 900), size: [R(0.4, 0.6), R(0.7, 0.9)], alpha: [0.4, 0], tint: ['#7dffb0', '#ffe48a'] },
+  regenSparkle: { tex: 'sparkle', blend: 'add', rate: 10, at: 'card', area: 0.8, dir: 'up', speed: R(20, 60), life: R(500, 800), size: [R(0.12, 0.2), 0.04], alpha: [0.9, 0], spin: R(-2, 2), tint: '#e8fff0' },
+  // Trainers: a flash as they're hit; cracks spreading with light through them as they fall
+  trainerFlash: { tex: 'glow', blend: 'add', count: 1, at: 'centre', life: 260, size: [0.6, 1.6], alpha: [0.7, 0], tint: '#fff2d8' },
+  crackSpread: { tex: 'cracks', blend: 'add', count: 2, at: 'centre', life: 1300, size: [0.18, 0.5], alpha: [1, 0.9], fadeIn: 60, rot: R(-0.4, 0.4), tint: '#ffd870' },
+  crackLight: { tex: 'glow', blend: 'add', rate: 14, at: 'card', area: 0.7, dir: 'none', life: R(200, 360), size: [R(0.3, 0.5), R(0.6, 0.9)], alpha: [0.8, 0], tint: ['#ffd36b', '#ffffff'] },
+  // Supporters: glints round the portrait, a gold flourish when the Gift Bonus is met
+  portraitGlints: { tex: 'sparkle', blend: 'add', rate: 24, at: 'edges', dir: 'up', speed: R(30, 90), life: R(500, 800), size: [R(0.16, 0.26), 0.04], alpha: [1, 0], spin: R(-2, 2), tint: '#fff0c0' },
+  giftSparkles: { tex: 'sparkle', blend: 'add', count: 36, at: 'centre', dir: 'radial', speed: R(200, 520), drag: 1.6, life: R(600, 1000), size: [R(0.2, 0.36), 0.05], alpha: [1, 0], spin: R(-4, 4), tint: ['#ffd36b', '#fff6c8'] },
+  giftRing: { tex: 'shockwave', blend: 'add', count: 1, at: 'centre', offsetY: 0.12, life: 700, size: [0.2, 0.95], alpha: [0.85, 0], tint: '#ffcf5a' },
   // Status: Burn on a card (ambient, per second, scaled by level elsewhere)
   burnFlames: { tex: 'flame', blend: 'add', rate: 12, at: 'edges', dir: 'up', speed: R(40, 80), life: R(420, 700), size: [R(0.06, 0.1), R(0.11, 0.17)], alpha: [0.9, 0], fadeIn: 80, pivot: 0.9, rot: R(-0.2, 0.2) },
   burnEmbers: { tex: 'embers', blend: 'add', rate: 7, at: 'card', area: 0.9, offsetY: 0.2, dir: 'up', speed: R(70, 160), life: R(900, 1500), size: [R(0.35, 0.6), 0.15], alpha: [1, 0], spin: R(-4, 4) },
@@ -725,6 +799,193 @@ export const TIMELINES = {
       { at: 120, end: 600, emit: 'pileDroplets', on: 'pile' },
     ],
   },
+  // --- Summon entrances by rarity (the card is the 'target') ---
+  'summon-common': {
+    budget: 'summon', duration: 700,
+    beats: [
+      { at: 0, end: 200, track: 'target', motion: 'slamDown' },
+      { at: 200, cue: 'land', shake: 5 },
+      { at: 200, emit: 'landRing', on: 'ground' },
+      { at: 200, emit: 'landDust', on: 'ground' },
+      { at: 200, end: 440, track: 'target', motion: 'settleLand' },
+    ],
+  },
+  'summon-rare': {
+    budget: 'summon', duration: 800,
+    beats: [
+      { at: 0, end: 200, track: 'target', motion: 'slamDown' },
+      { at: 200, cue: 'land', shake: 6, bloom: 0.6 },
+      { at: 200, emit: 'landRing', on: 'ground' },
+      { at: 200, emit: 'landDust', on: 'ground' },
+      { at: 200, emit: 'typeFlare', on: 'target' },
+      { at: 200, emit: 'flareRing', on: 'target' },
+      { at: 200, end: 440, track: 'target', motion: 'settleLand' },
+    ],
+  },
+  'summon-epic': {
+    budget: 'summon', duration: 1100,
+    beats: [
+      { at: 0, emit: 'lightShaft', on: 'target' },
+      { at: 0, end: 260, track: 'target', motion: 'slamDown' },
+      { at: 260, cue: 'land', shake: 8, bloom: 0.9, distort: 'shockwave' },
+      { at: 260, emit: 'landRing', on: 'ground' },
+      { at: 260, emit: 'landDust', on: 'ground' },
+      { at: 260, emit: 'epicFlare', on: 'target' },
+      { at: 260, emit: 'flareRing', on: 'target' },
+      { at: 260, emit: 'epicSparks', on: 'target' },
+      { at: 260, end: 520, track: 'target', motion: 'settleLand' },
+    ],
+  },
+  // Legendary: the board dims, the card descends large to centre stage, then
+  // shrinks into its space and lands.
+  'summon-legendary': {
+    budget: 'cinematic', duration: 2450,
+    beats: [
+      { at: 0, cue: 'dim' },
+      { at: 0, end: 900, track: 'target', motion: 'descend' },
+      { at: 700, emit: 'epicFlare', on: 'target' },
+      { at: 700, emit: 'epicSparks', on: 'target' },
+      { at: 900, end: 1500, track: 'target', motion: 'hover' },
+      { at: 1500, end: 1900, track: 'target', motion: 'shrinkHome' },
+      { at: 1900, cue: 'land', shake: 14, bloom: 1.2, distort: 'shockwave' },
+      { at: 1900, emit: 'bigLandRing', on: 'ground' },
+      { at: 1900, emit: 'landDust', on: 'ground', countScale: 2 },
+      { at: 1900, emit: 'typeFlare', on: 'target' },
+      { at: 2250, cue: 'undim' },
+    ],
+  },
+  // Kyogre: a wave and a burst of rain while it hovers.
+  'summon-kyogre': {
+    budget: 'cinematic', duration: 2450,
+    beats: [
+      { at: 0, cue: 'dim' },
+      { at: 0, end: 900, track: 'target', motion: 'descend' },
+      { at: 700, emit: 'kyogreWave', on: 'target' },
+      { at: 700, emit: 'epicFlare', on: 'target' },
+      { at: 800, end: 1700, emit: 'rainBurst', on: 'target' },
+      { at: 800, end: 1700, emit: 'rainDrops', on: 'target' },
+      { at: 900, end: 1500, track: 'target', motion: 'hover' },
+      { at: 1500, end: 1900, track: 'target', motion: 'shrinkHome' },
+      { at: 1900, cue: 'land', shake: 14, bloom: 1.2, distort: 'shockwave' },
+      { at: 1900, emit: 'bigLandRing', on: 'ground' },
+      { at: 1900, emit: 'splashCrown', on: 'ground' },
+      { at: 1900, emit: 'splashDroplets', on: 'ground' },
+      { at: 2250, cue: 'undim' },
+    ],
+  },
+  // Blaziken: an eruption of fire from its space as it lands.
+  'summon-blaziken': {
+    budget: 'cinematic', duration: 2450,
+    beats: [
+      { at: 0, cue: 'dim' },
+      { at: 0, end: 900, track: 'target', motion: 'descend' },
+      { at: 700, emit: 'epicFlare', on: 'target' },
+      { at: 700, emit: 'epicSparks', on: 'target' },
+      { at: 900, end: 1500, track: 'target', motion: 'hover' },
+      { at: 1500, end: 1900, track: 'target', motion: 'shrinkHome' },
+      { at: 1900, cue: 'land', shake: 16, flash: 'fire', bloom: 1.4, distort: 'shockwave' },
+      { at: 1900, emit: 'eruption', on: 'ground' },
+      { at: 1900, emit: 'eruptionFlames', on: 'ground' },
+      { at: 1900, emit: 'fireImpactEmbers', on: 'ground' },
+      { at: 1900, end: 2300, emit: 'eruptionColumn', on: 'ground' },
+      { at: 1900, emit: 'bigLandRing', on: 'ground' },
+      { at: 2250, cue: 'undim' },
+    ],
+  },
+  // --- Defeats (the card is the 'target'); 'gone' sends the pieces to the Released Pile ---
+  'defeat-ash': {
+    budget: 'defeat', duration: 950,
+    beats: [
+      { at: 0, cue: 'defeatHit', flash: 'fire', shake: 4, bloom: 0.6 },
+      { at: 0, end: 800, track: 'target', motion: 'char' },
+      { at: 0, end: 560, emit: 'charEdges', on: 'target' },
+      { at: 300, end: 850, emit: 'ashCrumble', on: 'target' },
+      { at: 300, end: 900, emit: 'ashSmoke', on: 'target' },
+      { at: 250, end: 900, emit: 'risingEmbers', on: 'target' },
+      { at: 820, cue: 'gone' },
+    ],
+  },
+  'defeat-wash': {
+    budget: 'defeat', duration: 900,
+    beats: [
+      { at: 0, cue: 'defeatHit', flash: 'water', shake: 4, bloom: 0.5 },
+      { at: 0, emit: 'splashCrown', on: 'target' },
+      { at: 0, emit: 'splashDroplets', on: 'target', countScale: 0.6 },
+      { at: 0, end: 760, track: 'target', motion: 'washAway' },
+      { at: 120, end: 820, emit: 'dripDroplets', on: 'target' },
+      { at: 780, cue: 'gone' },
+    ],
+  },
+  'defeat-shatter': {
+    budget: 'defeat', duration: 800,
+    beats: [
+      { at: 0, cue: 'defeatHit', flash: 'white', shake: 5 },
+      { at: 0, end: 200, track: 'target', motion: 'crackShake' },
+      { at: 200, cue: 'break', shake: 8, bloom: 0.7 },
+      { at: 200, emit: 'cardShards', on: 'target' },
+      { at: 200, emit: 'breakSparks', on: 'target' },
+      { at: 200, end: 420, track: 'target', motion: 'shatterOut' },
+      { at: 700, cue: 'gone' },
+    ],
+  },
+  // --- Healing ---
+  'heal-glow': {
+    budget: 'heal', duration: 760,
+    beats: [
+      { at: 0, cue: 'heal', bloom: 0.4 },
+      { at: 0, emit: 'healRise', on: 'target' },
+      { at: 0, emit: 'healGlints', on: 'target' },
+      { at: 0, end: 600, emit: 'healSparkle', on: 'target' },
+      { at: 0, end: 650, track: 'target', motion: 'healGlow' },
+    ],
+  },
+  // Regenerate at Breakfast: the same, softer.
+  'regenerate-glow': {
+    budget: 'heal', duration: 650,
+    beats: [
+      { at: 0, cue: 'heal', bloom: 0.2 },
+      { at: 0, emit: 'regenRise', on: 'target' },
+      { at: 0, end: 500, emit: 'regenSparkle', on: 'target' },
+      { at: 0, end: 560, track: 'target', motion: 'healGlowSoft' },
+    ],
+  },
+  // --- Trainers ---
+  // Hit: the portrait flinches (knocked back, unless the attack already moves it) and flashes.
+  'trainer-hit': {
+    budget: 'trainer', duration: 420,
+    beats: [
+      { at: 0, cue: 'flinch', bloom: 0.3 },
+      { at: 0, emit: 'trainerFlash', on: 'target' },
+      { at: 0, end: 380, track: 'target', motion: 'knockBack', when: 'move' },
+    ],
+  },
+  // Reduced to 0: cracks spread with light shining through, then it falls and darkens.
+  'trainer-fall': {
+    budget: 'trainer', duration: 1500,
+    beats: [
+      { at: 0, cue: 'crack', shake: 6, flash: 'white', bloom: 0.6 },
+      { at: 0, emit: 'crackSpread', on: 'target' },
+      { at: 150, end: 750, emit: 'crackLight', on: 'target' },
+      { at: 0, end: 700, track: 'target', motion: 'crackShake' },
+      { at: 750, cue: 'fall', shake: 10, bloom: 0.8 },
+      { at: 750, emit: 'cardShards', on: 'target', countScale: 0.5 },
+      { at: 750, emit: 'landDust', on: 'ground' },
+      { at: 1300, cue: 'dimZone' },
+    ],
+  },
+  // --- Supporters: the portrait moment (the art itself is a page element) ---
+  'supporter-moment': {
+    budget: 'supporter', duration: 1500,
+    beats: [
+      { at: 0, cue: 'portrait' },
+      { at: 250, end: 1300, emit: 'portraitGlints', on: 'target' },
+      { at: 500, cue: 'paid' },
+      { at: 950, cue: 'gift', when: 'gift', bloom: 1 },
+      { at: 950, emit: 'giftSparkles', on: 'target', when: 'gift' },
+      { at: 950, emit: 'giftRing', on: 'target', when: 'gift' },
+      { at: 1400, cue: 'portraitOut' },
+    ],
+  },
   // Status beats
   'burn-flare': {
     budget: 'status', duration: 650,
@@ -762,6 +1023,7 @@ export const RIBBONS = {
   waterTrail: { tex: 'streak', width: 96, life: 220, color: '#4aa8ff', alpha: 0.4, blend: 'add' },
   coalTrail: { tex: 'streak', width: 34, life: 240, color: '#ff7a1a', alpha: 0.6, blend: 'add' },
   blastTrail: { tex: 'streak', width: 110, life: 220, color: '#ff4a10', alpha: 0.45, blend: 'add' },
+  speedStreak: { tex: 'streak', width: 70, life: 160, color: '#fff3c4', alpha: 0.6, blend: 'add' },
   // Hydro Pump: two strands twisting round each other, so the stream spirals.
   hydroStream: { tex: 'streak', width: 72, life: 140, color: '#3a9cff', alpha: 0.55, blend: 'add', toTarget: true, wobble: 20, phase: 0 },
   hydroStreamCore: { tex: 'streak', width: 34, life: 140, color: '#e6f6ff', alpha: 0.6, blend: 'add', toTarget: true, wobble: 20, phase: Math.PI },

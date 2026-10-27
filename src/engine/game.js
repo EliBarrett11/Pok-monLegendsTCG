@@ -319,7 +319,7 @@ export function usablePowers(state, who) {
 function strategyCtx(state, who, card, target) {
   return {
     who,
-    source: { kind: 'strategy', owner: who, uid: card.uid, name: card.name },
+    source: { kind: 'strategy', owner: who, uid: card.uid, name: card.name, id: card.id },
     label: `${whose(state, who)} ${card.name}`,
     target,
   };
@@ -569,7 +569,7 @@ const STEPS = {
       if (trainer && trainer.strength > 0) {
         const tref = { ...ref, uid: trainer.uid };
         emit(state, 'overrun', { who: attacker.owner, attacker: info(state, attacker), target: info(state, tref), amount });
-        const [before, after] = damage(state, tref, amount, { by: attacker.owner });
+        const [before, after] = damage(state, tref, amount, { by: attacker.owner, hitBy: { kind: 'pokemon', type: cardAt(state, attacker)?.pokemonType } });
         log(state, `Overrun: ${amount} leftover damage goes through to ${describeRef(state, tref)}. Strength ${before} → ${after}.`);
         strikes.push(tref);
         questEvent(state, attacker.owner, { type: 'trainerStrike', zone: attacker.zone });
@@ -748,7 +748,7 @@ const HANDLERS = {
     if (target.kind === 'trainer') {
       const before = cardAt(state, targetRef).strength;
       log(state, `${name} attacked ${describeRef(state, targetRef)} for ${power}. Strength ${before} → ${Math.max(0, before - power)}.`);
-      damage(state, targetRef, power, { by: who });
+      damage(state, targetRef, power, { by: who, hitBy: { kind: 'pokemon', type: attacker.pokemonType } });
       attacker.spent = true;
       if (power > 0) {
         after.strikes.push(targetRef);
@@ -760,8 +760,8 @@ const HANDLERS = {
       const what = describeRef(state, targetRef);
       const trades = isAlert(state, defender);   // decided before anyone becomes Spent
       const back = attackOf(defender);
-      const [hpBefore, hpAfter] = damage(state, targetRef, power, { by: who });
-      const [atkBefore, atkAfter] = trades ? damage(state, attackerRef, back, { by: foe }) : [0, 0];
+      const [hpBefore, hpAfter] = damage(state, targetRef, power, { by: who, hitBy: { kind: 'pokemon', type: attacker.pokemonType } });
+      const [atkBefore, atkAfter] = trades ? damage(state, attackerRef, back, { by: foe, hitBy: { kind: 'pokemon', type: defender.pokemonType } }) : [0, 0];
       attacker.spent = true;
       if (trades) defender.spent = true;
       const dealt = hpBefore - hpAfter;

@@ -7,13 +7,14 @@
 // adoptCards in render.js), plus a separate effects layer (#fx) for
 // reveals, arrows, numbers and cards on their way to a pile.
 
-import { setCaption, cardElements, cardMarkup, STAGE } from './render.js';
+import { setCaption, cardElements, cardMarkup, STAGE, artUrl } from './render.js';
 import { speedFactor, readableMs } from './settings.js';
 import { burst, edgeBurst, clearParticles, reducedMotion } from './particles.js';
 import { vfxReady, playTimeline, skipTimelines, clearVfx, coins as vfxCoins } from './vfx/engine.js';
 import {
   attackAnimation, counterAnimation, tintOf, STATUS_VISUALS, composeAttack, composeCounter, effectAnimation, BURN_CAST,
   strategyAnimation, composeStrategy, strategyTint, DIVE_RISE,
+  summonAnimation, composeSummon, DEFEATS, defeatStyle,
 } from './vfx/library.js';
 import { phaseIcon } from './icons.js';
 
@@ -525,13 +526,25 @@ function attackerData(el) {
 }
 
 // The hit's numbers (damage and the Strength badge counting down), and a Trainer's flinch.
-function hitNumbers(el, hit, t, { trainer = false, rect = null } = {}) {
+// move: the Trainer is knocked back here (false when the attack's own animation already moves it).
+function hitNumbers(el, hit, t, { trainer = false, rect = null, move = false } = {}) {
   if (!el || !hit) return;
   const r = rect ?? rectOf(el);
   const text = shellText(hit);
   floatNumber(r, text, 'damage', t(1200));
   countBadge(el, hit.before, hit.after, t(450), 'damage');
-  if (trainer) el.animate([0, 1, 2, 3, 4, 5, 6].map((i) => ({ translate: i === 6 ? '0 0' : `${(i % 2 ? -1 : 1) * 6 * (1 - i / 6)}px 0` })), { duration: t(380) });
+  if (trainer) trainerFlinch(el, t, move);
+}
+
+// A Trainer hit: the portrait flinches, knocked back away from the board's
+// middle, with a flash.
+function trainerFlinch(el, t, move) {
+  if (vfxReady() && t(1) > 0) {
+    const up = Boolean(el.closest('.side.opponent'));
+    playTimeline('trainer-hit', { target: el, rate: 1 / t(1), knock: { x: 0, y: up ? -1 : 1 }, when: { move } });
+    return;
+  }
+  el.animate([0, 1, 2, 3, 4, 5, 6].map((i) => ({ translate: i === 6 ? '0 0' : `${(i % 2 ? -1 : 1) * 6 * (1 - i / 6)}px 0` })), { duration: t(380) });
 }
 
 // An attack on the WebGL layer: the attacker's Type + Attack-Type animation
@@ -573,7 +586,7 @@ async function attackVfx(root, e, a, b, onTarget, onAttacker, t, scorch, overrun
       overrunHit: () => {
         if (!trainerEl) return;
         floatNumber(rectOf(trainerEl), `Overrun ${overrun.e.amount}`, 'burn', t(1100));
-        hitNumbers(trainerEl, overrun.hit, t, { trainer: true });
+        hitNumbers(trainerEl, overrun.hit, t, { trainer: true, move: true });
       },
       scorchCatch: () => {
         if (!scorch) return;
@@ -642,6 +655,12 @@ async function emberCast(source, e, t, quick) {
 
 // A hit that isn't an attack (an ability, a Power): a smaller impact.
 async function hitBeat(root, e, t) {
+  if (vfxReady() && t(1) > 0 && e.target.kind === 'trainer') {
+    hitNumbers(shown(e.target.uid), e, t, { trainer: true, move: true });
+    shake(root, 1 + e.amount * 0.25, t(220));
+    await wait(t(420));
+    return;
+  }
   impact(root, shown(e.target.uid), e, t);
   shake(root, 1 + e.amount * 0.25, t(220));
   await wait(t(420));
@@ -740,10 +759,19 @@ async function overrunBeat(root, e, from, t) {
   await play(orb, frames, t(520), { easing: 'ease-in' });
 }
 
-async function healBeat(e, t) {
+// Healing: a rising green-gold glow with glints and the number (softer for
+// Regenerate at Breakfast), on Pokémon and Trainer portraits alike.
+async function healBeat(e, t, { soft = false } = {}) {
   const el = shown(e.target.uid);
   if (!el || !e.amount) return;
   const r = rectOf(el);
+  if (vfxReady() && t(1) > 0) {
+    playTimeline(soft ? 'regenerate-glow' : 'heal-glow', { target: el, rate: 1 / t(1), tint: ['#7dffb0', '#ffe48a'] });
+    floatNumber(r, `+${e.amount}`, 'heal', t(1200));
+    countBadge(el, e.before, e.after, t(450), 'heal');
+    await wait(t(soft ? 300 : 450));
+    return;
+  }
   burst(r.x + r.w / 2, r.y + r.h * 0.7, { kind: 'sparkle', colors: ['#7dffb0', '#c8ffd8', '#ffffff'], count: 16, speed: 70, up: 120, life: t(900), size: 7, area: r.w * 0.8 });
   floatNumber(r, `+${e.amount}`, 'heal', t(1200));
   countBadge(el, e.before, e.after, t(450), 'heal');
@@ -774,9 +802,56 @@ async function defeatBeat(el, t) {
   el.dataset.fading = '1';
 }
 
-// A Trainer reaching 0 Strength: the card shatters, its zone dims, and a banner.
+// A defeat on the WebGL layer, by what defeated it (library.js defeatStyle):
+// burnt to ash, washed away or shattered; the pieces drift to the Released
+// Pile, which pulses as they arrive.
+async function defeatVfx(root, e, el, t) {
+  const style = defeatStyle(e);
+  const r = rectOf(el);
+  await playTimeline(DEFEATS[style], {
+    target: el, rate: 1 / t(1), tint: style === 'wash' ? tintOf('Water') : style === 'ash' ? tintOf('Fire') : ['#ffffff', '#fff3c4'],
+    on: {
+      gone: ({ skipped }) => {
+        el.style.opacity = '0';
+        el.dataset.fading = '1';
+        const to = pile(root, `${e.target.owner}-released`);
+        if (skipped || !to) return;
+        const pulse = () => to.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.18)', filter: 'brightness(1.8) drop-shadow(0 0 10px #ffd36b)' }, { transform: 'scale(1)' }], { duration: t(420) });
+        const tex = style === 'ash' ? 'embers' : style === 'wash' ? 'droplets' : 'shard';
+        vfxCoins(centre(r), centre(rectOf(to)), 7, t(700), pulse, { tex, size: style === 'shatter' ? 16 : 22, color: style === 'shatter' ? '#e8dcc0' : null });
+      },
+    },
+  });
+}
+
+// A Trainer reaching 0 Strength: cracks spread across the portrait with light
+// shining through, it falls and darkens with the DEFEATED stamp, its Zone dims,
+// and a banner says it has fallen.
 async function trainerFallsBeat(root, e, t) {
   const el = shown(e.target.uid);
+  if (el && vfxReady() && t(1) > 0) {
+    await playTimeline('trainer-fall', {
+      target: el, rate: 1 / t(1), tint: ['#ffd36b', '#ffffff'],
+      on: {
+        fall: () => {
+          el.animate([{ transform: 'none', filter: 'brightness(1.6)' }, { transform: 'translateY(10px) rotate(-4deg) scale(0.97)', filter: 'grayscale(1) brightness(0.38)' }], { duration: t(450), easing: 'ease-in', fill: 'forwards' });
+          const space = el.closest('.trainer-space');
+          if (space && !space.querySelector('.defeated-stamp')) {
+            const stamp = document.createElement('div');
+            stamp.className = 'defeated-stamp';
+            stamp.textContent = 'Defeated';
+            space.append(stamp);
+            stamp.animate([{ opacity: 0, scale: '1.6' }, { opacity: 1, scale: '1' }], { duration: t(300), easing: 'ease-out' });
+          }
+        },
+        dimZone: () => {
+          el.closest('.lane')?.animate([{ filter: 'brightness(1)' }, { filter: 'brightness(0.55)' }], { duration: t(600), fill: 'forwards' });
+        },
+      },
+    });
+    await banner(`${e.target.name} has fallen!`, t(1300), 'fallen');
+    return;
+  }
   if (el) {
     const r = rectOf(el);
     const c = centre(r);
@@ -1005,6 +1080,7 @@ async function walk(root, events, t, late, prev) {
   const used = new Set();
   let lastDefeated = null;
   let source = null;   // the card whose ability or Power is resolving (for effect damage)
+  let word = null;     // its trigger word (Regenerate heals more softly)
   for (let i = 0; i < ev.length; i++) {
     const e = ev[i];
     if (used.has(e) || consumed.has(e)) continue;
@@ -1039,7 +1115,7 @@ async function walk(root, events, t, late, prev) {
         await attackBeat(root, e, hits, t, scorch && used.has(scorch) ? scorch : null, overrun);
         break;
       }
-      case 'abilityTriggered': source = e.source; await triggerBanner(e, t); break;
+      case 'abilityTriggered': source = e.source; word = e.word; await triggerBanner(e, t); break;
       case 'powerUsed': source = { uid: e.uid, name: e.name }; await powerBeat(e, t); break;
       case 'cardPlayed': case 'itemUsed': case 'phaseChanged': case 'roundStarted': source = null; break;
       case 'returned': if (/Dive$/.test(e.source ?? '')) await diveRise(root, prev, e, t); break;
@@ -1068,13 +1144,14 @@ async function walk(root, events, t, late, prev) {
       }
       case 'statusCleared': if (shown(e.target.uid)) await douseBeat(e, t); break;
       case 'overrun': await overrunBeat(root, e, lastDefeated, t); break;
-      case 'heal': if (shown(e.target.uid)) await healBeat(e, t); else late.push(e); break;
+      case 'heal': if (shown(e.target.uid)) await healBeat(e, t, { soft: /^Regenerate/.test(word ?? '') }); else late.push(e); break;
       case 'buff': if (shown(e.target.uid)) await buffBeat(e, t); else late.push(e); break;
       case 'defeated': {
         const el = shown(e.target.uid);
         if (el) {
           lastDefeated = rectOf(el);
-          await defeatBeat(el, t);
+          if (vfxReady() && t(1) > 0) await defeatVfx(root, e, el, t);
+          else await defeatBeat(el, t);
         }
         break;
       }
@@ -1093,8 +1170,14 @@ async function walk(root, events, t, late, prev) {
 async function before(root, prev, next, actor, t, late) {
   const ev = next.events;
   const main = ev.find((e) => ['cardPlayed', 'itemUsed', 'pass', 'choiceMade', 'itemBought'].includes(e.type));
-  if (main?.type === 'cardPlayed' && main.cardType === 'Strategy' && vfxReady() && t(1) > 0 && await strategyVfx(root, prev, next, main, t)) {
+  const vfx = vfxReady() && t(1) > 0;
+  const played = main?.type === 'cardPlayed' && prev.players[main.who]?.hand.find((c) => c.uid === main.uid);
+  if (main?.type === 'cardPlayed' && main.cardType === 'Strategy' && vfx && await strategyVfx(root, prev, next, main, t)) {
     // (its own animation, above)
+  } else if (main?.type === 'cardPlayed' && main.cardType === 'Supporter' && vfx && await supporterVfx(root, prev, next, main, t)) {
+    // (the portrait moment, above)
+  } else if (main?.type === 'cardPlayed' && played?.rarity === 'Legendary' && vfx) {
+    // A Legendary has its own entrance cinematic once it is in its space (after the redraw).
   } else if (main?.type === 'cardPlayed' || main?.type === 'itemUsed') {
     const shownCard = await reveal(root, prev, { ...main, cardType: main.cardType ?? 'Item', to: main.to ?? { kind: 'use' } }, t);
     const effects = ['damage', 'heal', 'buff', 'defeated', 'abilityTriggered', 'questComplete', 'trainerRemoved'];
@@ -1189,6 +1272,111 @@ function destination(root, uid, events) {
   return pile(root, `${moved.owner}-${moved.to}`);
 }
 
+// A summoned Pokémon's entrance on the WebGL layer, by rarity (library.js
+// summonAnimation). A Legendary's cinematic lifts the card above the dimmed
+// board, brings it down large to centre stage and shrinks it into its space;
+// the card goes back into its space afterwards. Quick Attack Pokémon land Active,
+// with a speed streak.
+async function summonVfx(root, card, el, t) {
+  const id = summonAnimation(card);
+  const def = composeSummon(id, { quick: !card.spent });
+  const cinematic = def.budget === 'cinematic';
+  const home = cinematic ? { parent: el.parentNode, next: el.nextSibling, css: el.style.cssText } : null;
+  const table = root.querySelector('.table');
+  if (cinematic) {
+    placeInFx(el, rectOf(el));
+    el.style.transformOrigin = '50% 50%';
+    el.style.zIndex = '6';
+  }
+  const tint = tintOf(card.pokemonType);
+  try {
+    await playTimeline(def, {
+      target: el, rate: 1 / t(1), tint, damage: 3,
+      on: {
+        dim: () => table?.animate([{ filter: 'brightness(1)' }, { filter: 'brightness(0.35) saturate(0.7)' }], { duration: t(400), fill: 'forwards' }),
+        undim: () => table?.animate([{ filter: 'brightness(0.35) saturate(0.7)' }, { filter: 'brightness(1)' }], { duration: t(350), fill: 'forwards' }),
+        land: ({ skipped }) => { if (!skipped && cinematic) floatNumber(rectOf(el), card.name, 'buff', t(1300)); },
+      },
+    });
+  } finally {
+    table?.getAnimations().forEach((a) => a.cancel());
+    if (home && home.parent?.isConnected) {
+      home.parent.insertBefore(el, home.next?.parentNode === home.parent ? home.next : null);
+      el.style.cssText = home.css;
+    }
+  }
+}
+
+// The Supporter's portrait moment: its art slides in large from the player's
+// side, the paid cards fly to the Discard or Released Pile, a gold "Gift
+// Bonus!" flourish plays if the Gift Bonus is met; then the effect follows.
+async function supporterVfx(root, prev, next, main, t) {
+  const p = prev.players[main.who];
+  const card = p.hand.find((c) => c.uid === main.uid);
+  if (!card) return false;
+  const mine = main.who === 'player';
+  const r = { x: 740, y: 150, w: 420, h: 580 };
+  const portrait = spawn('fx-portrait', r, `<div class="fx-portrait-art" style="background-image:url('${artUrl(card)}')"></div>
+    <div class="fx-portrait-plate"><b>${card.name}</b><span>Supporter${main.gift?.met ? '' : ' · Gift not met'}</span></div>`);
+  const from = mine ? 'translate(-760px, 380px) rotate(-8deg)' : 'translate(760px, -380px) rotate(8deg)';
+  // The Supporter card itself and the paid cards: their hand copies are shown flying here.
+  const leaving = next.events.filter((x) => x.type === 'cardMoved' && x.owner === main.who && ['discard', 'released'].includes(x.to) && x.uid !== main.uid);
+  shown(main.uid)?.setAttribute('data-flown', '1');
+  if (shown(main.uid)) shown(main.uid).style.visibility = 'hidden';
+  await playTimeline('supporter-moment', {
+    target: portrait, rate: 1 / t(1), tint: ['#ffd36b', '#fff3c4'],
+    when: { gift: Boolean(main.gift?.met) },
+    on: {
+      portrait: () => play(portrait, [
+        { transform: from, opacity: 0 },
+        { transform: 'translate(0, 0) rotate(0deg)', opacity: 1, offset: 0.25 },
+        { transform: 'translate(0, -6px)', opacity: 1, offset: 0.85 },
+        { transform: 'translate(0, -6px) scale(0.96)', opacity: 0 },
+      ], t(1500), { easing: 'ease-out' }),
+      paid: ({ skipped }) => { if (!skipped) paidFlight(root, prev, main.who, leaving, t); },
+      gift: ({ skipped }) => {
+        if (skipped) return;
+        const g = spawn('fx-gift', null, `<b>Gift Bonus!</b>${main.gift?.bonus ? `<span>${main.gift.bonus}</span>` : ''}`);
+        g.style.left = `${r.x + r.w / 2}px`;
+        g.style.top = `${r.y + r.h * 0.62}px`;
+        play(g, [
+          { opacity: 0, transform: 'translate(-50%, -50%) scale(0.5) rotate(-6deg)' },
+          { opacity: 1, transform: 'translate(-50%, -50%) scale(1.12) rotate(-3deg)', offset: 0.2 },
+          { opacity: 1, transform: 'translate(-50%, -50%) scale(1) rotate(-3deg)', offset: 0.8 },
+          { opacity: 0, transform: 'translate(-50%, -60%) scale(1)' },
+        ], readableMs(t(1100)));
+      },
+    },
+  });
+  portrait.remove();
+  return true;
+}
+// The paid cards fly from the hand to the Discard or Released Pile.
+function paidFlight(root, prev, who, moves, t) {
+  for (const [i, m] of moves.entries()) {
+    const card = prev.players[who].hand.find((c) => c.uid === m.uid);
+    const to = pile(root, `${who}-${m.to}`);
+    if (!card || !to) continue;
+    const src = shown(m.uid);
+    const fromRect = src ? rectOf(src) : rectOf(pile(root, 'ai-hand') ?? to);
+    if (src) { src.setAttribute('data-flown', '1'); src.style.visibility = 'hidden'; }
+    const box = document.createElement('div');
+    box.innerHTML = cardMarkup(card, 'board');
+    const ghost = box.firstElementChild;
+    ghost.removeAttribute('data-uid');
+    ghost.classList.add('fx-paid');
+    fxEl().append(ghost);
+    placeInFx(ghost, { x: fromRect.x, y: fromRect.y, w: 120, h: 168 });
+    const d = centre(rectOf(to));
+    play(ghost, [
+      { transform: ghost.style.transform, opacity: 1 },
+      { transform: `translate(${d.x - fromRect.x - 30}px, ${d.y - fromRect.y - 42}px) scale(0.5)`, opacity: m.to === 'released' ? 0.4 : 0.9 },
+    ], t(560), { delay: i * t(120), easing: 'ease-in', fill: 'backwards' }).then(() => {
+      to.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.15)', filter: 'brightness(1.6)' }, { transform: 'scale(1)' }], { duration: t(300) });
+    });
+  }
+}
+
 // A summoned Pokémon lands in its space: a small bounce and a ring of dust on
 // the mat; one that arrives Active (Quick Attack) lands with a flash.
 function land(el, t) {
@@ -1237,6 +1425,7 @@ async function after(root, snap, next, actor, t, late) {
   // Cards that left the screen fly to their pile (or fade where they were).
   for (const [uid, { el, rect }] of snap) {
     if (el.isConnected && !el.closest('#fx')) continue;
+    if (el.dataset.flown) continue;   // already shown flying to its pile (a Supporter's paid cards)
     const fading = el.dataset.fading;
     placeInFx(el, rect);
     if (fading) el.style.filter = 'sepia(1) brightness(0.5)';
@@ -1255,10 +1444,13 @@ async function after(root, snap, next, actor, t, late) {
   }
   await Promise.all(moves);
 
-  // Summoned Pokémon land.
+  // Summoned Pokémon make their entrance (by rarity; a Legendary's cinematic).
   for (const e of ev.filter((x) => x.type === 'summoned')) {
     const el = shown(e.target.uid);
-    if (el?.closest('.pokemon-space')) land(el, t);
+    if (!el?.closest('.pokemon-space')) continue;
+    const card = next.players[e.target.owner]?.zones[e.target.zone]?.pokemon[e.target.space];
+    if (card && vfxReady() && t(1) > 0) await summonVfx(root, card, el, t);
+    else land(el, t);
   }
 
   // Trainers revealed together: they flip face-up.

@@ -240,11 +240,11 @@ export function burstCompat(x, y, { kind = 'spark', colors = ['#fff3c4'], count 
 // --- Coins and other sprites on a path --------------------------------------------------------
 
 // n coins from `from` to `to` (stage px points), each over `ms`, staggered.
-export function coins(from, to, n, ms, onArrive) {
+export function coins(from, to, n, ms, onArrive, { tex = 'coin', size = 26, color = null } = {}) {
   if (!vfxReady()) return false;
   for (let i = 0; i < n; i++) {
     const mid = { x: (from.x + to.x) / 2 + (Math.random() - 0.5) * 120, y: Math.min(from.y, to.y) - 80 - Math.random() * 60 };
-    flyers.push({ tex: 'coin', from, mid, to, t: -i * ms * 0.1, ms, size: 26, arrive: i === n - 1 ? onArrive : null });
+    flyers.push({ tex, from, mid, to, t: -i * ms * 0.1, ms, size: size * (tex === 'coin' ? 1 : 0.7 + Math.random() * 0.6), color, arrive: i === n - 1 ? onArrive : null });
   }
   wake();
   return true;
@@ -322,6 +322,27 @@ const MOTIONS = {
   },
   // Flame Charge: the Pokémon glows hotter as the fire spirals round it.
   charging: (k) => { const t = Math.sin(k * Math.PI); return { y: -10 * t, s: 1 + 0.05 * t, filter: `brightness(${1 + 0.35 * t}) saturate(${1 + 0.5 * t})` }; },
+  // Summons: a slam down into the space and a small settle.
+  slamDown: (k) => { const e = ease.inQuad(k); return { y: -70 * (1 - e), s: 1.15 - 0.15 * e }; },
+  settleLand: (k) => { const b = Math.sin(k * Math.PI) * (1 - k); return { y: 4 * b, s: 1 - 0.03 * b }; },
+  // A Legendary: descends large to centre stage, hovers, then shrinks into its space.
+  descend: (k, c) => { const e = ease.outCubic(k); return { x: c.toCentre.x, y: c.toCentre.y - 420 * (1 - e), s: 2.6 - 0.4 * e }; },
+  hover: (k, c) => ({ x: c.toCentre.x, y: c.toCentre.y + Math.sin(k * Math.PI * 2) * 6, s: 2.2 }),
+  shrinkHome: (k, c) => { const e = ease.inQuad(k); return { x: c.toCentre.x * (1 - e), y: c.toCentre.y * (1 - e) - 30 * Math.sin(k * Math.PI), s: 2.2 - 1.2 * e }; },
+  // Defeats: charring to ash, washing away, cracking then breaking.
+  char: (k) => ({ y: 6 * k, s: 1 - 0.08 * k, filter: `sepia(${k}) brightness(${1 - 0.7 * k}) contrast(${1 + 0.4 * k}) opacity(${1 - k * k})` }),
+  washAway: (k) => ({ y: 30 * k, s: 1 + 0.04 * k, filter: `saturate(${1 - 0.7 * k}) brightness(${1 + 0.3 * k}) blur(${2 * k}px) opacity(${1 - k})` }),
+  crackShake: (k) => ({ x: Math.sin(k * 80) * 3, filter: `brightness(${1 + 0.4 * k})` }),
+  shatterOut: (k) => ({ s: 1 + 0.1 * k, filter: `opacity(${1 - k})` }),
+  // Healing: a warm glow lifting the card a little.
+  healGlow: (k) => { const t = Math.sin(k * Math.PI); return { y: -4 * t, filter: `brightness(${1 + 0.35 * t}) saturate(${1 + 0.3 * t})` }; },
+  healGlowSoft: (k) => { const t = Math.sin(k * Math.PI); return { y: -2 * t, filter: `brightness(${1 + 0.18 * t})` }; },
+  // A Trainer flinching: knocked back (away from the hit) and springing back.
+  knockBack: (k, c) => {
+    const spring = Math.exp(-6 * k) * Math.cos(k * 14);
+    const d = c.knock ?? c.dir;
+    return { x: d.x * 16 * spring, y: d.y * 16 * spring, r: 0.05 * spring };
+  },
   // Normal: a slow, heavy lift, then a drop.
   heave: (k) => { const e = ease.outCubic(k); return { y: -80 * e, s: 1 + 0.14 * e, r: 0.03 * Math.sin(k * 7) * e }; },
   slam: (k, c) => {
@@ -410,6 +431,8 @@ export function playTimeline(idOrDef, ctx) {
     // (relative to its own place), on the side nearer the middle of the board, so it stays in view.
     behind: feintSpot(A, B, dir, len, tRect),
     gRect: ctx.guard ? rectOf(ctx.guard) : null,
+    // A Legendary's entrance: from its space to centre stage.
+    toCentre: tRect ? { x: 940 - (tRect.x + tRect.w / 2), y: 500 - (tRect.y + tRect.h / 2) } : { x: 0, y: 0 },
     pRect: ctx.pile ? rectOf(ctx.pile) : null,
     regionRect: ctx.region ? rectOf(ctx.region) : null,
     oRect: ctx.overrunTarget ? rectOf(ctx.overrunTarget) : null,
@@ -425,6 +448,7 @@ export function playTimeline(idOrDef, ctx) {
       case 'behind': return at(null, c.aRect ? { ...c.aRect, x: c.aRect.x + c.behind.x, y: c.aRect.y + c.behind.y } : null);
       case 'guard': return at(null, c.gRect ?? c.tRect);
       case 'card': return { ...at(null, moved(c.attacker, c.aRect)), muzzle: livePoint('muzzle'), goal: B };
+      case 'ground': return at(null, c.tRect);
       case 'pile': return at(null, c.pRect);
       case 'sweep': return { rect: c.sw?.unitRect, line: c.sw?.line, dir: c.sw?.dir ?? c.dir, tint: c.tint };
       case 'trainer': return at(null, c.oRect ?? c.tRect);
@@ -596,7 +620,7 @@ function endSweep(beat, c) {
 }
 
 // Where each moment happens, and its flash colour.
-const CUE_ANCHOR = { counterHit: 'counterImpact', impact: 'impact', jab: 'impact', overrunHit: 'trainer', infiltrate: 'guard', shell: 'target', bolt: 'attacker' };
+const CUE_ANCHOR = { counterHit: 'counterImpact', impact: 'impact', jab: 'impact', overrunHit: 'trainer', infiltrate: 'guard', shell: 'target', bolt: 'attacker', land: 'ground', fall: 'ground' };
 const FLASH = { fire: [1, 0.6, 0.25], water: [0.55, 0.8, 1], electric: [1, 0.95, 0.5], dark: [0.72, 0.45, 1], white: [1, 1, 1] };
 
 function cue(beat, c, anchor, skipped) {
@@ -861,8 +885,16 @@ function collect() {
     const x = (1 - e) ** 2 * f.from.x + 2 * (1 - e) * e * f.mid.x + e * e * f.to.x;
     const y = (1 - e) ** 2 * f.from.y + 2 * (1 - e) * e * f.mid.y + e * e * f.to.y;
     const sz = f.size * (0.6 + 0.6 * Math.sin(k * Math.PI));
-    alpha.push(quad('coin', x, y, sz * Math.abs(Math.cos(f.t / 90)) + 4, sz, 0, 0.5, [0, 0, 1, 1], [1, 1, 1], 1, false));
-    additive.push(quad('glow', x, y, sz * 1.6, sz * 1.6, 0, 0.5, [0, 0, 1, 1], [1, 0.8, 0.3], 0.35, true));
+    if (f.tex === 'coin') {
+      alpha.push(quad('coin', x, y, sz * Math.abs(Math.cos(f.t / 90)) + 4, sz, 0, 0.5, [0, 0, 1, 1], [1, 1, 1], 1, false));
+      additive.push(quad('glow', x, y, sz * 1.6, sz * 1.6, 0, 0.5, [0, 0, 1, 1], [1, 0.8, 0.3], 0.35, true));
+    } else {
+      // A piece of a defeated card drifting to the Released Pile.
+      const T = TEX[f.tex] ?? TEX.dot;
+      const sp = T.sprites?.[0];
+      const uv = sp ? [sp[0] / T.w, sp[1] / T.h, (sp[0] + sp[2]) / T.w, (sp[1] + sp[3]) / T.h] : [0, 0, 1, 1];
+      (f.tex === 'embers' ? additive : alpha).push(quad(f.tex, x, y, sz, sz, f.t / 120, 0.5, uv, f.color ? hex(f.color) : [1, 1, 1], 1 - k * 0.5, f.tex === 'embers'));
+    }
   }
   additive.sort((a, b) => (a.tex < b.tex ? -1 : a.tex > b.tex ? 1 : 0));
   // Keep the Burn numbers readable: dim effects over every status token.

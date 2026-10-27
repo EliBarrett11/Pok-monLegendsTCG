@@ -223,7 +223,8 @@ const OPS = {
     for (const ref of refs) {
       const what = describeRef(state, ref);
       const dealt = afterShell(cardAt(state, ref), amount);
-      const [before, after] = damage(state, ref, amount, { by: ctx.source.kind === 'weather' ? null : ctx.who });
+      const hitBy = { kind: ctx.source.kind, id: ctx.source.id, type: ctx.source.type };
+      const [before, after] = damage(state, ref, amount, { by: ctx.source.kind === 'weather' ? null : ctx.who, hitBy });
       // A Pokémon's own ability damaging an enemy Trainer: a Trainer strike for its quests.
       if (ref.kind === 'trainer' && ref.owner !== ctx.who && ctx.source.kind === 'pokemon' && before > after) {
         questEvent(state, ctx.who, { type: 'trainerStrike', zone: ctx.source.zone });
@@ -654,7 +655,7 @@ function sourceCtx(state, ref, card) {
   const trainer = card.cardType === 'Trainer';
   return {
     who: ref.owner,
-    source: { kind: trainer ? 'trainer' : 'pokemon', owner: ref.owner, zone: ref.zone, space: ref.space, uid: card.uid, name: card.name },
+    source: { kind: trainer ? 'trainer' : 'pokemon', owner: ref.owner, zone: ref.zone, space: ref.space, uid: card.uid, name: card.name, id: card.id, type: card.pokemonType },
     label: `${whose(state, ref.owner)} ${card.name}'s ${trainer ? 'Passive' : card.effectTrigger ?? 'ability'}`,
     word: trainer ? 'Passive' : card.effectTrigger ?? 'Ability',
     text: trainer ? card.passive?.text : card.effectText,
