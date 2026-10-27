@@ -6,6 +6,7 @@
 
 import { shuffle, nextRandom } from './random.js';
 import { buildDeck, buildTrainers, buildMartStock } from './cards.js';
+import { POKEMON_CARDS } from './cardData.js';
 import { newEnergy, refreshEnergy, canPay, payCost, splitCost, availableExert } from './energy.js';
 import {
   PLAYERS, opponentOf, log, whose, draw, arenaPokemon, cardAt, emptySpaces, summonSpaces, isFallen,
@@ -182,16 +183,43 @@ export function playablePokemon(state, who) {
 
 // --- Evolve (docs/decks.md 2.8) ---------------------------------------------------
 
+// The Basic a Stage 2 card's line starts from (Venusaur → Bulbasaur), by name.
+const basicOf = (stage2) => POKEMON_CARDS.find((c) => c.stage === 'Stage 1' && c.name === stage2.evolvesFrom)?.evolvesFrom ?? null;
+
+// Whether `who` has Celebi (or another "can Evolve the Round they're summoned" card) in the arena.
+function evolvesSameRound(state, who) {
+  return arenaPokemon(state).some(({ ref, card }) => ref.owner === who && card.evolveSameRound && card.currentStrength > 0);
+}
+
 // The Pokémon in `who`'s arena this evolution card can go onto now: the one
 // it evolves from (by name), in the arena since before this Round began.
+// Celebi lifts "summoned this Round" (not "evolved this Round"). Rare Candy
+// lets a Stage 2 go straight onto its Basic this Round, even one summoned this Round.
 export function evolveTargets(state, who, uid) {
   const card = state.players[who].hand.find((c) => c.uid === uid);
   if (!isEvolution(card)) return [];
+  const celebi = evolvesSameRound(state, who);
+  const candyBasic = card.stage === 'Stage 2' ? basicOf(card) : null;
   const out = [];
   state.players[who].zones.forEach((z, zone) => z.pokemon.forEach((c, space) => {
-    if (c && c.name === card.evolvesFrom && (c.arrivedRound ?? 0) < state.round) out.push({ zone, space });
+    if (!c) return;
+    const settled = (c.arrivedRound ?? 0) < state.round || (celebi && c.evolvedRound !== state.round);
+    const candy = candyBasic && c.candyRound === state.round && c.name === candyBasic;
+    if ((c.name === card.evolvesFrom && settled) || candy) out.push({ zone, space });
   }));
   return out;
+}
+
+// What Evolving this card in `zone` costs: its Evolve cost, less Gardenia's
+// Passive if she's in that Zone (minimum 0). Cost reductions for summons don't apply.
+export function evolveCost(state, who, card, zone) {
+  return Math.max(0, card.evolveCost - evolveReductions(state, who, zone).reduce((n, r) => n + r.amount, 0));
+}
+
+export function evolveReductions(state, who, zone) {
+  const trainer = state.players[who].zones[zone]?.trainer;
+  const cut = trainer && trainer.strength > 0 ? trainer.passive?.evolveCost : 0;
+  return cut ? [{ amount: cut, name: trainer.name }] : [];
 }
 
 // How an Evolve cost can be paid: 1 Growth replaces 1 Energy, mixed as the
@@ -208,11 +236,19 @@ export function evolveOptions(state, who) {
   const p = state.players[who];
   const out = [];
   for (const card of p.hand.filter(isEvolution)) {
-    const pay = evolvePayment(p, card.evolveCost);
-    if (!pay) continue;
-    for (const t of evolveTargets(state, who, card.uid)) out.push({ uid: card.uid, ...t, cost: card.evolveCost, ...pay });
+    for (const t of evolveTargets(state, who, card.uid)) {
+      const cost = evolveCost(state, who, card, t.zone);
+      const pay = evolvePayment(p, cost);
+      if (pay) out.push({ uid: card.uid, ...t, cost, ...pay });
+    }
   }
   return out;
+}
+
+// The cheapest an evolution card in hand could Evolve for now (its printed cost if nowhere).
+export function cheapestEvolveCost(state, who, card) {
+  const costs = evolveTargets(state, who, card.uid).map((t) => evolveCost(state, who, card, t.zone));
+  return costs.length ? Math.min(...costs) : card.evolveCost;
 }
 
 // How paying a cost would split: { fromBase, fromExert }. For a card in hand
@@ -225,7 +261,10 @@ export function costPreview(state, who, what, zone, growth) {
   if (typeof what === 'object') cost = p.zones[what.power].trainer.power.cost;
   else {
     const c = p.hand.find((h) => h.uid === what);
-    if (isEvolution(c)) cost = c.evolveCost - (growth ?? Math.min(p.growth ?? 0, c.evolveCost));
+    if (isEvolution(c)) {
+      const full = zone === undefined ? cheapestEvolveCost(state, who, c) : evolveCost(state, who, c, zone);
+      cost = full - (growth ?? Math.min(p.growth ?? 0, full));
+    }
     else cost = c.cardType !== 'Pokémon' ? c.energyCost : zone === undefined ? cheapestCost(state, who, c) : summonCost(state, who, c, zone);
   }
   return splitCost(p, cost);
@@ -775,19 +814,23 @@ const HANDLERS = {
     const card = p.hand.find((h) => h.uid === uid);
     if (!isEvolution(card)) throw new Error('Choose an evolution card from your hand');
     const target = p.zones[zone]?.pokemon[space];
-    if (!target || target.name !== card.evolvesFrom) throw new Error(`${card.name} evolves from ${card.evolvesFrom}: choose your ${card.evolvesFrom}`);
-    if ((target.arrivedRound ?? 0) >= state.round) throw new Error(`${target.name} arrived this Round: it can Evolve from next Round`);
-    const pay = evolvePayment(p, card.evolveCost);
-    if (!pay) throw new Error(`Not enough Energy and Growth to Evolve (cost ${card.evolveCost})`);
+    if (!evolveTargets(state, who, uid).some((t) => t.zone === zone && t.space === space)) {
+      if (!target || target.name !== card.evolvesFrom) throw new Error(`${card.name} evolves from ${card.evolvesFrom}: choose your ${card.evolvesFrom}`);
+      throw new Error(`${target.name} arrived this Round: it can Evolve from next Round`);
+    }
+    const cost = evolveCost(state, who, card, zone);
+    const cuts = evolveReductions(state, who, zone).map((r) => `−${r.amount} ${r.name}`);
+    const pay = evolvePayment(p, cost);
+    if (!pay) throw new Error(`Not enough Energy and Growth to Evolve (cost ${cost})`);
     const fromGrowth = growth ?? pay.maxGrowth;
     if (!Number.isInteger(fromGrowth) || fromGrowth < pay.minGrowth || fromGrowth > pay.maxGrowth) {
       throw new Error(`Use between ${pay.minGrowth} and ${pay.maxGrowth} Growth for this Evolve`);
     }
     p.growth -= fromGrowth;
-    const paid = payCost(p, card.evolveCost - fromGrowth, state.round);
+    const paid = payCost(p, cost - fromGrowth, state.round);
     const payment = [paid.fromBase || paid.fromExert || !fromGrowth ? describePayment(paid) : '', fromGrowth ? `${fromGrowth} Growth` : ''].filter(Boolean).join(' + ');
-    log(state, `${p.name} played ${card.name} onto ${target.name}, paying ${payment}.`);
-    emit(state, 'evolvePaid', { who, uid, cost: card.evolveCost, growth: fromGrowth, ...paid });
+    log(state, `${p.name} played ${card.name} onto ${target.name}, paying ${payment}${cost !== card.evolveCost ? ` (cost ${card.evolveCost} → ${cost}: ${cuts.join(', ')})` : ''}.`);
+    emit(state, 'evolvePaid', { who, uid, cost, growth: fromGrowth, ...paid });
     queueStep(state, 'endTurn', { who, passed: false });
     evolvePokemon(state, who, card, { kind: 'pokemon', owner: who, zone, space });
   },
@@ -898,18 +941,23 @@ const HANDLERS = {
   // Battle Action: play a Strategy Card from hand, paying its Energy Cost.
   // Its effect resolves, then it goes to the Discard Pile.
   // target: a ref from strategyTargets(), for a card that needs one.
-  playStrategy(state, { who, uid, target }) {
+  // growth: for a card that spends Growth (Solar Beam), how much (default: as much as it can).
+  playStrategy(state, { who, uid, target, growth }) {
     const p = state.players[who];
     const card = p.hand.find((c) => c.uid === uid);
     if (!card || card.cardType !== 'Strategy') throw new Error('Choose a Strategy Card from your hand');
     if (!playableStrategies(state, who).includes(card)) throw new Error(`${card.name} cannot be played now`);
+    const most = card.spendsGrowth ? Math.min(card.spendsGrowth, p.growth ?? 0) : 0;
+    if (growth !== undefined && (!Number.isInteger(growth) || growth < 0 || growth > most)) {
+      throw new Error(`Spend between 0 and ${most} Growth`);
+    }
     const paid = payCost(p, card.energyCost, state.round);
     p.hand = p.hand.filter((c) => c !== card);   // out of hand while it resolves, so a draw can't draw it
     emit(state, 'cardPlayed', { who, card: face(card), uid: card.uid, name: card.name, cardType: card.cardType, to: { kind: 'discard' }, target: info(state, target) });
     log(state, `${p.name} played ${card.name} (${card.effectText}) Paid ${describePayment(paid)}.`);
     queueStep(state, 'endTurn', { who, passed: false });
     queueStep(state, 'discard', { who, card });
-    queueEffects(state, strategyCtx(state, who, card, target), card.effects);
+    queueEffects(state, { ...strategyCtx(state, who, card, target), ...(card.spendsGrowth ? { growth: growth ?? most } : {}) }, card.effects);
   },
 
   // Battle Action: play a Supporter Card, paying its Card-Cost with other
@@ -933,7 +981,8 @@ const HANDLERS = {
     const effects = met ? card.gift.effects : card.effects;
     const e = targetedEffect(effects);
     const ctx = supporterCtx(state, who, card, target);
-    if (e && !candidates(state, ctx, e.target, e).some((r) => sameRef(r, target ?? {}))) throw new Error('That is not a legal target');
+    // (A target left out is chosen as the effect resolves: a Gift Bonus's own target, Mallow's heal.)
+    if (e && target !== undefined && !candidates(state, ctx, e.target, e).some((r) => sameRef(r, target))) throw new Error('That is not a legal target');
 
     // Pay: the Supporter leaves the hand while it resolves; cost cards go to their piles first.
     const take = (uids) => uids.map((u) => p.hand.find((c) => c.uid === u));

@@ -18,7 +18,13 @@
 //   applyStatus  { status, amount, target }        the same for any status in STATUSES (status.js)
 //   douse        { target }                        removes all Burn
 //   cure         { target }                        removes every status (Burn, Sleep, Leech Seed)
-//   gainGrowth   { amount, each? }                 gain Growth (each: true, both players)
+//   gainGrowth   { amount, each? }                 gain Growth (each: true, both players; with a
+//                                                  target, only if one is left: "If it's a Grass Pokémon")
+//   spendGrowth  { max }                           spend up to `max` Growth, as many as the player chose
+//                                                  (ctx.growth; all of it up to max by default)
+//   damage with amountFrom: 'growthSpent'          as much damage as spendGrowth spent (Solar Beam)
+//   rareCandy    { target }                        this Round, that Basic may Evolve straight into its Stage 2
+//   search with evolvesFromArena: true             only Pokémon that evolve from one in your arena
 //   applyStatus with status 'sleep' or 'leechSeed' (Pokémon only, no amount needed)
 //   grant        { keyword, amount?, thisRound?, target }  the card gains an Innate keyword
 //   gainDollars  { amount }                        gain PokéDollars
@@ -63,6 +69,7 @@
 //
 // POKÉMON ABILITY  card.ability = { on, match: { self: true, ... }, effects }, shown
 //   as its Effect Trigger Word + Effect Text (On Summon → 'summon', and so on).
+//   A card with several has a list, each with its own word and text (abilities() in cardData.js).
 //
 // RESOLVING goes through one stack in state.stack, worked by run():
 //   { kind: 'effects', ctx, effects, i }   a source's effects, one at a time
@@ -222,7 +229,11 @@ const OPS = {
   },
 
   damage(state, ctx, e, refs) {
-    const amount = amountOf(state, e);
+    const amount = e.amountFrom === 'growthSpent' ? ctx.growthSpent ?? 0 : amountOf(state, e);
+    if (amount <= 0) {
+      log(state, `${ctx.label}: no damage.`);
+      return;
+    }
     for (const ref of refs) {
       const what = describeRef(state, ref);
       const dealt = afterShell(cardAt(state, ref), amount);
@@ -280,8 +291,29 @@ const OPS = {
     for (const ref of refs) cureAll(state, ref, `${ctx.label}: cured`);
   },
 
-  gainGrowth(state, ctx, e) {
+  gainGrowth(state, ctx, e, refs) {
+    if (e.target && !refs.length) return;   // "If it's a Grass Pokémon, also gain 1 Growth"
     for (const who of e.each ? PLAYERS : [ctx.who]) gainGrowth(state, who, amountOf(state, e), `from ${ctx.label}`);
+  },
+
+  // Solar Beam: spend up to `max` Growth (the player's choice, ctx.growth), remembered for the damage that follows.
+  spendGrowth(state, ctx, e) {
+    const p = state.players[ctx.who];
+    const most = Math.min(e.max, p.growth ?? 0);
+    const spent = Math.max(0, Math.min(most, ctx.growth ?? most));
+    p.growth -= spent;
+    ctx.growthSpent = spent;
+    emit(state, 'growthSpent', { who: ctx.who, amount: spent, after: p.growth, source: ctx.label });
+    log(state, `${ctx.label}: ${p.name} ${verbFor(ctx.who, 'spend', 'spends')} ${spent} Growth (now ${p.growth}).`);
+  },
+
+  // Rare Candy: this Round, the Basic may Evolve straight into its Stage 2, even if it was summoned this Round.
+  rareCandy(state, ctx, e, refs) {
+    for (const ref of refs) {
+      cardAt(state, ref).candyRound = state.round;
+      emit(state, 'rareCandy', { who: ctx.who, target: info(state, ref) });
+      log(state, `${ctx.label}: this Round, ${describeRef(state, ref)} may Evolve straight into its Stage 2.`);
+    }
   },
 
   // Retain until the card leaves your hand.
@@ -482,18 +514,30 @@ export function resolveLeechSeeds(state) {
   const seeds = arenaPokemon(state).filter(({ card }) => card.status?.leechSeed)
     .map(({ ref, card }) => ({ ref: { ...ref, uid: card.uid }, card, by: card.status.leechSeed.by }));
   if (!seeds.length) return;
-  const drain = weatherRule(state, 'leechTwo') ? 2 : 1;
+  const rain = weatherRule(state, 'leechTwo') ? 2 : 1;
   for (const s of seeds) {
     if (cardAt(state, s.ref)?.uid !== s.card.uid) continue;
     const what = describeRef(state, s.ref);
+    // Ramos: Leech Seeds on enemy Pokémon in his Zone drain 1 more.
+    const trainer = s.ref.owner !== s.by ? state.players[s.by].zones[s.ref.zone]?.trainer : null;
+    const bonus = trainer && trainer.strength > 0 ? trainer.passive?.leechBonus ?? 0 : 0;
+    const drain = rain + bonus;
+    const why = [rain > 1 && '☔ Rain 6: drains 2', bonus && `${trainer.name}'s Passive: +${bonus}`].filter(Boolean).join('; ');
     const [before, after] = damage(state, s.ref, drain, { cause: 'leechSeed', by: s.by, hitBy: { kind: 'leechSeed' } });
-    log(state, `Leech Seed${drain > 1 ? ' (☔ Rain 6: drains 2)' : ''}: ${before - Math.max(after, 0)} damage to ${what}. Strength ${before} → ${Math.max(after, 0)}.`);
-    const target = mostDamaged(state, s.by);
+    log(state, `Leech Seed${why ? ` (${why})` : ''}: ${before - Math.max(after, 0)} damage to ${what}. Strength ${before} → ${Math.max(after, 0)}.`);
+    const target = bigRootHolder(state, s.by) ?? mostDamaged(state, s.by);
     const ctx = { who: s.by, source: { kind: 'status', name: 'Leech Seed', owner: s.by, uid: s.card.uid }, label: `${whose(state, s.by)} Leech Seed` };
     emit(state, 'leechDrain', { who: s.by, from: info(state, s.ref), to: target ? info(state, target) : null, amount: drain });
     if (target) OPS.heal(state, ctx, { amount: drain }, [target]);
     gainGrowth(state, s.by, 1, 'from Leech Seed');
   }
+}
+
+// Big Root: "Leech Seeds you apply heal the holder first": a damaged holder of the seeder's (the first, zone 1 → 3).
+function bigRootHolder(state, who) {
+  const found = arenaPokemon(state).find(({ ref, card }) => ref.owner === who && card.heldItem?.held?.leechFirst
+    && card.currentStrength > 0 && card.currentStrength < maxStrengthOf(card));
+  return found ? { ...found.ref, uid: found.card.uid } : null;
 }
 
 // The seeder's Pokémon that has taken the most damage (ties: the first, zone 1 → 3, left to right).
@@ -526,7 +570,8 @@ function pickFromPile(state, ctx, e, job, pileKey) {
   const p = state.players[ctx.who];
   const searching = pileKey === 'drawPile';
   const verb = searching ? 'Search' : 'Return';
-  const matches = pileMatches(p[pileKey], e.filter);
+  const inArena = new Set(arenaPokemon(state).filter(({ ref }) => ref.owner === ctx.who).map(({ card }) => card.name));
+  const matches = pileMatches(p[pileKey], e.filter).filter((c) => !e.evolvesFromArena || inArena.has(c.evolvesFrom));
   const count = Math.min(e.count ?? 1, matches.length);
   if (!matches.length) {
     emit(state, searching ? 'searchNone' : 'returnNone', { who: ctx.who, source: ctx.label });
@@ -678,7 +723,7 @@ export const isEvolution = (card) => card?.cardType === 'Pokémon' && (card.stag
 
 // The fields only a card in the arena has: what's left is the printed card.
 const RUNTIME = ['currentStrength', 'spent', 'attackBonus', 'strengthBonus', 'aura', 'weather', 'status', 'roundBuffs',
-  'granted', 'lastHit', 'heldItem', 'stack', 'arrivedRound', 'abilityRound', 'xp', 'retainGranted', 'costDown'];
+  'granted', 'lastHit', 'heldItem', 'stack', 'arrivedRound', 'evolvedRound', 'candyRound', 'abilityRound', 'xp', 'retainGranted', 'costDown'];
 export function printedCard(card) {
   const out = { ...card };
   for (const key of RUNTIME) delete out[key];
@@ -713,6 +758,7 @@ export function evolvePokemon(state, who, card, ref) {
     ...(target.heldItem ?? ownItem ? { heldItem: target.heldItem ?? ownItem } : {}),
     ...(target.lastHit ? { lastHit: target.lastHit } : {}),
     arrivedRound: state.round,
+    evolvedRound: state.round,
     stack: [...(target.stack ?? []), printedCard(target)],
   };
   // Passive bonuses are added back by refreshAuras (raising current with maximum).
@@ -775,7 +821,7 @@ export function questEvent(state, who, event) {
 function sources(state) {
   const list = activeTrainers(state).map(({ ref, card }) => ({ ref, card, triggers: card.passive?.triggers ?? [] }));
   for (const { ref, card } of arenaPokemon(state)) {
-    if (card.ability) list.push({ ref, card, triggers: [card.ability] });
+    if (card.ability) list.push({ ref, card, triggers: [card.ability].flat() });
   }
   return list;
 }
@@ -813,7 +859,7 @@ export function fireTriggers(state, events) {
   const list = sources(state);
   // A defeated Pokémon has left the arena but its own On Defeated still fires.
   for (const event of events) {
-    if (event.type === 'defeated' && event.card.ability) list.push({ ref: event.ref, card: event.card, triggers: [event.card.ability] });
+    if (event.type === 'defeated' && event.card.ability) list.push({ ref: event.ref, card: event.card, triggers: [event.card.ability].flat() });
   }
   const fired = [];
   for (const event of events) {
@@ -833,6 +879,8 @@ export function fireTriggers(state, events) {
       for (const trigger of triggers) {
         if (trigger.on !== event.type) continue;
         const ctx = { ...sourceCtx(state, ref, card), event };
+        // One of several abilities: its own word and text.
+        if (trigger.word) Object.assign(ctx, { label: `${whose(state, ref.owner)} ${card.name}'s ${trigger.word}`, word: trigger.word, text: trigger.text });
         if (!eventMatches(state, trigger.match, ctx, event)) continue;
         // "Once per Round": a second time this Round, it doesn't fire.
         if (trigger.oncePerRound) {
@@ -952,6 +1000,13 @@ function refreshWeather(state) {
           mod.attack += st.attack ?? 0;
           mod.strength += st.strength ?? 0;
         }
+      }
+      // A card's own Weather modifier (Sunflora: +2 Attack while Sun is 4 or more).
+      for (const st of card.weatherStats ?? []) {
+        if (st.weather !== type || w.count < st.min) continue;
+        const mod = (next[`${card.name} (${type} ${st.min})`] ??= { attack: 0, strength: 0, type });
+        mod.attack += st.attack ?? 0;
+        mod.strength += st.strength ?? 0;
       }
     }
     const was = weatherTotal(card, 'strength');

@@ -13,6 +13,7 @@ import {
   playableSupporters, supporterTargets, giftMet, playableLocations, locationSpaces,
   openBagOptions, itemTargets, passEndsPhase, PASS_ENERGY, passSpends, summonCost, evolveOptions, isEvolution,
 } from '../engine/game.js';
+import { POKEMON_CARDS } from '../engine/cardData.js';
 import { baseEnergyFor } from '../engine/energy.js';
 import { cardAt } from '../engine/board.js';
 import { keywordAmount, afterShell, keywordList } from '../engine/keywords.js';
@@ -53,13 +54,17 @@ function candidateMoves(state, who) {
       moves.push({ type: 'playPokemon', who, uid: card.uid, zone, space });
     }
   }
-  // Evolve (Grass G1): as much Growth as it has, the rest from Base Energy only.
+  // Evolve: two ways to pay, as much Growth as it has, or as much Base Energy
+  // (keeping Growth for Solar Beam); never Exert. Scoring picks.
   const seenEvolve = new Set();
   for (const opt of evolveOptions(state, who)) {
     const key = `${p.hand.find((c) => c.uid === opt.uid).id}:${opt.zone}:${opt.space}`;
-    if (seenEvolve.has(key) || opt.cost - opt.maxGrowth > p.baseEnergy) continue;
+    if (seenEvolve.has(key)) continue;
     seenEvolve.add(key);
-    moves.push({ type: 'evolve', who, uid: opt.uid, zone: opt.zone, space: opt.space, growth: opt.maxGrowth });
+    const leastGrowth = Math.max(opt.minGrowth, opt.cost - p.baseEnergy);
+    for (const growth of new Set([opt.maxGrowth, leastGrowth])) {
+      if (growth <= opt.maxGrowth && opt.cost - growth <= p.baseEnergy) moves.push({ type: 'evolve', who, uid: opt.uid, zone: opt.zone, space: opt.space, growth });
+    }
   }
   for (const zone of usablePowers(state, who)) {
     if (p.zones[zone].trainer.power.cost > p.baseEnergy) continue;
@@ -73,7 +78,9 @@ function candidateMoves(state, who) {
     if (card.energyCost > p.baseEnergy || seenStrategy.has(card.id)) continue;
     seenStrategy.add(card.id);
     const targets = strategyTargets(state, who, card.uid);
-    if (targets.length) targets.forEach((target) => moves.push({ type: 'playStrategy', who, uid: card.uid, target }));
+    // A card that spends Growth (Solar Beam): all it has, up to its limit.
+    const spend = card.spendsGrowth ? { growth: Math.min(card.spendsGrowth, p.growth ?? 0) } : {};
+    if (targets.length) targets.forEach((target) => moves.push({ type: 'playStrategy', who, uid: card.uid, target, ...spend }));
     else if (!card.effects.some((e) => e.target?.mode === 'targeted')) moves.push({ type: 'playStrategy', who, uid: card.uid });
   }
   // Supporters: one payment each (random cards, but meeting the Gift when it can).
@@ -241,19 +248,33 @@ function burnPressure(s, side) {
 //   burn / douse  Burn on the enemy / removed from its own cards
 //   overrun, heal, board, keep, zone  Overrun gained, healing, stats gained,
 //             its own Pokémon lost, summoning beside friendly Pokémon
+//   growth    each Growth gained (spent counts against it)
+//   status    Sleep and Leech Seed on the enemy (Sleep by the Attack it stops, a seed
+//             by how long its Pokémon will last), and on its own cards worth curing
+//   evolve, basics  the bonus for Evolving, and for summoning a Basic it can still evolve
+//   beamAt    Solar Beam is held (it has Retain) until it spends this much Growth,
+//             unless it brings an enemy Trainer to 0
 //   Fire (Aggressive · Burn): push damage onto Trainers, spread Burn, use Overrun.
 //   Water (Board-Based · Value-Midrange): build Zones, heal, Douse its own Burn,
 //   grow and hold its board.
-const NO_PLAN = { trainers: 1, strike: 1, trades: 1, burn: 1, douse: 1, overrun: 0, heal: 1, board: 1, keep: 1, zone: 0 };
+//   Grass (Combo · Engine): bank Growth, set up Basics early and keep them alive,
+//   Evolve whenever it can, hold Solar Beam for a big hit, Sleep and Leech Seed.
+const NO_PLAN = {
+  trainers: 1, strike: 1, trades: 1, burn: 1, douse: 1, overrun: 0, heal: 1, board: 1, keep: 1, zone: 0,
+  growth: 0.5, status: 1, evolve: 0, basics: 0, beamAt: 0,
+};
 const PLANS = {
   fire: { ...NO_PLAN, trainers: 1.5, burn: 1.5, overrun: 6 },
   water: { ...NO_PLAN, douse: 1.6, heal: 1.7, board: 1.3, keep: 1.4, zone: 3 },
+  grass: { ...NO_PLAN, growth: 2, status: 1.5, evolve: 12, basics: 8, keep: 1.5, beamAt: 6 },
 };
 // Alternative plans, off unless chosen with usePlan() (for balance experiments).
 //   fire 'pressure': Trainer damage worth double (trainers 1.5 → 3, and the
 //   direct-attack bonus ×2), attacks on Pokémon worth half.
+//   grass 'none': no Grass plan (the general weights), to see what the plan itself adds.
 const PLAN_VARIANTS = {
   fire: { pressure: { ...PLANS.fire, trainers: 3, strike: 2, trades: 0.5 } },
+  grass: { none: NO_PLAN },
 };
 let plans = { ...PLANS };
 export function usePlan(deck, name = 'default') {
@@ -270,7 +291,22 @@ function burnScore(before, after, who) {
   return plan.burn * (burnPressure(after, foe) - burnPressure(before, foe)) - plan.douse * (burnPressure(after, who) - burnPressure(before, who));
 }
 
-const value = (cards) => cards.reduce((sum, c) => sum + (c.energyCost ?? 0) + (c.attackValue ?? 0), 0);
+const value = (cards) => cards.reduce((sum, c) => sum + (c.energyCost ?? c.evolveCost ?? 0) + (c.attackValue ?? 0), 0);
+
+// Sleep and Leech Seed on a side's Pokémon, in score points: a sleeping one by
+// the Attack it can't use (the biggest threat most), a seeded one by how long
+// it will keep draining (its Strength, up to 6).
+function statusValue(s, side) {
+  let sum = 0;
+  for (const z of s.players[side].zones) {
+    for (const c of z.pokemon) {
+      if (!c) continue;
+      if (c.status?.sleep) sum += 3 * attackOf(c);
+      if (c.status?.leechSeed) sum += 3 + Math.min(6, c.currentStrength);
+    }
+  }
+  return sum;
+}
 // Pokémon newly in the Released Pile (defeated), not other Released cards.
 const newlyReleased = (before, after, who) => after.players[who].released.slice(before.players[who].released.length)
   .filter((c) => c.cardType === 'Pokémon');
@@ -304,6 +340,8 @@ function evaluate(before, after, who) {
   score += plan.overrun * (overruns(after, who) - overruns(before, who));
   score += 8 * Math.max(0, spent(before, who) - spent(after, who));
   score += burnScore(before, after, who);
+  score += plan.status * (statusValue(after, foe) - statusValue(before, foe)) - (statusValue(after, who) - statusValue(before, who));
+  score += 2 * plan.growth * ((after.players[who].growth ?? 0) - (before.players[who].growth ?? 0));
   score += 4 * Math.max(0, after.players[who].hand.length - before.players[who].hand.length);
   score += 2 * (after.players[who].dollars - before.players[who].dollars);
   score += 5 * (after.players[who].xp - before.players[who].xp);
@@ -373,7 +411,9 @@ function scoreMove(state, who, move) {
   // (Burn, Trainer damage and XP are already in `score`; evaluate counts them too,
   // so leave them out of it here.)
   const cost = strategy ? strategy.energyCost : trainer.power.cost;
-  return 4 + score + evaluate(state, after, who) - burnAndTrainers(state, after, who) - energyCost(cost);
+  // Solar Beam: held (Retain) until it can spend enough Growth, unless it takes an enemy Trainer to 0.
+  const hold = strategy?.spendsGrowth && !removed && (move.growth ?? 0) < plan.beamAt ? 60 : 0;
+  return 4 + score + evaluate(state, after, who) - burnAndTrainers(state, after, who) - energyCost(cost) - hold;
 }
 
 // The part of evaluate() that scoreMove has already counted (Burn pressure,
@@ -436,15 +476,20 @@ function summonScore(before, after, who, { uid, zone, space }) {
   const quest = ['presence', 'summon'].includes(side.location?.quest?.on) && side.location.quest.inZone ? 6 : 0;
   const zoneBuild = planOf(before, who).zone * friends + quest;
   const arrival = evaluate(before, after, who) - 2 * (attackOf(placed) + maxStrengthOf(placed));   // its own stats aside
-  return 20 + 2 * card.energyCost + 3 * bonus - 8 * hurt + zoneBuild + Math.max(0, arrival);
+  // The Grass plan: a Basic it can evolve later is worth setting up early.
+  const basics = EVOLVES_FROM.has(card.name) ? planOf(before, who).basics : 0;
+  return 20 + 2 * card.energyCost + 3 * bonus - 8 * hurt + zoneBuild + Math.max(0, arrival) + basics;
 }
+
+// The names of Pokémon some evolution card evolves from (Bulbasaur, Oddish, Sunkern...).
+const EVOLVES_FROM = new Set(POKEMON_CARDS.map((c) => c.evolvesFrom).filter(Boolean));
 
 // Evolving: what trying it changed (stats gained, statuses cured, its On
 // Evolve), like a summon of a bigger Pokémon, less the Energy and Growth spent.
-function evolveScore(before, after, who, { uid, growth = 0 }) {
-  const card = before.players[who].hand.find((c) => c.uid === uid);
-  const energy = card.evolveCost - growth;
-  return 18 + evaluate(before, after, who) - burnAndTrainers(before, after, who) - energyCost(energy) - growth;
+// (Growth spent counts in evaluate, by the plan's growth weight.)
+function evolveScore(before, after, who) {
+  const energy = before.players[who].baseEnergy - after.players[who].baseEnergy;
+  return 18 + planOf(before, who).evolve + evaluate(before, after, who) - burnAndTrainers(before, after, who) - energyCost(Math.max(0, energy));
 }
 
 // How much a card is worth keeping in hand for next Round: most for a

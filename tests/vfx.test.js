@@ -21,9 +21,12 @@ import { cardDefinition } from '../src/engine/cards.js';
 
 // --- Every Pokémon in both decks resolves to an attack animation ----------------------------
 
-const deckPokemon = Object.values(DECKS).flatMap((d) => Object.keys(d.list)).map(cardDefinition).filter((c) => c.cardType === 'Pokémon');
+const allDeckPokemon = Object.values(DECKS).flatMap((d) => Object.keys(d.list)).map(cardDefinition).filter((c) => c.cardType === 'Pokémon');
+assert.equal(allDeckPokemon.length, 31);
+// (Grass, G2: its 11 Pokémon use the generic Physical or Special attack tinted by their Type until they get their own.)
+const deckPokemon = [DECKS.fire, DECKS.water].flatMap((d) => Object.keys(d.list)).map(cardDefinition).filter((c) => c.cardType === 'Pokémon');
 assert.equal(deckPokemon.length, 20);
-for (const c of deckPokemon) {
+for (const c of allDeckPokemon) {
   const id = attackAnimation(c);
   assert.ok(TIMELINES[id], `${c.name}: ${id}`);
   assert.equal(TIMELINES[id].budget, 'attack', `${c.name}: an attack timeline`);
@@ -159,8 +162,9 @@ const instant = (id) => (FULL[id] ?? TIMELINES[id]).beats.filter((b) => b.end ==
 
 // --- Strategy Cards (Step 22, docs/vfx.md section 4) ----------------------------------------
 
-const deckStrategies = Object.values(DECKS).flatMap((d) => Object.keys(d.list)).map(cardDefinition).filter((c) => c.cardType === 'Strategy');
-assert.equal(deckStrategies.length, 8, 'both decks: 8 Strategy Cards');
+// (Grass's 4 Strategy Cards use the fallback until they get their own, like its attacks.)
+const deckStrategies = [DECKS.fire, DECKS.water].flatMap((d) => Object.keys(d.list)).map(cardDefinition).filter((c) => c.cardType === 'Strategy');
+assert.equal(deckStrategies.length, 8, 'Fire and Water: 8 Strategy Cards');
 for (const c of deckStrategies) {
   const id = strategyAnimation(c);
   assert.notEqual(id, STRATEGY_FALLBACK, `${c.name}: its own animation, not the fallback`);

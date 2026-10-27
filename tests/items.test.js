@@ -121,7 +121,7 @@ for (const c of ITEM_CARDS) {
 {
   let s = fire();
   assert.equal(s.mart.onSale.filter(Boolean).length, 3);
-  assert.equal(s.mart.deck.length, 4);
+  assert.equal(s.mart.deck.length, 8, '11 Items, 3 on sale');
   const slot = 0;
   const item = s.mart.onSale[slot];
   s.players.player.dollars = 10;
@@ -137,7 +137,7 @@ for (const c of ITEM_CARDS) {
   assert.equal(s.players.player.bag[0].inDelivery, false);
   assert.ok(logged(s, `You: ${item.name} arrived in the Bag.`));
   assert.equal(s.mart.onSale.filter(Boolean).length, 3);
-  assert.equal(s.mart.deck.length + 3, 6, 'all 6 unsold Items are back in circulation');
+  assert.equal(s.mart.deck.length + 3, 10, 'all 10 unsold Items are back in circulation');
   assert.ok(logged(s, 'PokéMart restocked:'));
 }
 

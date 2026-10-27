@@ -76,10 +76,14 @@ const abilityOf = (id) => def(id).ability;
   const byWord = {};
   for (const c of POKEMON_CARDS) {
     if (!c.ability) continue;
-    assert.ok(c.effectTrigger in TRIGGER_WORDS, c.name);
-    assert.equal(c.ability.on, TRIGGER_WORDS[c.effectTrigger]);
     assert.ok(c.effectText);
-    (byWord[c.effectTrigger] ??= []).push(c.name);
+    // Several abilities (Ivysaur, Bellossom, Celebi): each with its own Trigger Word.
+    for (const a of [c.ability].flat()) {
+      const word = a.word ?? c.effectTrigger;
+      assert.ok(word in TRIGGER_WORDS, c.name);
+      assert.equal(a.on, TRIGGER_WORDS[word]);
+      (byWord[word] ??= []).push(c.name);
+    }
   }
   assert.ok(byWord['On Summon'].length >= 2, 'On Summon is common in both decks');
   assert.ok(POKEMON_CARDS.some((c) => !c.ability), 'some have no ability');

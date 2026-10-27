@@ -30,14 +30,14 @@ The game fetches fresh relay credentials each time; with the key left empty it c
 | Folder | What lives there |
 |---|---|
 | `src/engine/` | Game rules only. No DOM, so the AI and tests use the same rules. |
-| `src/engine/cardData.js` | Card definitions as data, and the two decks (Fire and Water) with their Trainers. |
+| `src/engine/cardData.js` | Card definitions as data, and the three decks (Fire, Water and Grass) with their Trainers. |
 | `src/engine/effects.js` | The effect system: what every card effect means, as data. |
 | `src/ai/` | The AI opponent's decision-making. |
 | `src/ui/` | Drawing the board and handling clicks. |
 | `src/net/` | Playing a friend online: the messages, the host and guest sessions, the PeerJS link, the ICE servers. |
 | `src/vendor/` | Third-party code copied in (PeerJS), with licences. |
 | `docs/rules.md` | The game's rules, written as they're settled. |
-| `docs/decks.md` | The approved Fire and Water decks (the source of truth for their cards). |
+| `docs/decks.md` | The approved Fire, Water and Grass decks (the source of truth for their cards). |
 | `assets/cards/` | Card art: `<card id>.jpg`, e.g. `growlithe.jpg`, `crasher-wake.jpg`. Cards without a file keep the placeholder look. |
 
 No build step: plain HTML, CSS and JavaScript modules. Working rules for each session are in `CLAUDE.md`.
@@ -216,7 +216,7 @@ Add `?seed=123` to the URL to replay the same shuffle and coin flip. Add `?hotse
 
 ## Balance report
 
-After any balance change, run `node tools/balance.js [matches]` (default 100 per seat order). It plays Fire against Water in the same seeded AI-vs-AI matches every time, in both seat orders, and prints for each deck its win, draw and stall rates, average Rounds, damage to enemy Trainers per match (and how much came from Burn), and how often it ran out of Pokémon, so before and after can be compared directly.
+After any balance change, run `node tools/balance.js [matches]` (default 100 per seat order). It plays a round-robin of every pair of decks (Fire–Water, Fire–Grass, Water–Grass) in the same seeded AI-vs-AI matches every time, in both seat orders, and prints for each deck in each matchup its win, draw and stall rates, average Rounds, damage to enemy Trainers per match by source (attacks, Burn, Overrun, Solar Beam, other effects), Growth gained and spent, Evolves, Solar Beam damage, when it first Evolved and how often it lost before evolving anything, and how often it ran out of Pokémon, then each deck's overall win rate. `--decks fire,grass` plays one matchup; `--variant X` tries a change for that run only.
 
 ## Tests
 

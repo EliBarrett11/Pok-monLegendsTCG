@@ -1366,20 +1366,21 @@ button.primary {
 }
 .deck-head .hint { margin: 6px 0 0; font-size: 20px; }
 .deck-head .build-tag { margin-left: 10px; }
-.deck-options { display: flex; gap: 70px; }
+.deck-options { display: flex; gap: 30px; }
 .deck-option {
   --accent: var(--brass);
-  width: 700px; padding: 22px 34px 28px; display: flex; flex-direction: column; align-items: center; text-align: center;
+  width: 590px; padding: 20px 28px 26px; display: flex; flex-direction: column; align-items: center; text-align: center;
   background: var(--leather-panel); border: 3px solid var(--brass-dark); border-radius: var(--radius-panel);
   box-shadow: inset 0 0 0 1px rgba(246, 221, 154, 0.3), inset 0 2px 14px rgba(0, 0, 0, 0.6), var(--shadow-panel);
   transition: transform 0.2s, box-shadow 0.2s;
 }
 .deck-option.fire { --accent: #ff8a4c; }
 .deck-option.water { --accent: #6fb8ff; }
+.deck-option.grass { --accent: #7fdc5a; }
 .deck-option:hover { transform: translateY(-6px); }
 .deck-option.last { border-color: var(--accent); box-shadow: inset 0 0 0 1px rgba(246, 221, 154, 0.3), 0 0 26px 4px color-mix(in srgb, var(--accent) 45%, transparent), var(--shadow-panel); }
-.deck-fan { position: relative; width: 100%; height: 420px; }
-.deck-fan .card { --w: 270px; position: absolute; left: 50%; top: 10px; transform-origin: 50% 100%; transition: transform 0.25s; }
+.deck-fan { position: relative; width: 100%; height: 380px; }
+.deck-fan .card { --w: 240px; position: absolute; left: 50%; top: 10px; transform-origin: 50% 100%; transition: transform 0.25s; }
 .deck-fan .card:nth-child(1) { transform: translateX(-88%) rotate(-8deg); z-index: 1; }
 .deck-fan .card:nth-child(2) { transform: translateX(-12%) translateY(14px) rotate(7deg); }
 .deck-option:hover .deck-fan .card:nth-child(1) { transform: translateX(-96%) rotate(-11deg); }
@@ -1403,7 +1404,11 @@ button.primary {
 .deck-option button { font-size: 24px; padding: 12px 40px; }
 .deck-option .last-tag { margin-left: 8px; font-size: 14px; font-weight: 500; opacity: 0.8; }
 .deck-random { font-size: 20px; padding: 10px 36px; }
-.deck-foot { display: flex; gap: 18px; }
+.deck-foot { display: flex; align-items: center; gap: 18px; }
+.deck-opponent { display: flex; align-items: center; gap: 8px; margin-left: 30px; font-size: 19px; color: var(--cream); }
+.deck-opponent span { font-family: var(--font-display); color: var(--brass-light); margin-right: 4px; }
+.deck-opponent button { font-size: 18px; padding: 8px 18px; }
+.deck-opponent button.chosen { background: linear-gradient(var(--brass-light), var(--brass)); color: var(--ink); }
 .deck-mode { font-size: 20px; padding: 10px 30px; }
 
 /* --- Hot-seat: the screen passed to the other player ----------------------------------------- */

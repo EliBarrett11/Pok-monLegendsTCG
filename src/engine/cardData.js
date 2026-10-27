@@ -1,4 +1,4 @@
-// Card definitions, as plain data: the Fire and Water decks (docs/decks.md),
+// Card definitions, as plain data: the Fire, Water and Grass decks (docs/decks.md),
 // their Trainers and the PokéMart's Items. Field values must come from the lists below.
 
 export const POKEMON_TYPES = [
@@ -89,11 +89,24 @@ export function ability(word, effectText, effects, match = {}, extra = {}) {
   return { effectTrigger: word, effectText, ability: { on: TRIGGER_WORDS[word], match: { ...(TRIGGER_MATCH[word] ?? { self: true }), ...match }, effects, ...extra } };
 }
 
+// Two or more abilities on one card (Ivysaur: On Breakfast and On Evolve). A
+// part with no Trigger Word is a rule the engine checks directly (Celebi,
+// Sunflora). abilityParts is what the card shows, one line per part.
+export function abilities(...parts) {
+  const shown = parts.map((p) => ({ word: p.effectTrigger ?? null, text: p.effectText }));
+  return {
+    effectTrigger: null,
+    effectText: shown.map((p) => (p.word ? `${p.word}: ${p.text}` : p.text)).join(' '),
+    ability: parts.filter((p) => p.ability).map((p) => ({ ...p.ability, word: p.effectTrigger, text: p.effectText })),
+    abilityParts: shown,
+  };
+}
 
 // --- Card builders ---------------------------------------------------------------
 
 const FIRE = { pokemonType: 'Fire' };
 const WATER = { pokemonType: 'Water' };
+const GRASS = { pokemonType: 'Grass' };
 
 // Strategy Cards: played as a Battle Action for their Energy Cost; the effect
 // resolves, then the card goes to the Discard Pile.
@@ -423,6 +436,135 @@ export const WATER_ITEMS = [
   }),
 ];
 
+// =============================================================================
+// 🌿 GRASS DECK — "Engine" (Combo). docs/decks.md section 5.
+// =============================================================================
+
+const growth = (amount) => [{ op: 'gainGrowth', amount }];
+const ENEMY_IN_ZONE = { mode: 'targeted', side: 'opponent', zone: 'source' };
+
+export const GRASS_POKEMON = [
+  pokemon('Bulbasaur', 1, 'Grass', 'Special', 1, 'Hitpoints', 5, 'Steady', 'Common', ability('On Breakfast', 'Gain 1 Growth.', growth(1))),
+  evolution('Stage 1', 'Bulbasaur', 2, pokemon('Ivysaur', null, 'Grass', 'Special', 3, 'Hitpoints', 7, 'Steady', 'Common', abilities(
+    ability('On Breakfast', 'Gain 1 Growth.', growth(1)),
+    ability('On Evolve', "Leech Seed an enemy Pokémon in this Pokémon's Zone.", [{ op: 'applyStatus', status: 'leechSeed', target: ENEMY_IN_ZONE }]),
+  ))),
+  evolution('Stage 2', 'Ivysaur', 3, pokemon('Venusaur', null, 'Grass', 'Special', 5, 'Hitpoints', 12, 'Slow', 'Epic', {
+    innatePower: 'Shell 1',
+    ...ability('On Breakfast', 'Gain 2 Growth.', growth(2)),
+  })),
+  pokemon('Oddish', 1, 'Grass', 'Special', 2, 'Hitpoints', 4, 'Steady', 'Common', ability('On Attack', 'Gain 1 Growth.', growth(1))),
+  evolution('Stage 1', 'Oddish', 2, pokemon('Gloom', null, 'Grass', 'Special', 3, 'Hitpoints', 6, 'Steady', 'Common',
+    ability('On Evolve', "Put an enemy Pokémon in this Pokémon's Zone to Sleep.", [{ op: 'applyStatus', status: 'sleep', target: ENEMY_IN_ZONE }]))),
+  evolution('Stage 2', 'Gloom', 2, pokemon('Bellossom', null, 'Grass', 'Special', 4, 'Hitpoints', 9, 'Steady', 'Rare', abilities(
+    ability('On Evolve', "Put each enemy Pokémon in this Pokémon's Zone to Sleep.", [
+      { op: 'applyStatus', status: 'sleep', target: { mode: 'area', side: 'opponent', zone: 'source' } },
+    ]),
+    ability('On Attack', 'Gain 1 Growth.', growth(1)),
+  ))),
+  pokemon('Sunkern', 1, 'Grass', 'Special', 2, 'Hitpoints', 6, 'Slow', 'Common', { weatherTokens: { Sun: 1 } }),
+  evolution('Stage 1', 'Sunkern', 2, pokemon('Sunflora', null, 'Grass', 'Special', 5, 'Hitpoints', 8, 'Slow', 'Rare', {
+    weatherTokens: { Sun: 2 },
+    effectText: 'Deals +2 damage with its attack while Sun is 4 or more.',
+    // A Weather modifier of its own (see refreshWeather in effects.js): +2 Attack while Sun is 4 or more.
+    weatherStats: [{ weather: 'Sun', min: 4, attack: 2 }],
+  })),
+  pokemon('Celebi', 4, 'Grass', 'Special', 3, 'Hitpoints', 7, 'Swift', 'Legendary', {
+    ...abilities(
+      ability('On Summon', 'Gain 3 Growth.', growth(3)),
+      { effectText: "Your Pokémon can Evolve the Round they're summoned." },
+    ),
+    evolveSameRound: true,   // checked by evolveTargets (game.js) while it is in its owner's arena
+  }),
+  pokemon('Sewaddle', 1, 'Bug', 'Physical', 2, 'Hitpoints', 5, 'Steady', 'Common', ability('On Defeated', 'Gain 2 Growth.', growth(2))),
+  pokemon('Sudowoodo', 3, 'Rock', 'Physical', 3, 'Defence', 9, 'Slow', 'Rare'),
+];
+
+export const GRASS_STRATEGY = [
+  strategy('leech-seed', 'Leech Seed', 1, 'Common', 'Leech Seed an enemy Pokémon.', [
+    { op: 'applyStatus', status: 'leechSeed', target: { mode: 'targeted', side: 'opponent' } },
+  ]),
+  strategy('sleep-powder', 'Sleep Powder', 2, 'Common', 'Put an enemy Pokémon to Sleep.', [
+    { op: 'applyStatus', status: 'sleep', target: { mode: 'targeted', side: 'opponent' } },
+  ]),
+  strategy('synthesis', 'Synthesis', 1, 'Common', 'Gain 2 Growth, or 3 if Sun is 2 or more. Heal a friendly Pokémon 2.', [
+    { op: 'gainGrowth', amount: 2, amountIf: { weather: 'Sun', min: 2, amount: 3 } },
+    { op: 'heal', amount: 2, target: { mode: 'targeted', side: 'friendly' } },
+  ]),
+  // "Spend up to 8 Growth": the player chooses how much as they play it (the action's growth; all of it, up to 8, by default).
+  strategy('solar-beam', 'Solar Beam', 3, 'Rare', 'Spend up to 8 Growth: deal that much damage to an enemy Pokémon or Trainer. Retain.', [
+    { op: 'spendGrowth', max: 8 },
+    { op: 'damage', amountFrom: 'growthSpent', target: ENEMY_ANY },
+  ], { retain: true, spendsGrowth: 8 }),
+];
+
+const EVOLUTION_CARD = { cardType: 'Pokémon', stage: ['Stage 1', 'Stage 2'] };
+
+export const GRASS_SUPPORTERS = [
+  supporter('mallow', 'Mallow', 'Common', { discard: 1, release: 0 }, 'Gain 2 Growth.', growth(2), {
+    challengeText: 'a Grass Pokémon',
+    challenge: { cardType: 'Pokémon', ...GRASS },
+    bonusText: 'Gain 3 Growth and heal a friendly Pokémon 2.',
+    effects: [{ op: 'gainGrowth', amount: 3 }, { op: 'heal', amount: 2, target: { mode: 'targeted', side: 'friendly' } }],
+  }),
+  supporter('pokemon-breeder', 'Pokémon Breeder', 'Rare', { discard: 0, release: 1 },
+    'Search your Draw Pile for a Pokémon that evolves from one in your arena; it gains Retain.', [
+      { op: 'search', filter: { cardType: 'Pokémon' }, evolvesFromArena: true, retain: true },
+    ], {
+      challengeText: 'an evolution card',
+      challenge: EVOLUTION_CARD,
+      bonusText: 'Search for two instead.',
+      effects: [{ op: 'search', filter: { cardType: 'Pokémon' }, evolvesFromArena: true, count: 2, retain: true }],
+    }),
+  supporter('professor-oak', 'Professor Oak', 'Rare', { discard: 2, release: 0 }, 'Draw 3 cards.', [{ op: 'draw', amount: 3 }], {
+    challengeText: 'a Pokémon card',
+    challenge: { cardType: 'Pokémon' },
+    bonusText: 'Draw 4 instead.',
+    effects: [{ op: 'draw', amount: 4 }],
+  }),
+];
+
+export const GRASS_LOCATIONS = [
+  location('floaroma-meadow', 'Floaroma Meadow', 'Common', { Sun: 2 },
+    { text: 'Gain 6 Growth.', label: 'Growth gained', on: 'growth', count: 6 },
+    2, 'Friendly Pokémon in this Zone gain +2 Strength.', [
+      { op: 'buff', attack: 0, strength: 2, target: { mode: 'area', side: 'friendly', zone: 'source' } },
+    ]),
+  location('eterna-forest', 'Eterna Forest', 'Rare', { Sun: 1 },
+    { text: 'Evolve 2 Pokémon.', label: 'Pokémon evolved', on: 'evolve', count: 2 },
+    3, 'Search your Draw Pile for an evolution card; it gains Retain.', [
+      { op: 'search', filter: EVOLUTION_CARD, retain: true },
+    ]),
+  location('petalburg-woods', 'Petalburg Woods', 'Rare', { Sun: 2 },
+    { text: 'Put to Sleep or Leech Seed 3 times.', label: 'Sleep or Leech Seed applied', on: 'sleepSeed', count: 3 },
+    2, 'Leech Seed each enemy Pokémon in this Zone.', [
+      { op: 'applyStatus', status: 'leechSeed', target: { mode: 'area', side: 'opponent', zone: 'source' } },
+    ]),
+];
+
+// The Basics that have a Stage 2 (Rare Candy's targets): Bulbasaur, Oddish.
+const ALL_POKEMON = [...FIRE_POKEMON, ...WATER_POKEMON, ...GRASS_POKEMON];
+const stageOneOf = (stage2) => ALL_POKEMON.find((c) => c.stage === 'Stage 1' && c.name === stage2.evolvesFrom);
+const CANDY_BASICS = [...new Set(ALL_POKEMON.filter((c) => c.stage === 'Stage 2').map((c) => stageOneOf(c)?.evolvesFrom).filter(Boolean))];
+
+export const GRASS_ITEMS = [
+  heldItem('miracle-seed', 'Miracle Seed', 2, 'Common', "Holder gains +1 Attack. If it's a Grass Pokémon, it also gains Regenerate 1.",
+    { attack: 1, also: { ...GRASS, keywords: [{ key: 'Regenerate', amount: 1 }] } }),
+  item('oran-berry', 'Oran Berry', 'Consumed', 1, 'Common', "Heal a friendly Pokémon 3. If it's a Grass Pokémon, also gain 1 Growth. Retain.", {
+    retain: true,
+    effects: [
+      { op: 'heal', amount: 3, target: { mode: 'targeted', side: 'friendly' } },
+      { op: 'gainGrowth', amount: 1, onlyIf: GRASS, target: CHOSEN },
+    ],
+  }),
+  item('rare-candy', 'Rare Candy', 'Consumed', 3, 'Rare',
+    "This Round, a friendly Basic Pokémon may Evolve straight into its Stage 2 (paying only the Stage 2's Evolve cost), even if it was summoned this Round.", {
+      effects: [{ op: 'rareCandy', target: { mode: 'targeted', side: 'friendly', filter: { stage: 'Basic', name: CANDY_BASICS } } }],
+    }),
+  heldItem('big-root', 'Big Root', 3, 'Rare', 'Healing the holder receives is increased by 1. Leech Seeds you apply heal the holder first.',
+    { healPlus: 1, leechFirst: true }),
+];
+
 // --- Trainers ---------------------------------------------------------------
 //
 // Powers and Passives are written in the effect language from effects.js:
@@ -431,6 +573,8 @@ export const WATER_ITEMS = [
 //     aura       { attack, strength, keywords?, target } continuous bonus for matching Pokémon
 //     cost       { amount, first? } summons into this Zone cost less (see summonCost in game.js)
 //     burnBonus  Burn applied by friendly Pokémon in this Zone is increased by this much
+//     evolveCost Evolving a friendly Pokémon in this Zone costs this much less (minimum 0)
+//     leechBonus Leech Seeds this player applied to enemy Pokémon in this Zone drain this much more
 // "source" zone = the Trainer's own Zone (both sides of the arena).
 
 function trainer(id, name, strength, power, passive) {
@@ -470,16 +614,31 @@ export const TRAINER_CARDS = [
   trainer('wallace', 'Wallace', 15,
     { cost: 1, text: 'Return a Pokémon from your Discard Pile to your hand.', effects: [{ op: 'return', filter: { cardType: 'Pokémon' } }] },
     { text: "The first Pokémon you summon into Wallace's Zone each Round costs 1 less.", cost: { amount: 1, first: true } }),
+  // Grass
+  trainer('erika', 'Erika', 15,
+    { cost: 2, text: "Put an enemy Pokémon in Erika's Zone to Sleep.", effects: [
+      { op: 'applyStatus', status: 'sleep', target: { mode: 'targeted', side: 'opponent', zone: 'source' } },
+    ] },
+    { text: "Friendly Pokémon in Erika's Zone gain +2 Strength.",
+      aura: { attack: 0, strength: 2, target: { side: 'friendly', zone: 'source' } } }),
+  trainer('gardenia', 'Gardenia', 16,
+    { cost: 1, text: 'Gain 1 Growth.', effects: growth(1) },
+    { text: "Evolving a Pokémon in Gardenia's Zone costs 1 less (minimum 0).", evolveCost: 1 }),
+  trainer('ramos', 'Ramos', 15,
+    { cost: 1, text: "Leech Seed an enemy Pokémon in Ramos's Zone.", effects: [
+      { op: 'applyStatus', status: 'leechSeed', target: { mode: 'targeted', side: 'opponent', zone: 'source' } },
+    ] },
+    { text: "Leech Seeds on enemy Pokémon in Ramos's Zone drain 1 more.", leechBonus: 1 }),
 ];
 
 // --- All cards and the decks ---------------------------------------------------
 
-export const POKEMON_CARDS = [...FIRE_POKEMON, ...WATER_POKEMON];
-export const STRATEGY_CARDS = [...FIRE_STRATEGY, ...WATER_STRATEGY];
-export const SUPPORTER_CARDS = [...FIRE_SUPPORTERS, ...WATER_SUPPORTERS];
-export const LOCATION_CARDS = [...FIRE_LOCATIONS, ...WATER_LOCATIONS];
-// The PokéMart holds one copy of every Item in the game (section 5).
-export const ITEM_CARDS = [...FIRE_ITEMS, ...WATER_ITEMS];
+export const POKEMON_CARDS = ALL_POKEMON;
+export const STRATEGY_CARDS = [...FIRE_STRATEGY, ...WATER_STRATEGY, ...GRASS_STRATEGY];
+export const SUPPORTER_CARDS = [...FIRE_SUPPORTERS, ...WATER_SUPPORTERS, ...GRASS_SUPPORTERS];
+export const LOCATION_CARDS = [...FIRE_LOCATIONS, ...WATER_LOCATIONS, ...GRASS_LOCATIONS];
+// The PokéMart holds one copy of every Item in the game (11, docs/decks.md section 6).
+export const ITEM_CARDS = [...FIRE_ITEMS, ...WATER_ITEMS, ...GRASS_ITEMS];
 
 // The standard split of a deck by Card-Type (section 1).
 export const DECK_SPLIT = { Pokémon: 18, Strategy: 8, Supporter: 4, Location: 4, Item: 6 };
@@ -521,6 +680,24 @@ export const DECKS = {
       'nurse-joy': 2, swimmer: 1, fisherman: 1,
       'cerulean-cape': 2, 'lake-of-rage': 1, 'route-119': 1,
       'mystic-water': 2, leftovers: 2, 'full-heal': 2,
+    },
+  },
+  grass: {
+    id: 'grass',
+    name: 'Grass',
+    archetype: 'Combo',
+    specialization: 'Engine',
+    pokemonType: 'Grass',
+    plan: 'Plant cheap engine Pokémon that make Growth every Round, spend it to evolve them into big final stages, and finish with Solar Beam.',
+    tradeOff: 'A weak start, and engine Pokémon that must survive on the board to evolve.',
+    showcase: ['venusaur', 'celebi'],
+    trainers: ['erika', 'gardenia', 'ramos'],
+    list: {
+      bulbasaur: 3, ivysaur: 2, venusaur: 1, oddish: 2, gloom: 2, bellossom: 1, sunkern: 2, sunflora: 1, celebi: 1, sewaddle: 2, sudowoodo: 1,
+      'leech-seed': 3, 'sleep-powder': 2, synthesis: 1, 'solar-beam': 2,
+      mallow: 2, 'pokemon-breeder': 1, 'professor-oak': 1,
+      'floaroma-meadow': 2, 'eterna-forest': 1, 'petalburg-woods': 1,
+      'miracle-seed': 2, 'oran-berry': 2, 'rare-candy': 1, 'big-root': 1,
     },
   },
 };

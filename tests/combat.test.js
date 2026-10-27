@@ -8,6 +8,7 @@ import {
 import { chooseAction } from '../src/ai/opponent.js';
 import { nextRandom } from '../src/engine/random.js';
 import { def } from './fixtures.js';
+import { ITEM_CARDS } from '../src/engine/cardData.js';
 
 // --- Helpers ----------------------------------------------------------------
 
@@ -258,7 +259,8 @@ const targetKeys = (s, who, from) => legalTargets(s, who, from).map(key).sort();
 // game: the slow part of the run.)
 const MATCHES = 30;   // per seat order
 // Every card in the match: both players' cards (Items move to Bags, onto
-// Pokémon as Held Items, and to the PokéMart) plus the PokéMart's own 7.
+// Pokémon as Held Items, and to the PokéMart) plus the PokéMart's own 11
+// (an evolved Pokémon's cards under it count too).
 function cardsInGame(s) {
   // A card still resolving (e.g. a Supporter waiting on a Search choice) is on the stack.
   let n = s.mart.deck.length + s.mart.onSale.filter(Boolean).length + (s.stack ?? []).filter((j) => j.card || j.item).length;
@@ -266,7 +268,7 @@ function cardsInGame(s) {
     const p = s.players[w];
     const cards = [...p.hand, ...p.drawPile, ...p.discard, ...p.released, ...p.bag,
       ...p.zones.flatMap((z) => [...z.pokemon, z.location]).filter(Boolean)];
-    n += cards.length + cards.filter((c) => c.heldItem).length;
+    n += cards.length + cards.filter((c) => c.heldItem).length + cards.reduce((k, c) => k + (c.stack?.length ?? 0), 0);
   }
   return n;
 }
@@ -290,7 +292,7 @@ for (const decks of [{ player: 'fire', ai: 'water' }, { player: 'water', ai: 'fi
       assert.ok(stepsThisRound < 500, `seed ${seed}: a Round never ended`);
       const who = PLAYERS.find((w) => legalActions(s, w).length) ?? 'player';
       s = applyAction(s, chooseAction(s, who, { rng }) ?? { type: 'flipCoin' });
-      assert.equal(cardsInGame(s), 2 * 40 + 7, 'no cards lost');
+      assert.equal(cardsInGame(s), 2 * 40 + ITEM_CARDS.length, 'no cards lost');
     }
     if (s.phase === 'gameOver') {
       results[s.winner ?? 'draw'] += 1;

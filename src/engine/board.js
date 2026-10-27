@@ -353,7 +353,9 @@ export function heal(state, ref, amount) {
   const before = card[key];
   const drought = weatherRule(state, 'drought');
   const blocked = drought || (RULE_FLAGS.burnBlocksHealing && (card.status?.burn?.count ?? 0) > 0);
-  const total = amount > 0 && weatherRule(state, 'healPlus') ? amount + 1 : amount;
+  // Rain 2: each heal +1. Big Root: healing its holder receives +1.
+  const rootPlus = ref.kind === 'pokemon' ? card.heldItem?.held?.healPlus ?? 0 : 0;
+  const total = amount > 0 ? amount + (weatherRule(state, 'healPlus') ? 1 : 0) + rootPlus : amount;
   card[key] = blocked ? before : Math.min(maxStrengthOf(card), before + total);
   if (drought && amount > 0) log(state, `Drought (☀ Sun 8): ${describeRef(state, ref)} can't be healed.`);
   emit(state, 'heal', { target: info(state, ref), amount: card[key] - before, before, after: card[key] });

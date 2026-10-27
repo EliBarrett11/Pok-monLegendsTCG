@@ -18,13 +18,13 @@ import { present, think, skip, resetFx, historyEntry, captionFor } from './ui/pr
 import { orient, toEngine, screenSeat } from './ui/seat.js';
 import { speedFactor } from './ui/settings.js';
 import { probeCardIcons } from './ui/cardIcons.js';
-import { renderDeckSelect, otherDeck, randomDeck } from './ui/deckSelect.js';
+import { renderDeckSelect, opponentDeck, randomDeck } from './ui/deckSelect.js';
 import { renderPassScreen } from './ui/passScreen.js';
 import { renderStart } from './ui/lobby.js';
 import { initVfx, syncStatus } from './ui/vfx/engine.js';
 import { createOnline, savedHostMatch, forgetHostMatch } from './online.js';
 
-export const BUILD = 'Grass G1 — Growth, Evolution, statuses, Weather';
+export const BUILD = 'Grass G2 — the Grass deck';
 
 
 // The whole game is drawn on a fixed 1920×1080 stage, scaled uniformly to
@@ -242,13 +242,14 @@ function rematch() {
     picks = decks;
     passingTo = 'player';   // Player 1 starts: placing Trainers
     beginMatch(decks);
-  } else startMatch(decks.player);
+  } else startMatch(decks.player, decks.ai);   // a rematch: the same two decks
 }
 
-// The player plays `deck`; the AI plays the other one. ?seed= applies to the first match.
+// The player plays `deck`; the AI plays `opponent` (a deck id, or 'random':
+// any deck, the same one included). ?seed= applies to the first match.
 let firstMatch = true;
-function startMatch(deck) {
-  beginMatch({ player: deck, ai: otherDeck(deck) });
+function startMatch(deck, opponent = 'random') {
+  beginMatch({ player: deck, ai: opponentDeck(opponent) });
 }
 
 function beginMatch(decks) {

@@ -45,9 +45,10 @@ const local = (node, seat, names) => JSON.parse(JSON.stringify(localWords(node, 
 const localWords = (node, seat, names) => (typeof node === 'string' ? localize(node, seat, names)
   : Array.isArray(node) ? node.map((x) => localWords(x, seat, names))
     : node && typeof node === 'object' ? Object.fromEntries(Object.entries(node).map(([k, x]) => [k, localWords(x, seat, names)])) : node);
-const PUBLIC_FIELDS = ['discard', 'released', 'bag', 'dollars', 'xp', 'trainers', 'zones', 'deck', 'supporterRound',
+const PUBLIC_FIELDS = ['discard', 'released', 'bag', 'dollars', 'xp', 'growth', 'trainers', 'zones', 'deck', 'supporterRound',
   'baseEnergy', 'exertMax', 'exhaust'];
 const ALL_NAMES = new Set();
+const RULE_WORDS = ['Leech Seed'];
 const escape = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 function checkView(state, seat, seen) {
@@ -95,6 +96,8 @@ function checkView(state, seat, seen) {
   // Cards this action showed (played, used, moved to a public pile) count as public.
   const publicText = JSON.stringify({ ...v, log: [] });
   for (const name of hidden) if (publicText.includes(`"${name}"`)) hidden.delete(name);
+  // A name that is also a rules word ("Leech Seed": a Strategy Card and a status) is in public text anyway.
+  for (const name of RULE_WORDS) hidden.delete(name);
   const told = v.log.slice(seen[seat]);
   seen[seat] = v.log.length;
   // Whole names only ("Ember" is not in "Mt. Ember"): longer names are masked first.
@@ -146,6 +149,14 @@ function playChecked(seed, decks) {
   const lost = viewFor(s, opponentOf(s.winner)).log.at(-1);
   assert.ok(won.startsWith('You win!'), won);
   assert.ok(!lost.startsWith('You'), lost);
+}
+
+// Grass (G2): its plan stays in its hand. Evolution cards, Solar Beam and what
+// Pokémon Breeder or Eterna Forest searched for are never shown to the opponent;
+// its Growth, the cards under an evolved Pokémon and Rare Candy's mark are public.
+for (const [seed, decks] of [[5, { player: 'grass', ai: 'water' }], [6, { player: 'fire', ai: 'grass' }], [9, { player: 'grass', ai: 'grass' }]]) {
+  const { s } = playChecked(seed, decks);
+  assert.equal(s.phase, 'gameOver', `${decks.player} vs ${decks.ai}: played to the end`);
 }
 
 // --- Simultaneous choices stay secret until both lock in ---------------------------------------

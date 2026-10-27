@@ -10,7 +10,8 @@ import {
   summonSpaces, isFallen, attackOf, maxStrengthOf, playableStrategies, strategyTargets,
   playableSupporters, supporterTargets, giftMet, playableLocations, locationSpaces, weatherState,
   openBagOptions, itemTargets, BAG_SIZE, passEndsPhase, PASS_ENERGY, applyAction, passSpends,
-  summonCost, zoneReductions, cheapestCost, attackBlock, evolveOptions, evolveTargets, evolvePayment, isEvolution,
+  summonCost, zoneReductions, cheapestCost, attackBlock, evolveOptions, evolveTargets, evolvePayment, isEvolution, evolveCost,
+  cheapestEvolveCost,
 } from '../engine/game.js';
 import { canPay } from '../engine/energy.js';
 import { keywordSummary, keywordLabel } from '../engine/keywords.js';
@@ -129,7 +130,8 @@ function resetUiFor(state) {
   ui.supporter = null;         // { uid, discard: [uids], release: [uids], picking } while paying for a Supporter
   ui.location = null;          // uid of a Location Card in hand to play
   ui.evolve = null;            // uid of an evolution card in hand waiting for the Pokémon to Evolve
-  ui.growthAsk = null;         // Evolve paid with Energy or Growth: { zone, space, min, max, growth } being chosen
+  ui.growthAsk = null;         // Growth being chosen: { mode: 'evolve', zone, space, cost, min, max, growth } (Energy or
+                               // Growth for an Evolve) or { mode: 'spend', target, min, max, growth } (Solar Beam)
   ui.xpPlan = [];              // the XP step: [{ uid, stat }] planned before locking in
   ui.xpPick = null;            // the XP step: uid of the Pokémon picked to buff
   ui.bag = null;               // Open Bag: { mode: null | 'buyHand' | 'buyMart' | 'useBag', uid, then, picking }
@@ -183,6 +185,7 @@ function targeting(state, sel = ui) {
   const pending = state.pending?.who === 'player' ? state.pending : null;
   const named = (uid) => me.hand.find((c) => c.uid === uid)?.name ?? 'This card';
   if (pending?.kind === 'target') return { source: pending.label, detail: pending.text ?? '', refs: pending.options, cls: ' power-target', cancel: false };
+  if (sel.growthAsk) return null;   // (the Growth question is showing)
   if (sel.attacker) {
     const attacker = me.zones[sel.attacker.zone]?.pokemon[sel.attacker.space];
     const refs = legalTargets(state, 'player', sel.attacker).map((t) => ({ ...t, owner: 'ai' }));
@@ -192,7 +195,7 @@ function targeting(state, sel = ui) {
     return { source: `${me.zones[sel.power]?.trainer?.name ?? 'Trainer'}'s Power`, refs: powerTargets(state, 'player', sel.power), cls: ' power-target', cancel: true };
   }
   if (sel.strategy) return { source: named(sel.strategy), refs: strategyTargets(state, 'player', sel.strategy), cls: ' power-target', cancel: true };
-  if (sel.evolve && !sel.growthAsk) {
+  if (sel.evolve) {
     const refs = evolveTargets(state, 'player', sel.evolve).map((t) => ({ kind: 'pokemon', owner: 'player', ...t }));
     return { source: `${named(sel.evolve)} (Evolve)`, refs, cls: ' power-target', cancel: true };
   }
@@ -862,7 +865,7 @@ function handCards(state) {
   const energy = me.baseEnergy + me.exertMax - me.exhaust.length;
   // A Pokémon's cost now: the cheapest Zone it could go into (cost reductions).
   const costNow = (c) => (c.cardType === 'Pokémon' ? cheapestCost(state, 'player', c) : c.energyCost ?? 0);
-  const short = (c) => (c.cardType === 'Item' ? c.cost > me.dollars : isEvolution(c) ? !evolvePayment(me, c.evolveCost) : costNow(c) > energy);
+  const short = (c) => (c.cardType === 'Item' ? c.cost > me.dollars : isEvolution(c) ? !evolvePayment(me, cheapestEvolveCost(state, 'player', c)) : costNow(c) > energy);
   const hand = (c, opts = {}) => card(c, 'hand', { ...opts, cantAfford: short(c), costNow: c.cardType === 'Pokémon' && !isEvolution(c) && costNow(c) < c.energyCost ? costNow(c) : undefined });
   // An effect choosing a card in hand (Pelipper's Retain, a Held Item for a Pokémon in hand).
   const targets = targetKeys(state);
@@ -1103,7 +1106,7 @@ function face(c, opts) {
       const text = [
         kws.length ? kw(keywordTags(c)) : '',
         kws.length && full ? rem(kws.map((k) => attr(keywordShort(k))).filter(Boolean).join(' ')) : '',
-        c.effectText ? `${kw(attr(c.effectTrigger))}${rem(boldKeywords(c.effectText))}` : '',
+        ...abilityList(c).map((a) => `${a.word ? kw(attr(a.word)) : ''}${rem(boldKeywords(a.text))}`),
       ].join('');
       return {
         kind: 'pokemon',
@@ -1267,6 +1270,12 @@ function sources(c, stat) {
   return parts.length ? ` <span class="muted">(printed ${stat === 'attack' ? c.attackValue : c.strengthValue}: ${parts.join(', ')})</span>` : '';
 }
 
+// A Pokémon's abilities as lines: [{ word, text }] (word null: a rule always on, e.g. Celebi, Sunflora).
+function abilityList(c) {
+  if (c.abilityParts) return c.abilityParts;
+  return c.effectText ? [{ word: c.effectTrigger, text: c.effectText }] : [];
+}
+
 function detailLines(c, opts) {
   const row = (label, value) => (value || value === 0 ? `<div class="pv-row"><span class="pv-label">${label}</span><span>${value}</span></div>` : '');
   const inPlay = c.currentStrength !== undefined;
@@ -1287,7 +1296,7 @@ function detailLines(c, opts) {
         statusCount(c, 'burn') && row('Burn', `${icon('flame')} <b>${statusCount(c, 'burn')}</b>: takes that much damage at Supper, then Burn goes down by 1.`),
         statusCount(c, 'sleep') && row('Asleep', 'Spent; wakes at Breakfast (still Spent then) or when damaged.'),
         statusCount(c, 'leechSeed') && row('Leech Seed', 'At Supper: 1 damage to it; its seeder heals 1 and gains 1 Growth.'),
-        c.effectText && row(c.effectTrigger, c.effectText),
+        ...abilityList(c).map((a) => row(a.word ?? 'Ability', a.text)),
         c.weatherTokens && row('Weather', weatherText(c.weatherTokens)),
         c.heldItem && row('Held Item', `${icon('held')} <b>${c.heldItem.name}</b> ${c.heldItem.effectText}`),
         inPlay && row('Status', [c.spent ? 'Spent' : 'Active', opts.alert && 'Alert: can attack now'].filter(Boolean).join(' · ')),
@@ -1520,22 +1529,25 @@ export function passWarning(state) {
   };
 }
 
-// Evolve: how much Growth to spend (the rest is Energy), when both could pay.
+// How much Growth to use: for an Evolve (the rest is Energy), when both could
+// pay; or for a card that spends Growth (Solar Beam: that much damage).
 function growthBox(state) {
   const a = ui.growthAsk;
-  const c = a && state.players.player.hand.find((h) => h.uid === ui.evolve);
+  const c = a && state.players.player.hand.find((h) => h.uid === (a.mode === 'spend' ? ui.strategy : ui.evolve));
   if (!c) return '';
-  const energyPart = c.evolveCost - a.growth;
-  return `<div class="pass-warn growth-ask" role="dialog" aria-label="Pay with Growth">
-    <p>Evolve into <b>${c.name}</b>: cost ${c.evolveCost}. How much Growth?</p>
+  const spend = a.mode === 'spend';
+  const question = spend ? `<b>${c.name}</b>: spend how much Growth? (up to ${a.max})` : `Evolve into <b>${c.name}</b>: cost ${a.cost}. How much Growth?`;
+  const amount = spend ? `${a.growth} Growth → ${a.growth} damage` : `${a.growth} Growth + ${a.cost - a.growth} Energy`;
+  return `<div class="pass-warn growth-ask" role="dialog" aria-label="${spend ? 'Spend Growth' : 'Pay with Growth'}">
+    <p>${question}</p>
     <div class="growth-pick">
       <button data-action="growth-step" data-step="-1" class="secondary"${a.growth <= a.min ? ' disabled' : ''}>−</button>
-      <span class="growth-amount">${a.growth} Growth + ${energyPart} Energy</span>
+      <span class="growth-amount">${amount}</span>
       <button data-action="growth-step" data-step="1" class="secondary"${a.growth >= a.max ? ' disabled' : ''}>+</button>
     </div>
     <div class="pass-warn-buttons">
       <button data-action="growth-cancel" class="secondary">Cancel</button>
-      <button data-action="growth-confirm">Evolve</button>
+      <button data-action="growth-confirm">${spend ? `Play ${c.name}` : 'Evolve'}</button>
     </div>
   </div>`;
 }
@@ -1566,7 +1578,10 @@ function costOf(state, focus) {
     return t && t.strength > 0 ? t.power.cost : null;
   }
   const c = p.hand.find((h) => h.uid === focus.uid);
-  if (isEvolution(c)) return c.evolveCost - Math.min(p.growth ?? 0, c.evolveCost);   // most Growth first
+  if (isEvolution(c)) {
+    const cost = cheapestEvolveCost(state, 'player', c);
+    return cost - Math.min(p.growth ?? 0, cost);   // most Growth first
+  }
   if (c?.cardType === 'Pokémon') return cheapestCost(state, 'player', c);   // its cheapest Zone now
   return c?.cardType === 'Strategy' ? c.energyCost : null;
 }
@@ -1921,16 +1936,29 @@ function wire(root, state, actions) {
   // Evolve: the evolution card onto a highlighted Pokémon. Paid with Energy
   // and/or Growth: when both could pay, ask how much Growth (most by default).
   const evolve = (zone, space, growth) => {
-    if (!confirmExert(costPreview(state, 'player', ui.evolve, undefined, growth).fromExert)) return;
+    if (!confirmExert(costPreview(state, 'player', ui.evolve, zone, growth).fromExert)) return;
     dispatch({ type: 'evolve', who: 'player', uid: ui.evolve, zone, space, growth });
   };
   const evolveOnto = ({ zone, space }) => {
     const c = state.players.player.hand.find((h) => h.uid === ui.evolve);
-    const pay = evolvePayment(state.players.player, c.evolveCost);
+    const cost = evolveCost(state, 'player', c, zone);   // (Gardenia's Zone: 1 less)
+    const pay = evolvePayment(state.players.player, cost);
     if (!pay) return;
     if (pay.minGrowth === pay.maxGrowth) { evolve(zone, space, pay.maxGrowth); return; }
-    ui.growthAsk = { zone, space, min: pay.minGrowth, max: pay.maxGrowth, growth: pay.maxGrowth };
+    ui.growthAsk = { mode: 'evolve', zone, space, cost, min: pay.minGrowth, max: pay.maxGrowth, growth: pay.maxGrowth };
     redraw();
+  };
+  // A Strategy Card onto its target; one that spends Growth (Solar Beam) asks how much first.
+  const playStrategyAt = (ref) => {
+    const c = state.players.player.hand.find((h) => h.uid === ui.strategy);
+    const most = c?.spendsGrowth ? Math.min(c.spendsGrowth, state.players.player.growth ?? 0) : 0;
+    if (most > 0 && !ui.growthAsk) {
+      ui.growthAsk = { mode: 'spend', target: ref, min: 0, max: most, growth: most };
+      redraw();
+      return;
+    }
+    if (!confirmExert(costPreview(state, 'player', ui.strategy).fromExert)) return;
+    dispatch({ type: 'playStrategy', who: 'player', uid: ui.strategy, target: ref, ...(c?.spendsGrowth ? { growth: ui.growthAsk?.growth ?? 0 } : {}) });
   };
   on('[data-action="growth-step"]', (el) => {
     const a = ui.growthAsk;
@@ -1939,8 +1967,9 @@ function wire(root, state, actions) {
   });
   on('[data-action="growth-cancel"]', () => { ui.growthAsk = null; redraw(); });
   on('[data-action="growth-confirm"]', () => {
-    const { zone, space, growth } = ui.growthAsk;
-    evolve(zone, space, growth);
+    const { mode, zone, space, growth, target } = ui.growthAsk;
+    if (mode === 'spend') playStrategyAt(target);
+    else evolve(zone, space, growth);
   });
 
   // Clicking a highlighted target: an attack, a Power's target, or a Strategy Card's.
@@ -1957,8 +1986,7 @@ function wire(root, state, actions) {
     } else if (ui.power !== null) {
       usePower(ref);
     } else if (ui.strategy) {
-      if (!confirmExert(costPreview(state, 'player', ui.strategy).fromExert)) return;
-      dispatch({ type: 'playStrategy', who: 'player', uid: ui.strategy, target: ref });
+      playStrategyAt(ref);
     } else if (ui.supporter?.picking) {
       playSupporter(ref);
     } else if (ui.bag?.picking) {
@@ -2081,6 +2109,7 @@ function dragPlan(state, el, { redraw, dispatch, dispatchBag, usePower }) {
 
 // The card a targeting arrow starts from while a target is being chosen (by click or drag).
 function arrowSource(state) {
+  if (ui.growthAsk) return null;   // (the Growth question is showing)
   const uid = ui.attacker ? state.players.player.zones[ui.attacker.zone].pokemon[ui.attacker.space]?.uid
     : ui.power !== null ? state.players.player.zones[ui.power].trainer.uid
       : ui.strategy ?? (ui.bag?.picking ? ui.bag.uid : null) ?? (ui.supporter?.picking ? ui.supporter.uid : null);
@@ -2115,7 +2144,7 @@ function outcome(state, el) {
   else if (ui.strategy) action = { type: 'playStrategy', who: me, uid: ui.strategy, target: ref };
   else if (ui.evolve && ref.kind === 'pokemon') {
     const c = state.players.player.hand.find((h) => h.uid === ui.evolve);
-    const growth = evolvePayment(state.players.player, c.evolveCost)?.maxGrowth ?? 0;
+    const growth = evolvePayment(state.players.player, evolveCost(state, me, c, ref.zone))?.maxGrowth ?? 0;
     action = { type: 'evolve', who: me, uid: ui.evolve, zone: ref.zone, space: ref.space, growth };
   }
   else if (ui.bag?.picking) action = { type: 'openBag', who: me, mode: ui.bag.mode, uid: ui.bag.uid, then: ui.bag.then ?? 'use', target: ref };
@@ -2203,7 +2232,9 @@ function inspectView(entry) {
     if (statusCount(c, 'sleep')) lines.push(item('Asleep', 'It is Spent and can\'t hit back in a trade. At Breakfast it stays Spent, then wakes. Any damage wakes it at once (it stays Spent this Round). Cured by Evolving and Full Heal.'));
     if (statusCount(c, 'leechSeed')) lines.push(item('Leech Seed', 'At Supper (after Burn) it takes 1 effect damage (2 in Rain 6); the seeder heals their most-damaged Pokémon by as much and gains 1 Growth. Removed when it leaves play, Evolves, or by Full Heal.'));
     if (c.stack?.length) lines.push(item('Evolved from', `${c.stack.map((s) => `${s.name}${s.stage ? ` (${s.stage})` : ''}`).join(' → ')}. These cards stay under it and are Released together with it.`));
-    if (c.effectTrigger) lines.push(item(c.effectTrigger, `Its ability triggers ${TRIGGER_HELP[c.effectTrigger] ?? ''} ${c.effectText}`));
+    for (const a of abilityList(c)) {
+      lines.push(a.word ? item(a.word, `Its ability triggers ${TRIGGER_HELP[a.word] ?? ''} ${a.text}`) : item('Ability', `${a.text} Always on while it's in the arena.`));
+    }
     if (inPlay) {
       const buffs = [sources(c, 'attack') && `Attack ${attackOf(c)}${sources(c, 'attack')}`, sources(c, 'strength') && `Strength ${c.currentStrength}/${maxStrengthOf(c)}${sources(c, 'strength')}`].filter(Boolean);
       const auras = Object.values(c.aura ?? {}).map((b) => `${b.name}'s Passive: +${b.attack} Attack, +${b.strength} Strength`);

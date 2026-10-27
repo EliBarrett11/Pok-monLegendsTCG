@@ -12,8 +12,8 @@ import { weatherCounts } from '../src/engine/game.js';
 
 // --- Card format ------------------------------------------------------------
 
-assert.equal(POKEMON_CARDS.length, 20);
-assert.equal(new Set(POKEMON_CARDS.map((c) => c.id)).size, 20, 'unique ids');
+assert.equal(POKEMON_CARDS.length, 31);
+assert.equal(new Set(POKEMON_CARDS.map((c) => c.id)).size, 31, 'unique ids');
 for (const c of POKEMON_CARDS) {
   assert.equal(c.cardType, 'Pokémon');
   assert.ok(typeof c.name === 'string' && c.name);
@@ -22,7 +22,9 @@ for (const c of POKEMON_CARDS) {
   assert.ok(STRENGTH_TYPES.includes(c.strengthType), c.name);
   assert.ok(SPEED_TIERS.includes(c.speedTier), c.name);
   assert.ok(c.rarity in RARITIES, c.name);
-  assert.ok(c.energyCost >= 1 && c.energyCost <= 6, `${c.name} cost`);
+  // An evolution card has an Evolve cost instead of an Energy Cost.
+  if (c.stage === 'Basic') assert.ok(c.energyCost >= 1 && c.energyCost <= 6, `${c.name} cost`);
+  else assert.ok(c.energyCost === null && c.evolveCost >= 1 && c.evolveCost <= 6 && c.evolvesFrom, `${c.name} Evolve cost`);
   assert.ok(c.attackValue >= 1 && c.attackValue <= 7, `${c.name} attack`);
   assert.ok(c.strengthValue >= 3 && c.strengthValue <= 12, `${c.name} strength`);
   assert.ok('image' in c);
@@ -31,7 +33,9 @@ for (const c of POKEMON_CARDS) {
   }
   assert.ok(c.weatherTokens === null
     || Object.entries(c.weatherTokens).every(([type, n]) => WEATHER_TYPES.includes(type) && n >= 1), `${c.name} weather`);
-  assert.equal(c.effectTrigger === null, c.effectText === null, 'trigger word and effect text go together');
+  // A trigger word always has its text; text without one is several abilities (abilityParts) or a rule the engine checks (Sunflora).
+  if (c.effectTrigger !== null) assert.ok(c.effectText, `${c.name}: trigger word and effect text go together`);
+  if (c.effectText && c.effectTrigger === null) assert.ok(c.abilityParts || c.weatherStats, `${c.name}: text without a trigger word`);
 }
 assert.equal(POKEMON_TYPES.length, 18);
 assert.deepEqual(new Set(POKEMON_CARDS.map((c) => c.rarity)), new Set(Object.keys(RARITIES)), 'every rarity used');
