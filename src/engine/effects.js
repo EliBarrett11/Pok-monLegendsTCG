@@ -80,7 +80,7 @@ import { WEATHER } from './cardData.js';
 import {
   PLAYERS, opponentOf, log, whose, draw, canDraw, arenaPokemon, activeTrainers, cardAt, sameRef, weatherCounts, weatherTotal,
   describeRef, summonSpaces, damage, heal, releaseDefeated, maxStrengthOf, strengthOf, inPlay, heldBonus, toMart, emit, info,
-  enterHand, earnDollars,
+  enterHand, earnDollars, secretOf, verbFor, yourOf,
 } from './board.js';
 import { shuffle } from './random.js';
 import { hasKeyword, keywordAmount, afterShell } from './keywords.js';
@@ -214,7 +214,7 @@ const OPS = {
   draw(state, ctx, e) {
     const drawn = draw(state, ctx.who, e.amount);
     ctx.drawn = drawn.map((c) => c.uid);
-    const shown = ctx.who === 'player' ? `: ${drawn.map((c) => c.name).join(', ')}` : '';
+    const shown = drawn.length ? secretOf(ctx.who, `: ${drawn.map((c) => c.name).join(', ')}`, '') : '';
     log(state, `${ctx.label}: ${state.players[ctx.who].name} drew ${drawn.length} card${drawn.length === 1 ? '' : 's'}${shown}.`);
   },
 
@@ -276,7 +276,7 @@ const OPS = {
       card.retainGranted = true;
       emit(state, 'retainGranted', { who: ref.owner, uid: card.uid, name: card.name, source: ctx.label });
       // The opponent's hand is hidden: its card stays unnamed.
-      log(state, `${ctx.label}: ${ref.owner === 'player' ? card.name : 'a card in hand'} gains Retain.`);
+      log(state, `${ctx.label}: ${secretOf(ref.owner, card.name, 'a card in hand')} gains Retain.`);
     }
   },
 
@@ -286,7 +286,7 @@ const OPS = {
       const card = cardAt(state, ref);
       card.costDown = (card.costDown ?? 0) + e.amount;
       emit(state, 'costReduced', { who: ref.owner, uid: card.uid, name: card.name, amount: e.amount, source: ctx.label });
-      log(state, `${ctx.label}: ${ref.owner === 'player' ? card.name : 'a Pokémon in hand'} costs ${e.amount} less while it stays in hand.`);
+      log(state, `${ctx.label}: ${secretOf(ref.owner, card.name, 'a Pokémon in hand')} costs ${e.amount} less while it stays in hand.`);
     }
   },
 
@@ -422,7 +422,7 @@ const OPS = {
     const p = state.players[ctx.who];
     p.baseEnergy += e.amount;
     emit(state, 'energyGained', { who: ctx.who, amount: e.amount, source: ctx.label });
-    log(state, `${ctx.label}: ${p.name} ${ctx.who === 'player' ? 'gain' : 'gains'} ${e.amount} extra Base Energy this Round (now ${p.baseEnergy}).`);
+    log(state, `${ctx.label}: ${p.name} ${verbFor(ctx.who, 'gain', 'gains')} ${e.amount} extra Base Energy this Round (now ${p.baseEnergy}).`);
   },
 
 };
@@ -482,11 +482,11 @@ function pickFromPile(state, ctx, e, job, pileKey) {
   }
   emit(state, searching ? 'searched' : 'returned', { who: ctx.who, source: ctx.label, cards: picked.map((c) => ({ uid: c.uid, name: c.name })), retain: Boolean(e.retain) });
   const names = picked.map((c) => c.name).join(', ') || 'nothing';
-  log(state, `${ctx.label}: ${p.name} ${searching ? 'searched the Draw Pile for' : 'returned'} ${names}${searching ? '' : ' from the Discard Pile'} to ${ctx.who === 'player' ? 'your' : 'their'} hand${e.retain && picked.length ? ' (with Retain)' : ''}.`);
+  log(state, `${ctx.label}: ${p.name} ${searching ? 'searched the Draw Pile for' : 'returned'} ${searching ? secretOf(ctx.who, names, `${picked.length} card${picked.length === 1 ? '' : 's'}`) : names}${searching ? '' : ' from the Discard Pile'} to ${yourOf(ctx.who)} hand${e.retain && picked.length ? ' (with Retain)' : ''}.`);
   if (searching) {
     shuffle(state, p.drawPile);
     emit(state, 'shuffledDraw', { who: ctx.who });
-    log(state, `${p.name} shuffled ${ctx.who === 'player' ? 'your' : 'their'} Draw Pile.`);
+    log(state, `${p.name} shuffled ${yourOf(ctx.who)} Draw Pile.`);
   }
   return null;
 }
@@ -628,7 +628,7 @@ export function questEvent(state, who, event) {
     loc.done = true;   // until its effect has resolved and it is released
     p.xp += loc.xp;
     emit(state, 'questComplete', { owner: who, zone, uid: loc.uid, name: loc.name, xp: loc.xp });
-    log(state, `${label} quest complete! ${p.name} ${who === 'player' ? 'gain' : 'gains'} ${loc.xp} XP (now ${p.xp}).`);
+    log(state, `${label} quest complete! ${p.name} ${verbFor(who, 'gain', 'gains')} ${loc.xp} XP (now ${p.xp}).`);
     const ctx = {
       who,
       source: { kind: 'location', owner: who, zone, uid: loc.uid, name: loc.name },
@@ -761,8 +761,7 @@ export function refreshAuras(state) {
       delete card.aura[uid];
       emit(state, 'buffLost', { target: info(state, ref), source: `${bonus.name}'s Passive` });
       card.currentStrength = Math.min(card.currentStrength, maxStrengthOf(card));
-      const what = describeRef(state, ref);
-      log(state, `${what[0].toUpperCase()}${what.slice(1)} loses the bonus from ${bonus.name}'s Passive.`);
+      log(state, `${describeRef(state, ref, true)} loses the bonus from ${bonus.name}'s Passive.`);
     }
   }
   refreshWeather(state);

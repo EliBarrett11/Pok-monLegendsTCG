@@ -281,6 +281,21 @@ function glow(el, cls) {
 // Reveals sit over the acting player's half of the board, clear of the caption.
 const REVEAL = { cx: 940, w: 272, cy: { ai: 286, player: 730 } };
 
+// A card by uid, as the viewer may see it: wherever it is before or after the
+// action. A card played from the opponent's hand (hidden in the view) comes
+// from the event that revealed it.
+function knownCard(prev, next, uid) {
+  for (const v of [prev, next]) {
+    for (const p of Object.values(v?.players ?? {})) {
+      const c = [...p.hand, ...p.bag, ...p.discard, ...p.released, ...p.zones.flatMap((z) => [z.trainer, z.location, ...z.pokemon])]
+        .find((x) => x?.uid === uid);
+      if (c && !c.hidden) return c;
+    }
+  }
+  return next?.events?.find((e) => e.card?.uid === uid)?.card ?? onSale(prev, uid);
+}
+const onSale = (view, uid) => view?.mart?.onSale.find((x) => x?.uid === uid) ?? null;
+
 // Shows a card face-up and large in the middle of the board.
 async function reveal(root, prev, e, t, { hold = 950 } = {}) {
   let el = shown(e.uid);
@@ -288,8 +303,7 @@ async function reveal(root, prev, e, t, { hold = 950 } = {}) {
   if (el) {
     from = rectOf(el);
   } else {
-    const card = prev.players[e.who].hand.find((c) => c.uid === e.uid)
-      ?? prev.players[e.who].bag.find((c) => c.uid === e.uid);
+    const card = knownCard(prev, null, e.uid) ?? e.card;
     if (!card) return;
     const box = document.createElement('div');
     box.innerHTML = cardMarkup(card, 'hand');
@@ -329,8 +343,7 @@ const consumed = new WeakSet();
 // shows its name, then dissolves into its own effect (library.js
 // STRATEGIES). The opponent's comes from its side, so everything is mirrored.
 async function strategyVfx(root, prev, next, main, t) {
-  const p = prev.players[main.who];
-  const card = p.hand.find((c) => c.uid === main.uid);
+  const card = knownCard(prev, next, main.uid);
   if (!card) return false;
   const ev = next.events;
   const start = ev.indexOf(main);
@@ -1174,7 +1187,7 @@ async function before(root, prev, next, actor, t, late) {
   const ev = next.events;
   const main = ev.find((e) => ['cardPlayed', 'itemUsed', 'pass', 'choiceMade', 'itemBought'].includes(e.type));
   const vfx = vfxReady() && t(1) > 0;
-  const played = main?.type === 'cardPlayed' && prev.players[main.who]?.hand.find((c) => c.uid === main.uid);
+  const played = main?.type === 'cardPlayed' && knownCard(prev, next, main.uid);
   if (main?.type === 'cardPlayed' && main.cardType === 'Strategy' && vfx && await strategyVfx(root, prev, next, main, t)) {
     // (its own animation, above)
   } else if (main?.type === 'cardPlayed' && main.cardType === 'Supporter' && vfx && await supporterVfx(root, prev, next, main, t)) {
@@ -1314,8 +1327,7 @@ async function summonVfx(root, card, el, t) {
 // side, the paid cards fly to the Discard or Released Pile, a gold "Gift
 // Bonus!" flourish plays if the Gift Bonus is met; then the effect follows.
 async function supporterVfx(root, prev, next, main, t) {
-  const p = prev.players[main.who];
-  const card = p.hand.find((c) => c.uid === main.uid);
+  const card = knownCard(prev, next, main.uid);
   if (!card) return false;
   const mine = main.who === 'player';
   const r = { x: 740, y: 150, w: 420, h: 580 };
@@ -1336,7 +1348,7 @@ async function supporterVfx(root, prev, next, main, t) {
         { transform: 'translate(0, -6px)', opacity: 1, offset: 0.85 },
         { transform: 'translate(0, -6px) scale(0.96)', opacity: 0 },
       ], t(1500), { easing: 'ease-out' }),
-      paid: ({ skipped }) => { if (!skipped) paidFlight(root, prev, main.who, leaving, t); },
+      paid: ({ skipped }) => { if (!skipped) paidFlight(root, prev, next, main.who, leaving, t); },
       gift: ({ skipped }) => {
         if (skipped) return;
         const g = spawn('fx-gift', null, `<b>Gift Bonus!</b>${main.gift?.bonus ? `<span>${main.gift.bonus}</span>` : ''}`);
@@ -1355,9 +1367,9 @@ async function supporterVfx(root, prev, next, main, t) {
   return true;
 }
 // The paid cards fly from the hand to the Discard or Released Pile.
-function paidFlight(root, prev, who, moves, t) {
+function paidFlight(root, prev, next, who, moves, t) {
   for (const [i, m] of moves.entries()) {
-    const card = prev.players[who].hand.find((c) => c.uid === m.uid);
+    const card = knownCard(prev, next, m.uid);
     const to = pile(root, `${who}-${m.to}`);
     if (!card || !to) continue;
     const src = shown(m.uid);
@@ -1646,19 +1658,7 @@ export function historyEntry(prev, next, who) {
   const ev = next.events ?? [];
   const main = ev.find((e) => ['cardPlayed', 'itemBought', 'itemUsed', 'attack', 'powerUsed', 'pass', 'choiceMade'].includes(e.type));
   if (!main) return null;
-  const find = (uid) => {
-    for (const p of Object.values(prev.players)) {
-      const c = p.hand.find((x) => x.uid === uid) ?? p.bag.find((x) => x.uid === uid);
-      if (c) return c;
-      for (const z of p.zones) {
-        if (z.trainer?.uid === uid) return z.trainer;
-        if (z.location?.uid === uid) return z.location;
-        const m = z.pokemon.find((x) => x?.uid === uid);
-        if (m) return m;
-      }
-    }
-    return prev.mart?.onSale.find((x) => x?.uid === uid) ?? null;
-  };
+  const find = (uid) => knownCard(prev, next, uid);
   const kind = main.type === 'cardPlayed' ? (main.cardType === 'Item' ? 'item' : 'play')
     : main.type === 'itemBought' || main.type === 'itemUsed' ? 'item'
       : main.type === 'attack' ? 'attack' : main.type === 'powerUsed' ? 'power' : main.type === 'pass' ? 'pass' : 'choice';

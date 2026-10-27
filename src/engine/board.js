@@ -17,8 +17,49 @@ export function opponentOf(who) {
   return who === 'player' ? 'ai' : 'player';
 }
 
+// The log is written seat-neutral: who reads it decides who is "You" and
+// which secrets show. Its words for a seat (name, "your", a verb's form, a
+// secret only its owner may read) are tokens, turned into text for one seat
+// by localize. state.logSource keeps the tokens (for viewFor); state.log is
+// the text for the 'player' seat (what the tests and tools read).
+const OPEN = '\u0002';
+const SEP = '\u001f';
+const CLOSE = '\u0003';
+const token = (kind, ...parts) => `${OPEN}${[kind, ...parts].join(SEP)}${CLOSE}`;
+export const nameOf = (who) => token('name', who);
+export const verbFor = (who, you, they) => token('verb', who, you, they);   // "win" / "wins"
+export const yourOf = (who) => token('your', who);                          // "your" / "their"
+export const youOf = (who) => token('you', who);                            // "you" / "the opponent"
+export const secretOf = (who, shown, hidden) => token('secret', who, shown, hidden);   // only `who` reads `shown`
+
+// Display names: names.player and names.ai (e.g. 'You' / 'AI Opponent').
+// The reader is always "You"; the other seat is called by its name.
+export function localize(text, seat, names) {
+  if (typeof text !== 'string' || !text.includes(OPEN)) return text;
+  const other = (who) => (names?.[who] && names[who] !== 'You' ? names[who] : 'Opponent');
+  const word = (body) => {
+    const [kind, who, a, b] = body.split(SEP);
+    const me = who === seat;
+    switch (kind) {
+      case 'name': return me ? 'You' : other(who);
+      case 'whose': return me ? (a ? 'Your' : 'your') : `${other(who)}'s`;
+      case 'verb': return me ? a : b;
+      case 'your': return me ? 'your' : 'their';
+      case 'you': return me ? 'you' : 'the opponent';
+      case 'secret': return me ? a : b;
+      default: return '';
+    }
+  };
+  // Innermost first, so a secret can hold other words.
+  const inner = new RegExp(`${OPEN}([^${OPEN}${CLOSE}]*)${CLOSE}`, 'g');
+  let out = text;
+  while (out.includes(OPEN)) out = out.replace(inner, (_, body) => word(body));
+  return out;
+}
+
 export function log(state, message) {
-  state.log.push(message);
+  (state.logSource ??= []).push(message);
+  state.log.push(localize(message, 'player', state.names));
 }
 
 // Alongside the text log, every action records what happened as structured
@@ -49,10 +90,18 @@ export function info(state, ref) {
   return { ...ref, uid: card?.uid ?? ref.uid, name: card?.name ?? ref.name };
 }
 
-// "Your" / "AI Opponent's" (or lower-case "your" mid-sentence).
+// "Your" / "AI Opponent's" (or lower-case "your" mid-sentence), for whoever reads it.
 export function whose(state, who, capital = true) {
-  if (who === 'player') return capital ? 'Your' : 'your';
-  return `${state.players[who].name}'s`;
+  return token('whose', who, capital ? 'C' : '');
+}
+
+// Card uids say nothing about which card it is: each player's cards are
+// numbered after a shuffle ("player-1", "ai-17"), and again whenever the
+// Discard Pile is shuffled into a new Draw Pile, so a card can't be followed
+// through a shuffle into a hidden hand.
+export function newUids(p, owner, cards) {
+  for (const c of cards) c.uid = `${owner}-${p.uids = (p.uids ?? 0) + 1}`;
+  return cards;
 }
 
 // Draws one card at a time. An empty Draw Pile is replaced by the shuffled
@@ -63,10 +112,10 @@ export function draw(state, who, count) {
   for (let i = 0; i < count; i++) {
     if (!p.drawPile.length) {
       if (!p.discard.length) break;
-      p.drawPile = shuffle(state, p.discard);
+      p.drawPile = newUids(p, who, shuffle(state, p.discard));
       p.discard = [];
       emit(state, 'shuffled', { who });
-      log(state, `${p.name} shuffled ${who === 'player' ? 'your' : 'their'} Discard Pile to form a new Draw Pile.`);
+      log(state, `${p.name} shuffled ${yourOf(who)} Discard Pile to form a new Draw Pile.`);
     }
     const card = p.drawPile.shift();
     p.hand.push(enterHand(card));
@@ -130,10 +179,10 @@ export function sameRef(a, b) {
   return a.kind === b.kind && a.owner === b.owner && a.zone === b.zone && (a.kind === 'trainer' || a.space === b.space);
 }
 
-export function describeRef(state, ref) {
-  if (ref.kind === 'hand') return `${whose(state, ref.owner, false)} ${cardAt(state, ref).name} (in hand)`;
+export function describeRef(state, ref, capital = false) {
+  if (ref.kind === 'hand') return secretOf(ref.owner, `${whose(state, ref.owner, capital)} ${cardAt(state, ref).name} (in hand)`, `${capital ? 'A' : 'a'} card in ${whose(state, ref.owner, false)} hand`);
   const where = ref.kind === 'trainer' ? `Zone ${ref.zone + 1}` : `Zone ${ref.zone + 1}, Space ${ref.space + 1}`;
-  return `${whose(state, ref.owner, false)} ${cardAt(state, ref).name} (${where})`;
+  return `${whose(state, ref.owner, capital)} ${cardAt(state, ref).name} (${where})`;
 }
 
 // --- Zones ----------------------------------------------------------------------
@@ -264,7 +313,7 @@ export function damage(state, ref, amount, opts = {}) {
     if (before > 0 && card.strength === 0) {
       delete card.status;
       emit(state, 'trainerRemoved', { target: info(state, ref) });
-      log(state, `${whose(state, ref.owner)} ${card.name} was removed. Zone ${ref.zone + 1} has fallen on ${ref.owner === 'player' ? 'your' : `${state.players[ref.owner].name}'s`} side.`);
+      log(state, `${whose(state, ref.owner)} ${card.name} was removed. Zone ${ref.zone + 1} has fallen on ${whose(state, ref.owner, false)} side.`);
     }
     return [before, card.strength];
   }
@@ -332,7 +381,7 @@ export function earnDollars(state, who, amount, why) {
   const p = state.players[who];
   p.dollars = (p.dollars ?? 0) + amount;
   emit(state, 'dollarsEarned', { who, amount });
-  log(state, `${p.name} ${who === 'player' ? 'earn' : 'earns'} ${amount} PokéDollars ${why} (now ${p.dollars}).`);
+  log(state, `${p.name} ${verbFor(who, 'earn', 'earns')} ${amount} PokéDollars ${why} (now ${p.dollars}).`);
 }
 
 // An Item goes into the PokéMart deck, which is shuffled. It never returns

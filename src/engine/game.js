@@ -10,7 +10,7 @@ import { newEnergy, refreshEnergy, canPay, payCost, splitCost } from './energy.j
 import {
   PLAYERS, opponentOf, log, whose, draw, arenaPokemon, cardAt, emptySpaces, summonSpaces, isFallen,
   attackOf, damage, describeRef, sameRef, dropXp, weatherCounts, speedOf, release as releaseCards, earnDollars, toMart, emit, info,
-  maxStrengthOf, hasRetain, RULE_FLAGS, newStats,
+  maxStrengthOf, hasRetain, RULE_FLAGS, newStats, nameOf, verbFor, yourOf, youOf, secretOf, newUids,
 } from './board.js';
 import { hasKeyword, keywordAmount } from './keywords.js';
 import { resolveSupperStatuses } from './status.js';
@@ -40,10 +40,11 @@ export const HAND_SIZE = 7;
 // resolveChoice. state.stack holds what is still to resolve (see effects.js).
 
 function newPlayer(name, owner, state, deck) {
-  return {
+  const p = {
     name,
     deck,                // the deck id: 'fire' | 'water'
-    drawPile: shuffle(state, buildDeck(owner, deck)),
+    drawPile: [],        // filled below: shuffled, then numbered (newUids)
+    uids: 0,             // card uids handed out so far
     hand: [],
     discard: [],
     released: [],        // defeated Pokémon and Released cards; never shuffled back
@@ -64,10 +65,14 @@ function newPlayer(name, owner, state, deck) {
     pending: null,
     ...newEnergy(),
   };
+  p.drawPile = newUids(p, owner, shuffle(state, buildDeck(owner, deck)));
+  return p;
 }
 
 // decks: which deck each side plays (the player chooses; the AI plays the other).
-export function createGame(seed = Date.now(), { decks = { player: 'fire', ai: 'water' } } = {}) {
+// names: what each seat is called (the reader is always "You"; see localize in board.js).
+export const AI_NAMES = { player: 'You', ai: 'AI Opponent' };
+export function createGame(seed = Date.now(), { decks = { player: 'fire', ai: 'water' }, names = AI_NAMES } = {}) {
   const state = {
     seed,
     rng: seed >>> 0,
@@ -79,13 +84,15 @@ export function createGame(seed = Date.now(), { decks = { player: 'fire', ai: 'w
     pending: null,       // a mid-Action choice
     stack: [],           // effects and steps still to resolve
     winner: null,
-    log: [],
+    names: { ...names },
+    log: [],         // the log as the 'player' seat reads it (logSource: seat-neutral, for viewFor)
+    logSource: [],
     events: [],          // what the last action did, as structured events (see emit in board.js)
     stats: newStats(),   // for the end screen (board.js tally)
   };
   state.players = {
-    player: newPlayer('You', 'player', state, decks.player),
-    ai: newPlayer('AI Opponent', 'ai', state, decks.ai),
+    player: newPlayer(nameOf('player'), 'player', state, decks.player),
+    ai: newPlayer(nameOf('ai'), 'ai', state, decks.ai),
   };
   // One PokéMart shared by both players: a deck and 3 Items on sale.
   state.mart = { deck: shuffle(state, buildMartStock()), onSale: [null, null, null] };
@@ -171,6 +178,9 @@ export function costPreview(state, who, what, zone) {
   }
   return splitCost(p, cost);
 }
+
+// A played card is revealed: the event carries its face (for the screen; see view.js).
+const face = (card) => structuredClone(card);
 
 function describePayment({ fromBase, fromExert }) {
   const parts = [];
@@ -512,7 +522,7 @@ function matchOver(state) {
   const won = winner(state);
   if (!won) return false;
   endMatch(state, won);
-  log(state, `${state.players[won].name} ${won === 'player' ? 'win' : 'wins'}! All 3 enemy Trainers are at 0 Strength.`);
+  log(state, `${state.players[won].name} ${verbFor(won, 'win', 'wins')}! All 3 enemy Trainers are at 0 Strength.`);
   return true;
 }
 
@@ -654,8 +664,8 @@ const STEPS = {
       p.discard.push(...gone);
       p.hand = kept;
       if (kept.length) emit(state, 'retained', { who, uids: kept.map((c) => c.uid), count: kept.length });
-      log(state, `${p.name} discarded ${gone.length} card${gone.length === 1 ? '' : 's'} from ${who === 'player' ? 'your' : 'their'} hand`
-        + `${kept.length ? `, keeping ${who === 'player' ? kept.map((c) => c.name).join(', ') : `${kept.length} card${kept.length === 1 ? '' : 's'}`} (Retain)` : ''}.`);
+      log(state, `${p.name} discarded ${gone.length} card${gone.length === 1 ? '' : 's'} from ${yourOf(who)} hand`
+        + `${kept.length ? `, keeping ${secretOf(who, kept.map((c) => c.name).join(', '), `${kept.length} card${kept.length === 1 ? '' : 's'}`)} (Retain)` : ''}.`);
     }
     log(state, 'Supper Phase ends.');
     startRound(state, state.round + 1);
@@ -684,7 +694,7 @@ const HANDLERS = {
     const result = nextRandom(state) < 0.5 ? 'player' : 'ai';
     state.initiative = result;
     emit(state, 'coinFlip', { winner: result });
-    log(state, `Coin flip: ${state.players[result].name} ${result === 'player' ? 'win' : 'wins'} initiative for Round 1.`);
+    log(state, `Coin flip: ${state.players[result].name} ${verbFor(result, 'win', 'wins')} initiative for Round 1.`);
     startRound(state, 1);
   },
 
@@ -710,7 +720,7 @@ const HANDLERS = {
     if (!canPay(p, cost)) throw new Error(`Not enough Energy to play ${c.name}`);
     const cuts = [...(c.costDown ? [`−${c.costDown} on the card`] : []), ...zoneReductions(state, who, zone).map((r) => `−${r.amount} ${r.name}`)];
     const paid = payCost(p, cost, state.round);
-    emit(state, 'cardPlayed', { who, uid: c.uid, name: c.name, cardType: c.cardType, cost, printedCost: c.energyCost, to: { kind: 'pokemon', owner: who, zone, space } });
+    emit(state, 'cardPlayed', { who, card: face(c), uid: c.uid, name: c.name, cardType: c.cardType, cost, printedCost: c.energyCost, to: { kind: 'pokemon', owner: who, zone, space } });
     log(state, `${p.name} played ${c.name} into Zone ${zone + 1}, Space ${space + 1}, paying ${describePayment(paid)}${cost !== c.energyCost ? ` (cost ${c.energyCost} → ${cost}: ${cuts.join(', ')})` : ''}.`);
     queueStep(state, 'endTurn', { who, passed: false });
     summon(state, who, c, zone, space);
@@ -810,7 +820,7 @@ const HANDLERS = {
     if (!playableStrategies(state, who).includes(card)) throw new Error(`${card.name} cannot be played now`);
     const paid = payCost(p, card.energyCost, state.round);
     p.hand = p.hand.filter((c) => c !== card);   // out of hand while it resolves, so a draw can't draw it
-    emit(state, 'cardPlayed', { who, uid: card.uid, name: card.name, cardType: card.cardType, to: { kind: 'discard' }, target: info(state, target) });
+    emit(state, 'cardPlayed', { who, card: face(card), uid: card.uid, name: card.name, cardType: card.cardType, to: { kind: 'discard' }, target: info(state, target) });
     log(state, `${p.name} played ${card.name} (${card.effectText}) Paid ${describePayment(paid)}.`);
     queueStep(state, 'endTurn', { who, passed: false });
     queueStep(state, 'discard', { who, card });
@@ -851,7 +861,7 @@ const HANDLERS = {
     p.supporterRound = state.round;
     for (const c of discarded) emit(state, 'cardMoved', { uid: c.uid, name: c.name, owner: who, to: 'discard' });
     emit(state, 'cardPlayed', {
-      who, uid: card.uid, name: card.name, cardType: card.cardType, to: { kind: 'discard' }, target: info(state, target),
+      who, card: face(card), uid: card.uid, name: card.name, cardType: card.cardType, to: { kind: 'discard' }, target: info(state, target),
       paid: { discard: discarded.map((c) => c.name), release: released.map((c) => c.name) },
       gift: { met, challenge: card.gift.challengeText, bonus: card.gift.bonusText },
     });
@@ -882,7 +892,7 @@ const HANDLERS = {
       log(state, `${p.name} replaced ${old.name} in Zone ${zone + 1}; it goes to the Discard Pile and its quest progress (${progress}/${old.quest.count}) is lost.`);
     }
     p.zones[zone].location = { ...card, progress: 0 };
-    emit(state, 'cardPlayed', { who, uid: card.uid, name: card.name, cardType: card.cardType, to: { kind: 'location', owner: who, zone }, replaced: old?.name ?? null });
+    emit(state, 'cardPlayed', { who, card: face(card), uid: card.uid, name: card.name, cardType: card.cardType, to: { kind: 'location', owner: who, zone }, replaced: old?.name ?? null });
     log(state, `${p.name} played ${card.name} into Zone ${zone + 1}. Quest: ${card.quest.text} (Reward: ${card.xp} XP)`);
     queueStep(state, 'endTurn', { who, passed: false });
   },
@@ -927,11 +937,11 @@ const HANDLERS = {
       else if (then !== 'store') throw new Error('Use the Item now or store it in your Bag');
       p.dollars -= item.cost;
       p.hand = p.hand.filter((c) => c !== item);
-      emit(state, 'cardPlayed', { who, uid: item.uid, name: item.name, cardType: item.cardType, cost: item.cost, to: { kind: then === 'store' ? 'bag' : 'use' }, target: info(state, target) });
-      log(state, `${p.name} bought ${item.name} from ${who === 'player' ? 'your' : 'their'} hand for ${item.cost} PokéDollars (now ${p.dollars}).`);
+      emit(state, 'cardPlayed', { who, card: face(item), uid: item.uid, name: item.name, cardType: item.cardType, cost: item.cost, to: { kind: then === 'store' ? 'bag' : 'use' }, target: info(state, target) });
+      log(state, `${p.name} bought ${item.name} from ${yourOf(who)} hand for ${item.cost} PokéDollars (now ${p.dollars}).`);
       if (then === 'store') {
         p.bag.push({ ...item, inDelivery: false });
-        log(state, `${p.name} stored ${item.name} in ${who === 'player' ? 'your' : 'their'} Bag.`);
+        log(state, `${p.name} stored ${item.name} in ${yourOf(who)} Bag.`);
       } else {
         useItem(state, who, item, target);
         return;
@@ -985,11 +995,11 @@ const HANDLERS = {
     const spends = passSpends(state, who);
     emit(state, 'pass', { who, endsPhase: ends, gain: ends ? 0 : PASS_ENERGY, spends });
     if (ends) {
-      log(state, `${p.name} ${who === 'player' ? 'pass' : 'passes'}: No Energy: ${who === 'player' ? 'the opponent' : 'you'} passed last.`);
+      log(state, `${p.name} ${verbFor(who, 'pass', 'passes')}: No Energy: ${youOf(opponentOf(who))} passed last.`);
     } else {
       p.baseEnergy += PASS_ENERGY;
       emit(state, 'energyGained', { who, amount: PASS_ENERGY, source: 'Pass' });
-      log(state, `${p.name} ${who === 'player' ? 'pass' : 'passes'}: +${PASS_ENERGY} Base Energy (now ${p.baseEnergy}).`);
+      log(state, `${p.name} ${verbFor(who, 'pass', 'passes')}: +${PASS_ENERGY} Base Energy (now ${p.baseEnergy}).`);
       // Unmatched speed: their Active Pokémon at the top Speed-Tier become Spent (Alert is worked out afresh).
       if (spends.length) {
         for (const ref of spends) cardAt(state, ref).spent = true;
@@ -1044,7 +1054,7 @@ function startRound(state, round) {
   state.round = round;
   if (round > 1) state.initiative = opponentOf(state.initiative);
   emit(state, 'roundStarted', { round, initiative: state.initiative });
-  log(state, `— Round ${round} — ${state.players[state.initiative].name} ${state.initiative === 'player' ? 'have' : 'has'} initiative.`);
+  log(state, `— Round ${round} — ${state.players[state.initiative].name} ${verbFor(state.initiative, 'have', 'has')} initiative.`);
   startBreakfast(state);
 }
 
@@ -1132,7 +1142,9 @@ function resolveXp(state) {
     emit(state, 'xpSpent', { who, total: spend.length, parts: Object.entries(per).map(([name, b]) => ({ name, ...b })) });
     const parts = Object.entries(per).map(([name, b]) =>
       `${name} ${[b.attack && `+${b.attack} Attack`, b.strength && `+${b.strength} Strength`].filter(Boolean).join(', ')}`);
-    log(state, `${p.name} spent ${spend.length} XP: ${parts.join('; ')} (${p.xp} XP left).`);
+    const totals = ['attack', 'strength'].map((k) => [k, spend.filter((x) => x.stat === k).length]).filter(([, n]) => n)
+      .map(([k, n]) => `+${n} ${k === 'attack' ? 'Attack' : 'Strength'}`).join(', ');
+    log(state, `${p.name} spent ${spend.length} XP${secretOf(who, `: ${parts.join('; ')}`, ` on Pokémon in hand (${totals})`)} (${p.xp} XP left).`);
   }
   state.xpStep = false;
   endBreakfast(state);
@@ -1151,7 +1163,7 @@ function resolveMulligans(state) {
     draw(state, who, chosen.length);
     log(state, chosen.length
       ? `${p.name} mulliganed ${chosen.length} card${chosen.length === 1 ? '' : 's'}.`
-      : `${p.name} kept ${who === 'player' ? 'your' : 'their'} hand.`);
+      : `${p.name} kept ${yourOf(who)} hand.`);
   }
   startXpStep(state);
 }
@@ -1161,7 +1173,7 @@ function startBattle(state) {
   state.turn = state.initiative;
   emit(state, 'phaseChanged', { phase: 'battle', round: state.round, turn: state.turn });
   state.passesInARow = 0;
-  log(state, `Battle Phase. ${state.players[state.initiative].name} ${state.initiative === 'player' ? 'act' : 'acts'} first.`);
+  log(state, `Battle Phase. ${state.players[state.initiative].name} ${verbFor(state.initiative, 'act', 'acts')} first.`);
 }
 
 function startSupper(state) {

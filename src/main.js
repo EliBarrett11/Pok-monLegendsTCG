@@ -1,15 +1,24 @@
 // Entry point: holds the current game state, sends the player's actions
 // to the engine, lets the AI respond, and plays each action back on screen.
-import { createGame, applyAction, legalActions } from './engine/game.js';
+//
+// The screen is only ever given what one seat may see: viewFor(state, viewer)
+// (engine/view.js), turned so the viewer is at the bottom (ui/seat.js).
+// Against the AI the viewer is always the 'player' seat. In hot-seat mode
+// (two players, one screen) it is whoever has control, with a "Pass to"
+// screen hiding the board whenever control changes hands.
+import { createGame, applyAction, legalActions, PLAYERS } from './engine/game.js';
+import { viewFor } from './engine/view.js';
 import { chooseAction } from './ai/opponent.js';
-import { render, STAGE, pushHistory, clearHistory, setCaption } from './ui/render.js';
+import { render, STAGE, pushHistory, clearHistory, setHistory, setCaption } from './ui/render.js';
 import { present, think, skip, resetFx, historyEntry, captionFor } from './ui/present.js';
+import { orient, toEngine, screenSeat } from './ui/seat.js';
 import { speedFactor } from './ui/settings.js';
 import { probeCardIcons } from './ui/cardIcons.js';
 import { renderDeckSelect, otherDeck, randomDeck } from './ui/deckSelect.js';
+import { renderPassScreen } from './ui/passScreen.js';
 import { initVfx, syncStatus } from './ui/vfx/engine.js';
 
-export const BUILD = 'Step 24 — Animations Enhanced complete';
+export const BUILD = 'Multiplayer M1 — either seat and hot-seat';
 
 
 // The whole game is drawn on a fixed 1920×1080 stage, scaled uniformly to
@@ -33,6 +42,27 @@ const autoplay = params.has('autoplay');
 // null while the player is choosing a deck (before each match).
 let state = null;
 
+// ?hotseat (or the deck screen's "Two players, one screen"): no AI; two
+// players take turns at one screen. Seat 'player' is Player 1, 'ai' Player 2.
+let hotseat = params.has('hotseat');
+const HOTSEAT_NAMES = { player: 'Player 1', ai: 'Player 2' };
+let viewer = 'player';    // the seat whose view is on screen
+let passingTo = null;     // hot-seat: the seat the screen is being passed to (board hidden)
+let picks = {};           // hot-seat deck selection: each seat's deck, in turn
+let lastShown = null;     // hot-seat: the last action, replayed for the next player
+const histories = { player: [], ai: [] };   // the recent-actions list, as each seat reads it
+
+// What the viewer may see, with them at the bottom. The same state and seat
+// give the same view object, so a redraw keeps the player's half-made choices.
+const views = new WeakMap();
+function viewOf(s, seat = viewer) {
+  const cached = views.get(s)?.[seat];
+  if (cached) return cached;
+  const v = orient(viewFor(s, seat));
+  views.set(s, { ...views.get(s), [seat]: v });
+  return v;
+}
+
 // While actions play out, input is locked; it unlocks when it's the player's move.
 let busy = false;
 let match = 0;   // bumped by New match, so an old match's playback stops
@@ -43,9 +73,16 @@ function lock(on) {
   stage.classList.toggle('locked', on);
 }
 
+// Shows an action (who: the engine seat that took it) from the viewer's seat.
 async function show(prev, next, who) {
-  pushHistory(historyEntry(prev, next, who));
-  await present(root, prev, next, who, draw);
+  const seats = hotseat ? PLAYERS : [viewer];
+  for (const seat of seats) {
+    const entry = historyEntry(viewOf(prev, seat), viewOf(next, seat), screenSeat(who, seat));
+    if (entry) histories[seat] = [entry, ...histories[seat]].slice(0, 10);
+  }
+  pushHistory(historyEntry(viewOf(prev), viewOf(next), screenSeat(who, viewer)));
+  lastShown = { prev, next, who };
+  await present(root, viewOf(prev), viewOf(next), screenSeat(who, viewer), draw);
 }
 
 // Simultaneous steps (Trainers, mulligan, XP): both players choose at once.
@@ -60,17 +97,18 @@ function scheduleAiLockIn(id) {
     const action = chooseAction(state, 'ai');
     if (!action || !SIMULTANEOUS.includes(action.type)) return;
     state = applyAction(state, action);
-    setCaption(captionFor(state, 'ai'));
+    setCaption(captionFor(viewOf(state), 'ai'));
     draw();
   }, (900 + Math.random() * 900) * speedFactor());
 }
 
+// An action from the screen, in its seats ('player' = the viewer).
 async function dispatch(action) {
   if (busy) return;
   clearTimeout(lockInTimer);
   let next;
   try {
-    next = applyAction(state, action);
+    next = applyAction(state, toEngine(action, viewer));
   } catch (err) {
     alert(err.message);
     return;
@@ -79,10 +117,49 @@ async function dispatch(action) {
   lock(true);
   const prev = state;
   state = next;
-  await show(prev, next, 'player');
-  await opponentActs(id);
+  await show(prev, next, viewer);
+  if (hotseat) await handOver(id);
+  else await opponentActs(id);
   if (id !== match) return;
   lock(false);
+  draw();
+}
+
+// Hot-seat: after each action, whoever must act next. The coin flip needs no
+// one; if it's the other player's move (their turn, their choice, or their
+// half of a simultaneous step), the board is hidden behind "Pass to …".
+async function handOver(id) {
+  for (let guard = 0; guard < 100 && id === match && state.phase !== 'gameOver'; guard++) {
+    if (state.phase === 'initiative') {
+      await nextFrame();
+      if (id !== match) return;
+      const prev = state;
+      state = applyAction(state, { type: 'flipCoin' });
+      await show(prev, state, viewer);
+      continue;
+    }
+    const next = PLAYERS.filter((w) => legalActions(state, w).length);
+    if (!next.length || next.includes(viewer)) return;
+    passingTo = next[0];
+    return;
+  }
+}
+
+// "I'm ready": the next player's view, and the last action shown again from their side.
+async function ready() {
+  const id = match;
+  viewer = passingTo;
+  passingTo = null;
+  setHistory(histories[viewer]);
+  setCaption('');
+  const last = lastShown;
+  if (last?.next === state && last.who !== viewer) {
+    lock(true);
+    draw();
+    await present(root, viewOf(last.prev), viewOf(state), screenSeat(last.who, viewer), draw);
+    if (id !== match) return;
+    lock(false);
+  }
   draw();
 }
 
@@ -121,33 +198,81 @@ function newGame() {
   clearTimeout(lockInTimer);
   resetFx();
   clearHistory();
+  histories.player = [];
+  histories.ai = [];
   setCaption('');
   lock(false);
   state = null;
+  viewer = 'player';
+  passingTo = null;
+  picks = {};
+  lastShown = null;
   if (autoplay) startMatch(randomDeck());
   else draw();
 }
 
 // Rematch (the end screen's New match): the same decks again, straight in.
 function rematch() {
-  const deck = state?.players.player.deck;
+  const decks = state && { player: state.players.player.deck, ai: state.players.ai.deck };
   newGame();
-  if (deck && !autoplay) startMatch(deck);
+  if (!decks || autoplay) return;
+  if (hotseat) {
+    picks = decks;
+    passingTo = 'player';   // Player 1 starts: placing Trainers
+    beginMatch(decks);
+  } else startMatch(decks.player);
 }
 
 // The player plays `deck`; the AI plays the other one. ?seed= applies to the first match.
 let firstMatch = true;
 function startMatch(deck) {
+  beginMatch({ player: deck, ai: otherDeck(deck) });
+}
+
+function beginMatch(decks) {
   const seed = (firstMatch && seedFromUrl) || Date.now();
   firstMatch = false;
-  state = createGame(seed, { decks: { player: deck, ai: otherDeck(deck) } });
+  state = createGame(seed, { decks, ...(hotseat ? { names: HOTSEAT_NAMES } : {}) });
   draw();
-  start();
+  if (!hotseat) start();
+}
+
+// Hot-seat deck selection: Player 1 chooses, the screen is passed, Player 2
+// chooses (neither sees the other's choice, and either may pick the same deck).
+function chooseHotseat(deck) {
+  const seat = picks.player ? 'ai' : 'player';
+  picks[seat] = deck;
+  passingTo = seat === 'player' ? 'ai' : 'player';
+  if (seat === 'ai') beginMatch({ ...picks });
+  else draw();
+}
+
+function setMode(on) {
+  hotseat = on;
+  const url = new URL(location.href);
+  if (on) url.searchParams.set('hotseat', '');
+  else url.searchParams.delete('hotseat');
+  history.replaceState(null, '', url.toString().replace('hotseat=', 'hotseat'));
+  newGame();
 }
 
 function draw() {
-  if (!state) renderDeckSelect(root, { build: BUILD, choose: startMatch });
-  else render(root, state, { dispatch, newGame, rematch, build: BUILD });
+  if (passingTo) {
+    const name = HOTSEAT_NAMES[passingTo];
+    renderPassScreen(root, {
+      name,
+      from: HOTSEAT_NAMES[passingTo === 'player' ? 'ai' : 'player'],
+      what: !state ? 'choose a deck' : 'take over',
+      ready: () => {
+        if (state) ready();
+        else { viewer = passingTo; passingTo = null; draw(); }
+      },
+    });
+  } else if (!state) {
+    renderDeckSelect(root, hotseat
+      ? { build: BUILD, choose: chooseHotseat, hotseat: HOTSEAT_NAMES[picks.player ? 'ai' : 'player'], vsAi: () => setMode(false) }
+      : { build: BUILD, choose: startMatch, twoPlayers: () => setMode(true) });
+  } else render(root, viewOf(state), { dispatch, newGame, rematch, build: BUILD });
   syncStatus(root);   // burning cards keep smouldering on the effects layer
 }
 

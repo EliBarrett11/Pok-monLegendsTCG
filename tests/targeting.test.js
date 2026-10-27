@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { battle, give, play, place, choose, href, trainerAt, logged } from './fixtures.js';
 import { targetKeys, targetPrompt, describeTargets, trainerShield, cardMarkup } from '../src/ui/render.js';
 import { attackBlock } from '../src/engine/game.js';
+import { viewFor } from '../src/engine/view.js';
 
 // --- Pelipper's On Summon: a card in your hand gains Retain -------------------------------
 
@@ -19,7 +20,7 @@ import { attackBlock } from '../src/engine/game.js';
   // The options are exactly the cards in hand.
   assert.deepEqual(s.pending.options.map((r) => [r.kind, r.uid]).sort(), [['hand', dive], ['hand', surf]].sort());
   assert.deepEqual([...targetKeys(s, {}).keys].sort(), [`player:H${dive}`, `player:H${surf}`].sort(), 'the hand cards light up');
-  const prompt = targetPrompt(s, {});
+  const prompt = targetPrompt(viewFor(s, 'player'), {});   // the screen is given the player's view
   assert.equal(prompt.text, "Your Pelipper's On Summon: choose a card in your hand");
   assert.equal(prompt.cancel, false, 'an effect already resolving can not be cancelled');
   assert.equal(trainerShield(s, 0, {}), null, 'no shields on enemy Trainers when choosing a card in hand');

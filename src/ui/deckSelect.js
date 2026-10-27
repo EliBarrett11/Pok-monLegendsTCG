@@ -2,6 +2,8 @@
 // its showcase cards, with its name, archetype, specialization, plan and
 // three Trainers. The player picks Fire, Water or Random; the AI plays the
 // other deck. The last choice is remembered (in this browser only).
+// Hot-seat: each player picks in turn, in secret, any deck (mirrors allowed);
+// nothing is remembered or marked, so the second player can't see the first's pick.
 import { DECKS, DECK_IDS, TRAINER_CARDS } from '../engine/cardData.js';
 import { cardDefinition } from '../engine/cards.js';
 import { cardMarkup } from './render.js';
@@ -48,21 +50,32 @@ function deckPanel(deck, last) {
 }
 
 // Draws the screen into root; choose(deckId) is called with the player's deck.
-export function renderDeckSelect(root, { build, choose }) {
-  const last = lastDeck();
-  root.innerHTML = `<div class="table deck-select">
+// Against the AI, twoPlayers() switches to hot-seat. In hot-seat, `hotseat` is
+// the name of the player choosing, and vsAi() switches back.
+export function renderDeckSelect(root, { build, choose, twoPlayers, hotseat, vsAi }) {
+  const last = hotseat ? null : lastDeck();
+  const hint = hotseat
+    ? 'Choose in secret: the other player won\'t see it until the match starts. You may both pick the same deck.'
+    : 'You play the deck you choose; the AI plays the other.';
+  root.innerHTML = `<div class="table deck-select${hotseat ? ' hotseat' : ''}">
     <header class="deck-head">
-      <h1>Choose your deck</h1>
-      <p class="hint">You play the deck you choose; the AI plays the other. <span class="build-tag">${build ?? ''}</span></p>
+      <h1>${hotseat ? `${hotseat}, choose your deck` : 'Choose your deck'}</h1>
+      <p class="hint">${hint} <span class="build-tag">${build ?? ''}</span></p>
     </header>
     <div class="deck-options">${DECK_IDS.map((id) => deckPanel(DECKS[id], last)).join('')}</div>
-    <button data-deck="random" class="secondary deck-random">Random</button>
+    <div class="deck-foot">
+      <button data-deck="random" class="secondary deck-random">Random</button>
+      ${hotseat ? '<button data-mode="ai" class="secondary deck-mode">Play against the AI</button>'
+    : '<button data-mode="two" class="secondary deck-mode">Two players, one screen</button>'}
+    </div>
   </div>`;
   for (const button of root.querySelectorAll('[data-deck]')) {
     button.onclick = () => {
       const pick = button.dataset.deck === 'random' ? randomDeck() : button.dataset.deck;
-      remember(pick);
+      if (!hotseat) remember(pick);
       choose(pick);
     };
   }
+  const mode = root.querySelector('[data-mode]');
+  if (mode) mode.onclick = () => (hotseat ? vsAi?.() : twoPlayers?.());
 }

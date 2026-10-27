@@ -58,6 +58,11 @@ export function clearHistory() {
   history = [];
 }
 
+// Hot-seat: each player's own list of recent actions (written for them), shown when their turn comes.
+export function setHistory(entries) {
+  history = entries.slice(0, HISTORY_SIZE).map((e) => ({ ...e, fresh: false }));
+}
+
 export function cardElements() {
   return cardEls;
 }
@@ -108,7 +113,8 @@ function resetUiFor(state) {
   // The opponent locking in during a simultaneous step changes the state but
   // not my half-made choice: keep it.
   const was = ui.state;
-  const keep = was && was.phase === state.phase && was.round === state.round && was.xpStep === state.xpStep
+  // (Never across seats: in hot-seat the next player starts afresh.)
+  const keep = was && was.seat === state.seat && was.phase === state.phase && was.round === state.round && was.xpStep === state.xpStep
     && ['trainers', 'breakfast'].includes(state.phase)
     && !state.players.player.pending && !state.players.player.xpChoice
     && { placing: ui.placing, selectedTrainer: ui.selectedTrainer, mulligan: ui.mulligan, xpPlan: ui.xpPlan, xpPick: ui.xpPick };
@@ -482,7 +488,8 @@ function pickerBox(state) {
   const pend = state.pending;
   if (pend?.who !== 'player' || pend.kind !== 'pick') return '';
   const p = state.players.player;
-  const pile = pend.from === 'draw' ? p.drawPile : pend.from === 'discard' ? p.discard : p.hand;
+  // A Search: the view holds only the matching cards of the (hidden) Draw Pile.
+  const pile = pend.from === 'draw' ? pend.cards ?? [] : pend.from === 'discard' ? p.discard : p.hand;
   const cards = pend.options.map((uid) => pile.find((c) => c.uid === uid)).filter(Boolean);
   const n = ui.pick.length;
   const ok = n >= pend.min && n <= pend.max;

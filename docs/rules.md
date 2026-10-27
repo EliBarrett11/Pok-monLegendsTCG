@@ -406,6 +406,13 @@ Two decks, as approved in `docs/decks.md` (the source of truth for them). The ga
 - **No turn timer:** a player may take as long as they like over any decision.
 - Each player sees only what they're allowed to see: their own hand, both arenas, and public information (pile sizes, Bag contents, revealed cards). Never the opponent's hand or either Draw Pile's order.
 - **No extras for now:** no emotes and no chat.
+- **What each player sees, in detail** (as built in Multiplayer M1; `src/engine/view.js`):
+  - The opponent's hand: how many cards, not which. A card they **Search** for goes into their hand unseen ("searched the Draw Pile for 1 card"); a card they **Return** from the Discard Pile is seen, since the Discard Pile is public.
+  - Both Draw Piles: how many cards, not which or in what order. Your own Search shows you only the matching cards.
+  - The PokéMart: the 3 Items on sale and how many are left in its deck, not their order.
+  - Simultaneous steps (placing Trainers, the mulligan, spending XP): only that the opponent has locked in, until both have. Then the Trainers are revealed and the mulligan count shows; for **XP**, how much the opponent spent and on which stat (e.g. "+1 Attack, +2 Strength"), but not which Pokémon in their hand got it.
+  - Card uids (how the game tells cards apart) don't say which card it is, and are renumbered whenever a Discard Pile is shuffled into a new Draw Pile, so a card can't be followed into a hidden hand.
+- **Two players, one screen (hot-seat):** for testing and local play, two players can share one screen (the "Two players, one screen" button, or `?hotseat`). Each chooses a deck in turn, in secret. Whenever control passes to the other player (including either half of a simultaneous step), a "Pass to Player 2" screen hides the board until they click "I'm ready"; the board is then drawn from their side, and the last action is shown again from there.
 
 ### 9.2 🔥 Fire — Aggressive · Burn
 
@@ -516,10 +523,12 @@ Two decks, as approved in `docs/decks.md` (the source of truth for them). The ga
 - **Timed Weather order:** if two Weather types have timed effects at the same moment, the build resolves them in Weather order (Rain, then Sun). Is that right?
 - **Trainer vs Pokémon order:** when a Trainer's Passive and a Pokémon in the same zone trigger at the same moment, which goes first? (The build puts the Trainer after the Pokémon in its zone.)
 - **On Supper:** no card uses it yet; the hook is built and tested.
+- **XP against a friend:** once both lock in, the build shows how much XP the opponent spent and on which stat, but not which Pokémon in their hand got it (that would reveal part of their hand). Is that right, or should the Pokémon be shown too?
 
 ## Placeholders in the current build
 
 - **Card art** comes from `assets/cards/<card id>.jpg` (e.g. `crasher-wake.jpg`). A card without a file shows the placeholder look: a box tinted by Pokémon Type or striped by Card-Type. Art for the retired placeholder cards stays in `assets/` but is no longer used.
 - Rain and Sun (section 1.6) are placeholder Weather types.
+- **Hot-seat names:** the two players are "Player 1" and "Player 2" until players can choose their own names.
 - Agility and the Trigger Words On Attack, On Defend, On Defeated, On Supper and On Trainer Strike are built and tested (with test-only cards in `tests/`), but no Fire or Water card uses them yet. So are the quest types "Attack N times" and "Use N Trainer Powers".
 - **The AI** places Trainers at random and only spends Base Energy (never Exert). On a Battle turn it scores every legal move and Pass, and picks the best (ties at random). It scores most moves by trying them on a copy of the game: winning, bringing an enemy Trainer to 0, defeating enemy Pokémon without losing its own, damage to enemy Trainers (Overrun and effects included), damage and healing, stats and keywords gained, Pokémon made Active, Burn (as the damage it will still deal over the coming Suppers, three times as much on a Trainer, and removing Burn from its own cards counts the same way), cards gained, PokéDollars and XP, less the Energy or cards it costs. Draws and Searches are scored without trying them, so it never sees its own Draw Pile. **Each deck's plan** weighs these differently: as **Fire** it values damage to Trainers, Burn and Overrun more; as **Water** it values healing, Dousing its own Burn, growing its board, keeping its Pokémon alive and summoning into Zones where it already has Pokémon. A Pass that gains +1 Base Energy scores what that Energy could buy, weighed by the chance the opponent passes straight back. Supporters: it puts a card that meets the Gift Challenge into the payment when it has one. Locations: only into empty Location spaces. XP: all of it on the cheapest Pokémon in hand it can afford this Round, split at random between Attack and Strength. Open Bag: an Item bought from hand is used straight away if it has a legal target (a Held Item preferring a Pokémon without one), otherwise stored; it sometimes buys from the PokéMart. Choices: it tries each target and takes the best; a Search, Return or free summon takes the strongest card it could afford next Round; Retain goes on a card it can't afford now but can next Round.
