@@ -35,7 +35,7 @@ export function pileDepth(count) {
 // --- The resource panels (Feedback batch 2) ---------------------------------------------
 //
 // What a player's resource panel shows, section by section: Energy, Exert,
-// XP, PokéDollars and the Bag. Both panels (mine along the bottom, the
+// XP, PokéDollars, Growth (Grass G1) and the Bag. Both panels (mine along the bottom, the
 // opponent's compact along the top) draw from this.
 
 export function panelView(state, who) {
@@ -62,6 +62,7 @@ export function panelView(state, who) {
     },
     xp: { value: p.xp, tip: `XP: ${p.xp}. Spent in the XP step at Breakfast to raise a Pokémon's stats.` },
     dollars: { value: p.dollars, tip: `PokéDollars: $${p.dollars}. Buy Items from your hand or the PokéMart with Open Bag.` },
+    growth: { value: p.growth ?? 0, tip: `Growth: ${p.growth ?? 0}. Gained from card effects (and ☀ Sun 4); 1 Growth pays for 1 Energy of an Evolve cost. Kept between Rounds.` },
     bag: {
       count: p.bag.length, size: BAG_SIZE, full: p.bag.length >= BAG_SIZE, slots,
       tip: `Bag: ${p.bag.length} of ${BAG_SIZE} Items${delivery ? `, ${delivery} In Delivery (arriving next Round)` : ''}. Use one with Open Bag.`,

@@ -8,6 +8,7 @@ import { resolveEffects, pileMatches } from '../src/engine/effects.js';
 import { viewFor } from '../src/engine/view.js';
 import { chooseAction } from '../src/ai/opponent.js';
 import { cardDefinition } from '../src/engine/cards.js';
+import { targetKeys, targetPrompt, cardMarkup } from '../src/ui/render.js';
 import {
   battle, give, act, play, place, nextRound, at, trainerAt, pref, tref, stats, logged, choose, def,
 } from './fixtures.js';
@@ -381,6 +382,25 @@ const evolve = (s, who, id, zone, space, extra = {}) => act(s, who, { type: 'evo
   s = applyAction(s, move);
   assert.equal(at(s, 'ai', 0, 0).name, 'Test Bloom');
   assert.equal(s.players.ai.growth, 0 + 1, 'using its Growth first (then On Evolve)');
+}
+
+// --- On screen: the Pokémon an evolution card can go onto glow ------------------------------
+
+{
+  const s = grass();
+  place(s, 'player', 0, 0, 'test-sprout');
+  place(s, 'player', 1, 1, 'test-sprout');
+  place(s, 'player', 2, 0, 'test-bloom');
+  const bloom = give(s, 'player', 'test-bloom');
+  const t = targetKeys(s, { evolve: bloom });
+  assert.deepEqual([...t.keys].sort(), ['player:P00', 'player:P11'], 'only its Test Sprouts glow');
+  assert.equal(t.cls, ' power-target');
+  assert.equal(targetPrompt(viewFor(s, 'player'), { evolve: bloom }).text, 'Test Bloom (Evolve): choose one of your Pokémon');
+  // Choosing how much Growth: nothing glows behind the question.
+  assert.equal(targetKeys(s, { evolve: bloom, growthAsk: { zone: 0, space: 0 } }).keys.size, 0);
+  // The card shows its Evolve cost in the corner, not an Energy Cost.
+  const html = cardMarkup(s.players.player.hand.find((c) => c.uid === bloom), 'hand');
+  assert.ok(html.includes('Evolve cost 2'), 'Evolve cost on the card');
 }
 
 console.log('All Grass G1 tests passed (Growth, Evolution, Sleep, Leech Seed, quests, Full Heal).');

@@ -10,7 +10,8 @@ The rules as settled while building the game, in match order. The code follows t
 - **Trainers:** each player has 3 Trainers, kept outside the 40-card deck; each deck comes with its own three (section 9). Each Trainer has its own **Trainer Strength**, a **Power** and a **Passive** (section 7).
 - **Piles:** each player has a Draw Pile, a hand, a Discard Pile and a **Released Pile**. The Draw Pile is shuffled before the match. Defeated Pokémon, Released cards and completed Locations go to the Released Pile, which is never shuffled back into the Draw Pile.
 - **XP:** each player has an XP pool, starting at 0. XP can be stored indefinitely (section 4.1.1).
-- **PokéDollars:** each player has a PokéDollar pool, starting at 0, which carries over between Rounds. Each player gains **+1 PokéDollar at each Breakfast**, including Round 1. Whenever an opponent's Pokémon is defeated by any cause (your attack, damage traded back by your Pokémon, effects, Weather, Burn), you earn PokéDollars equal to that Pokémon's printed Energy Cost.
+- **PokéDollars:** each player has a PokéDollar pool, starting at 0, which carries over between Rounds. Each player gains **+1 PokéDollar at each Breakfast**, including Round 1. Whenever an opponent's Pokémon is defeated by any cause (your attack, damage traded back by your Pokémon, effects, Weather, Burn), you earn PokéDollars equal to that Pokémon's printed Energy Cost (an evolved Pokémon: its Basic's Energy Cost plus each Evolve cost in its stack, section 1.11).
+- **Growth:** each player also has a Growth pool (section 1.10).
 - **Bag:** each player has a Bag with 6 spaces (section 1.7). **PokéMart:** one shared by both players (section 1.7).
 
 ### 1.1 Pokémon cards
@@ -19,7 +20,9 @@ The rules as settled while building the game, in match order. The code follows t
 |---|---|
 | Name | |
 | Card-Type | Pokémon |
-| Energy Cost | number |
+| Energy Cost | number (Basic Pokémon only) |
+| Stage | Basic, Stage 1 or Stage 2 (section 1.11) |
+| Evolves from + Evolve cost | evolution cards only, instead of an Energy Cost: the Pokémon it evolves from, by name, and the cost to Evolve (section 1.11) |
 | Pokémon Type | one of the 18 standard types: Normal, Fire, Water, Grass, Electric, Ice, Fighting, Poison, Ground, Flying, Psychic, Bug, Rock, Ghost, Dragon, Dark, Steel, Fairy |
 | Image | card art |
 | Attack-Type | Physical or Special |
@@ -121,6 +124,9 @@ Keyword abilities on Pokémon that always apply. A Pokémon can have more than o
 | Damage enemy Trainers N times with Pokémon in this Zone | Each time one of your Pokémon in this Zone damages an enemy Trainer: its attack, its Overrun, or its own ability. Burn damage at Supper doesn't count (it has no source Pokémon). |
 | Defeat N enemy Pokémon | Each enemy Pokémon defeated by your cards or effects, on anyone's turn: your attacks, your Pokémon hitting back in a trade, your effects, and Burn you applied. Not Weather. |
 | Have N friendly Pokémon in this Zone at Supper | Checked at each Supper, right after On Supper (so Pokémon that Burn defeated that Supper don't count); it completes when the count is N or more then. Its progress shows how many are there now. |
+| Gain N Growth | All Growth you gain, from any source (Sun 4 included). |
+| Evolve N Pokémon | Each of your Evolves. |
+| Put to Sleep or Leech Seed N times | Each Sleep or Leech Seed you apply to an enemy Pokémon (one that actually takes hold: not a reapplied seed, not Sleep blocked by Sun 6). |
 
 - A Location's completion effect on "Pokémon in this Zone" is a one-off: it affects the Pokémon there when it completes, permanently, not ones summoned later.
 - The Locations are listed with their decks (section 9).
@@ -134,17 +140,19 @@ Keyword abilities on Pokémon that always apply. A Pokémon can have more than o
 - Each Weather type has **milestone brackets at 2, 4, 6 and 8** combined tokens (both players' cards count). A bracket is active while the count is at or above it.
 - Multiple Weather types can be active at once, each with its own count. Weather affects the whole arena, both sides.
 - A bracket marked **"instead"** replaces the earlier bracket's effect; **"also"** adds to it.
-- **Stat effects are continuous**, like Trainer Passives: recalculated whenever the count changes. When a stat effect switches off, the rule for losing a Passive applies (current Strength only drops if it's above the new maximum; Weather changing never defeats a Pokémon). Weather modifiers add up with each other and with other buffs. **Attack can't go below 0.**
-- **Timed effects** (at Breakfast / at Supper) resolve before Pokémon abilities that trigger at the same moment: at Breakfast after cards are drawn and Energy is gained (before On Breakfast and the XP step), at Supper before On Supper and before hands are discarded. Pokémon defeated by Weather go to the Released Pile and trigger On Defeated as normal. Weather damage is effect damage (it never triggers On Defend), and Weather only affects Pokémon in the arena (not Trainers, not cards in hand).
+- Every bracket bends a game mechanic for **everyone**, and each bracket **adds to the ones below it** (Rain 6 has the Rain 2, 4 and 6 effects).
+- **Timed effects** (at Breakfast / at Supper) resolve before Pokémon abilities that trigger at the same moment: at Breakfast after cards are drawn and Energy is gained (before On Breakfast and the XP step), at Supper before Burn, before On Supper and before hands are discarded.
+- Weather has no Type-based effects: Pokémon Types don't matter to it.
 
-> **Changing (approved by Elliott, 27 Oct):** this Type-based table is being replaced by the mechanics-based Weather in `docs/decks.md` section 2.12, together with Growth, Evolution, Sleep, Leech Seed and the Grass deck (`docs/decks.md` 2.7–2.11 and 5). Until that build lands, the game still uses the table below. The build that lands it rewrites this section and adds the new rules here.
-
-| Bracket | ☔ Rain | ☀ Sun |
+| Bracket | ☀ Sun: intensity and growth | ☔ Rain: washing and renewal |
 |---|---|---|
-| **2** | Water Pokémon gain +1 Attack. | Fire Pokémon gain +1 Attack. |
-| **4** | Water Pokémon gain +1/+1 *instead*. | Fire Pokémon gain +2 Attack *instead*. |
-| **6** | *Also*, Fire Pokémon have −1 Attack. | *Also*, Water Pokémon have −1 Attack. |
-| **8** | *Also*, at Supper, each Water Pokémon heals 2 Strength. | *Also*, at Breakfast, each non-Fire Pokémon takes 1 damage. |
+| **2** | Each Burn applied is increased by 1 (Scorch included). | Each heal is increased by 1 (Regenerate and Leech Seed included). |
+| **4** | At Breakfast, each player gains +1 Growth. | Burn deals 1 less damage at Supper (minimum 0). |
+| **6** | Sleep can't be applied. | Leech Seed drains 2 instead of 1. |
+| **8** | **Drought:** no healing of any kind (Regenerate and Leech Seed included). | **Downpour:** at Supper, before Burn, all Burn is removed from every card (Pokémon and Trainers, both sides). |
+
+- **Bubble Beam** still checks "Rain is 2 or more".
+- **Drought and Rain 2:** with both active, nothing heals (Drought wins).
 
 Weather types are data (`WEATHER` in `src/engine/cardData.js`), so real Weather types can be added there.
 
@@ -178,7 +186,7 @@ Weather types are data (`WEATHER` in `src/engine/cardData.js`), so real Weather 
 
 ### 1.8 Status Effects
 
-A Status Effect is a counter on a Pokémon or a Trainer, shown as a numbered token on the card. Statuses are data (`STATUSES` in `src/engine/status.js`), so new ones (Poison, Paralysis, Sleep…) can be added there. Only Burn exists for now.
+A Status Effect is a counter or flag on a Pokémon or a Trainer, shown on the card by **animation only** (Burn smoulders, a sleeping Pokémon dims and sways with drifting "z"s, Leech Seed wraps the card in green vines). Statuses are data (`STATUSES` in `src/engine/status.js`), so new ones (Poison, Paralysis…) can be added there. There are three: Burn, Sleep and Leech Seed.
 
 **Burn** (a flame token)
 - "Burn X" adds X Burn counters to the target. Pokémon **and Trainers** can be burned. Burn stacks: applying more adds to the counters.
@@ -189,6 +197,28 @@ A Status Effect is a counter on a Pokémon or a Trainer, shown as a numbered tok
 - **Douse:** an effect that removes all Burn from a card.
 - If Burn takes **both** players' last Trainers to 0 at the same Supper, the match is a **draw**.
 
+**Sleep** (Pokémon only)
+- "Put to Sleep" makes the Pokémon **Spent** at once, and it's **Asleep**. Sleep doesn't stack (putting an Asleep Pokémon to Sleep again does nothing).
+- At Breakfast an Asleep Pokémon stays Spent, then wakes. So it misses one Round's actions.
+- If it takes any damage, it wakes immediately. It stays Spent for the rest of this Round, but becomes Active normally at the next Breakfast.
+- An Asleep (Spent) Pokémon can't hit back in a trade.
+- Cured by Evolving and Full Heal.
+- **Sun 6:** Sleep can't be applied.
+
+**Leech Seed** (Pokémon only, placed on an enemy Pokémon; it belongs to whoever applied it, the "seeder")
+- At Supper (after Burn), each Leech Seed:
+  - deals 1 effect damage to the seeded Pokémon (Shell applies, minimum 1);
+  - heals the seeder's most-damaged Pokémon by 1 (ties: the engine picks);
+  - gives the seeder +1 Growth.
+- **Rain 6:** it drains 2 instead (2 damage, heals 2).
+- A defeat by Leech Seed counts as the seeder's (PokéDollars, quests).
+- One seed per Pokémon (reapplying does nothing).
+- Removed when the Pokémon leaves play, Evolves, or is cured by Full Heal.
+
+**Cures**
+- **Douse** removes Burn only.
+- **Full Heal** cures all statuses (Burn, Sleep, Leech Seed) and heals 2.
+
 ### 1.9 Card keywords and effect types
 
 - **Retain:** at Supper, a card with Retain stays in your hand instead of being discarded. Retain can be printed on a card or granted ("gains Retain"); a granted Retain lasts until the card leaves your hand (it keeps working at every Supper until then). A Pokémon kept by Retain keeps its XP buffs. Retain cards are marked with a red bookmark.
@@ -198,6 +228,30 @@ A Status Effect is a counter on a Pokémon or a Trainer, shown as a numbered tok
 - **Free summon:** you may play a matching Pokémon from your hand into an empty Pokémon Space without paying its cost (you can decline). Otherwise it's a normal summon: it arrives Spent (unless it has Quick Attack or the effect says "it arrives Active"), and it triggers On Summon, Rally, Passives that react to a summon, and quests. "Costing 2 or less" means the printed Energy Cost.
 - **Cost reduction:** reduces the Energy Cost of a Pokémon, to a minimum of 0. Reductions stack. They only change what you pay: the printed Energy Cost still decides PokéDollars for defeating it, Gift Challenges and "costing N or less". A reduction can depend on the Zone (Wallace: the first Pokémon you summon into his Zone each Round costs 1 less), so a Pokémon's cost is worked out for the Zone it goes into, and whether you can afford it is too. Any summon into that Zone uses up "the first each Round", a free one included. A reduction on a card in hand lasts until it leaves your hand.
 - **Becomes Active:** a Spent Pokémon becomes Active (Kabu's Power, Chili's Gift, Sneasel). Alert is worked out again.
+
+### 1.10 Growth
+
+- Each player has a **Growth** pool, starting at 0. Like XP and PokéDollars, it carries over between Rounds and has no maximum. It's public, shown as its own tile in the resource panel.
+- **Gained** only by card effects (Leech Seed, On Evolve abilities…) and by Sun 4 (section 1.6).
+- **Spent:**
+  - on **Evolve costs**, where 1 Growth replaces 1 Energy, mixed with Energy as the player chooses (section 1.11);
+  - on card effects that say "spend Growth".
+
+### 1.11 Evolution
+
+- **Stages:** every Pokémon is a **Basic**, **Stage 1** or **Stage 2**. An evolution card names what it evolves from ("Evolves from Bulbasaur") and has an **Evolve cost** instead of an Energy Cost. Evolution cards can't be summoned on their own (not even by a free summon).
+- **Evolve** is a Battle Phase Action: play the evolution card from your hand onto a matching Pokémon in your arena, paying the Evolve cost in Energy (Base Energy, then Exert) and/or Growth. When both could pay, you choose how much Growth to use (the screen suggests as much Growth as possible).
+  - The Pokémon must have been in your arena since the start of this Round: it can't have been summoned or evolved this Round.
+  - It can be Active or Spent; it stays as it was. Evolving doesn't Spend it.
+- **What changes:**
+  - It takes the evolution card's name, Type, Attack, Strength (and Strength-Type), Speed, Innate Powers, abilities and Weather Tokens.
+  - Damage carries over: new current Strength = new maximum − damage it had taken.
+- **What stays:** its Held Item, XP buffs, other permanent buffs, and "this Round" effects.
+- **What's removed:** **all statuses** (Burn, Sleep, Leech Seed) are cured.
+- **Not a summon:** it doesn't trigger On Summon, Rally, summon quests or summon Passives. It triggers **On Evolve** (section 8).
+- **The stack:** the card underneath stays under it (the inspect view lists it). If the Pokémon is defeated or Released, the whole stack goes to the Released Pile. PokéDollars earned = the Basic's Energy Cost + each Evolve cost in the stack.
+- **Returned or Searched cards:** evolution cards are Pokémon cards for Search, Return, Supporter costs and Gift Challenges.
+- **In the build** (not settled; see Open questions): cost reductions (Wallace, cost-down effects) don't apply to Evolve costs; XP put on an evolution card in hand is added when it Evolves; a Held Item on an evolution card in hand is kept if the Pokémon has none, otherwise it goes to the PokéMart.
 
 ## 2. The Battle Arena
 
@@ -233,11 +287,11 @@ Every Round, each player:
 0. **Gains +1 PokéDollar.**
 1. **The PokéMart restocks**, and Items In Delivery arrive in their Bags (section 1.7).
 2. **Recovers Exhaust** that is due this Round (see section 5).
-3. **Spent Pokémon become Active** again.
+3. **Spent Pokémon become Active** again, except Asleep ones: they stay Spent this Round, then wake (section 1.8).
 4. **Base Energy** is set to the Round number, with a maximum of 10. Unspent Base Energy does not carry over.
 5. **Exert maximum** goes up by 1 each Round, to a limit of 3 (Round 1 = 1, Round 2 = 2, Round 3 onward = 3). Unspent Exert carries over.
 6. **Draws 7 cards**, one at a time. If the Draw Pile is empty when a card needs drawing, shuffle the Discard Pile to form a new Draw Pile, then keep drawing. If both piles are empty, drawing stops and the player keeps a smaller hand.
-7. **Timed Weather** effects (section 1.6), then **On Breakfast** abilities and **Regenerate** (section 1.3) fire (section 8).
+7. **Timed Weather** effects (section 1.6: Sun 4's Growth), then **On Breakfast** abilities and **Regenerate** (section 1.3) fire (section 8).
 8. **XP step** (after the mulligan in Round 1): see 4.1.1.
 
 **Mulligan (Round 1 only):** each player may put any number of cards from their hand into their Discard Pile, then draw the same number from their Draw Pile. Both players choose in secret and reveal together.
@@ -255,6 +309,7 @@ Every Round, each player:
 - Each turn is exactly **1 Action**. The Actions so far:
   - **Pass:** gain **+1 Base Energy** for this Round (see Passing below).
   - **Play a Pokémon Card:** play a Pokémon from your hand into any empty Pokémon Space on your side of the arena (not in a fallen zone), paying its Energy Cost (section 5). You can't play it if you can't afford it. It arrives **Spent** and can't be Commanded this Round.
+  - **Evolve a Pokémon:** play an evolution card from your hand onto the Pokémon it evolves from, paying its Evolve cost in Energy and/or Growth (section 1.11).
   - **Command an Alert Pokémon:** choose one of your Alert Pokémon and a legal target. A Command is always an Attack, and costs no Energy. See 4.2.1.
   - **Use a Trainer Power:** pay its cost (section 5); each Trainer's Power can be used once per Round, and not if it has no legal target. See 7.2.
   - **Play a Strategy Card:** on any of your turns, pay its Energy Cost (section 5). Its effect resolves immediately, then the card goes to your Discard Pile. A Strategy Card can't be played if it has no legal target (or, for an area card, nothing to affect). Cards drawn during Battle go into your hand and can be played this Round; they're discarded at Supper with the rest of your hand.
@@ -296,12 +351,13 @@ Every Round, each player:
 ### 4.3 Supper Phase
 
 In this order:
-1. **Timed Weather** effects (section 1.6).
-2. **Burn** (section 1.8): every burned card takes its Burn damage at once, then loses 1 Burn. Defeats and removals follow, with any On Defeated.
-3. **On Supper** abilities fire (section 8), for Pokémon still in the arena.
-4. **"Have N friendly Pokémon in this Zone at Supper"** quests are checked (section 1.5).
-5. **"This Round" effects expire** (section 7.1).
-6. Each player puts all cards left in their hand into their Discard Pile, except cards with **Retain** (section 1.9).
+1. **Timed Weather** effects (section 1.6: Rain 8's Downpour).
+2. **Burn** (section 1.8): every burned card takes its Burn damage at once (1 less under Rain 4), then loses 1 Burn. Defeats and removals follow, with any On Defeated.
+3. **Leech Seed** (section 1.8): each seed drains its Pokémon and its seeder heals and gains Growth.
+4. **On Supper** abilities fire (section 8), for Pokémon still in the arena.
+5. **"Have N friendly Pokémon in this Zone at Supper"** quests are checked (section 1.5).
+6. **"This Round" effects expire** (section 7.1).
+7. Each player puts all cards left in their hand into their Discard Pile, except cards with **Retain** (section 1.9).
 
 Then the next Round begins.
 
@@ -341,7 +397,7 @@ Playing a Pokémon and using a Trainer Power cost Energy so far.
 - **"This Round"** effects (buffs, granted keywords) expire at Supper, after Burn and On Supper (section 4.3). Everything else is permanent unless stated. Losing a "this Round" Strength buff follows the rule for losing a Passive (section 7.2): maximum Strength drops, and current Strength only drops if it's above the new maximum, so it never defeats a Pokémon. "This Round" effects are also gone if their card leaves the arena.
 - A Strength buff raises both current and maximum Strength.
 - Healing can't go above maximum Strength (for Trainers: their starting Strength). Healing can target Trainers.
-- **Heal targets:** an effect that only heals (Goldeen, Misty's Power) needs a damaged target. One that heals **and Douses** (Aqua Ring, Nurse Joy, Full Heal) can target any friendly card it allows, damaged or not (it may only Douse). An area heal heals whatever is damaged.
+- **Heal targets:** an effect that only heals (Goldeen, Misty's Power) needs a damaged target. One that heals **and Douses or cures** (Aqua Ring, Nurse Joy, Full Heal) can target any friendly card it allows, damaged or not (it may only Douse or cure). An area heal heals whatever is damaged.
 - Effect damage uses the same defeat rules as combat: Pokémon at 0 or less go to the Released Pile; Trainer Strength stops at 0.
 - **Targeted** means the card makes the player choose a target. **Area** means it affects all matching cards without a choice.
 
@@ -381,6 +437,7 @@ A Pokémon ability is an **Effect Trigger Word** plus **Effect Text**. It fires 
 | **On Trainer Strike** | when this Pokémon damages an enemy Trainer with its attack or its Overrun, if it's still in the arena. |
 | **Rally** | when another friendly Pokémon is summoned into this Pokémon's Zone (same side). It happens at the same moment as the new Pokémon's On Summon, so the order rule below applies. |
 | **On Heal** | when this Pokémon is healed by at least 1 (healing at full Strength isn't a heal). Regenerate counts. |
+| **On Evolve** | when this Pokémon has just evolved into this card (section 1.11). Evolving is not a summon, so On Summon and Rally don't fire. |
 
 - **Choosing targets:** if an ability says to choose a target, its owner must pick one when it resolves (they can't decline). With no legal target, nothing happens.
 - **Order:** when several abilities or Passives trigger at the same moment, the player with initiative resolves theirs first, then the other player. Within each player, in zone order 1 → 2 → 3, then left to right. (In the build, a Trainer's Passive comes after the Pokémon in its zone.)
@@ -506,7 +563,7 @@ Two decks, as approved in `docs/decks.md` (the source of truth for them). The ga
 |---|---|---|---|---|---|
 | Mystic Water | 2 | Common | Held | 2 | Holder gains +1 Attack. If it's a Water Pokémon, it also gains +1 Strength. |
 | Leftovers | 2 | Common | Held | 3 | Holder gains Regenerate 1. |
-| Full Heal | 2 | Common | Consumed | 1 | Douse a friendly Pokémon or Trainer and heal it 2. Retain. |
+| Full Heal | 2 | Common | Consumed | 1 | Cure a friendly Pokémon or Trainer of all statuses and heal it 2. Retain. |
 
 | Trainer | Strength | Power | Passive |
 |---|---|---|---|
@@ -526,11 +583,24 @@ Two decks, as approved in `docs/decks.md` (the source of truth for them). The ga
 - **Timed Weather order:** if two Weather types have timed effects at the same moment, the build resolves them in Weather order (Rain, then Sun). Is that right?
 - **Trainer vs Pokémon order:** when a Trainer's Passive and a Pokémon in the same zone trigger at the same moment, which goes first? (The build puts the Trainer after the Pokémon in its zone.)
 - **On Supper:** no card uses it yet; the hook is built and tested.
+- **Grass G1 (Growth, Evolution, statuses, new Weather): choices the build made that the rules don't settle yet.** Each is easy to change:
+  - **Rain 2 and Leech Seed:** Rain 2's +1 also applies to Leech Seed's heal (so under Rain 6 a seed heals 3, while it drains 2). Right?
+  - **Drought and Rain 2:** with both at 8/2+, Drought wins and nothing heals. Right?
+  - **Sun 2 and Scorch:** Sun 2's +1 applies to every Burn applied, Scorch and Blaine-boosted Burn included. Right?
+  - **Readying an Asleep Pokémon:** "becomes Active" effects (Kabu's Power, Chili's Gift, Sneasel) skip an Asleep Pokémon, so Sleep can't be undone that way. Right?
+  - **Cost reductions and Evolve costs:** Wallace's Passive and cost-down effects don't lower Evolve costs (they talk about summons and Energy Costs). Right?
+  - **XP on an evolution card in hand:** it's added to the Pokémon when it Evolves. Right?
+  - **A Held Item on an evolution card in hand:** kept if the Pokémon has none; if both have one, the evolution card's goes to the PokéMart. Right?
+  - **Evolving in a fallen Zone:** allowed (only playing new Pokémon there is blocked). Right?
+  - **An evolution with less Strength than its damage** (only possible with a Stage that has lower Strength): it's defeated straight away. Right?
+  - **"Costing N or less"** (Gift Challenges, free summons) for an evolution card: it has no Energy Cost, so the build never counts it as "costing N or less" (it still counts as "a Pokémon card"). Should its Evolve cost count instead?
 
 ## Placeholders in the current build
 
 - **Card art** comes from `assets/cards/<card id>.jpg` (e.g. `crasher-wake.jpg`). A card without a file shows the placeholder look: a box tinted by Pokémon Type or striped by Card-Type. Art for the retired placeholder cards stays in `assets/` but is no longer used.
 - Rain and Sun (section 1.6) are placeholder Weather types.
+- **Sleep and Leech Seed looks** (dim and sway with "z"s; green vines and a drain beam) are placeholders, and Evolving has a simple glow-and-swap; the full Evolve moment comes with Grass G4.
+- **Test-only Grass cards:** Growth, Evolution, Sleep, Leech Seed, On Evolve and the three new quests are built and tested with test-only cards (Test Sprout → Test Bloom → Test Blossom, Test Dozer, Test Seeder in `tests/fixtures.js`). No real card uses them until the Grass deck (G2).
 - **Hot-seat names:** the two players are "Player 1" and "Player 2" until players can choose their own names.
 - Agility and the Trigger Words On Attack, On Defend, On Defeated, On Supper and On Trainer Strike are built and tested (with test-only cards in `tests/`), but no Fire or Water card uses them yet. So are the quest types "Attack N times" and "Use N Trainer Powers".
 - **The AI** places Trainers at random and only spends Base Energy (never Exert). On a Battle turn it scores every legal move and Pass, and picks the best (ties at random). It scores most moves by trying them on a copy of the game: winning, bringing an enemy Trainer to 0, defeating enemy Pokémon without losing its own, damage to enemy Trainers (Overrun and effects included), damage and healing, stats and keywords gained, Pokémon made Active, Burn (as the damage it will still deal over the coming Suppers, three times as much on a Trainer, and removing Burn from its own cards counts the same way), cards gained, PokéDollars and XP, less the Energy or cards it costs. Draws and Searches are scored without trying them, so it never sees its own Draw Pile. **Each deck's plan** weighs these differently: as **Fire** it values damage to Trainers, Burn and Overrun more; as **Water** it values healing, Dousing its own Burn, growing its board, keeping its Pokémon alive and summoning into Zones where it already has Pokémon. A Pass that gains +1 Base Energy scores what that Energy could buy, weighed by the chance the opponent passes straight back. Supporters: it puts a card that meets the Gift Challenge into the payment when it has one. Locations: only into empty Location spaces. XP: all of it on the cheapest Pokémon in hand it can afford this Round, split at random between Attack and Strength. Open Bag: an Item bought from hand is used straight away if it has a legal target (a Held Item preferring a Pokémon without one), otherwise stored; it sometimes buys from the PokéMart. Choices: it tries each target and takes the best; a Search, Return or free summon takes the strongest card it could afford next Round; Retain goes on a card it can't afford now but can next Round.

@@ -196,6 +196,21 @@ No build step: plain HTML, CSS and JavaScript modules. Working rules for each se
     - late messages on a dropped link (actions, updates, a leave, junk) are ignored;
     - a stranger is turned away while the real guest plays on.
   - **Checked in two browser windows:** I refreshed the guest mid-match (it rejoined), then the host (resumed from the start screen; the guest got "Host reconnected"), played on, and had the guest leave. No console errors.
+- **Grass G1** — Growth, Evolution, statuses, Weather: the new systems the Grass deck needs, with test-only cards (the Grass deck itself is G2). No Fire or Water card numbers changed.
+  - **Growth:** a new public resource per player, shown as its own tile after PokéDollars in both panels (icon `assets/ui/icons/growth.webp`, with a drawn fallback), animated like the other tiles.
+  - **Evolution:**
+    - Basic / Stage 1 / Stage 2 and Evolve costs in the card data; evolution cards can't be summoned.
+    - **Evolve** is a Battle Action: drag (or click) an evolution card and its legal Pokémon glow; drop it on one. It's paid with Energy and/or Growth; when both could pay, a small dialog asks how much Growth (starting at as much as possible).
+    - Only onto a Pokémon in the arena since before this Round; it keeps Active/Spent, damage, Held Item, XP and buffs, and is cured of all statuses. It isn't a summon: it fires the new **On Evolve**.
+    - The card underneath stays under it (shown as "Evolved from" when inspecting), all Released together, and PokéDollars count the whole stack.
+    - The AI Evolves too, scoring it like its other moves. For now a simple glow-and-swap shows it (the full moment is G4).
+  - **Sleep and Leech Seed** join Burn in the status system, shown by animation only (placeholder looks): a sleeping card dims and sways with drifting "z"s; a seeded card has green vines, and a green beam drains it at Supper. **Full Heal** now cures all statuses and heals 2; Douse stays Burn-only.
+  - **Quests:** Gain N Growth, Evolve N Pokémon, Put to Sleep or Leech Seed N times.
+  - **Weather rework:** every Type-based effect is gone. Sun: Burn +1 · +1 Growth each at Breakfast · no Sleep · Drought (no healing). Rain: heals +1 · Burn 1 less · Leech Seed drains 2 · Downpour (all Burn washed away at Supper). Bubble Beam keeps its Rain 2 check. The Weather tooltip lists the new brackets.
+  - **Rulebook:** sections 1.6, 1.8, 1.10 and 1.11 rewritten or new, with the choices the build made listed under Open questions.
+  - **Balance** (`node tools/balance.js`, 200 matches, no numbers changed): Fire 48% · Water 52%, 5.7 Rounds a match, no stalls; highest Rain per match 5.6 on average (6+ in 52% of matches), highest Sun 5.0 (6+ in 26%).
+  - **Tests:** `tests/grass.test.js` (every Evolution rule, Sleep, Leech Seed, the quests, Full Heal, viewFor showing Growth and statuses, the AI evolving, and the glowing targets on screen); `tests/weather.test.js` rewritten for every new bracket; older tests updated where they relied on Type-based Weather.
+  - **Checked in the browser:** dragged a Stage 1 onto one of two glowing Basics, chose 1 Growth + 1 Energy in the dialog, and saw it evolve with its Basic in the stack; the sleeping and seeded looks show on the board; four AI-vs-AI matches played to the end with no console errors.
 
 Add `?seed=123` to the URL to replay the same shuffle and coin flip. Add `?hotseat` for two players on one screen, or `?join=CODE` to join a friend's room.
 

@@ -402,6 +402,8 @@ export const EMITTERS = {
   ashFall: { tex: 'shard', blend: 'alpha', rate: 70, at: 'top', dir: 'down', speed: R(60, 140), life: R(3000, 4000), size: [R(0.07, 0.14), R(0.05, 0.1)], alpha: [0.8, 0.15], tint: ['#9a8a80', '#4a3e36'], spin: R(-3, 3) },
   ashFlakes: { tex: 'smoke', blend: 'alpha', rate: 6, at: 'top', dir: 'down', speed: R(40, 90), life: R(3000, 4000), size: [R(0.06, 0.1), R(0.12, 0.18)], alpha: [0.35, 0], tint: '#3a302a', spin: R(-0.5, 0.5) },
   rainFall: { tex: 'streak', blend: 'add', rate: 140, at: 'top', dir: 'down', speed: R(1100, 1500), life: R(700, 1000), size: [R(0.5, 0.9), R(0.5, 0.9)], alpha: [0.45, 0.15], tint: ['#7a9cc8', '#b8cce8'], alignVelocity: true },
+  // Status: Leech Seed (Grass G1 placeholder): slow green motes from the card's edges.
+  leechMotes: { tex: 'sparkle', blend: 'add', rate: 4, at: 'edges', dir: 'up', speed: R(20, 50), life: R(900, 1500), size: [R(0.05, 0.09), 0.02], alpha: [0.8, 0], tint: ['#8ff06a', '#d6ffc0'] },
   // Status: Burn on a card (ambient, per second, scaled by level elsewhere)
   burnFlames: { tex: 'flame', blend: 'add', rate: 12, at: 'edges', dir: 'up', speed: R(40, 80), life: R(420, 700), size: [R(0.06, 0.1), R(0.11, 0.17)], alpha: [0.9, 0], fadeIn: 80, pivot: 0.9, rot: R(-0.2, 0.2) },
   burnEmbers: { tex: 'embers', blend: 'add', rate: 7, at: 'card', area: 0.9, offsetY: 0.2, dir: 'up', speed: R(70, 160), life: R(900, 1500), size: [R(0.35, 0.6), 0.15], alpha: [1, 0], spin: R(-4, 4) },
@@ -1106,6 +1108,11 @@ export const STATUS_VISUALS = {
     applied: 'burn-catch',
     cleared: 'douse-steam',
   },
+  // Grass G1 placeholders (no counts, so level 1 only). Their look is CSS
+  // (render.css: dim and sway with "z"s; green vines) plus, for Leech Seed, a
+  // few green motes on the effects layer.
+  sleep: { maxLevel: 1, levels: [null, {}], ambient: {} },
+  leechSeed: { maxLevel: 1, levels: [null, { motes: 1 }], ambient: { motes: 'leechMotes' } },
   // Flame Charge (and any "this Round" Attack buff): a burning aura until the
   // Round ends at Supper. Its level comes from the card, not a status count.
   charged: {

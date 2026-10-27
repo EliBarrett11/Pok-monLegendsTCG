@@ -24,7 +24,7 @@ import { renderStart } from './ui/lobby.js';
 import { initVfx, syncStatus } from './ui/vfx/engine.js';
 import { createOnline, savedHostMatch, forgetHostMatch } from './online.js';
 
-export const BUILD = 'Multiplayer M3 — reconnect and rematch';
+export const BUILD = 'Grass G1 — Growth, Evolution, statuses, Weather';
 
 
 // The whole game is drawn on a fixed 1920×1080 stage, scaled uniformly to

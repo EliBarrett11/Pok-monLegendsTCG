@@ -756,6 +756,57 @@ async function douseBeat(e, t) {
   await wait(t(420));
 }
 
+// Sleep and Leech Seed (Grass G1, placeholder looks; the full ones are G4):
+// a word over the card and a puff in the status's colour as it's put on.
+const STATUS_LOOK = {
+  sleep: { word: 'Asleep', colors: ['#cfd8ff', '#9fb0ff', '#ffffff'] },
+  leechSeed: { word: 'Leech Seed', colors: ['#b6f29a', '#6fd35a', '#e8ffd8'] },
+};
+async function statusBeat(e, t) {
+  const el = shown(e.target.uid);
+  const look = STATUS_LOOK[e.status];
+  if (!el || !look) return;
+  const r = rectOf(el);
+  burst(r.x + r.w / 2, r.y + r.h * 0.45, { kind: 'sparkle', colors: look.colors, count: 16, speed: 70, up: 60, life: t(800), size: 8, area: r.w * 0.7 });
+  floatNumber(r, look.word, 'status', t(1100));
+  await wait(t(420));
+}
+async function statusGoneBeat(e, t) {
+  const el = shown(e.target.uid);
+  if (!el) return;
+  floatNumber(rectOf(el), e.status === 'sleep' && /woke|wakes/.test(e.why ?? '') ? 'Woke up' : `${STATUS_LOOK[e.status]?.word ?? 'Status'} cured`, 'status', t(1000));
+  await wait(t(260));
+}
+
+// Evolve (placeholder until G4's full moment): the new card glows as it takes the old one's place.
+async function evolveBeat(e, t) {
+  const el = shown(e.uid);
+  const r = rectOf(el);
+  burst(r.x + r.w / 2, r.y + r.h * 0.5, { kind: 'sparkle', colors: ['#ffffff', '#d6ffb8', '#ffe88a'], count: 30, speed: 140, up: 90, life: t(1000), size: 10, area: r.w });
+  floatNumber(r, `Evolved into ${e.name}!`, 'evolve', t(1400));
+  await animate(el, [
+    { filter: 'brightness(3) saturate(0.2)', transform: 'scale(1.12)' },
+    { filter: 'brightness(1.6)', transform: 'scale(1.05)', offset: 0.45 },
+    { filter: 'none', transform: 'scale(1)' },
+  ], t(900));
+}
+
+// Leech Seed at Supper: a green beam drains from the seeded Pokémon to the one it heals.
+async function leechBeat(e, t) {
+  const from = shown(e.from.uid);
+  if (!from) return;
+  const a = centre(rectOf(from));
+  floatNumber(rectOf(from), 'Leech Seed', 'status', t(900));
+  const to = e.to && shown(e.to.uid);
+  if (!to) { await wait(t(300)); return; }
+  const b = centre(rectOf(to));
+  const beam = spawn('fx-leech-beam', null);
+  const len = Math.hypot(b.x - a.x, b.y - a.y);
+  Object.assign(beam.style, { left: `${a.x}px`, top: `${a.y}px`, width: `${len}px`, transform: `rotate(${Math.atan2(b.y - a.y, b.x - a.x)}rad)` });
+  await animate(beam, [{ opacity: 0, clipPath: 'inset(0 100% 0 0)' }, { opacity: 1, clipPath: 'inset(0 0 0 0)', offset: 0.5 }, { opacity: 0, clipPath: 'inset(0 0 0 0)' }], t(800));
+  beam.remove();
+}
+
 // Overrun: the leftover damage travels from where the defeated Pokémon stood
 // to its Trainer (whose hit follows as the next beat).
 async function overrunBeat(root, e, from, t) {
@@ -1150,6 +1201,7 @@ async function walk(root, events, t, late, prev) {
       }
       case 'statusApplied': {
         if (!shown(e.target.uid)) { late.push(e); break; }
+        if (e.status !== 'burn') { await statusBeat(e, t); break; }
         // Burn from a Pokémon's ability (Charmander, Houndoom): the Scorch ember swirl, cast from it.
         const caster = e.status === 'burn' && vfxReady() && t(1) > 0 && source && shown(source.uid)?.dataset.ptype ? { el: shown(source.uid) } : null;
         if (caster) {
@@ -1158,7 +1210,9 @@ async function walk(root, events, t, late, prev) {
         } else await burnApplied(e, t);
         break;
       }
-      case 'statusCleared': if (shown(e.target.uid)) await douseBeat(e, t); break;
+      case 'statusCleared': if (shown(e.target.uid)) await (e.status === 'burn' ? douseBeat(e, t) : statusGoneBeat(e, t)); break;
+      case 'evolved': if (shown(e.uid)) await evolveBeat(e, t); break;
+      case 'leechDrain': await leechBeat(e, t); break;
       case 'overrun': await overrunBeat(root, e, lastDefeated, t); break;
       case 'heal': if (shown(e.target.uid)) await healBeat(e, t, { soft: /^Regenerate/.test(word ?? '') }); else late.push(e); break;
       case 'buff': if (shown(e.target.uid)) await buffBeat(e, t); else late.push(e); break;

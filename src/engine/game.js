@@ -217,14 +217,16 @@ export function evolveOptions(state, who) {
 
 // How paying a cost would split: { fromBase, fromExert }. For a card in hand
 // pass its uid (a Pokémon: the cost in `zone`, or its cheapest Zone); for a
-// Trainer Power pass { power: zone }.
-export function costPreview(state, who, what, zone) {
+// Trainer Power pass { power: zone }. For an evolution card, the Energy part
+// of its Evolve cost after `growth` Growth (by default as much as it can use).
+export function costPreview(state, who, what, zone, growth) {
   const p = state.players[who];
   let cost;
   if (typeof what === 'object') cost = p.zones[what.power].trainer.power.cost;
   else {
     const c = p.hand.find((h) => h.uid === what);
-    cost = c.cardType !== 'Pokémon' ? c.energyCost : zone === undefined ? cheapestCost(state, who, c) : summonCost(state, who, c, zone);
+    if (isEvolution(c)) cost = c.evolveCost - (growth ?? Math.min(p.growth ?? 0, c.evolveCost));
+    else cost = c.cardType !== 'Pokémon' ? c.energyCost : zone === undefined ? cheapestCost(state, who, c) : summonCost(state, who, c, zone);
   }
   return splitCost(p, cost);
 }

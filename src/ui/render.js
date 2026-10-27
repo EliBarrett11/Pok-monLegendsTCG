@@ -10,7 +10,7 @@ import {
   summonSpaces, isFallen, attackOf, maxStrengthOf, playableStrategies, strategyTargets,
   playableSupporters, supporterTargets, giftMet, playableLocations, locationSpaces, weatherState,
   openBagOptions, itemTargets, BAG_SIZE, passEndsPhase, PASS_ENERGY, applyAction, passSpends,
-  summonCost, zoneReductions, cheapestCost, attackBlock,
+  summonCost, zoneReductions, cheapestCost, attackBlock, evolveOptions, evolveTargets, evolvePayment, isEvolution,
 } from '../engine/game.js';
 import { canPay } from '../engine/energy.js';
 import { keywordSummary, keywordLabel } from '../engine/keywords.js';
@@ -128,6 +128,8 @@ function resetUiFor(state) {
   ui.strategy = null;          // uid of a Strategy Card in hand waiting for a target
   ui.supporter = null;         // { uid, discard: [uids], release: [uids], picking } while paying for a Supporter
   ui.location = null;          // uid of a Location Card in hand to play
+  ui.evolve = null;            // uid of an evolution card in hand waiting for the Pokémon to Evolve
+  ui.growthAsk = null;         // Evolve paid with Energy or Growth: { zone, space, min, max, growth } being chosen
   ui.xpPlan = [];              // the XP step: [{ uid, stat }] planned before locking in
   ui.xpPick = null;            // the XP step: uid of the Pokémon picked to buff
   ui.bag = null;               // Open Bag: { mode: null | 'buyHand' | 'buyMart' | 'useBag', uid, then, picking }
@@ -142,6 +144,8 @@ function clearSelection() {
   ui.bag = null;
   ui.location = null;
   ui.selectedPokemon = null;
+  ui.evolve = null;
+  ui.growthAsk = null;
   ui.attacker = null;
   ui.power = null;
   ui.strategy = null;
@@ -188,6 +192,10 @@ function targeting(state, sel = ui) {
     return { source: `${me.zones[sel.power]?.trainer?.name ?? 'Trainer'}'s Power`, refs: powerTargets(state, 'player', sel.power), cls: ' power-target', cancel: true };
   }
   if (sel.strategy) return { source: named(sel.strategy), refs: strategyTargets(state, 'player', sel.strategy), cls: ' power-target', cancel: true };
+  if (sel.evolve && !sel.growthAsk) {
+    const refs = evolveTargets(state, 'player', sel.evolve).map((t) => ({ kind: 'pokemon', owner: 'player', ...t }));
+    return { source: `${named(sel.evolve)} (Evolve)`, refs, cls: ' power-target', cancel: true };
+  }
   if (sel.supporter?.picking) return { source: named(sel.supporter.uid), refs: supporterTargets(state, 'player', sel.supporter.uid), cls: ' power-target', cancel: true };
   if (sel.bag?.picking) return { source: bagItem(state, sel)?.name ?? 'Item', refs: itemTargets(state, 'player', bagItem(state, sel)), cls: ' power-target', cancel: true };
   return null;
@@ -333,6 +341,7 @@ export function render(root, state, actions) {
       <div class="log-body">${state.log.map((line) => `<p>${line}</p>`).join('')}</div>
     </aside>
     ${passWarningBox(state)}
+    ${growthBox(state)}
     ${pickerBox(state)}
     ${pileViewBox(state)}
     ${martOverlay(state)}
@@ -410,6 +419,7 @@ function resources(state, who) {
       ${tile('exert', `Exert <em><span class="exert-ready">${v.exert.ready}</span> ready</em>`, `<span class="pips">${pips}</span>`, v.exert.tip)}
       ${tile('xp', 'XP', `${cardIcon('xp', { cls: 'tile-ico' })}${num('xp-n', v.xp.value)}`, v.xp.tip)}
       ${tile('dollars', 'PokéDollars', `${cardIcon('coin', { cls: 'tile-ico' })}${num('dollars-n', v.dollars.value)}`, v.dollars.tip)}
+      ${tile('growth', 'Growth', `${cardIcon('growth', { cls: 'tile-ico' })}${num('growth-n', v.growth.value)}`, v.growth.tip)}
       ${bagRow(state, who, v.bag)}
     </div>`;
 }
@@ -539,7 +549,7 @@ const lastRes = {};
 function animateResources(root, state) {
   for (const who of ['player', 'ai']) {
     const v = panelView(state, who);
-    const now = { round: state.round, energy: v.energy.value, exert: v.exert.ready, xp: v.xp.value, dollars: v.dollars.value, bag: v.bag.count };
+    const now = { round: state.round, energy: v.energy.value, exert: v.exert.ready, xp: v.xp.value, dollars: v.dollars.value, growth: v.growth.value, bag: v.bag.count };
     const was = lastRes[who];
     lastRes[who] = now;
     const f = speedFactor();
@@ -549,7 +559,7 @@ function animateResources(root, state) {
 
     // Every tile whose value changed: the number ticks to it, and the tile
     // pulses gold for a gain or red for a spend.
-    const tiles = { energy: '.base-n', exert: '.exert-ready', xp: '.xp-n', dollars: '.dollars-n', bag: '.bag-n' };
+    const tiles = { energy: '.base-n', exert: '.exert-ready', xp: '.xp-n', dollars: '.dollars-n', growth: '.growth-n', bag: '.bag-n' };
     for (const [k, num] of Object.entries(tiles)) {
       if (now[k] === was[k]) continue;
       const tile = box.querySelector(`.t-${k}`);
@@ -644,7 +654,7 @@ function centreStrip(state) {
       const pips = WEATHER[type].brackets.map((b) => `<i class="pip${w.active.includes(b) ? ' on' : ''}${w.active.includes(b) && !w.effective.includes(b) ? ' replaced' : ''}" data-at="${b.at}"></i>`).join('');
       const effects = w.effective.map((b) => b.text).join(' ') || 'No effect yet.';
       const brackets = WEATHER[type].brackets.map((b) => `${b.at}: ${b.text}`).join('\n');
-      return `<span class="weather-type ${slug(type)}" title="${attr(`${type} ${w.count} — ${effects}\n\nBrackets:\n${brackets}`)}"><b>${cardIcon(`weather-${slug(type)}`, { cls: 'wx-ico' })}${w.count}</b><span class="pips">${pips}</span></span>`;
+      return `<span class="weather-type ${slug(type)}" title="${attr(`${type} ${w.count} (${WEATHER[type].theme}) — ${effects}\n\nBrackets (each adds to the ones below, for everyone):\n${brackets}`)}"><b>${cardIcon(`weather-${slug(type)}`, { cls: 'wx-ico' })}${w.count}</b><span class="pips">${pips}</span></span>`;
     }).join('') : '<span class="weather-chip">No Weather</span>';
   }
   // Brass tabs above the bar, one centred on each zone column; a fallen zone says which side.
@@ -847,13 +857,13 @@ function handCards(state) {
   const myTurn = isMyBattleTurn(state);
   const playable = myTurn
     ? [...playablePokemon(state, 'player'), ...playableStrategies(state, 'player'), ...playableSupporters(state, 'player'),
-      ...playableLocations(state, 'player')].map((c) => c.uid) : [];
+      ...playableLocations(state, 'player')].map((c) => c.uid).concat(evolveOptions(state, 'player').map((o) => o.uid)) : [];
   // A cost in hand turns red when it can't be paid now (Energy, or PokéDollars for Items).
   const energy = me.baseEnergy + me.exertMax - me.exhaust.length;
   // A Pokémon's cost now: the cheapest Zone it could go into (cost reductions).
   const costNow = (c) => (c.cardType === 'Pokémon' ? cheapestCost(state, 'player', c) : c.energyCost ?? 0);
-  const short = (c) => (c.cardType === 'Item' ? c.cost > me.dollars : costNow(c) > energy);
-  const hand = (c, opts = {}) => card(c, 'hand', { ...opts, cantAfford: short(c), costNow: c.cardType === 'Pokémon' && costNow(c) < c.energyCost ? costNow(c) : undefined });
+  const short = (c) => (c.cardType === 'Item' ? c.cost > me.dollars : isEvolution(c) ? !evolvePayment(me, c.evolveCost) : costNow(c) > energy);
+  const hand = (c, opts = {}) => card(c, 'hand', { ...opts, cantAfford: short(c), costNow: c.cardType === 'Pokémon' && !isEvolution(c) && costNow(c) < c.energyCost ? costNow(c) : undefined });
   // An effect choosing a card in hand (Pelipper's Retain, a Held Item for a Pokémon in hand).
   const targets = targetKeys(state);
   const isTarget = (c) => targets.keys.has(key({ kind: 'hand', owner: 'player', uid: c.uid }));
@@ -882,7 +892,7 @@ function handCards(state) {
     }
     if (myTurn && ['Pokémon', 'Strategy', 'Supporter', 'Location'].includes(c.cardType)) {
       return playable.includes(c.uid)
-        ? hand(c, { selectable: true, playable: true, selected: [ui.selectedPokemon, ui.strategy, ui.location].includes(c.uid) })
+        ? hand(c, { selectable: true, playable: true, selected: [ui.selectedPokemon, ui.strategy, ui.location, ui.evolve].includes(c.uid) })
         : hand(c, { unavailable: true });
     }
     return hand(c);
@@ -1099,7 +1109,8 @@ function face(c, opts) {
         kind: 'pokemon',
         corner: reduced
           ? energy(opts.costNow, 'buffed', `Energy Cost ${c.energyCost}; ${opts.costNow} in its cheapest Zone now (cost reduction)`)
-          : energy(c.energyCost, '', `Energy Cost ${c.energyCost}`),
+          : c.evolveCost !== undefined ? energy(c.evolveCost, 'evolve', `Evolve cost ${c.evolveCost} (Energy and/or Growth): ${c.stage}, evolves from ${c.evolvesFrom}`)
+            : energy(c.energyCost, '', `Energy Cost ${c.energyCost}`),
         type: cardIcon(iconName.type(c.pokemonType), { cls: 'type', title: `${c.pokemonType} Type` }),
         speed: cardIcon(iconName.speed(speed), { cls: `speed${speed !== c.speedTier ? ' raised' : ''}`, title: speed === c.speedTier ? speed : `${speed} (printed ${c.speedTier})` }),
         atk,
@@ -1265,7 +1276,8 @@ function detailLines(c, opts) {
       const xpStr = (c.xp?.strength ?? 0) + (opts.plan?.strength ?? 0);
       const speed = SPEED_TIERS[speedOf(c)];
       return [
-        row('Energy Cost', c.energyCost),
+        c.evolveCost !== undefined ? row('Evolve cost', `${c.evolveCost} <span class="muted">(${c.stage}, from ${c.evolvesFrom}; Energy and/or Growth)</span>`) : row('Energy Cost', c.energyCost),
+        c.stack?.length && row('Evolved from', c.stack.map((s) => s.name).join(' → ')),
         row('Attack', inPlay ? `${statIcon(c.attackType)} ${c.attackType} <b>${attackOf(c)}</b>${sources(c, 'attack')}`
           : `${statIcon(c.attackType)} ${c.attackType} <b>${c.attackValue + xpAtk}</b>${xpAtk ? ` <span class="xp-tag">(+${xpAtk} XP)</span>` : ''}`),
         row('Strength', inPlay ? `${statIcon(c.strengthType)} ${c.strengthType} <b>${c.currentStrength}</b> / ${maxStrengthOf(c)}${sources(c, 'strength')}`
@@ -1273,6 +1285,8 @@ function detailLines(c, opts) {
         row('Speed-Tier', `${speedIcon(speed)} ${speed === c.speedTier ? speed : `${speed} <span class="muted">(printed ${c.speedTier}, raised by Held Item)</span>`}`),
         ...keywordSummary(c).map((k, i) => row(i ? '' : 'Innate Power', `<b class="keyword">${keywordLabel(k)}</b> ${keywordHelp(k)}`)),
         statusCount(c, 'burn') && row('Burn', `${icon('flame')} <b>${statusCount(c, 'burn')}</b>: takes that much damage at Supper, then Burn goes down by 1.`),
+        statusCount(c, 'sleep') && row('Asleep', 'Spent; wakes at Breakfast (still Spent then) or when damaged.'),
+        statusCount(c, 'leechSeed') && row('Leech Seed', 'At Supper: 1 damage to it; its seeder heals 1 and gains 1 Growth.'),
         c.effectText && row(c.effectTrigger, c.effectText),
         c.weatherTokens && row('Weather', weatherText(c.weatherTokens)),
         c.heldItem && row('Held Item', `${icon('held')} <b>${c.heldItem.name}</b> ${c.heldItem.effectText}`),
@@ -1472,6 +1486,7 @@ function controls(state) {
       const strategy = ui.strategy && me.hand.find((c) => c.uid === ui.strategy);
       const hint = ui.location ? 'Click one of your highlighted Location spaces (playing on a Location replaces it), or click the card again to cancel.'
         : ui.selectedPokemon ? 'Click a highlighted empty space to play it, or click the card again to cancel.'
+        : ui.evolve ? `<b>Evolve:</b> drop it on a highlighted ${me.hand.find((c) => c.uid === ui.evolve)?.evolvesFrom ?? 'Pokémon'}, or click the card again to cancel.`
         : ui.attacker ? 'Click a highlighted enemy Pokémon or Trainer to attack, or click your Pokémon again to cancel.'
           : strategy ? `<b>${strategy.name}</b>: click a highlighted target, or click the card again to cancel.`
             : '<b>Your turn.</b> Play a card from your hand, attack with an Alert Pokémon, use a Trainer Power, or Pass.';
@@ -1505,6 +1520,26 @@ export function passWarning(state) {
   };
 }
 
+// Evolve: how much Growth to spend (the rest is Energy), when both could pay.
+function growthBox(state) {
+  const a = ui.growthAsk;
+  const c = a && state.players.player.hand.find((h) => h.uid === ui.evolve);
+  if (!c) return '';
+  const energyPart = c.evolveCost - a.growth;
+  return `<div class="pass-warn growth-ask" role="dialog" aria-label="Pay with Growth">
+    <p>Evolve into <b>${c.name}</b>: cost ${c.evolveCost}. How much Growth?</p>
+    <div class="growth-pick">
+      <button data-action="growth-step" data-step="-1" class="secondary"${a.growth <= a.min ? ' disabled' : ''}>−</button>
+      <span class="growth-amount">${a.growth} Growth + ${energyPart} Energy</span>
+      <button data-action="growth-step" data-step="1" class="secondary"${a.growth >= a.max ? ' disabled' : ''}>+</button>
+    </div>
+    <div class="pass-warn-buttons">
+      <button data-action="growth-cancel" class="secondary">Cancel</button>
+      <button data-action="growth-confirm">Evolve</button>
+    </div>
+  </div>`;
+}
+
 function passWarningBox(state) {
   const w = ui.passWarn && passWarning(state);
   if (!w) return '';
@@ -1531,6 +1566,7 @@ function costOf(state, focus) {
     return t && t.strength > 0 ? t.power.cost : null;
   }
   const c = p.hand.find((h) => h.uid === focus.uid);
+  if (isEvolution(c)) return c.evolveCost - Math.min(p.growth ?? 0, c.evolveCost);   // most Growth first
   if (c?.cardType === 'Pokémon') return cheapestCost(state, 'player', c);   // its cheapest Zone now
   return c?.cardType === 'Strategy' ? c.energyCost : null;
 }
@@ -1779,6 +1815,10 @@ function wire(root, state, actions) {
         return;
       }
       ui.strategy = again ? null : uid;
+    } else if (isEvolution(c)) {
+      const again = ui.evolve === uid;
+      clearSelection();
+      ui.evolve = again ? null : uid;
     } else {
       const again = ui.selectedPokemon === uid;
       clearSelection();
@@ -1878,6 +1918,31 @@ function wire(root, state, actions) {
   };
   on('[data-action="use-power"]', () => usePower(undefined));
 
+  // Evolve: the evolution card onto a highlighted Pokémon. Paid with Energy
+  // and/or Growth: when both could pay, ask how much Growth (most by default).
+  const evolve = (zone, space, growth) => {
+    if (!confirmExert(costPreview(state, 'player', ui.evolve, undefined, growth).fromExert)) return;
+    dispatch({ type: 'evolve', who: 'player', uid: ui.evolve, zone, space, growth });
+  };
+  const evolveOnto = ({ zone, space }) => {
+    const c = state.players.player.hand.find((h) => h.uid === ui.evolve);
+    const pay = evolvePayment(state.players.player, c.evolveCost);
+    if (!pay) return;
+    if (pay.minGrowth === pay.maxGrowth) { evolve(zone, space, pay.maxGrowth); return; }
+    ui.growthAsk = { zone, space, min: pay.minGrowth, max: pay.maxGrowth, growth: pay.maxGrowth };
+    redraw();
+  };
+  on('[data-action="growth-step"]', (el) => {
+    const a = ui.growthAsk;
+    a.growth = Math.max(a.min, Math.min(a.max, a.growth + Number(el.dataset.step)));
+    redraw();
+  });
+  on('[data-action="growth-cancel"]', () => { ui.growthAsk = null; redraw(); });
+  on('[data-action="growth-confirm"]', () => {
+    const { zone, space, growth } = ui.growthAsk;
+    evolve(zone, space, growth);
+  });
+
   // Clicking a highlighted target: an attack, a Power's target, or a Strategy Card's.
   on('.attack-target, .power-target', (el) => {
     const zone = Number(el.dataset.zone);
@@ -1898,6 +1963,8 @@ function wire(root, state, actions) {
       playSupporter(ref);
     } else if (ui.bag?.picking) {
       dispatchBag(ref);
+    } else if (ui.evolve) {
+      evolveOnto(ref);
     }
   });
 
@@ -1925,7 +1992,7 @@ function wire(root, state, actions) {
     outcome: (el) => outcome(state, el),
     inspect: (el) => inspectView(previews[Number(el.dataset.pv)]),
     selecting: () => Boolean(pileView || martOpen || ui.passWarn || ui.attacker || ui.power !== null || ui.strategy || ui.location || ui.selectedPokemon
-      || ui.bag || ui.supporter || ui.selectedTrainer),
+      || ui.evolve || ui.bag || ui.supporter || ui.selectedTrainer),
     cancel: () => { pileView = null; martOpen = false; clearSelection(); ui.selectedTrainer = null; ui.costFocus = null; redraw(); },
   });
 }
@@ -1952,6 +2019,7 @@ function dragPlan(state, el, { redraw, dispatch, dispatchBag, usePower }) {
     if (state.pending?.who === 'player' && state.pending.kind === 'freeSummon' && state.pending.uid === uid) return { kind: 'card' };
     if (!isMyBattleTurn(state) || ui.supporter || !el.classList.contains('selectable')) return null;
     const c = me.hand.find((h) => h.uid === uid);
+    if (isEvolution(c)) return { kind: 'card', prepare: pick(() => { ui.evolve = uid; }) };
     if (c.cardType === 'Pokémon') return { kind: 'card', prepare: pick(() => { ui.selectedPokemon = uid; }) };
     if (c.cardType === 'Location') return { kind: 'card', prepare: pick(() => { ui.location = uid; }) };
     if (c.cardType === 'Strategy') {
@@ -2045,6 +2113,11 @@ function outcome(state, el) {
     action = { type: 'command', who: me, from: ui.attacker, target: ref.kind === 'trainer' ? { kind: 'trainer', zone: ref.zone } : { kind: 'pokemon', zone: ref.zone, space: ref.space } };
   } else if (ui.power !== null) action = { type: 'usePower', who: me, zone: ui.power, target: ref };
   else if (ui.strategy) action = { type: 'playStrategy', who: me, uid: ui.strategy, target: ref };
+  else if (ui.evolve && ref.kind === 'pokemon') {
+    const c = state.players.player.hand.find((h) => h.uid === ui.evolve);
+    const growth = evolvePayment(state.players.player, c.evolveCost)?.maxGrowth ?? 0;
+    action = { type: 'evolve', who: me, uid: ui.evolve, zone: ref.zone, space: ref.space, growth };
+  }
   else if (ui.bag?.picking) action = { type: 'openBag', who: me, mode: ui.bag.mode, uid: ui.bag.uid, then: ui.bag.then ?? 'use', target: ref };
   else if (ui.supporter?.picking) {
     const { uid, discard, release } = ui.supporter;
@@ -2102,6 +2175,7 @@ const TRIGGER_HELP = {
   'On Trainer Strike': 'when this Pokémon damages an enemy Trainer (its attack, or Overrun), if it is still in the arena.',
   Rally: 'when another friendly Pokémon is summoned into this Pokémon\'s Zone (same side).',
   'On Heal': 'when this Pokémon is healed by at least 1.',
+  'On Evolve': 'when this card is played onto a Pokémon to Evolve it (Evolving is not a summon).',
 };
 const STRENGTH_HELP = {
   Hitpoints: 'Hitpoints: no targeting restriction.',
@@ -2116,12 +2190,19 @@ function inspectView(entry) {
   const lines = [];
   if (c.cardType === 'Pokémon') {
     const inPlay = c.currentStrength !== undefined;
-    lines.push(item('Energy Cost', `Pay ${c.energyCost} Energy to play it: Base Energy first, Exert only for a shortfall.`));
+    if (c.evolveCost !== undefined) {
+      lines.push(item(`${c.stage} · Evolve cost ${c.evolveCost}`, `Can't be summoned. A Battle Action: put it onto your ${c.evolvesFrom} that has been in the arena since before this Round began. Pay ${c.evolveCost} with Energy and/or Growth (1 Growth pays 1).`));
+    } else {
+      lines.push(item('Energy Cost', `Pay ${c.energyCost} Energy to play it: Base Energy first, Exert only for a shortfall.`));
+    }
     lines.push(item(`${c.attackType} Attack`, `Deals its Attack Value to its target when Commanded. ${c.attackType === 'Physical' ? 'Must target a Defence Pokémon if the opponent has one.' : 'Must target a Special Defence Pokémon if the opponent has one.'}`));
     lines.push(item(`${c.strengthType} Strength`, `${STRENGTH_HELP[c.strengthType]} At 0 Strength the Pokémon is defeated and goes to the Released Pile.`));
     lines.push(item(`Speed-Tier: ${SPEED_TIERS[speedOf(c)]}`, 'An Active Pokémon is Alert, and can be Commanded, if its Speed-Tier equals the highest among all Active Pokémon in the arena. Swift > Steady > Slow.'));
     for (const k of keywordSummary(c)) lines.push(item(keywordLabel(k), keywordHelp(k)));
     if (statusCount(c, 'burn')) lines.push(item(`Burn ${statusCount(c, 'burn')}`, 'At Supper it takes damage equal to its Burn, then Burn goes down by 1. Burn damage is effect damage (no On Defend). Douse removes it; healing doesn\'t.'));
+    if (statusCount(c, 'sleep')) lines.push(item('Asleep', 'It is Spent and can\'t hit back in a trade. At Breakfast it stays Spent, then wakes. Any damage wakes it at once (it stays Spent this Round). Cured by Evolving and Full Heal.'));
+    if (statusCount(c, 'leechSeed')) lines.push(item('Leech Seed', 'At Supper (after Burn) it takes 1 effect damage (2 in Rain 6); the seeder heals their most-damaged Pokémon by as much and gains 1 Growth. Removed when it leaves play, Evolves, or by Full Heal.'));
+    if (c.stack?.length) lines.push(item('Evolved from', `${c.stack.map((s) => `${s.name}${s.stage ? ` (${s.stage})` : ''}`).join(' → ')}. These cards stay under it and are Released together with it.`));
     if (c.effectTrigger) lines.push(item(c.effectTrigger, `Its ability triggers ${TRIGGER_HELP[c.effectTrigger] ?? ''} ${c.effectText}`));
     if (inPlay) {
       const buffs = [sources(c, 'attack') && `Attack ${attackOf(c)}${sources(c, 'attack')}`, sources(c, 'strength') && `Strength ${c.currentStrength}/${maxStrengthOf(c)}${sources(c, 'strength')}`].filter(Boolean);

@@ -878,19 +878,19 @@ button.primary {
   display: flex; align-items: center; gap: 14px;
 }
 /* --- Feedback batch 2: resource panels (docs/design/player-panel-mockup.jpg) ----------- */
-/* Five framed tiles: Energy, Exert, XP, PokéDollars and the Bag row. Mine is
+/* Six framed tiles: Energy, Exert, XP, PokéDollars, Growth (Grass G1) and the Bag row. Mine is
    large, in the strip below the board right of the hand and under the side
    panel; the opponent's is the same, compact, along the top. */
 .res { position: absolute; display: grid; color: var(--cream-muted); font-size: 13px; --frame: linear-gradient(#6a4526, #3d2514); }
 .res.player {
   left: 986px; top: 0; width: 723px; height: 140px; padding: 8px 8px 7px; gap: 6px;
-  grid-template-columns: 178px 196px 150px 1fr; grid-template-rows: 66px 1fr;
-  grid-template-areas: "energy exert xp dollars" "bag bag bag bag";
+  grid-template-columns: 162px 186px 104px 1fr 128px; grid-template-rows: 66px 1fr;
+  grid-template-areas: "energy exert xp dollars growth" "bag bag bag bag bag";
 }
 .res.ai {
   position: relative; width: 940px; height: 70px; flex: none; padding: 5px 6px; gap: 5px; margin-top: -4px;
-  grid-template-columns: 118px 128px 92px 122px 1fr; grid-template-rows: 1fr;
-  grid-template-areas: "energy exert xp dollars bag";
+  grid-template-columns: 112px 124px 78px 112px 92px 1fr; grid-template-rows: 1fr;
+  grid-template-areas: "energy exert xp dollars growth bag";
 }
 /* The name tag ("You", "Opponent"), with whose move it is and who passed last. */
 .res-tag {
@@ -910,7 +910,8 @@ button.primary {
   border: 1px solid var(--brass-mid); box-shadow: inset 0 0 0 1px rgba(246, 221, 154, 0.18), inset 0 2px 8px rgba(0, 0, 0, 0.6);
 }
 .tile.t-energy { grid-area: energy; } .tile.t-exert { grid-area: exert; } .tile.t-xp { grid-area: xp; }
-.tile.t-dollars { grid-area: dollars; } .tile.t-bag { grid-area: bag; }
+.tile.t-dollars { grid-area: dollars; } .tile.t-growth { grid-area: growth; } .tile.t-bag { grid-area: bag; }
+.growth-word { font-size: 30px; color: #8fe07a; }
 .tile-label {
   display: flex; align-items: baseline; gap: 6px; white-space: nowrap; line-height: 1;
   font-family: var(--font-display); font-size: 13px; font-weight: 700; color: var(--brass); letter-spacing: 0.08em; text-transform: uppercase;
@@ -1099,6 +1100,45 @@ button.primary {
 /* Effects: Burn and Douse. */
 .fx-num.burn span { color: #ffb347; -webkit-text-stroke: 1.5px #5a1404; }
 .fx-num.douse span { color: #bfe6ff; -webkit-text-stroke: 1.5px #0e3550; font-size: 26px; }
+
+/* Grass G1: Sleep and Leech Seed on a card (placeholder looks, shown by
+   animation only; the polished ones are G4). Sleep: the card dims and sways,
+   "z"s drift up. Leech Seed: green vines along the card's edge. */
+.card[data-status-sleep] { animation: sleep-sway 3.2s ease-in-out infinite; }
+.card[data-status-sleep] .card-art, .card[data-status-sleep] .art { filter: brightness(0.62) saturate(0.7); }
+.card[data-status-sleep]::before {
+  content: 'z Z z'; position: absolute; right: 6%; top: -4%; z-index: 6; pointer-events: none; white-space: nowrap;
+  font-family: var(--font-display); font-weight: 800; font-size: calc(var(--w) * 0.13); letter-spacing: 0.15em;
+  color: #dfe6ff; text-shadow: 0 0 6px #6f86ff, 0 2px 3px #000;
+  animation: sleep-z 2.6s ease-in-out infinite;
+}
+@keyframes sleep-sway { 0%, 100% { rotate: -1.2deg; } 50% { rotate: 1.2deg; } }
+@keyframes sleep-z {
+  0% { opacity: 0; transform: translate(0, 10%) scale(0.7); }
+  30% { opacity: 1; }
+  100% { opacity: 0; transform: translate(18%, -60%) scale(1.15); }
+}
+.card[data-status-leechseed] {
+  box-shadow: 0 0 0 2px #3f8f2e, 0 0 10px 3px rgba(110, 211, 90, 0.55), var(--shadow-card);
+  background-image: repeating-linear-gradient(135deg, rgba(90, 170, 60, 0.55) 0 4px, transparent 4px 14px);
+  background-origin: border-box;
+}
+.card[data-status-leechseed]::before {
+  content: ''; position: absolute; inset: -3px; z-index: 5; pointer-events: none; border-radius: inherit;
+  border: 3px dashed #5fbf47; opacity: 0.85; animation: vine-creep 4s linear infinite;
+}
+.card[data-status-sleep][data-status-leechseed]::before { border: none; }
+@keyframes vine-creep { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) {
+  .card[data-status-sleep], .card[data-status-sleep]::before, .card[data-status-leechseed]::before { animation: none; }
+}
+.fx-num.status span { color: #d9e6ff; -webkit-text-stroke: 1.5px #1c2860; font-size: 26px; }
+.fx-num.evolve span { color: #f4ffd6; -webkit-text-stroke: 1.5px #24501a; font-size: 30px; }
+.fx-leech-beam {
+  position: absolute; height: 8px; margin-top: -4px; transform-origin: 0 50%; pointer-events: none; border-radius: 4px;
+  background: linear-gradient(90deg, rgba(120, 220, 90, 0.2), #8ff06a 40%, #e9ffd9 70%, rgba(120, 220, 90, 0.4));
+  box-shadow: 0 0 12px 3px rgba(120, 230, 90, 0.7);
+}
 .fx-num .shell-tag { display: block; font-size: 0.42em; color: #d6ffe4; -webkit-text-stroke: 0; text-shadow: 0 1px 2px #000; }
 .fx-overrun {
   position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; pointer-events: none;
@@ -1610,3 +1650,9 @@ button.pulse { animation: soft-pulse 1.6s ease-in-out infinite; }
 .end-stats td { text-align: center; font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--cream); }
 .end-buttons { display: flex; gap: 12px; justify-content: center; animation: end-fade 0.5s ease-out 1.6s both; }
 @media (prefers-reduced-motion: reduce) { .game-over, .end-crest, .end-stats, .end-buttons { animation-duration: 0.01s !important; animation-delay: 0s !important; } }
+
+/* Evolve: choosing how much Growth to spend. */
+.growth-pick { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 6px 0; }
+.growth-pick button { font-size: 20px; padding: 4px 16px; }
+.growth-pick .growth-amount { font-size: 18px; min-width: 200px; }
+#stage:has(.growth-ask) .preview { display: none !important; }
