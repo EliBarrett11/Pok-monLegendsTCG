@@ -270,6 +270,40 @@ No build step: plain HTML, CSS and JavaScript modules. Working rules for each se
   - **Against Water**, from 9.5% (W1+E): GD +25 points (Water's Physical attackers then have Grass guards to go through), BL +5, GX +3.5, TS +1, BE −0.5 alone but +5.5 on top of GD, T4 −4.5.
   - **Against Fire**, from 0%: GD +3, BL +2, TS +1, GX +1, BE 0, T4 0. Grass takes about 11 Trainer damage per Round whatever the lever (Fire's Burn and Infiltrator attacks; Grass's guards don't stop Infiltrator), so Fire still wins in about 4.5 Rounds.
   - **Fire–Water** stays balanced: 52.5% in 5.6 Rounds with BE (Fire and Water never evolve), 50.5% in 6.3 Rounds with T4.
+- **Grass G3c** — a balance experiment against Fire; no card or rule changes committed. Elliott settled Breakfast Evolve's reading: the lenient one (BL, any Pokémon in the arena at Breakfast). Every variant is on top of **core** = W1 + E + BL + GD + TS + GX. New levers (`tools/balance.js --grass W1+E+BL+GD+TS+GX+R+H`): R Grass's Locations make Rain (Floaroma Meadow 2, Eterna Forest 1, Petalburg Woods 2), R2 also Sunkern and Sunflora, H Synthesis and Oran Berry can target a friendly Trainer and Douse what they heal, SP Sleep Powder costs 1 with 3 copies (Leech Seed 2), FB (Fire side, a diagnostic) Firebreather and Houndoom Burn one chosen enemy Trainer instead of each. The tool now splits Fire's damage to Grass's Trainers by source (Burn at Supper shared by where each Trainer's Burn counters came from) and counts Burn kept off Grass's cards. 200 matches per matchup:
+
+  | Variant | Grass v Fire (wins per seat order) | Grass v Water | Fire v Water (Fire · Rounds) | Rounds vF / vW | Grass Trainer dmg dealt/match | Grass Trainer dmg taken/Round | Growth gained/spent | Evolves Breakfast+Battle | Solar Beam dmg | Peak Sun/Rain | Grass Alert blocked |
+  |---|---|---|---|---|---|---|---|---|---|---|---|
+  | core | 8.0% (7/9) | 54.0% (48/60) | 52.5% · 5.6R | 4.6 / 8.9 | 26.4 / 49.9 | 11.1 / 4.3 | 24.0/14.0 / 64.3/40.7 | 2.0+0.4 / 3.9+0.9 | 7.9 / 26.4 | ☀8.8 ☔0.0 / ☀5.5 ☔6.8 | 0.0% / 71.8% |
+  | core+R | 10.5% (9/12) | 52.0% (48/56) | — | 4.8 / 8.9 | 27.6 / 47.3 | 10.7 / 4.4 | 24.6/14.6 / 60.6/40.5 | 2.2+0.4 / 3.7+1.0 | 8.0 / 26.6 | ☀6.5 ☔3.4 / ☀2.5 ☔9.3 | 0.0% / 72.8% |
+  | core+R2 | 15.0% (11/19) | 55.0% (48/62) | — | 4.9 / 8.9 | 28.5 / 48.8 | 10.4 / 4.3 | 24.8/15.7 / 60.0/40.7 | 2.3+0.4 / 3.8+1.0 | 8.5 / 26.6 | ☀4.8 ☔4.9 / ☀0.0 ☔11.0 | 0.0% / 72.2% |
+  | core+H | 29.0% (26/32) | 56.0% (52/60) | — | 5.3 / 9.4 | 33.3 / 52.7 | 10.2 / 4.8 | 29.2/17.0 / 67.9/43.5 | 2.6+0.5 / 3.9+0.9 | 9.7 / 28.7 | ☀9.1 ☔0.0 / ☀5.6 ☔6.7 | 0.0% / 71.8% |
+  | core+SP | 11.0% (10/12) | 70.5% (68/73) | — | 4.7 / 8.9 | 27.4 / 54.0 | 11.0 / 3.8 | 23.7/13.9 / 62.9/41.3 | 2.0+0.4 / 4.1+0.9 | 8.0 / 26.8 | ☀8.7 ☔0.0 / ☀5.5 ☔6.7 | 0.0% / 70.8% |
+  | core+R+H | 39.5% (38/41) | 53.0% (46/60) | — | 5.4 / 9.4 | 35.0 / 52.1 | 10.0 / 4.9 | 29.1/17.8 / 65.2/41.9 | 2.6+0.5 / 3.8+0.9 | 10.1 / 27.6 | ☀6.7 ☔3.6 / ☀2.4 ☔9.5 | 0.0% / 71.4% |
+  | core+R+SP | 12.5% (13/12) | 63.5% (64/63) | — | 4.8 / 9.0 | 28.4 / 52.4 | 10.6 / 4.0 | 24.5/14.5 / 61.4/39.9 | 2.2+0.4 / 4.0+0.8 | 8.0 / 25.9 | ☀6.4 ☔3.3 / ☀2.5 ☔9.4 | 0.0% / 71.7% |
+  | core+R+H+SP | 39.5% (33/46) | 60.5% (61/60) | — | 5.4 / 9.5 | 35.3 / 54.2 | 10.0 / 4.5 | 28.5/17.0 / 64.2/42.7 | 2.6+0.4 / 3.9+0.9 | 9.6 / 28.0 | ☀6.7 ☔3.5 / ☀2.5 ☔9.5 | 0.0% / 72.2% |
+  | core+FB | 17.0% (17/17) | 54.0% (48/60) | 42.5% · 5.8R | 4.9 / 8.9 | 29.7 / 49.9 | 10.3 / 4.3 | 26.4/15.4 / 64.3/40.7 | 2.2+0.4 / 3.9+0.9 | 9.0 / 26.4 | ☀8.9 ☔0.0 / ☀5.5 ☔6.8 | 0.0% / 71.8% |
+  | core+R+H+SP+FB | 55.5% (54/57) | 60.5% (61/60) | 39.0% · 5.8R | 5.6 / 9.5 | 37.9 / 54.2 | 9.3 / 4.5 | 30.5/18.8 / 64.2/42.7 | 2.7+0.5 / 3.9+0.9 | 10.6 / 28.0 | ☀6.6 ☔3.7 / ☀2.5 ☔9.5 | 0.0% / 72.2% |
+
+  Fire's damage to Grass's Trainers per match, by source, and Burn kept off Grass's cards per match:
+
+  | Variant | Total | Attacks | Infiltrator attacks | Overrun | Burn from cards | Burn from Scorch | Other | Rain 4 (Burn hits softened) | Rain 8 (counters washed) | Douse (counters) |
+  |---|---|---|---|---|---|---|---|---|---|---|
+  | core | 51.3 | 9.1 | 5.8 | 0.3 | 32.7 | 3.2 | 0.2 | 0.0 | 0.0 | 0.0 |
+  | core+R | 51.1 | 9.7 | 6.6 | 0.2 | 31.2 | 3.1 | 0.2 | 0.5 | 0.0 | 0.0 |
+  | core+R2 | 50.9 | 9.6 | 7.7 | 0.3 | 30.1 | 3.1 | 0.1 | 3.3 | 0.6 | 0.0 |
+  | core+H | 54.3 | 12.5 | 7.0 | 0.4 | 30.3 | 3.8 | 0.3 | 0.0 | 0.0 | 10.9 |
+  | core+SP | 51.3 | 8.6 | 5.0 | 0.2 | 34.1 | 3.1 | 0.2 | 0.0 | 0.0 | 0.0 |
+  | core+R+H | 53.9 | 12.6 | 8.2 | 0.4 | 28.9 | 3.5 | 0.3 | 0.5 | 0.0 | 10.6 |
+  | core+R+SP | 51.0 | 8.5 | 6.5 | 0.2 | 32.4 | 3.2 | 0.3 | 0.5 | 0.0 | 0.0 |
+  | core+R+H+SP | 53.9 | 11.8 | 8.6 | 0.4 | 29.4 | 3.4 | 0.3 | 0.6 | 0.0 | 10.7 |
+  | core+FB | 50.6 | 11.4 | 6.8 | 0.4 | 27.6 | 4.2 | 0.3 | 0.0 | 0.0 | 0.0 |
+  | core+R+H+SP+FB | 51.6 | 14.6 | 8.7 | 0.4 | 23.6 | 4.0 | 0.3 | 0.6 | 0.0 | 10.2 |
+
+  - **No Grass-side variant reaches 45–55% against both.** Closest: core+R+H, 39.5% against Fire (5.4 Rounds) and 53.0% against Water (9.4 Rounds). core alone is already 54.0% against Water (8.9 Rounds) but 8.0% against Fire.
+  - **Only the Fire-side lever gets Grass there against Fire:** core+R+H+SP+FB is 55.5% against Fire (5.6 Rounds), but 60.5% against Water (9.5 Rounds) and it breaks Fire–Water (Fire 39.0%; FB alone takes Fire–Water to 42.5%).
+  - **Overshoot against Water:** SP is the lever to trim (core+SP 70.5%; adding SP to R+H takes Water from 53.0% to 60.5%).
+  - **Against Fire, by effect:** H +21 points (it Douses about 11 Burn counters a match), FB +9, R2 +7, SP +3, R +2.5 alone but +10.5 on top of H. Burn from Fire's cards (Firebreather, Houndoom, Ember, Heat Wave, Blaine, Mt. Ember) is about 32 of the 51 damage Fire deals to Grass's Trainers a match; Scorch is about 3, attacks about 15 (6 of them Infiltrator).
 
 Add `?seed=123` to the URL to replay the same shuffle and coin flip. Add `?hotseat` for two players on one screen, or `?join=CODE` to join a friend's room.
 
