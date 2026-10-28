@@ -72,7 +72,8 @@ function candidateMoves(state, who) {
     if (p.zones[zone].trainer.power.cost > p.baseEnergy) continue;
     const targets = powerTargets(state, who, zone);
     if (targets.length) targets.forEach((target) => moves.push({ type: 'usePower', who, zone, target }));
-    else moves.push({ type: 'usePower', who, zone });
+    // A Power with a choice of no target ("Gain 1 Growth, or Douse a friendly Trainer…"): that too.
+    if (!targets.length || p.zones[zone].trainer.power.effects.some((e) => e.target?.ifChosen)) moves.push({ type: 'usePower', who, zone });
   }
   // Strategy Cards: one try per legal target (each card says which side it targets).
   const seenStrategy = new Set();

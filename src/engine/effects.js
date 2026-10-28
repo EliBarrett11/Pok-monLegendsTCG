@@ -58,6 +58,9 @@
 //   filter  a card condition (see matchesCard)     Pokémon only
 //   damaged true: only cards below their maximum Strength
 //   optional true (with mode 'targeted'): the card can be played with no legal target; that part does nothing
+//   ifChosen true (with optional): with no target given, that part does nothing (it doesn't ask)
+//   separate true (with mode 'targeted'): chosen on its own as it resolves, not the card's first target
+// ifNoTarget true on an effect: it only happens when no target was given ("Gain 1 Growth, or Douse…")
 //
 // PASSIVE      { aura?, triggers? }
 //   aura      { attack, strength, target: selector } continuous stat bonus,
@@ -624,6 +627,14 @@ export function queueStep(state, step, data = {}) {
 function applyEffect(state, job, e) {
   const { ctx } = job;
   let refs = [];
+  if (e.ifNoTarget && ctx.target) return null;
+  if (e.target?.ifChosen && !ctx.target) return null;
+  // A second target, chosen on its own (balance experiments: Mallow's Gift also Douses a Trainer).
+  if (e.target?.separate && !job.separateAsked) {
+    job.separateAsked = true;
+    delete ctx.target;
+    delete ctx.targetUid;
+  }
   if (e.target) {
     const legal = candidates(state, ctx, e.target, e);
     if (e.target.mode === 'targeted') {
@@ -685,6 +696,7 @@ export function run(state, steps = {}, isOver = () => false) {
     job.i += 1;
     delete job.choice;
     delete job.picked;
+    delete job.separateAsked;
   }
   if (isOver(state)) state.stack = [];
 }

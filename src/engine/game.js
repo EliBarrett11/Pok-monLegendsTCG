@@ -963,7 +963,8 @@ const HANDLERS = {
     const p = state.players[who];
     const trainer = p.zones[zone].trainer;
     const ctx = powerCtx(state, who, zone, target);
-    if (targetedEffect(trainer.power.effects) && !powerTargets(state, who, zone).some((r) =>
+    const aimed = targetedEffect(trainer.power.effects);
+    if (aimed && (target !== undefined || !aimed.target.optional) && !powerTargets(state, who, zone).some((r) =>
       r.kind === target?.kind && r.owner === target.owner && r.zone === target.zone && r.space === target.space)) {
       throw new Error('That is not a legal target');
     }

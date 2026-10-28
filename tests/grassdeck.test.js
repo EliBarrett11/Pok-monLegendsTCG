@@ -490,6 +490,42 @@ for (const mode of ['strict', 'lenient']) {
 RULE_FLAGS.breakfastEvolve = null;
 assert.equal(grass().phase, 'battle', 'off by default');
 
+// --- Balance experiment effect flags (tools/balance.js --grass D1, D2): either/or, and a second target ---------
+
+{
+  // "Gain 1 Growth, or Douse a friendly Trainer and heal it 1": no target → Growth; a Trainer → Douse and heal.
+  const either = [
+    { op: 'gainGrowth', amount: 1, ifNoTarget: true },
+    { op: 'douse', target: { mode: 'targeted', side: 'friendly', kinds: ['trainer'], optional: true, ifChosen: true } },
+    { op: 'heal', amount: 1, target: { mode: 'chosen' } },
+  ];
+  let s = grass();
+  trainerAt(s, 'player', 0).status = { burn: { count: 3, by: 'ai' } };
+  trainerAt(s, 'player', 0).strength -= 2;
+  let before = growthOf(s);
+  cast(s, 'player', either);
+  assert.equal(growthOf(s), before + 1, 'no target: Growth');
+  assert.equal(trainerAt(s, 'player', 0).status.burn.count, 3);
+  before = growthOf(s);
+  cast(s, 'player', either, tref('player', 0));
+  assert.equal(growthOf(s), before, 'a Trainer: no Growth');
+  assert.ok(!trainerAt(s, 'player', 0).status?.burn, 'Doused');
+  assert.equal(trainerAt(s, 'player', 0).strength, trainerAt(s, 'player', 0).maxStrength - 1, 'healed 1');
+  // A second target chosen on its own: heal a Pokémon, then Douse a Trainer.
+  s = grass();
+  place(s, 'player', 1, 0, 'bulbasaur');
+  at(s, 'player', 1, 0).currentStrength = 1;
+  trainerAt(s, 'player', 2).status = { burn: { count: 2, by: 'ai' } };
+  cast(s, 'player', [
+    { op: 'heal', amount: 2, target: { mode: 'targeted', side: 'friendly' } },
+    { op: 'douse', target: { mode: 'targeted', side: 'friendly', kinds: ['trainer'], separate: true } },
+  ], pref('player', 1, 0));
+  assert.equal(at(s, 'player', 1, 0).currentStrength, 3);
+  assert.equal(s.pending?.kind, 'target', 'the Trainer is asked for');
+  s = choose(s, { target: tref('player', 2) });
+  assert.ok(!trainerAt(s, 'player', 2).status?.burn);
+}
+
 // --- Whole matches: Grass against every deck, seeded, to the end ------------------------------------------
 
 function playOut(seed, decks) {

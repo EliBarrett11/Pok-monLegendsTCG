@@ -32,6 +32,10 @@
 //   H  Synthesis and Oran Berry can also target a friendly Trainer, and Douse what they heal
 //   SP Sleep Powder costs 1, 3 copies; Leech Seed 2 copies
 //   FB (Fire side, a diagnostic) Firebreather and Houndoom Burn one chosen enemy Trainer instead of each
+// G3d:
+//   D1 Gardenia's Power: (1) Gain 1 Growth, or Douse a friendly Trainer and heal it 1
+//   D2 Mallow's Gift Bonus also Douses a friendly Trainer
+//   D3 Synthesis 2 copies (Leech Seed 2)
 // --json FILE also writes the numbers as JSON.
 //
 // The same matches every time (seeds 1..N for each seat order, the AI's
@@ -217,6 +221,23 @@ Object.assign(GRASS_VARIANTS, {
     fb.gift.effects[0].target = one;
     card(POKEMON_CARDS, 'houndoom').ability.effects[0].target = one;
   },
+  D1: () => {
+    card(TRAINER_CARDS, 'gardenia').power = {
+      cost: 1,
+      text: 'Gain 1 Growth, or Douse a friendly Trainer and heal it 1.',
+      effects: [
+        { op: 'gainGrowth', amount: 1, ifNoTarget: true },
+        { op: 'douse', target: { mode: 'targeted', side: 'friendly', kinds: ['trainer'], optional: true, ifChosen: true } },
+        { op: 'heal', amount: 1, target: { mode: 'chosen' } },
+      ],
+    };
+  },
+  D2: () => {
+    const mallow = card(SUPPORTER_CARDS, 'mallow');
+    mallow.gift.bonusText += ' Douse a friendly Trainer.';
+    mallow.gift.effects.push({ op: 'douse', target: { mode: 'targeted', side: 'friendly', kinds: ['trainer'], separate: true } });
+  },
+  D3: () => { Object.assign(DECKS.grass.list, { synthesis: 2, 'leech-seed': 2 }); },
 });
 const grassParts = GRASS.includes('+') ? GRASS.split('+') : (GRASS.match(/W[12]|[SPIEGB]/g) ?? []);
 if (grassParts.join(GRASS.includes('+') ? '+' : '') !== GRASS || grassParts.some((x) => !GRASS_VARIANTS[x])) throw new Error(`Unknown --grass variant: ${GRASS}`);
