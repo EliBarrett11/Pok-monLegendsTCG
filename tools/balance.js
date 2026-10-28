@@ -26,6 +26,12 @@
 //   TS Grass Trainers +2 (Erika 17, Gardenia 18, Ramos 17)
 //   GX Oddish, Sunkern and Sewaddle also gain "On Breakfast: gain 1 Growth"
 //   T4 every Trainer in every deck +4 Strength
+// G3c:
+//   R  Grass's Locations make Rain (Floaroma Meadow 2, Eterna Forest 1, Petalburg Woods 2)
+//   R2 as R, and Sunkern 1 Rain, Sunflora 2 Rain
+//   H  Synthesis and Oran Berry can also target a friendly Trainer, and Douse what they heal
+//   SP Sleep Powder costs 1, 3 copies; Leech Seed 2 copies
+//   FB (Fire side, a diagnostic) Firebreather and Houndoom Burn one chosen enemy Trainer instead of each
 // --json FILE also writes the numbers as JSON.
 //
 // The same matches every time (seeds 1..N for each seat order, the AI's
@@ -34,7 +40,7 @@
 import {
   createGame, applyAction, PLAYERS, legalActions, opponentOf, weatherCounts, alertPokemon, legalTargets,
 } from '../src/engine/game.js';
-import { RULE_FLAGS, cardAt } from '../src/engine/board.js';
+import { RULE_FLAGS, cardAt, weatherRule } from '../src/engine/board.js';
 import { chooseAction, usePlan } from '../src/ai/opponent.js';
 import { nextRandom } from '../src/engine/random.js';
 import { writeFileSync } from 'node:fs';
@@ -180,6 +186,37 @@ Object.assign(GRASS_VARIANTS, {
     }
   },
   T4: () => { for (const t of TRAINER_CARDS) t.strength += 4; },
+  R: () => {
+    card(LOCATION_CARDS, 'floaroma-meadow').weatherTokens = { Rain: 2 };
+    card(LOCATION_CARDS, 'eterna-forest').weatherTokens = { Rain: 1 };
+    card(LOCATION_CARDS, 'petalburg-woods').weatherTokens = { Rain: 2 };
+  },
+  R2: () => {
+    GRASS_VARIANTS.R();
+    card(POKEMON_CARDS, 'sunkern').weatherTokens = { Rain: 1 };
+    card(POKEMON_CARDS, 'sunflora').weatherTokens = { Rain: 2 };
+  },
+  H: () => {
+    const synthesis = card(STRATEGY_CARDS, 'synthesis');
+    const heal = synthesis.effects.find((e) => e.op === 'heal');
+    heal.target = { ...heal.target, kinds: ['pokemon', 'trainer'] };
+    synthesis.effects.push({ op: 'douse', target: { mode: 'chosen' } });
+    const oran = card(ITEM_CARDS, 'oran-berry');
+    const berry = oran.effects.find((e) => e.op === 'heal');
+    berry.target = { ...berry.target, kinds: ['pokemon', 'trainer'] };
+    oran.effects.splice(1, 0, { op: 'douse', target: { mode: 'chosen' } });
+  },
+  SP: () => {
+    card(STRATEGY_CARDS, 'sleep-powder').energyCost = 1;
+    Object.assign(DECKS.grass.list, { 'sleep-powder': 3, 'leech-seed': 2 });
+  },
+  FB: () => {
+    const one = { mode: 'targeted', side: 'opponent', kinds: ['trainer'] };
+    const fb = card(SUPPORTER_CARDS, 'firebreather');
+    fb.effects[0].target = one;
+    fb.gift.effects[0].target = one;
+    card(POKEMON_CARDS, 'houndoom').ability.effects[0].target = one;
+  },
 });
 const grassParts = GRASS.includes('+') ? GRASS.split('+') : (GRASS.match(/W[12]|[SPIEGB]/g) ?? []);
 if (grassParts.join(GRASS.includes('+') ? '+' : '') !== GRASS || grassParts.some((x) => !GRASS_VARIANTS[x])) throw new Error(`Unknown --grass variant: ${GRASS}`);
@@ -197,7 +234,8 @@ const blank = () => ({
   trainerDamage: 0, burnDamage: 0, attackDamage: 0, overrunDamage: 0, effectDamage: 0, beamTrainer: 0, ranDry: 0, keptPct: 0,
   lostPokemon: 0, initiative: 0, initiativeWins: 0,
   atkGuard: 0, atkOther: 0, atkTrainer: 0, alertChecks: 0, alertBlocked: 0, guardHealed: 0,
-  growthGained: 0, growthSpent: 0, evolves: 0, evolvesBreakfast: 0, beams: 0, beamDamage: 0, firstEvolve: 0, evolvedIn: 0, lostUnevolved: 0,
+  growthGained: 0, growthSpent: 0, evolves: 0, evolvesBreakfast: 0, beams: 0,
+  dmgInfiltrator: 0, burnCards: 0, burnScorch: 0, rain4Saved: 0, rain8Removed: 0, douseRemoved: 0, beamDamage: 0, firstEvolve: 0, evolvedIn: 0, lostUnevolved: 0,
 });
 // Defence and Special Defence Pokémon guard their Trainers (rules 4.2.1).
 const GUARD = ['Defence', 'Special Defence'];
@@ -223,6 +261,9 @@ function runMatchup(SEAT1, SEAT2) {
       const peak = { Rain: 0, Sun: 0 };
       let last = null;              // the action just applied
       let firstInitiative = null;   // who had Round 1 initiative
+      // Where each Trainer's Burn counters came from (Scorch: applied during an attack;
+      // cards: any other card or effect), to share Burn damage at Supper between them.
+      const burnFrom = {};
       while (s.phase !== 'gameOver' && s.round < STALL_ROUND) {
         const who = PLAYERS.find((w) => legalActions(s, w).length) ?? 'player';
         const action = chooseAction(s, who, { rng }) ?? { type: 'flipCoin' };
@@ -261,7 +302,30 @@ function runMatchup(SEAT1, SEAT2) {
         // Damage to Trainers by source: Burn (at Supper), Overrun (follows its
         // 'overrun' event), an attack (the rest during a Command), Solar Beam, or an effect.
         let overrun = false;
+        const infiltrated = s.events.some((e) => e.type === 'attack' && e.infiltrated);
+        const rain4 = weatherRule(s, 'burnMinus');
         for (const e of s.events) {
+          const owner = e.target?.owner;
+          if (e.type === 'statusApplied' && e.status === 'burn' && e.target.kind === 'trainer') {
+            const pool = (burnFrom[e.target.uid] ??= { scorch: 0, cards: 0 });
+            pool[last === 'command' ? 'scorch' : 'cards'] += e.after - e.before;
+          }
+          if (e.type === 'statusDecayed' && e.status === 'burn' && burnFrom[e.target.uid]) {
+            const pool = burnFrom[e.target.uid];
+            const total = pool.scorch + pool.cards;
+            const k = total ? e.after / total : 0;
+            pool.scorch *= k;
+            pool.cards *= k;
+          }
+          if (e.type === 'statusCleared' && e.status === 'burn') {
+            if (burnFrom[e.target.uid]) burnFrom[e.target.uid] = { scorch: 0, cards: 0 };
+            const d2 = byDeck[keyOf(decks, owner)];
+            if (/Rain 8/.test(e.why ?? '')) d2.rain8Removed += e.before;
+            else if (/Douse/.test(e.why ?? '')) d2.douseRemoved += e.before;
+          }
+          if (e.type === 'burnPhase' && rain4) {
+            for (const t of e.targets) if (t.count > 0) byDeck[keyOf(decks, t.owner)].rain4Saved += 1;
+          }
           if (e.type === 'overrun') overrun = true;
           if (e.type === 'growthGained') byDeck[keyOf(decks, e.who)].growthGained += e.amount;
           if (e.type === 'growthSpent') byDeck[keyOf(decks, e.who)].growthSpent += e.amount;
@@ -282,9 +346,17 @@ function runMatchup(SEAT1, SEAT2) {
           if (e.target.kind !== 'trainer') continue;
           const by = byDeck[keyOf(decks, opponentOf(e.target.owner))];
           by.trainerDamage += dealt;
-          if (e.cause === 'burn') by.burnDamage += dealt;
-          else if (overrun) { by.overrunDamage += dealt; overrun = false; }
-          else if (last === 'command') by.attackDamage += dealt;
+          if (e.cause === 'burn') {
+            by.burnDamage += dealt;
+            const pool = burnFrom[e.target.uid] ?? { scorch: 0, cards: 1 };
+            const total = pool.scorch + pool.cards || 1;
+            by.burnScorch += (dealt * pool.scorch) / total;
+            by.burnCards += (dealt * (total === 1 && !pool.scorch && !pool.cards ? 1 : pool.cards)) / total;
+          } else if (overrun) { by.overrunDamage += dealt; overrun = false; }
+          else if (last === 'command') {
+            by.attackDamage += dealt;
+            if (infiltrated) by.dmgInfiltrator += dealt;
+          }
           else if (beam) by.beamTrainer += dealt;
           else by.effectDamage += dealt;
         }
