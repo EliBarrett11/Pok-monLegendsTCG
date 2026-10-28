@@ -11,6 +11,7 @@ import {
   composeAttack, composeCounter, effectAnimation, BURN_CAST,
   STRATEGIES, STRATEGY_FALLBACK, STRATEGY_OPENING, SWEEPS, strategyAnimation, composeStrategy, strategyTint, DIVE_RISE,
   SUMMONS, LEGENDARY_SUMMONS, summonAnimation, composeSummon, DEFEATS, defeatStyle,
+  EVOLVE, EVOLVE_STAGE2, evolveAnimation, GROWTH_MOTES, weatherPulseText,
 } from '../src/ui/vfx/library.js';
 import { Timeline } from '../src/ui/vfx/timeline.js';
 import { MOTION_NAMES } from '../src/ui/vfx/engine.js';
@@ -23,9 +24,7 @@ import { cardDefinition } from '../src/engine/cards.js';
 
 const allDeckPokemon = Object.values(DECKS).flatMap((d) => Object.keys(d.list)).map(cardDefinition).filter((c) => c.cardType === 'Pokémon');
 assert.equal(allDeckPokemon.length, 31);
-// (Grass, G2: its 11 Pokémon use the generic Physical or Special attack tinted by their Type until they get their own.)
-const deckPokemon = [DECKS.fire, DECKS.water].flatMap((d) => Object.keys(d.list)).map(cardDefinition).filter((c) => c.cardType === 'Pokémon');
-assert.equal(deckPokemon.length, 20);
+const deckPokemon = allDeckPokemon;
 for (const c of allDeckPokemon) {
   const id = attackAnimation(c);
   assert.ok(TIMELINES[id], `${c.name}: ${id}`);
@@ -45,9 +44,13 @@ const expected = {
   'fighting-physical': ['mankey'],
   'dark-physical': ['sneasel'],
   'normal-physical': ['chansey'],
+  // Grass G4: Razor Leaf, String Shot and a bite, Rock Throw.
+  'grass-special': ['bulbasaur', 'ivysaur', 'venusaur', 'oddish', 'gloom', 'bellossom', 'sunkern', 'sunflora', 'celebi'],
+  'bug-physical': ['sewaddle'],
+  'rock-physical': ['sudowoodo'],
 };
 for (const [anim, ids] of Object.entries(expected)) for (const id of ids) assert.equal(byId(id), anim, id);
-assert.equal(Object.values(expected).flat().length, 20, 'all 20 Pokémon listed');
+assert.equal(Object.values(expected).flat().length, 31, 'all 31 Pokémon listed');
 for (const c of deckPokemon) {
   assert.ok(!FALLBACKS.includes(attackAnimation(c)), `${c.name}: a specific animation, not the fallback`);
   assert.ok(!counterAnimation(c).startsWith('generic'), `${c.name}: its own counter`);
@@ -55,7 +58,8 @@ for (const c of deckPokemon) {
 // Types no deck uses yet keep the generic one, tinted by Type.
 assert.equal(attackAnimation({ pokemonType: 'Grass', attackType: 'Physical' }), 'generic-physical');
 assert.equal(attackAnimation({ pokemonType: 'Psychic', attackType: 'Special' }), 'generic-special');
-assert.equal(counterAnimation({ pokemonType: 'Grass', attackType: 'Special' }), 'generic-counter');
+assert.equal(counterAnimation({ pokemonType: 'Psychic', attackType: 'Special' }), 'generic-counter');
+assert.deepEqual(['bulbasaur', 'sewaddle', 'sudowoodo'].map((id) => counterAnimation(cardDefinition(id))), ['grass-counter', 'bug-counter', 'rock-counter']);
 assert.equal(counterAnimation(cardDefinition('magmar')), 'fire-counter');
 assert.equal(counterAnimation(cardDefinition('horsea')), 'water-counter');
 for (const id of Object.values(COUNTERS)) assert.equal(TIMELINES[id].budget, 'counter', id);
@@ -162,15 +166,14 @@ const instant = (id) => (FULL[id] ?? TIMELINES[id]).beats.filter((b) => b.end ==
 
 // --- Strategy Cards (Step 22, docs/vfx.md section 4) ----------------------------------------
 
-// (Grass's 4 Strategy Cards use the fallback until they get their own, like its attacks.)
-const deckStrategies = [DECKS.fire, DECKS.water].flatMap((d) => Object.keys(d.list)).map(cardDefinition).filter((c) => c.cardType === 'Strategy');
-assert.equal(deckStrategies.length, 8, 'Fire and Water: 8 Strategy Cards');
+const deckStrategies = Object.values(DECKS).flatMap((d) => Object.keys(d.list)).map(cardDefinition).filter((c) => c.cardType === 'Strategy');
+assert.equal(deckStrategies.length, 12, 'Fire, Water and Grass: 12 Strategy Cards');
 for (const c of deckStrategies) {
   const id = strategyAnimation(c);
   assert.notEqual(id, STRATEGY_FALLBACK, `${c.name}: its own animation, not the fallback`);
   assert.equal(id, `strategy-${c.id}`, `${c.name}: its own timeline`);
   assert.ok(TIMELINES[id], `${c.name}: ${id} exists`);
-  assert.ok(strategyTint(c)[0] === tintOf('Fire')[0] || strategyTint(c)[0] === tintOf('Water')[0], `${c.name}: flares in its Type's colour`);
+  assert.ok(['Fire', 'Water', 'Grass'].some((type) => strategyTint(c)[0] === tintOf(type)[0]), `${c.name}: flares in its Type's colour`);
   // Every one opens the same way: flare, its name, then it dissolves into the effect.
   const def = composeStrategy(id);
   for (const cue of ['flare', 'banner', 'dissolve']) assert.ok(def.beats.some((b) => b.cue === cue), `${c.name}: the opening's ${cue}`);
@@ -179,7 +182,7 @@ for (const c of deckStrategies) {
   const ms = timelineDuration(def, MAX_SCALE) + 300;
   assert.ok(ms >= 1800 && ms <= 2600, `${c.name}: ${ms} ms in total`);
 }
-assert.equal(Object.keys(STRATEGIES).length, 8);
+assert.equal(Object.keys(STRATEGIES).length, 12);
 assert.equal(strategyAnimation({ id: 'some-new-card' }), STRATEGY_FALLBACK, 'a card without its own animation yet gets the generic one');
 // What each one is made of (docs/vfx.md section 4).
 const uses = (id, pred) => TIMELINES[id].beats.some(pred);
@@ -389,6 +392,50 @@ assert.equal(createRenderer({ getContext: () => { throw new Error('no WebGL'); }
   assert.ok(!cardMarkup(at(s, 'player', 0, 0), 'board').includes('data-status-charged'), 'and the aura is gone after Supper');
   // An Attack buff that lasts (not "this Round") gets no aura.
   assert.equal(STATUS_VISUALS.charged.levelOf({ attackBonus: 2 }), 0);
+}
+
+// --- Grass G4 ---------------------------------------------------------------------------------
+
+{
+  // Its own textures from the kit (leaves, petals and rocks as sprite sheets).
+  for (const name of ['leaves', 'petals', 'vines', 'seed', 'powder', 'rocks', 'sleep-z']) assert.ok(TEXTURES.includes(name), name);
+  // Razor Leaf: leaves fly, then leaves and petals burst; String Shot wraps, then a bite; Rock Throw arcs a rock into shards and dust.
+  const texOf = (id) => TIMELINES[id].beats.map((b) => EMITTERS[b.emit]?.tex).filter(Boolean);
+  assert.ok(['leaves', 'petals'].every((x) => texOf('grass-special').includes(x)), 'Razor Leaf: leaves and petals');
+  assert.ok(cueOf('bug-physical', 'wrap') && TIMELINES['bug-physical'].beats.some((b) => b.ribbon === 'silkStrand'), 'String Shot: silk wraps the target');
+  assert.ok(TIMELINES['rock-physical'].beats.some((b) => b.projectile === 'rock') && texOf('rock-physical').includes('rocks'), 'Rock Throw: a rock arcs over, stone shards');
+  // The Strategy Cards: a seed into vines, a powder cloud, sunlight and Growth, a charge-up and a beam with hit-stop.
+  assert.ok(TIMELINES['strategy-leech-seed'].beats.some((b) => b.projectile === 'seed') && texOf('strategy-leech-seed').includes('vines'));
+  assert.ok(texOf('strategy-sleep-powder').includes('powder') && TIMELINES['strategy-sleep-powder'].beats.some((b) => b.motion === 'drowsy'));
+  assert.ok(cueOf('strategy-synthesis', 'heal') && cueOf('strategy-synthesis', 'growth'), 'Synthesis: heals, then Growth to the tile');
+  const beam = TIMELINES['strategy-solar-beam'].beats;
+  assert.ok(cueOf('strategy-solar-beam', 'charge') && beam.some((b) => b.beam === 'solarBeam') && beam.find((b) => b.cue === 'impact').hitstop > 0, 'Solar Beam: charge, beam, hit-stop');
+  // Its hit-stop grows with the damage (as every hit-stop does).
+  assert.ok(impactScale(8) > impactScale(2));
+  // The evolution moment: about 2 s at Fast, white glow and pulse, the reveal; a Stage 2 adds a burst of petals.
+  assert.equal(evolveAnimation({ stage: 'Stage 1' }), EVOLVE);
+  assert.equal(evolveAnimation(cardDefinition('venusaur')), EVOLVE_STAGE2);
+  for (const id of [EVOLVE, EVOLVE_STAGE2]) {
+    const ms = timelineDuration(TIMELINES[id], MAX_SCALE);
+    assert.ok(ms >= 1800 && ms <= 2400, `${id}: about 2 s at Fast (${ms} ms)`);
+    assert.ok(cueOf(id, 'glow') && cueOf(id, 'reveal') && cueOf(id, 'growthIn'));
+    assert.ok(TIMELINES[id].beats.some((b) => b.motion === 'silhouette'));
+  }
+  assert.ok(TIMELINES[EVOLVE_STAGE2].beats.some((b) => EMITTERS[b.emit]?.tex === 'petals'), 'a Stage 2: light and petals');
+  // Statuses by animation only: Sleep's "z"s, Leech Seed's vines; each with a beat for being put on and taken off.
+  assert.equal(EMITTERS[STATUS_VISUALS.sleep.ambient.z].tex, 'sleep-z');
+  assert.equal(EMITTERS[STATUS_VISUALS.leechSeed.ambient.vines].tex, 'vines');
+  for (const id of ['sleep', 'leechSeed']) for (const k of ['applied', 'cleared']) assert.ok(TIMELINES[STATUS_VISUALS[id][k]], `${id} ${k}`);
+  assert.ok(TIMELINES['sleep-wake'].beats.some((b) => b.motion === 'jolt'), 'waking: a little jolt');
+  // Growth motes; a Grass defeat wilts; the Weather pulse names the bracket's mechanic.
+  assert.ok(GROWTH_MOTES.count(1) >= 2 && GROWTH_MOTES.count(20) <= 8);
+  assert.equal(defeatStyle({ cause: 'leechSeed' }), 'wilt');
+  assert.equal(defeatStyle({ hitBy: { kind: 'pokemon', type: 'Grass' } }), 'wilt');
+  assert.equal(weatherPulseText('Sun', 4), 'Sun 4: +1 Growth at Breakfast');
+  assert.equal(weatherPulseText('Rain', 8), 'Rain 8: Downpour');
+  for (const type of ['Sun', 'Rain']) for (const at of [2, 4, 6, 8]) assert.ok(weatherPulseText(type, at).length > `${type} ${at}`.length, `${type} ${at} named`);
+  // Every motion the new timelines use exists in the engine.
+  for (const id of Object.keys(TIMELINES)) for (const b of TIMELINES[id].beats) if (b.motion) assert.ok(MOTION_NAMES.includes(b.motion), `${id}: ${b.motion}`);
 }
 
 console.log('All VFX tests passed.');

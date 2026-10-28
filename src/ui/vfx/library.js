@@ -17,9 +17,12 @@
 // Textures in assets/vfx/<name>.webp (docs/vfx.md section 8). Missing ones
 // are drawn in code (textures.js), in the same cel-shaded style.
 export const TEXTURES = ['flame', 'fire-burst', 'embers', 'smoke', 'splash', 'droplets', 'water-jet', 'lightning',
-  'slash', 'shadow', 'impact', 'shockwave', 'bubble', 'char-edge', 'wave', 'ripple', 'sparkle', 'cracks'];
+  'slash', 'shadow', 'impact', 'shockwave', 'bubble', 'char-edge', 'wave', 'ripple', 'sparkle', 'cracks',
+  'leaves', 'petals', 'vines', 'seed', 'powder', 'rocks', 'sleep-z'];
 // Sprite sheets (one sprite per cell, rectangles in assets/vfx/manifest.json).
-export const ATLASES = { embers: 'embers-atlas', droplets: 'droplets-atlas', sparkle: 'sparkle-atlas' };
+export const ATLASES = {
+  embers: 'embers-atlas', droplets: 'droplets-atlas', sparkle: 'sparkle-atlas', leaves: 'leaves-atlas', petals: 'petals-atlas', rocks: 'rocks-atlas',
+};
 // Always drawn in code: soft dot, glow, streak, shard, ring, coin, and the
 // distortion maps for heat shimmer and shockwaves.
 export const BUILT_IN = ['dot', 'glow', 'streak', 'shard', 'ring', 'coin', 'heat-map', 'ring-map'];
@@ -39,6 +42,8 @@ export const BUDGETS = {
   heal: { min: 300, max: 1000 },
   trainer: { min: 250, max: 1800 },   // a Trainer flinching, or cracking and falling
   supporter: { min: 900, max: 2000 },   // a Supporter's portrait moment
+  evolve: { min: 2000, max: 3200 },     // the evolution moment: "about 2 s at Fast" (Normal runs it 1.5× longer)
+  growth: { min: 300, max: 900 },       // Growth motes flying into the Growth tile
   ending: { min: 2500, max: 4000 },   // the Victory or Defeat crest and what falls round it
 };
 
@@ -46,8 +51,8 @@ export const BUDGETS = {
 // sparkle and confetti-like embers or droplets in the winning deck's style;
 // Defeat lets ash or rain fall (in the player's own deck's style).
 export function endingAnimation(stats) {
-  if (stats.result === 'victory') return { id: 'ending-victory', style: stats.deck.player === 'water' ? 'water' : 'fire' };
-  return { id: 'ending-defeat', style: stats.deck.player === 'water' ? 'water' : 'fire' };
+  const style = stats.deck.player === 'water' ? 'water' : stats.deck.player === 'grass' ? 'grass' : 'fire';
+  return { id: stats.result === 'victory' ? 'ending-victory' : 'ending-defeat', style };
 }
 
 // Two colours per Pokémon Type (main, highlight), for tinting generic effects.
@@ -74,6 +79,10 @@ export const ATTACKS = {
   'Fighting Physical': 'fighting-physical',
   'Dark Physical': 'dark-physical',
   'Normal Physical': 'normal-physical',
+  // Grass G4: the Grass deck's three.
+  'Grass Special': 'grass-special',
+  'Bug Physical': 'bug-physical',
+  'Rock Physical': 'rock-physical',
 };
 export const FALLBACKS = ['generic-physical', 'generic-special'];
 export function attackAnimation(card) {
@@ -85,6 +94,7 @@ export const COUNTERS = {
   'water-physical': 'water-counter', 'water-special': 'water-counter',
   'electric-special': 'electric-counter', 'fighting-physical': 'fighting-counter',
   'dark-physical': 'dark-counter', 'normal-physical': 'normal-counter',
+  'grass-special': 'grass-counter', 'bug-physical': 'bug-counter', 'rock-physical': 'rock-counter',
 };
 export const counterAnimation = (card) => COUNTERS[attackAnimation(card)] ?? 'generic-counter';
 
@@ -103,12 +113,17 @@ export const STRATEGIES = {
   'bubble-beam': 'strategy-bubble-beam',
   dive: 'strategy-dive',
   surf: 'strategy-surf',
+  'leech-seed': 'strategy-leech-seed',
+  'sleep-powder': 'strategy-sleep-powder',
+  synthesis: 'strategy-synthesis',
+  'solar-beam': 'strategy-solar-beam',
 };
 export const STRATEGY_FALLBACK = 'strategy-generic';
 // The Type colour each card flares in.
 export const STRATEGY_TYPES = {
   ember: 'Fire', 'flame-charge': 'Fire', 'heat-wave': 'Fire', 'fire-blast': 'Fire',
   'aqua-ring': 'Water', 'bubble-beam': 'Water', dive: 'Water', surf: 'Water',
+  'leech-seed': 'Grass', 'sleep-powder': 'Grass', synthesis: 'Grass', 'solar-beam': 'Grass',
 };
 export const strategyTint = (card) => tintOf(STRATEGY_TYPES[card?.id] ?? 'Normal');
 export const strategyAnimation = (card) => STRATEGIES[card?.id] ?? STRATEGY_FALLBACK;
@@ -170,13 +185,37 @@ export function composeSummon(id, { quick = false } = {}) {
 
 // How a defeated Pokémon goes, by what defeated it: burnt to ash (Fire attacks,
 // Fire cards and Burn), washed away (Water), shattered (everything else).
-export const DEFEATS = { ash: 'defeat-ash', wash: 'defeat-wash', shatter: 'defeat-shatter' };
+export const DEFEATS = { ash: 'defeat-ash', wash: 'defeat-wash', shatter: 'defeat-shatter', wilt: 'defeat-wilt' };
 export function defeatStyle(e) {
   if (e?.cause === 'burn') return 'ash';
+  // Leech Seed, Grass attacks and Grass cards: it wilts away in leaves.
+  if (e?.cause === 'leechSeed') return 'wilt';
   const hit = e?.hitBy ?? {};
   const type = hit.type ?? (hit.kind === 'strategy' ? STRATEGY_TYPES[hit.id] : null);
-  return type === 'Fire' ? 'ash' : type === 'Water' ? 'wash' : 'shatter';
+  return type === 'Fire' ? 'ash' : type === 'Water' ? 'wash' : type === 'Grass' ? 'wilt' : 'shatter';
 }
+
+// --- Grass G4: evolution, Growth, Weather pulses -------------------------------------------
+
+// The evolution moment: the Pokémon glows white and its silhouette pulses; a
+// Stage 2 adds a burst of light and petals; then the new card is revealed.
+export const EVOLVE = 'evolve-moment';
+export const EVOLVE_STAGE2 = 'evolve-stage2';
+export const evolveAnimation = (card) => (card?.stage === 'Stage 2' ? EVOLVE_STAGE2 : EVOLVE);
+// Growth gained: green-gold motes fly from where it came from into the Growth tile.
+export const GROWTH_MOTES = { count: (n) => Math.max(2, Math.min(8, 2 * n)), ms: 650, tex: 'glow', size: 18, color: '#c8f060' };
+// A Weather bracket switching on: the pulse names what it now does.
+export const WEATHER_PULSE = {
+  'Sun 2': 'Sun 2: Burn +1',
+  'Sun 4': 'Sun 4: +1 Growth at Breakfast',
+  'Sun 6': 'Sun 6: no Sleep',
+  'Sun 8': 'Sun 8: Drought',
+  'Rain 2': 'Rain 2: heals +1',
+  'Rain 4': 'Rain 4: Burn −1',
+  'Rain 6': 'Rain 6: Leech Seed drains 2',
+  'Rain 8': 'Rain 8: Downpour',
+};
+export const weatherPulseText = (weather, at) => WEATHER_PULSE[`${weather} ${at}`] ?? `${weather} ${at}`;
 
 // Bigger hits, bigger effects: particle counts, shake, flash and hit-stop scale with this.
 export const impactScale = (damage) => Math.max(0.7, Math.min(1.6, 0.55 + 0.13 * (damage ?? 1)));
@@ -314,6 +353,7 @@ export const EMITTERS = {
   overrunWater: { tex: 'droplets', blend: 'alpha', rate: 110, at: 'centre', dir: 'back', speed: R(80, 240), gravity: 500, life: R(260, 460), size: [R(0.4, 0.7), 0.2], alpha: [1, 0], spin: R(-6, 6) },
   overrunStreaks: { tex: 'streak', blend: 'add', rate: 90, at: 'centre', dir: 'back', speed: R(200, 420), life: R(140, 260), size: [R(0.5, 0.8), 0.2], alpha: [1, 0], tint: 'type', alignVelocity: true },
   overrunShadow: { tex: 'shadow', blend: 'alpha', rate: 50, at: 'centre', dir: 'back', speed: R(40, 120), life: R(260, 420), size: [R(0.12, 0.16), R(0.22, 0.3)], alpha: [0.75, 0], rot: R(0, 6.28), spin: R(-1, 1) },
+  overrunLeaves: { tex: 'leaves', blend: 'alpha', rate: 80, at: 'centre', dir: 'back', speed: R(100, 260), life: R(260, 460), size: [R(0.4, 0.7), 0.2], alpha: [1, 0], spin: R(-10, 10) },
   overrunDust: { tex: 'smoke', blend: 'alpha', rate: 40, at: 'centre', dir: 'back', speed: R(60, 160), life: R(400, 600), size: [R(0.1, 0.14), R(0.24, 0.32)], alpha: [0.55, 0], tint: '#c9a878', spin: R(-0.6, 0.6) },
   // Burn from a Pokémon's ability: embers cast from it to the target
   emberStream: { tex: 'embers', blend: 'add', rate: 90, at: 'muzzle', dir: 'forward', speed: R(700, 1000), spreadDeg: 10, toTarget: true, life: R(380, 520), size: [R(0.6, 0.9), 0.3], alpha: [1, 0.2], spin: R(-8, 8) },
@@ -412,6 +452,56 @@ export const EMITTERS = {
   burnFlareCore: { tex: 'fire-burst', blend: 'add', count: 1, at: 'centre', offsetY: 0.1, life: 420, size: [0.25, 0.9], alpha: [0.85, 0] },
   steam: { tex: 'smoke', blend: 'alpha', count: 16, at: 'card', area: 0.8, dir: 'up', speed: R(90, 220), drag: 0.8, life: R(900, 1400), size: [R(0.12, 0.18), R(0.4, 0.6)], alpha: [0.7, 0], fadeIn: 80, spin: R(-0.5, 0.5), tint: '#f2f6fa' },
   steamHiss: { tex: 'dot', blend: 'add', count: 14, at: 'card', area: 0.8, dir: 'up', speed: R(120, 260), life: R(300, 600), size: [R(0.3, 0.6), 0.1], alpha: [0.8, 0], tint: '#dff2ff' },
+  // --- Grass G4 ---
+  // Grass Special: Razor Leaf (leaves gather and spin, a volley flies, leaves and petals burst)
+  leafGather: { tex: 'leaves', blend: 'alpha', count: 14, at: 'ring', radius: R(120, 200), dir: 'inward', speed: 2.2, drag: 2, life: 420, size: [R(0.45, 0.7), 0.3], alpha: [0, 1], spin: R(-9, 9) },
+  leafCharge: { tex: 'glow', blend: 'add', rate: 50, at: 'muzzle', dir: 'radial', speed: R(10, 50), life: R(160, 260), size: [R(0.5, 0.8), 0.1], alpha: [0.8, 0], tint: ['#7cdc4a', '#e0ff9e'] },
+  razorLeaves: { tex: 'leaves', blend: 'alpha', rate: 70, at: 'muzzle', dir: 'forward', speed: R(1000, 1350), spreadDeg: 10, drag: 0.2, toTarget: true, life: R(360, 480), size: [R(0.5, 0.8), R(0.45, 0.7)], alpha: [1, 0.9], spin: R(-18, 18) },
+  leafGlints: { tex: 'streak', blend: 'add', rate: 50, at: 'muzzle', dir: 'forward', speed: R(1100, 1400), spreadDeg: 8, toTarget: true, life: R(260, 380), size: [R(0.4, 0.7), 0.2], alpha: [0.8, 0], tint: ['#b8ff8a', '#ffffff'], alignVelocity: true },
+  leafBurst: { tex: 'leaves', blend: 'alpha', count: 26, at: 'centre', dir: 'radial', push: 200, speed: R(320, 820), lift: 160, gravity: 700, drag: 1.2, life: R(700, 1100), size: [R(0.5, 0.9), 0.35], alpha: [1, 0], spin: R(-12, 12) },
+  petalBurst: { tex: 'petals', blend: 'alpha', count: 20, at: 'centre', dir: 'radial', speed: R(200, 560), lift: 120, gravity: 260, drag: 1.6, life: R(800, 1300), size: [R(0.45, 0.8), 0.3], alpha: [1, 0], spin: R(-8, 8) },
+  leafCuts: { tex: 'slash', blend: 'add', count: 1, at: 'centre', life: 360, size: [0.28, 0.7], alpha: [0.9, 0], rot: R(-0.5, 0.5), tint: ['#c8ff9a', '#ffffff'] },
+  // Bug Physical: String Shot (silk wraps the target) then a bite
+  silkWrap: { tex: 'shockwave', blend: 'add', count: 3, at: 'centre', life: R(420, 620), size: [0.9, R(0.35, 0.5)], alpha: [0.9, 0], rot: R(-0.6, 0.6), tint: '#f6f6ee' },
+  silkStrands: { tex: 'streak', blend: 'add', rate: 60, at: 'card', area: 0.7, dir: 'inward', speed: 1.6, life: R(260, 380), size: [R(0.6, 1), 0.2], alpha: [0.85, 0], tint: '#ffffff', alignVelocity: true },
+  biteMarks: { tex: 'slash', blend: 'add', count: 2, at: 'centre', life: 380, size: [0.3, 0.75], alpha: [1, 0], rot: R(1.3, 1.85), tint: ['#e8ff9a', '#ffffff'] },
+  // Rock Physical: Rock Throw (shards gather, a heavy rock arcs over, stone shards and dust)
+  rockGather: { tex: 'rocks', blend: 'alpha', count: 12, at: 'ring', radius: R(110, 180), dir: 'inward', speed: 2.2, drag: 2, life: 360, size: [R(0.35, 0.6), 0.3], alpha: [0, 1], spin: R(-6, 6) },
+  rockTrailDust: { tex: 'smoke', blend: 'alpha', rate: 30, at: 'card', area: 0.25, dir: 'back', speed: R(40, 120), life: R(400, 650), size: [R(0.08, 0.12), R(0.2, 0.3)], alpha: [0.5, 0], tint: '#c8b08a', spin: R(-0.6, 0.6) },
+  rockChunk: { tex: 'rocks', blend: 'alpha', rate: 26, at: 'card', area: 0.2, dir: 'back', speed: R(30, 90), gravity: 400, life: R(300, 500), size: [R(0.3, 0.5), 0.2], alpha: [1, 0], spin: R(-8, 8) },
+  rockShards: { tex: 'rocks', blend: 'alpha', count: 22, at: 'centre', dir: 'radial', push: 260, speed: R(380, 980), lift: 320, gravity: 1600, drag: 0.6, life: R(600, 1000), size: [R(0.45, 0.85), 0.3], alpha: [1, 0.3], spin: R(-12, 12) },
+  // Grass counters
+  leafSpray: { tex: 'leaves', blend: 'alpha', count: 12, at: 'centre', dir: 'radial', speed: R(260, 620), lift: 100, gravity: 600, drag: 1.2, life: R(500, 800), size: [R(0.45, 0.75), 0.3], alpha: [1, 0], spin: R(-12, 12) },
+  // Leech Seed: a seed arcs over, bursts into vines that wrap the target
+  seedSparks: { tex: 'dot', blend: 'add', rate: 50, at: 'card', area: 0.2, dir: 'back', speed: R(30, 110), life: R(220, 400), size: [R(0.3, 0.55), 0.1], alpha: [1, 0], tint: ['#9cf06a', '#f0ffd0'] },
+  seedPod: { tex: 'seed', blend: 'alpha', count: 1, at: 'centre', life: 380, size: [0.18, 0.42], alpha: [1, 0], spin: R(-1, 1) },
+  vineWrap: { tex: 'vines', blend: 'alpha', count: 4, at: 'edges', dir: 'none', life: R(700, 900), size: [R(0.14, 0.2), R(0.2, 0.26)], alpha: [1, 0], fadeIn: 120, rot: R(0, 6.28) },
+  vineLeaves: { tex: 'leaves', blend: 'alpha', rate: 18, at: 'edges', dir: 'up', speed: R(20, 60), life: R(500, 800), size: [R(0.3, 0.45), 0.2], alpha: [1, 0], spin: R(-3, 3) },
+  // Sleep Powder: a glittering purple-blue cloud drifts over the target
+  powderCloud: { tex: 'powder', blend: 'add', rate: 10, at: 'top', dir: 'down', speed: R(40, 90), drag: 0.6, life: R(700, 1000), size: [R(0.14, 0.2), R(0.3, 0.4)], alpha: [0.85, 0], fadeIn: 140, spin: R(-0.4, 0.4) },
+  powderGlitter: { tex: 'sparkle', blend: 'add', rate: 34, at: 'card', area: 1, dir: 'down', speed: R(20, 70), life: R(500, 900), size: [R(0.1, 0.18), 0.02], alpha: [1, 0], spin: R(-3, 3), tint: ['#c8b0ff', '#a8d0ff'] },
+  // Synthesis: sunlight pours down onto the caster
+  sunPour: { tex: 'streak', blend: 'add', rate: 30, at: 'top', dir: 'down', speed: R(500, 800), life: R(260, 420), size: [R(0.8, 1.3), 0.6], alpha: [0.7, 0], tint: ['#fff3a0', '#ffffff'], alignVelocity: true },
+  sunGlow: { tex: 'glow', blend: 'add', count: 1, at: 'centre', life: 700, size: [1.2, 2.6], alpha: [0.7, 0], tint: '#ffe880' },
+  sunGlints: { tex: 'sparkle', blend: 'add', rate: 26, at: 'card', area: 0.9, dir: 'up', speed: R(30, 90), life: R(500, 800), size: [R(0.14, 0.24), 0.04], alpha: [1, 0], spin: R(-2, 2), tint: ['#fff3a0', '#d6ff9e'] },
+  // Solar Beam: light gathers from the sun, then a huge golden-green beam
+  solarGather: { tex: 'glow', blend: 'add', rate: 70, at: 'ring', radius: R(160, 280), dir: 'inward', speed: 2.6, drag: 1.5, life: 380, size: [R(0.4, 0.7), 0.2], alpha: [0, 1], tint: ['#fff3a0', '#b8ff6a'] },
+  solarCore: { tex: 'glow', blend: 'add', count: 1, at: 'muzzle', life: 600, size: [0.4, 1.6], alpha: [0.5, 1], tint: '#fff8c0' },
+  solarBurst: { tex: 'glow', blend: 'add', count: 2, at: 'centre', life: R(450, 600), size: [R(0.8, 1), R(3, 3.8)], alpha: [1, 0], tint: ['#fff3a0', '#c8ff7a'] },
+  solarSparks: { tex: 'streak', blend: 'add', count: 36, at: 'centre', dir: 'radial', speed: R(500, 1200), gravity: 500, drag: 1, life: R(300, 600), size: [R(0.6, 1), 0.2], alpha: [1, 0], tint: ['#fff3a0', '#b8ff6a'], alignVelocity: true },
+  // The evolution moment
+  evolveMotes: { tex: 'glow', blend: 'add', rate: 60, at: 'ring', radius: R(130, 220), dir: 'inward', speed: 2.4, drag: 1.5, life: 420, size: [R(0.25, 0.45), 0.1], alpha: [0, 1], tint: ['#ffffff', '#e6ffd0'] },
+  evolveFlash: { tex: 'glow', blend: 'add', count: 1, at: 'centre', life: 520, size: [0.8, 3.2], alpha: [1, 0], tint: '#ffffff' },
+  evolveSparkle: { tex: 'sparkle', blend: 'add', count: 26, at: 'card', area: 1, dir: 'radial', speed: R(120, 360), drag: 1.5, life: R(600, 1000), size: [R(0.2, 0.34), 0.04], alpha: [1, 0], spin: R(-3, 3), tint: ['#ffffff', '#fff3c4'] },
+  // Statuses: Sleep's drifting "z"s, Leech Seed's creeping vines, a waking jolt
+  sleepZ: { tex: 'sleep-z', blend: 'alpha', rate: 0.7, at: 'top', dir: 'up', speed: R(14, 26), lift: 6, life: R(1800, 2400), size: [R(0.05, 0.07), R(0.09, 0.12)], alpha: [0.9, 0], fadeIn: 400, rot: R(-0.3, 0.1), spin: R(-0.3, 0.3), tint: '#cfe0ff' },
+  vineCreep: { tex: 'vines', blend: 'alpha', rate: 0.9, at: 'edges', dir: 'none', life: R(2200, 3000), size: [R(0.08, 0.11), R(0.12, 0.15)], alpha: [0.85, 0], fadeIn: 600, rot: R(0, 6.28) },
+  wakeSparks: { tex: 'sparkle', blend: 'add', count: 10, at: 'top', dir: 'up', speed: R(80, 180), life: R(300, 500), size: [R(0.14, 0.22), 0.04], alpha: [1, 0], tint: ['#fff8d0', '#cfe0ff'] },
+  // Defeat by Grass: wilts into falling leaves
+  wiltLeaves: { tex: 'leaves', blend: 'alpha', rate: 40, at: 'card', area: 0.9, dir: 'down', speed: R(30, 90), gravity: 160, life: R(700, 1100), size: [R(0.4, 0.7), 0.3], alpha: [1, 0], spin: R(-4, 4) },
+  // Victory or defeat in Grass style
+  confettiLeaves: { tex: 'leaves', blend: 'alpha', rate: 26, at: 'top', dir: 'down', speed: R(60, 160), gravity: 60, life: R(2400, 3400), size: [R(0.4, 0.7), 0.3], alpha: [1, 0.5], spin: R(-4, 4) },
+  confettiPetals: { tex: 'petals', blend: 'alpha', rate: 26, at: 'top', dir: 'down', speed: R(50, 140), gravity: 40, life: R(2600, 3600), size: [R(0.4, 0.7), 0.3], alpha: [1, 0.5], spin: R(-3, 3) },
 };
 
 // --- Timelines ----------------------------------------------------------------------------
@@ -634,6 +724,226 @@ export const TIMELINES = {
       { at: 560, emit: 'genericOrbs', on: 'impact' },
       { at: 560, emit: 'genericSparks', on: 'impact' },
       { at: 560, end: 1030, track: 'target', motion: 'recoil' },
+    ],
+  },
+  // --- Grass G4 attacks ---
+  // Grass Special (Bulbasaur, Ivysaur, Venusaur, Oddish, Gloom, Bellossom, Sunkern,
+  // Sunflora, Celebi): Razor Leaf. Leaves gather and spin round the attacker, a
+  // volley flies across, and the impact bursts into leaves and petals.
+  'grass-special': {
+    budget: 'attack', duration: 1250, approach: [260, 520],
+    style: { flash: 'grass', overrunTrail: 'overrunLeaves', overrunBurst: 'leafBurst' },
+    beats: [
+      { at: 0, end: 260, track: 'attacker', motion: 'rear' },
+      { at: 0, emit: 'leafGather', on: 'attacker' },
+      { at: 0, end: 260, emit: 'leafCharge', on: 'attacker' },
+      { at: 260, end: 760, track: 'attacker', motion: 'brace' },
+      { at: 260, end: 620, emit: 'razorLeaves', on: 'attacker' },
+      { at: 260, end: 620, emit: 'leafGlints', on: 'attacker' },
+      { at: 260, end: 620, ribbon: 'leafStream', on: 'attacker' },
+      { at: 520, cue: 'impact', hitstop: 60, shake: 9, flash: 'grass', bloom: 0.8 },
+      { at: 520, emit: 'leafCuts', on: 'impact' },
+      { at: 520, emit: 'leafBurst', on: 'impact' },
+      { at: 520, emit: 'petalBurst', on: 'impact' },
+      { at: 520, end: 1150, track: 'target', motion: 'recoil' },
+      { at: 760, end: 1000, track: 'attacker', motion: 'settle' },
+    ],
+  },
+  // Bug Physical (Sewaddle): a quick String Shot wraps the target in silk, then a bite.
+  'bug-physical': {
+    budget: 'attack', duration: 1150, approach: [380, 560],
+    style: { flash: 'type', overrunTrail: 'overrunStreaks', overrunBurst: 'biteMarks' },
+    beats: [
+      { at: 0, end: 200, track: 'attacker', motion: 'rear' },
+      { at: 80, end: 300, ribbon: 'silkStrand', on: 'attacker' },
+      { at: 260, cue: 'wrap', bloom: 0.3 },
+      { at: 260, emit: 'silkWrap', on: 'target' },
+      { at: 260, end: 520, emit: 'silkStrands', on: 'target' },
+      { at: 260, end: 560, track: 'target', motion: 'bound' },
+      { at: 380, end: 560, track: 'attacker', motion: 'dash' },
+      { at: 380, end: 560, ribbon: 'tintTrail', on: 'attacker' },
+      { at: 560, cue: 'impact', hitstop: 70, shake: 10, flash: 'type', bloom: 0.7, distort: 'shockwave' },
+      { at: 560, emit: 'biteMarks', on: 'impact' },
+      { at: 560, emit: 'impactStar', on: 'impact', tint: ['#eaff9e', '#ffffff'] },
+      { at: 560, emit: 'genericSparks', on: 'impact' },
+      { at: 560, end: 900, track: 'attacker', motion: 'return' },
+      { at: 560, end: 1100, track: 'target', motion: 'recoil' },
+    ],
+  },
+  // Rock Physical (Sudowoodo): Rock Throw. Shards gather, a heavy rock arcs over,
+  // and it smashes into stone shards and dust.
+  'rock-physical': {
+    budget: 'attack', duration: 1240, approach: [340, 660],
+    style: { flash: 'rock', overrunTrail: 'overrunDust', overrunBurst: 'rockShards' },
+    beats: [
+      { at: 0, end: 340, track: 'attacker', motion: 'heave' },
+      { at: 0, emit: 'rockGather', on: 'attacker' },
+      { at: 340, end: 660, projectile: 'rock', on: 'path', glow: '#b89060', size: 1.3 },
+      { at: 340, end: 660, emit: 'rockChunk', on: 'projectile' },
+      { at: 340, end: 660, emit: 'rockTrailDust', on: 'projectile' },
+      { at: 340, end: 600, track: 'attacker', motion: 'settle' },
+      { at: 660, cue: 'impact', hitstop: 100, shake: 18, flash: 'rock', bloom: 0.9, distort: 'shockwave' },
+      { at: 660, emit: 'impactStar', on: 'impact', tint: ['#f0e2b0', '#ffffff'] },
+      { at: 660, emit: 'rockShards', on: 'impact' },
+      { at: 660, emit: 'dustBurst', on: 'impact' },
+      { at: 660, emit: 'groundRing', on: 'impact', tint: '#d8b070' },
+      { at: 660, end: 1200, track: 'target', motion: 'recoil' },
+    ],
+  },
+  'grass-counter': {
+    budget: 'counter', duration: 560,
+    beats: [
+      { at: 0, end: 160, track: 'self', motion: 'flinchForward' },
+      { at: 60, cue: 'counterHit', shake: 5, flash: 'grass', bloom: 0.5 },
+      { at: 60, emit: 'leafCuts', on: 'counterImpact' },
+      { at: 60, emit: 'leafSpray', on: 'counterImpact' },
+      { at: 60, emit: 'petalBurst', on: 'counterImpact', countScale: 0.4 },
+      { at: 160, end: 420, track: 'self', motion: 'settle' },
+    ],
+  },
+  'bug-counter': {
+    budget: 'counter', duration: 520,
+    beats: [
+      { at: 0, end: 160, track: 'self', motion: 'flinchForward' },
+      { at: 60, cue: 'counterHit', shake: 5, flash: 'type', bloom: 0.5 },
+      { at: 60, emit: 'biteMarks', on: 'counterImpact' },
+      { at: 60, emit: 'silkWrap', on: 'counterImpact', countScale: 0.5 },
+      { at: 160, end: 400, track: 'self', motion: 'settle' },
+    ],
+  },
+  'rock-counter': {
+    budget: 'counter', duration: 580,
+    beats: [
+      { at: 0, end: 180, track: 'self', motion: 'flinchForward' },
+      { at: 70, cue: 'counterHit', shake: 8, flash: 'rock', bloom: 0.5 },
+      { at: 70, emit: 'rockShards', on: 'counterImpact', countScale: 0.5 },
+      { at: 70, emit: 'dustBurst', on: 'counterImpact', countScale: 0.5 },
+      { at: 180, end: 440, track: 'self', motion: 'settle' },
+    ],
+  },
+  // --- Grass G4 Strategy Cards ---
+  // Leech Seed: a seed arcs over, cracks open and bursts into vines that wrap the target.
+  'strategy-leech-seed': {
+    budget: 'strategy', duration: 1150,
+    beats: [
+      { at: 0, end: 460, projectile: 'seed', on: 'path', glow: '#8cdc5a', size: 0.75 },
+      { at: 0, end: 460, ribbon: 'seedTrail', on: 'projectile' },
+      { at: 0, end: 460, emit: 'seedSparks', on: 'projectile' },
+      { at: 460, cue: 'seed', flash: 'grass', bloom: 0.6 },
+      { at: 460, emit: 'seedPod', on: 'target' },
+      { at: 460, emit: 'vineWrap', on: 'target' },
+      { at: 460, end: 1000, emit: 'vineLeaves', on: 'target' },
+      { at: 460, end: 1050, track: 'target', motion: 'bound' },
+    ],
+  },
+  // Sleep Powder: a glittering purple-blue cloud drifts over the target, which sways and dims.
+  'strategy-sleep-powder': {
+    budget: 'strategy', duration: 1150,
+    beats: [
+      { at: 0, end: 760, emit: 'powderCloud', on: 'target' },
+      { at: 0, end: 900, emit: 'powderGlitter', on: 'target' },
+      { at: 300, end: 1100, track: 'target', motion: 'drowsy' },
+      { at: 620, cue: 'sleep', bloom: 0.3 },
+    ],
+  },
+  // Synthesis: sunlight pours down onto the caster, it heals, and Growth motes rise to the Growth tile.
+  'strategy-synthesis': {
+    budget: 'strategy', duration: 1200,
+    beats: [
+      { at: 0, emit: 'sunGlow', on: 'target' },
+      { at: 0, end: 820, emit: 'sunPour', on: 'target' },
+      { at: 100, end: 900, emit: 'sunGlints', on: 'target' },
+      { at: 0, end: 900, track: 'target', motion: 'sunlit' },
+      { at: 560, cue: 'heal', emit: 'healGlints', on: 'target', bloom: 0.5 },
+      { at: 700, cue: 'growth' },
+    ],
+  },
+  // Solar Beam: light gathers from the sun into the card while the Growth spent drains
+  // into it, then a huge golden-green beam; the hit-stop grows with the damage.
+  'strategy-solar-beam': {
+    budget: 'strategy', duration: 1150,
+    beats: [
+      { at: 0, cue: 'charge' },
+      { at: 0, end: 560, emit: 'solarGather', on: 'card' },
+      { at: 0, emit: 'solarCore', on: 'card' },
+      { at: 560, end: 820, beam: 'solarBeam', on: 'attacker' },
+      { at: 600, cue: 'impact', hitstop: 140, shake: 20, flash: 'sun', bloom: 1.5, distort: 'shockwave' },
+      { at: 600, emit: 'solarBurst', on: 'target' },
+      { at: 600, emit: 'solarSparks', on: 'target' },
+      { at: 600, emit: 'leafBurst', on: 'target', countScale: 0.6 },
+      { at: 600, end: 1100, track: 'target', motion: 'recoil' },
+    ],
+  },
+  // --- The evolution moment (the evolved card is the 'target') ---
+  // It glows white, its silhouette pulses as light gathers, then the new card is revealed.
+  'evolve-moment': {
+    budget: 'evolve', duration: 2000,
+    beats: [
+      { at: 0, cue: 'glow', bloom: 0.4 },
+      { at: 0, cue: 'growthIn' },
+      { at: 0, end: 1500, track: 'target', motion: 'silhouette' },
+      { at: 100, end: 1350, emit: 'evolveMotes', on: 'target' },
+      { at: 1500, cue: 'reveal', flash: 'white', bloom: 0.9 },
+      { at: 1500, emit: 'evolveFlash', on: 'target' },
+      { at: 1500, emit: 'evolveSparkle', on: 'target' },
+      { at: 1500, end: 1950, track: 'target', motion: 'revealPop' },
+    ],
+  },
+  // A Stage 2: the same, with a short burst of light and petals as it's revealed.
+  'evolve-stage2': {
+    budget: 'evolve', duration: 2100,
+    beats: [
+      { at: 0, cue: 'glow', bloom: 0.5 },
+      { at: 0, cue: 'growthIn' },
+      { at: 0, end: 1500, track: 'target', motion: 'silhouette' },
+      { at: 100, end: 1350, emit: 'evolveMotes', on: 'target' },
+      { at: 1500, cue: 'reveal', flash: 'white', bloom: 1.3, shake: 6, distort: 'shockwave' },
+      { at: 1500, emit: 'evolveFlash', on: 'target' },
+      { at: 1500, emit: 'solarBurst', on: 'target' },
+      { at: 1500, emit: 'petalBurst', on: 'target' },
+      { at: 1500, emit: 'evolveSparkle', on: 'target' },
+      { at: 1500, end: 2050, track: 'target', motion: 'revealPop' },
+    ],
+  },
+  // --- Grass statuses ---
+  'sleep-fall': {
+    budget: 'status', duration: 800,
+    beats: [
+      { at: 0, emit: 'powderGlitter', on: 'target' },
+      { at: 0, end: 760, track: 'target', motion: 'drowsy' },
+    ],
+  },
+  'sleep-wake': {
+    budget: 'status', duration: 420,
+    beats: [
+      { at: 0, cue: 'wake' },
+      { at: 0, emit: 'wakeSparks', on: 'target' },
+      { at: 0, end: 380, track: 'target', motion: 'jolt' },
+    ],
+  },
+  'leech-catch': {
+    budget: 'status', duration: 760,
+    beats: [
+      { at: 0, emit: 'seedPod', on: 'target' },
+      { at: 0, emit: 'vineWrap', on: 'target' },
+      { at: 0, end: 600, emit: 'vineLeaves', on: 'target' },
+      { at: 0, end: 700, track: 'target', motion: 'bound' },
+    ],
+  },
+  'leech-gone': {
+    budget: 'status', duration: 500,
+    beats: [
+      { at: 0, emit: 'leafSpray', on: 'target', countScale: 0.6 },
+    ],
+  },
+  'defeat-wilt': {
+    budget: 'defeat', duration: 950,
+    beats: [
+      { at: 0, cue: 'defeatHit', flash: 'grass', shake: 4, bloom: 0.5 },
+      { at: 0, end: 820, track: 'target', motion: 'wilt' },
+      { at: 100, end: 800, emit: 'wiltLeaves', on: 'target' },
+      { at: 300, emit: 'petalBurst', on: 'target', countScale: 0.5 },
+      { at: 820, cue: 'gone' },
     ],
   },
   // Trades: the defender's shorter answer, at the moment of impact.
@@ -1021,6 +1331,7 @@ export const TIMELINES = {
       { at: 0, emit: 'confettiBurstDroplets', on: 'screen', when: 'water' },
       { at: 300, end: 3000, emit: 'confettiEmbers', on: 'screen', when: 'fire' },
       { at: 300, end: 3000, emit: 'confettiDroplets', on: 'screen', when: 'water' },
+      { at: 300, end: 3000, emit: 'confettiPetals', on: 'screen', when: 'grass' },
     ],
   },
   'ending-defeat': {
@@ -1030,6 +1341,7 @@ export const TIMELINES = {
       { at: 200, end: 3100, emit: 'ashFall', on: 'screen', when: 'fire' },
       { at: 200, end: 3100, emit: 'ashFlakes', on: 'screen', when: 'fire' },
       { at: 200, end: 3100, emit: 'rainFall', on: 'screen', when: 'water' },
+      { at: 200, end: 3100, emit: 'confettiLeaves', on: 'screen', when: 'grass' },
     ],
   },
   // Status beats
@@ -1073,6 +1385,9 @@ export const RIBBONS = {
   // Hydro Pump: two strands twisting round each other, so the stream spirals.
   hydroStream: { tex: 'streak', width: 72, life: 140, color: '#3a9cff', alpha: 0.55, blend: 'add', toTarget: true, wobble: 20, phase: 0 },
   hydroStreamCore: { tex: 'streak', width: 34, life: 140, color: '#e6f6ff', alpha: 0.6, blend: 'add', toTarget: true, wobble: 20, phase: Math.PI },
+  leafStream: { tex: 'streak', width: 46, life: 160, color: '#7cdc4a', alpha: 0.35, blend: 'add', toTarget: true, wobble: 14, phase: 0 },
+  silkStrand: { tex: 'streak', width: 10, life: 260, color: '#ffffff', alpha: 0.85, blend: 'add', toTarget: true },
+  seedTrail: { tex: 'streak', width: 26, life: 240, color: '#8cdc5a', alpha: 0.6, blend: 'add' },
 };
 
 // Beams: a texture stretched from the attacker's muzzle to the target, flickering
@@ -1080,6 +1395,8 @@ export const RIBBONS = {
 // lightning runs left to right, falling about 25°), so it can be turned to the attack.
 export const BEAMS = {
   lightningBolt: { tex: 'lightning', texAngle: 0.44, color: '#ffe866', glow: '#ff9d00', thickness: 1.7, flicker: true, jitter: 8 },
+  // Solar Beam: a huge golden-green beam (a bright core stretched across, a wide glow round it).
+  solarBeam: { tex: 'streak', texAngle: 0, color: '#fff6b0', glow: '#9cff5a', thickness: 2.2, jitter: 2 },
 };
 
 // Real time a timeline takes at normal speed: its beats plus every hit-stop,
@@ -1108,11 +1425,13 @@ export const STATUS_VISUALS = {
     applied: 'burn-catch',
     cleared: 'douse-steam',
   },
-  // Grass G1 placeholders (no counts, so level 1 only). Their look is CSS
-  // (render.css: dim and sway with "z"s; green vines) plus, for Leech Seed, a
-  // few green motes on the effects layer.
-  sleep: { maxLevel: 1, levels: [null, {}], ambient: {} },
-  leechSeed: { maxLevel: 1, levels: [null, { motes: 1 }], ambient: { motes: 'leechMotes' } },
+  // Sleep and Leech Seed (no counts, so level 1 only), animation only: the card
+  // dims, sways and takes a sleepy blue tint (CSS) with soft "z"s drifting up;
+  // thin vines creep over a seeded card's edges, with a few green motes.
+  sleep: { maxLevel: 1, levels: [null, { z: 1 }], ambient: { z: 'sleepZ' }, applied: 'sleep-fall', cleared: 'sleep-wake' },
+  leechSeed: {
+    maxLevel: 1, levels: [null, { motes: 1, vines: 1 }], ambient: { motes: 'leechMotes', vines: 'vineCreep' }, applied: 'leech-catch', cleared: 'leech-gone',
+  },
   // Flame Charge (and any "this Round" Attack buff): a burning aura until the
   // Round ends at Supper. Its level comes from the card, not a status count.
   charged: {

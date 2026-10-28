@@ -14,7 +14,7 @@ import { vfxReady, playTimeline, skipTimelines, clearVfx, coins as vfxCoins } fr
 import {
   attackAnimation, counterAnimation, tintOf, STATUS_VISUALS, composeAttack, composeCounter, effectAnimation, BURN_CAST,
   strategyAnimation, composeStrategy, strategyTint, DIVE_RISE,
-  summonAnimation, composeSummon, DEFEATS, defeatStyle, endingAnimation,
+  summonAnimation, composeSummon, DEFEATS, defeatStyle, endingAnimation, evolveAnimation, GROWTH_MOTES, weatherPulseText,
 } from './vfx/library.js';
 import { matchStats } from './resources.js';
 import { phaseIcon } from './icons.js';
@@ -353,14 +353,18 @@ async function strategyVfx(root, prev, next, main, t) {
   if (!el || skipping) return true;
   const foe = main.who === 'player' ? 'ai' : 'player';
   const sideOf = (who) => root.querySelector(`.side.${who === 'ai' ? 'opponent' : 'player'}`);
-  const target = shown(main.target?.uid) ?? null;
   const take = (x) => { consumed.add(x); return x; };
   const damage = mine.filter((x) => x.type === 'damage' && !x.cause);
   const burns = mine.filter((x) => x.type === 'statusApplied' && x.status === 'burn');
   const heals = mine.filter((x) => x.type === 'heal');
   const cleared = mine.filter((x) => x.type === 'statusCleared');
   const buffs = mine.filter((x) => x.type === 'buff');
+  const statuses = mine.filter((x) => x.type === 'statusApplied' && x.status !== 'burn');
+  const growths = mine.filter((x) => x.type === 'growthGained');
+  const spent = mine.filter((x) => x.type === 'growthSpent');
   const id = strategyAnimation(card);
+  // Synthesis with no Pokémon to heal: the sunlight pours onto the card itself.
+  const target = shown(main.target?.uid) ?? (id === 'strategy-synthesis' ? el : null);
   // Area cards (Heat Wave, Surf): every card the wall passes, enemies and friends.
   const sweepTargets = [
     ...[...damage, ...burns].filter((x) => x.target.owner === foe).map((x) => ({ x, side: 'enemy' })),
@@ -395,6 +399,17 @@ async function strategyVfx(root, prev, next, main, t) {
         if (d) floatNumber(rectOf(d), 'Doused', 'douse', t(1100));
       }),
       heal: () => heals.forEach(hitTarget),
+      // Grass G4: Leech Seed's vines and Sleep Powder take hold; Synthesis's Growth
+      // rises to the Growth tile; Solar Beam drains the Growth spent into the card.
+      seed: () => statuses.forEach((x) => { take(x); const d = shown(x.target.uid); if (d) floatNumber(rectOf(d), 'Leech Seed', 'status', t(1100)); }),
+      sleep: () => statuses.forEach((x) => { take(x); const d = shown(x.target.uid); if (d) floatNumber(rectOf(d), 'Asleep', 'status', t(1100)); }),
+      growth: () => growths.forEach((x) => { take(x); growthMotes(root, x.who, centre(rectOf(target ?? el)), x.amount, t); }),
+      charge: () => spent.forEach((x) => {
+        take(x);
+        growthMotes(root, x.who, centre(rectOf(el)), x.amount, t, { reverse: true });
+        const tile = pile(root, `${x.who}-growth`);
+        if (tile) floatNumber(rectOf(tile), `−${x.amount} Growth`, 'growth', t(1100));
+      }),
       sweepHit: ({ index }) => {
         const h = sweepTargets[index];
         if (!h) return;
@@ -756,8 +771,10 @@ async function douseBeat(e, t) {
   await wait(t(420));
 }
 
-// Sleep and Leech Seed (Grass G1, placeholder looks; the full ones are G4):
-// a word over the card and a puff in the status's colour as it's put on.
+// Sleep and Leech Seed, animation only: as one is put on, the card falls asleep
+// (it sways, dims and takes a blue tint as glitter settles) or vines wrap it; a
+// word says which. Waking is a little jolt; a seed removed sheds a few leaves.
+// (Without WebGL: a puff in the status's colour.)
 const STATUS_LOOK = {
   sleep: { word: 'Asleep', colors: ['#cfd8ff', '#9fb0ff', '#ffffff'] },
   leechSeed: { word: 'Leech Seed', colors: ['#b6f29a', '#6fd35a', '#e8ffd8'] },
@@ -767,21 +784,75 @@ async function statusBeat(e, t) {
   const look = STATUS_LOOK[e.status];
   if (!el || !look) return;
   const r = rectOf(el);
-  burst(r.x + r.w / 2, r.y + r.h * 0.45, { kind: 'sparkle', colors: look.colors, count: 16, speed: 70, up: 60, life: t(800), size: 8, area: r.w * 0.7 });
   floatNumber(r, look.word, 'status', t(1100));
+  const v = STATUS_VISUALS[e.status];
+  if (vfxReady() && t(1) > 0 && v?.applied) {
+    await playTimeline(v.applied, { target: el, rate: 1 / t(1) });
+    return;
+  }
+  burst(r.x + r.w / 2, r.y + r.h * 0.45, { kind: 'sparkle', colors: look.colors, count: 16, speed: 70, up: 60, life: t(800), size: 8, area: r.w * 0.7 });
   await wait(t(420));
 }
 async function statusGoneBeat(e, t) {
   const el = shown(e.target.uid);
   if (!el) return;
   floatNumber(rectOf(el), e.status === 'sleep' && /woke|wakes/.test(e.why ?? '') ? 'Woke up' : `${STATUS_LOOK[e.status]?.word ?? 'Status'} cured`, 'status', t(1000));
+  const v = STATUS_VISUALS[e.status];
+  if (vfxReady() && t(1) > 0 && v?.cleared) {
+    el.removeAttribute(`data-status-${e.status}`);   // (the redraw confirms it)
+    await playTimeline(v.cleared, { target: el, rate: 1 / t(1) });
+    return;
+  }
   await wait(t(260));
 }
 
-// Evolve (placeholder until G4's full moment): the new card glows as it takes the old one's place.
-async function evolveBeat(e, t) {
-  const el = shown(e.uid);
+// Growth: green-gold motes fly from where it came from into the player's Growth
+// tile, which pulses as they land; reverse: from the tile (Growth being spent).
+function growthMotes(root, who, from, amount, t, { reverse = false } = {}) {
+  const tile = pile(root, `${who}-growth`);
+  if (!tile || !from || skipping || t(1) <= 0) return;
+  const at = centre(rectOf(tile));
+  const pulse = () => tile.animate([
+    { transform: 'scale(1)', filter: 'none' },
+    { transform: 'scale(1.22)', filter: 'brightness(1.7) drop-shadow(0 0 10px #b8f060)', offset: 0.35 },
+    { transform: 'scale(1)', filter: 'none' },
+  ], { duration: t(460) });
+  const [a, b] = reverse ? [at, from] : [from, at];
+  if (reverse) pulse();
+  const { count, ms, tex, size, color } = GROWTH_MOTES;
+  if (vfxCoins(a, b, count(amount), t(ms), reverse ? () => {} : pulse, { tex, size, color })) return;
+  burst(b.x, b.y, { kind: 'sparkle', colors: ['#c8f060', '#fff3a0', '#ffffff'], count: 10, speed: 80, up: 40, life: t(600), size: 7, area: 30 });
+  if (!reverse) pulse();
+}
+
+// The evolution moment: the Pokémon glows white and its silhouette pulses (any
+// Growth paid flies in from the Growth tile); a Stage 2 bursts into light and
+// petals; then the new card is revealed. About 2 s at Fast; click to skip.
+async function evolveBeat(root, e, t, events) {
+  // The Pokémon on the board (before the redraw, the one evolving; after it, the new card).
+  const onBoard = (uid) => { const x = shown(uid); return x && !x.closest('.hand') ? x : null; };
+  const el = onBoard(e.from?.uid) ?? onBoard(e.uid);
+  if (!el) return;
   const r = rectOf(el);
+  const paid = events.find((x) => x.type === 'evolvePaid' && x.uid === e.uid);
+  // At the reveal the old card takes the new one's art and name (the redraw then confirms it).
+  const becomeNew = () => {
+    if (el.dataset.uid === e.uid) return;
+    el.querySelector('.art-img')?.style.setProperty('background-image', `url('${artUrl(e.card)}')`);
+    const name = el.querySelector('.card-name');
+    if (name) name.textContent = e.name;
+  };
+  if (vfxReady() && t(1) > 0) {
+    await playTimeline(evolveAnimation(e.card), {
+      target: el, rate: 1 / t(1), tint: ['#ffffff', '#e6ffd0'],
+      on: {
+        growthIn: () => { if (paid?.growth) growthMotes(root, e.who, centre(r), paid.growth, t, { reverse: true }); },
+        reveal: ({ skipped }) => { becomeNew(); if (!skipped) floatNumber(r, `Evolved into ${e.name}!`, 'evolve', t(1400)); },
+      },
+    });
+    return;
+  }
+  becomeNew();
   burst(r.x + r.w / 2, r.y + r.h * 0.5, { kind: 'sparkle', colors: ['#ffffff', '#d6ffb8', '#ffe88a'], count: 30, speed: 140, up: 90, life: t(1000), size: 10, area: r.w });
   floatNumber(r, `Evolved into ${e.name}!`, 'evolve', t(1400));
   await animate(el, [
@@ -791,15 +862,23 @@ async function evolveBeat(e, t) {
   ], t(900));
 }
 
-// Leech Seed at Supper: a green beam drains from the seeded Pokémon to the one it heals.
-async function leechBeat(e, t) {
+// Leech Seed at Supper: a green stream drains from the seeded Pokémon to the one
+// it heals, and a mote goes to the seeder's Growth tile.
+async function leechBeat(root, e, t) {
   const from = shown(e.from.uid);
   if (!from) return;
   const a = centre(rectOf(from));
   floatNumber(rectOf(from), 'Leech Seed', 'status', t(900));
+  growthMotes(root, e.who, a, 1, t);
   const to = e.to && shown(e.to.uid);
   if (!to) { await wait(t(300)); return; }
   const b = centre(rectOf(to));
+  if (vfxReady() && t(1) > 0) {
+    const glow = () => to.animate([{ filter: 'none' }, { filter: 'brightness(1.5) drop-shadow(0 0 10px #8ff06a)' }, { filter: 'none' }], { duration: t(420) });
+    vfxCoins(a, b, 9, t(700), glow, { tex: 'glow', size: 20, color: '#8ff06a' });
+    await wait(t(760));
+    return;
+  }
   const beam = spawn('fx-leech-beam', null);
   const len = Math.hypot(b.x - a.x, b.y - a.y);
   Object.assign(beam.style, { left: `${a.x}px`, top: `${a.y}px`, width: `${len}px`, transform: `rotate(${Math.atan2(b.y - a.y, b.x - a.x)}rad)` });
@@ -876,7 +955,7 @@ async function defeatVfx(root, e, el, t) {
   const style = defeatStyle(e);
   const r = rectOf(el);
   await playTimeline(DEFEATS[style], {
-    target: el, rate: 1 / t(1), tint: style === 'wash' ? tintOf('Water') : style === 'ash' ? tintOf('Fire') : ['#ffffff', '#fff3c4'],
+    target: el, rate: 1 / t(1), tint: style === 'wash' ? tintOf('Water') : style === 'ash' ? tintOf('Fire') : style === 'wilt' ? tintOf('Grass') : ['#ffffff', '#fff3c4'],
     on: {
       gone: ({ skipped }) => {
         el.style.opacity = '0';
@@ -884,7 +963,7 @@ async function defeatVfx(root, e, el, t) {
         const to = pile(root, `${e.target.owner}-released`);
         if (skipped || !to) return;
         const pulse = () => to.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.18)', filter: 'brightness(1.8) drop-shadow(0 0 10px #ffd36b)' }, { transform: 'scale(1)' }], { duration: t(420) });
-        const tex = style === 'ash' ? 'embers' : style === 'wash' ? 'droplets' : 'shard';
+        const tex = style === 'ash' ? 'embers' : style === 'wash' ? 'droplets' : style === 'wilt' ? 'leaves' : 'shard';
         vfxCoins(centre(r), centre(rectOf(to)), 7, t(700), pulse, { tex, size: style === 'shatter' ? 16 : 22, color: style === 'shatter' ? '#e8dcc0' : null });
       },
     },
@@ -1211,8 +1290,22 @@ async function walk(root, events, t, late, prev) {
         break;
       }
       case 'statusCleared': if (shown(e.target.uid)) await (e.status === 'burn' ? douseBeat(e, t) : statusGoneBeat(e, t)); break;
-      case 'evolved': if (shown(e.uid)) await evolveBeat(e, t); break;
-      case 'leechDrain': await leechBeat(e, t); break;
+      case 'evolved': await evolveBeat(root, e, t, ev); break;
+      case 'leechDrain': {
+        // (Its Growth for the seeder goes with the drain.)
+        const g = ev.slice(i + 1).find((x) => x.type === 'growthGained' && x.who === e.who && !used.has(x));
+        if (g) used.add(g);
+        await leechBeat(root, e, t);
+        break;
+      }
+      case 'growthGained': {
+        // From the card whose ability or Power gave it, else up from the board's edge to the tile.
+        const tile = pile(root, `${e.who}-growth`);
+        const src = source && shown(source.uid);
+        const from = src ? centre(rectOf(src)) : tile ? { x: centre(rectOf(tile)).x, y: centre(rectOf(tile)).y - 160 } : null;
+        growthMotes(root, e.who, from, e.amount, t);
+        break;
+      }
       case 'overrun': await overrunBeat(root, e, lastDefeated, t); break;
       case 'heal': if (shown(e.target.uid)) await healBeat(e, t, { soft: /^Regenerate/.test(word ?? '') }); else late.push(e); break;
       case 'buff': if (shown(e.target.uid)) await buffBeat(e, t); else late.push(e); break;
@@ -1478,7 +1571,7 @@ async function endingVfx(root, next) {
   await new Promise((resolve) => { setTimeout(resolve, 600); });
   const crest = root.querySelector('.end-crest');
   if (!crest) return;
-  playTimeline(id, { target: crest, rate: 1, tint: ['#ffd36b', '#fff6c8'], when: { fire: style === 'fire', water: style === 'water' } });
+  playTimeline(id, { target: crest, rate: 1, tint: ['#ffd36b', '#fff6c8'], when: { fire: style === 'fire', water: style === 'water', grass: style === 'grass' } });
 }
 
 async function after(root, snap, next, actor, t, late) {
@@ -1585,6 +1678,9 @@ async function after(root, snap, next, actor, t, late) {
       { transform: 'scale(1.35)', filter: `brightness(1.8) drop-shadow(0 0 8px ${e.weather === 'Sun' ? '#ffb030' : '#5ab4ff'})`, offset: 0.3 },
       { transform: 'scale(1)', filter: 'none' },
     ], { duration: Math.max(1, t(900)) });
+    // The pulse names the bracket's mechanic ("Sun 4: +1 Growth at Breakfast").
+    const counter = root.querySelector(`.weather-type.${e.weather.toLowerCase()}`);
+    if (counter) floatNumber(rectOf(counter), weatherPulseText(e.weather, e.at), `weather ${e.weather.toLowerCase()}`, t(1800));
     const pip = root.querySelector(`.weather-type.${e.weather.toLowerCase()} .pip[data-at="${e.at}"]`);
     pip?.animate([{ transform: 'scale(1)' }, { transform: 'scale(2.2)', filter: 'brightness(2)' }, { transform: 'scale(1)' }], { duration: t(700) });
   }

@@ -36,6 +36,9 @@ Each attack is chosen by the attacker's **Pokémon Type + Attack-Type**: 18 × 2
 | Fighting Physical | Mankey | Flurry of three rapid strikes with shockwave rings |
 | Dark Physical | Sneasel | Melts into shadow, reappears behind the target and slashes (Feint Attack) |
 | Normal Physical | Chansey | Heavy Body Slam with a dust burst |
+| Grass Special | Grass deck (most Pokémon) | Razor Leaf: a volley of spinning leaves, then a burst of leaves and petals |
+| Bug Physical | Sewaddle | String Shot: silk wraps the target, then a bite |
+| Rock Physical | Sudowoodo | Rock Throw: dust, a thrown rock, stone shards |
 
 - **Scale:** bigger hits get bigger effects, a stronger shake and longer hit-stop.
 - **Trades:** a defender hitting back plays a shorter version of its own type's animation, at the same moment.
@@ -61,6 +64,10 @@ Every Strategy Card gets its own animation, a big moment. It opens the same way 
 | Bubble Beam | A stream of bubbles that pop on impact, fuller when Rain is 2 or more |
 | Dive | A water surface ripples over the Discard Pile, and the Pokémon rises out of it into the hand |
 | Surf | A full wave sweeps from Water's side across the board, crashes over the enemies, and leaves friendly cards glinting |
+| Leech Seed | A seed arcs over and bursts into vines that wrap the target |
+| Sleep Powder | A purple-blue powder cloud settles on the target, which sways and dims |
+| Synthesis | Sunlight pours onto the caster; Growth motes fly to the Growth tile |
+| Solar Beam | A charge-up while the Growth counter drains, then a huge golden-green beam with hit-stop scaled to the damage |
 
 ## 5. Status: Burn
 
@@ -69,6 +76,10 @@ Every Strategy Card gets its own animation, a big moment. It opens the same way 
 - **Douse:** the fire goes out in a burst of steam.
 - Burned Trainers get the same treatment on their portrait.
 - Built as a general status-visual system, so future statuses (Poison, Paralysis, Sleep, Freeze, Confusion) plug in.
+- **Sleep:** the card dims with a blue tint, sways, and z's drift up; it jolts on waking.
+- **Leech Seed:** vines creep over the edges; at Supper a green stream drains to the healed Pokémon and a mote flies to the Growth tile.
+- **Evolution:** the Pokémon glows white and pulses as a silhouette (Stage 2 adds a burst of light and petals), then the new card is revealed; Growth paid flies out of the Growth tile first. About 2 s at Fast.
+- **Growth gain:** green-gold motes fly into the Growth tile, which pulses.
 
 ## 6. Other animations
 

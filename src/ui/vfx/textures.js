@@ -182,6 +182,64 @@ const PAINT = {
     g.lineTo(w * 0.35, h * 0.95);
     g.fill();
   },
+  // Grass G4 stand-ins (the kit's files are normally there).
+  leaves(g, w, h) {
+    for (const [k, c] of [[1, '#2f7a24'], [0.72, '#5fc04a'], [0.38, '#b8f08a']]) {
+      g.fillStyle = c;
+      g.beginPath();
+      g.ellipse(w / 2, h / 2, w * 0.44 * k, h * 0.2 * k, -0.6, 0, Math.PI * 2);
+      g.fill();
+    }
+  },
+  petals(g, w, h) {
+    for (const [k, c] of [[1, '#e870a8'], [0.68, '#ffb0d0'], [0.32, '#fff0f6']]) {
+      g.fillStyle = c;
+      g.beginPath();
+      g.ellipse(w / 2, h / 2, w * 0.3 * k, h * 0.42 * k, 0.3, 0, Math.PI * 2);
+      g.fill();
+    }
+  },
+  vines(g, w, h) {
+    g.lineCap = 'round';
+    for (const [lw, c] of [[w * 0.07, '#2f7a24'], [w * 0.035, '#7ad65a']]) {
+      g.strokeStyle = c;
+      g.lineWidth = lw;
+      g.beginPath();
+      g.moveTo(w * 0.1, h * 0.9);
+      g.bezierCurveTo(w * 0.2, h * 0.3, w * 0.7, h * 0.8, w * 0.9, h * 0.15);
+      g.stroke();
+    }
+  },
+  seed(g, w, h) { bands(g, w / 2, h / 2, w * 0.36, [[1, '#4a7a24'], [0.7, '#8cdc5a'], [0.3, '#f0ffc0']], 1.25); },
+  powder(g, w, h) { bands(g, w / 2, h / 2, w * 0.46, [[1, '#6a50c8'], [0.7, '#a080ff'], [0.4, '#c8d8ff'], [0.15, '#ffffff']], 0.7); },
+  rocks(g, w, h) {
+    for (const [k, c] of [[1, '#6a5638'], [0.7, '#a88a5c'], [0.35, '#e0c890']]) {
+      g.fillStyle = c;
+      g.beginPath();
+      g.moveTo(w * 0.5, h * (0.5 - 0.42 * k));
+      g.lineTo(w * (0.5 + 0.4 * k), h * (0.5 - 0.1 * k));
+      g.lineTo(w * (0.5 + 0.25 * k), h * (0.5 + 0.38 * k));
+      g.lineTo(w * (0.5 - 0.35 * k), h * (0.5 + 0.3 * k));
+      g.lineTo(w * (0.5 - 0.42 * k), h * (0.5 - 0.15 * k));
+      g.fill();
+    }
+  },
+  'sleep-z'(g, w, h) {
+    g.font = `800 ${Math.round(h * 0.42)}px 'Cinzel', serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.lineWidth = h * 0.06;
+    g.strokeStyle = '#2a3a8a';
+    g.fillStyle = '#e6edff';
+    for (const [x, y, k] of [[0.25, 0.72, 0.7], [0.5, 0.48, 0.85], [0.76, 0.24, 1]]) {
+      g.save();
+      g.translate(w * x, h * y);
+      g.scale(k, k);
+      g.strokeText('Z', 0, 0);
+      g.fillText('Z', 0, 0);
+      g.restore();
+    }
+  },
   ring(g, w, h) {
     g.strokeStyle = '#ffffff';
     g.lineWidth = w * 0.06;

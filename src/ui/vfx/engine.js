@@ -250,7 +250,7 @@ export function coins(from, to, n, ms, onArrive, { tex = 'coin', size = 26, colo
   if (!vfxReady()) return false;
   for (let i = 0; i < n; i++) {
     const mid = { x: (from.x + to.x) / 2 + (Math.random() - 0.5) * 120, y: Math.min(from.y, to.y) - 80 - Math.random() * 60 };
-    flyers.push({ tex, from, mid, to, t: -i * ms * 0.1, ms, size: size * (tex === 'coin' ? 1 : 0.7 + Math.random() * 0.6), color, arrive: i === n - 1 ? onArrive : null });
+    flyers.push({ tex, from, mid, to, t: -i * ms * 0.1, ms, size: size * (tex === 'coin' ? 1 : 0.7 + Math.random() * 0.6), color, arrive: i === n - 1 ? onArrive : null, sprite: Math.floor(Math.random() * 1e6) });
   }
   wake();
   return true;
@@ -339,6 +339,25 @@ const MOTIONS = {
   char: (k) => ({ y: 6 * k, s: 1 - 0.08 * k, filter: `sepia(${k}) brightness(${1 - 0.7 * k}) contrast(${1 + 0.4 * k}) opacity(${1 - k * k})` }),
   washAway: (k) => ({ y: 30 * k, s: 1 + 0.04 * k, filter: `saturate(${1 - 0.7 * k}) brightness(${1 + 0.3 * k}) blur(${2 * k}px) opacity(${1 - k})` }),
   crackShake: (k) => ({ x: Math.sin(k * 80) * 3, filter: `brightness(${1 + 0.4 * k})` }),
+  // Grass G4.
+  // String Shot or Leech Seed's vines: the target is bound, squeezed and held for a moment.
+  bound: (k) => { const t = Math.sin(k * Math.PI); return { x: Math.sin(k * 50) * 2 * t, s: 1 - 0.05 * t, filter: `saturate(${1 - 0.3 * t}) brightness(${1 + 0.1 * t})` }; },
+  // Sleep Powder: it sways and dims, with a sleepy blue tint.
+  drowsy: (k) => { const t = Math.min(1, k * 2.5); return { r: Math.sin(k * 9) * 0.04 * t, y: 3 * t, filter: `brightness(${1 - 0.25 * t}) saturate(${1 - 0.3 * t}) hue-rotate(${-12 * t}deg)` }; },
+  // Synthesis: lit warm and bright from above.
+  sunlit: (k) => { const t = Math.sin(k * Math.PI); return { y: -4 * t, filter: `brightness(${1 + 0.45 * t}) sepia(${0.25 * t}) saturate(${1 + 0.4 * t})` }; },
+  // Evolving: it glows white and its silhouette pulses, faster as the moment builds.
+  silhouette: (k) => {
+    const on = Math.min(1, k * 4);
+    const pulse = 0.5 + 0.5 * Math.sin(k * k * 46);
+    return { s: 1 + 0.06 * on + 0.04 * pulse * k, filter: `brightness(${1 + 9 * on}) saturate(${1 - on}) contrast(${1 - 0.4 * on * pulse}) drop-shadow(0 0 ${8 + 18 * pulse * on}px rgba(255,255,240,${0.9 * on}))` };
+  },
+  // The new card revealed: the white light fades off it with a small pop.
+  revealPop: (k) => { const e = 1 - ease.outCubic(k); return { s: 1 + 0.12 * Math.sin(k * Math.PI) * (1 - k * 0.5), filter: `brightness(${1 + 4 * e}) drop-shadow(0 0 ${20 * e}px rgba(255,255,240,${e}))` }; },
+  // Waking up: a little jolt.
+  jolt: (k) => { const t = Math.exp(-6 * k) * Math.sin(k * 40); return { y: -10 * Math.abs(t), r: 0.05 * t, filter: `brightness(${1 + 0.3 * (1 - k)})` }; },
+  // Defeated by Grass: it wilts, droops and fades into falling leaves.
+  wilt: (k) => ({ y: 26 * k, r: 0.12 * k, s: 1 - 0.1 * k, filter: `saturate(${1 - 0.8 * k}) sepia(${0.5 * k}) brightness(${1 - 0.3 * k}) opacity(${1 - k})` }),
   shatterOut: (k) => ({ s: 1 + 0.1 * k, filter: `opacity(${1 - k})` }),
   // Healing: a warm glow lifting the card a little.
   healGlow: (k) => { const t = Math.sin(k * Math.PI); return { y: -4 * t, filter: `brightness(${1 + 0.35 * t}) saturate(${1 + 0.3 * t})` }; },
@@ -508,7 +527,9 @@ export function playTimeline(idOrDef, ctx) {
       } else if (beat.projectile && A && B) {
         // An orb, Ember's coal or Fire Blast's fireball, arcing from the muzzle to the target.
         const e = ease.inQuad(k);
-        const lift = -Math.sin(k * Math.PI) * Math.min(beat.projectile === 'coal' ? 220 : 160, len * (beat.projectile === 'coal' ? 0.45 : 0.3));
+        // A coal, a seed and a thrown rock arc high; an orb or a fireball flies flatter.
+        const high = ['coal', 'seed', 'rock'].includes(beat.projectile);
+        const lift = -Math.sin(k * Math.PI) * Math.min(high ? 220 : 160, len * (high ? 0.45 : 0.3));
         const prev = c.proj;
         c.proj = { x: c.muzzle.x + (B.x - c.muzzle.x) * e, y: c.muzzle.y + (B.y - c.muzzle.y) * e + lift };
         if (prev) { const d = Math.hypot(c.proj.x - prev.x, c.proj.y - prev.y); if (d > 0.5) c.projDir = { x: (c.proj.x - prev.x) / d, y: (c.proj.y - prev.y) / d }; }
@@ -628,7 +649,10 @@ function endSweep(beat, c) {
 
 // Where each moment happens, and its flash colour.
 const CUE_ANCHOR = { counterHit: 'counterImpact', impact: 'impact', jab: 'impact', overrunHit: 'trainer', infiltrate: 'guard', shell: 'target', bolt: 'attacker', land: 'ground', fall: 'ground' };
-const FLASH = { fire: [1, 0.6, 0.25], water: [0.55, 0.8, 1], electric: [1, 0.95, 0.5], dark: [0.72, 0.45, 1], white: [1, 1, 1] };
+const FLASH = {
+  fire: [1, 0.6, 0.25], water: [0.55, 0.8, 1], electric: [1, 0.95, 0.5], dark: [0.72, 0.45, 1], white: [1, 1, 1],
+  grass: [0.6, 1, 0.45], rock: [0.95, 0.85, 0.6], sun: [1, 0.95, 0.6],
+};
 
 function cue(beat, c, anchor, skipped) {
   c.on?.[beat.cue]?.({ skipped });
@@ -898,9 +922,12 @@ function collect() {
     } else {
       // A piece of a defeated card drifting to the Released Pile.
       const T = TEX[f.tex] ?? TEX.dot;
-      const sp = T.sprites?.[0];
+      const sp = T.sprites?.[(f.sprite ?? 0) % T.sprites.length];
       const uv = sp ? [sp[0] / T.w, sp[1] / T.h, (sp[0] + sp[2]) / T.w, (sp[1] + sp[3]) / T.h] : [0, 0, 1, 1];
-      (f.tex === 'embers' ? additive : alpha).push(quad(f.tex, x, y, sz, sz, f.t / 120, 0.5, uv, f.color ? hex(f.color) : [1, 1, 1], 1 - k * 0.5, f.tex === 'embers'));
+      // Glowing flyers (embers, Growth motes) are light; the rest are solid pieces.
+      const add = f.tex === 'embers' || f.tex === 'glow';
+      (add ? additive : alpha).push(quad(f.tex, x, y, sz, sz, f.t / 120, 0.5, uv, f.color ? hex(f.color) : [1, 1, 1], 1 - k * 0.5, add));
+      if (f.tex === 'glow') additive.push(quad('glow', x, y, sz * 0.45, sz * 0.45, 0, 0.5, [0, 0, 1, 1], [1, 1, 0.9], 1 - k * 0.3, true));
     }
   }
   additive.sort((a, b) => (a.tex < b.tex ? -1 : a.tex > b.tex ? 1 : 0));

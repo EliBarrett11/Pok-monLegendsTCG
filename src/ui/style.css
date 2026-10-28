@@ -1101,11 +1101,14 @@ button.primary {
 .fx-num.burn span { color: #ffb347; -webkit-text-stroke: 1.5px #5a1404; }
 .fx-num.douse span { color: #bfe6ff; -webkit-text-stroke: 1.5px #0e3550; font-size: 26px; }
 
-/* Grass G1: Sleep and Leech Seed on a card (placeholder looks, shown by
-   animation only; the polished ones are G4). Sleep: the card dims and sways,
-   "z"s drift up. Leech Seed: green vines along the card's edge. */
+/* Sleep and Leech Seed on a card, by animation only (no icons). Sleep: the
+   card's art dims slightly with a sleepy blue tint and the card sways; soft "z"s
+   drift up (WebGL; the CSS ones below without it). Leech Seed: a thin green edge
+   glow, and vines creep over the edges (WebGL; a dashed vine line without it).
+   Only the art is tinted, so the numbers stay readable. */
 .card[data-status-sleep] { animation: sleep-sway 3.2s ease-in-out infinite; }
-.card[data-status-sleep] .card-art, .card[data-status-sleep] .art { filter: brightness(0.62) saturate(0.7); }
+.card[data-status-sleep] .card-art, .card[data-status-sleep] .art { filter: brightness(0.74) saturate(0.72) sepia(0.2) hue-rotate(185deg); }
+#stage.vfx-gl .card[data-status-sleep]::before { display: none; }
 .card[data-status-sleep]::before {
   content: 'z Z z'; position: absolute; right: 6%; top: -4%; z-index: 6; pointer-events: none; white-space: nowrap;
   font-family: var(--font-display); font-weight: 800; font-size: calc(var(--w) * 0.13); letter-spacing: 0.15em;
@@ -1120,9 +1123,8 @@ button.primary {
 }
 .card[data-status-leechseed] {
   box-shadow: 0 0 0 2px #3f8f2e, 0 0 10px 3px rgba(110, 211, 90, 0.55), var(--shadow-card);
-  background-image: repeating-linear-gradient(135deg, rgba(90, 170, 60, 0.55) 0 4px, transparent 4px 14px);
-  background-origin: border-box;
 }
+#stage.vfx-gl .card[data-status-leechseed]::before { display: none; }
 .card[data-status-leechseed]::before {
   content: ''; position: absolute; inset: -3px; z-index: 5; pointer-events: none; border-radius: inherit;
   border: 3px dashed #5fbf47; opacity: 0.85; animation: vine-creep 4s linear infinite;
@@ -1661,3 +1663,8 @@ button.pulse { animation: soft-pulse 1.6s ease-in-out infinite; }
 .growth-pick button { font-size: 20px; padding: 4px 16px; }
 .growth-pick .growth-amount { font-size: 18px; min-width: 200px; }
 #stage:has(.growth-ask) .preview { display: none !important; }
+
+/* Grass G4: words for Growth spent and for a Weather bracket's mechanic. */
+.fx-num.growth span { color: #e2ffb0; -webkit-text-stroke: 1.5px #24501a; font-size: 24px; }
+.fx-num.weather span { white-space: nowrap; font-size: 22px; color: #fff3c4; -webkit-text-stroke: 1.5px #5a3a04; }
+.fx-num.weather.rain span { color: #e0f0ff; -webkit-text-stroke: 1.5px #0e3550; }

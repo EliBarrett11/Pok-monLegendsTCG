@@ -11,6 +11,7 @@
 // control changes hands. Online (net/), the host's browser holds the real
 // game and the guest's only ever gets its view from the host.
 import { createGame, applyAction, legalActions, PLAYERS } from './engine/game.js';
+import { DECK_IDS } from './engine/cardData.js';
 import { viewFor } from './engine/view.js';
 import { chooseAction } from './ai/opponent.js';
 import { render, STAGE, pushHistory, clearHistory, setHistory, setCaption } from './ui/render.js';
@@ -24,7 +25,7 @@ import { renderStart } from './ui/lobby.js';
 import { initVfx, syncStatus } from './ui/vfx/engine.js';
 import { createOnline, savedHostMatch, forgetHostMatch } from './online.js';
 
-export const BUILD = 'Grass G3d — final balance tune';
+export const BUILD = 'Grass G4 — Grass visuals';
 
 
 // The whole game is drawn on a fixed 1920×1080 stage, scaled uniformly to
@@ -225,7 +226,9 @@ function newGame() {
   passingTo = null;
   picks = {};
   lastShown = null;
-  if (autoplay) startMatch(randomDeck());
+  // ?autoplay&decks=grass,fire watches that matchup (otherwise random decks).
+  const chosen = (params.get('decks') ?? '').split(',');
+  if (autoplay) startMatch(DECK_IDS.includes(chosen[0]) ? chosen[0] : randomDeck(), DECK_IDS.includes(chosen[1]) ? chosen[1] : 'random');
   else draw();
 }
 
@@ -356,6 +359,8 @@ function preload() {
   // ?novfx forces the 2D fallback (for checking it).
   const vfx = params.has('novfx') ? Promise.resolve(false)
     : initVfx(document.getElementById('vfx')).catch((err) => { console.warn('VFX: WebGL layer off.', err); return false; });
+  // With the WebGL layer on, statuses draw their "z"s and vines there (the CSS ones are the fallback).
+  vfx.then((on) => stage.classList.toggle('vfx-gl', Boolean(on)));
   return Promise.race([Promise.all([...images, fonts, probeCardIcons(), vfx]), limit]);
 }
 

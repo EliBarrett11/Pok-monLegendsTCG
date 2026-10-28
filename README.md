@@ -331,6 +331,16 @@ No build step: plain HTML, CSS and JavaScript modules. Working rules for each se
   - **No variant is strictly inside 45–55% against both.** Closest: **base+D3**, 51.0% against Fire (5.4 Rounds) and 55.5% against Water (9.3 Rounds); then **base+D2**, 50.0% against Fire (5.5 Rounds) and 56.0% against Water (9.4 Rounds). Both miss by under a point against Water, well inside the sampling noise of 200 matches (about ±7 points).
   - **D1 overshoots:** 70.5% against Fire and 64.5% against Water. Gardenia Douses a Trainer most Rounds (Douse removes about 27 Burn counters a match, against about 11 for base), so Burn from Fire's cards falls from 29 to 20 damage a match.
   - Base alone is 39.5% against Fire and 53.0% against Water.
+- **Grass G4** — Grass visuals, all through the WebGL effects library (`src/ui/vfx/library.js`), with the 2D fallback still working:
+  - **Attacks:** Grass Special is Razor Leaf (a volley of spinning leaves, then a burst of leaves and petals); Bug Physical is String Shot (silk wraps the target, then a bite); Rock Physical is Rock Throw (dust, a thrown rock, stone shards). Each has a shorter trade version for hitting back.
+  - **Strategy Cards** (after the shared rise-and-flare opening): Leech Seed (a seed arcs over and bursts into vines), Sleep Powder (a purple-blue powder cloud; the target sways and dims), Synthesis (sunlight pours onto the caster, Growth motes fly to the Growth tile), Solar Beam (a charge-up while the Growth counter drains, then a huge golden-green beam with hit-stop scaled to the damage).
+  - **Evolution moment:** the Pokémon on the board glows white and pulses as a silhouette, Stage 2 adds a burst of light and petals, then the new card is revealed. If Growth was paid, motes fly out of the Growth tile first. About 2 s at Fast; click skips it.
+  - **Statuses:** Sleep dims and tints the card blue, it sways and z's drift up, with a jolt on waking. Leech Seed vines creep over the edges; at Supper a green stream drains to the healed Pokémon and a mote flies to the Growth tile. The status badges stay readable.
+  - **Growth gain:** green-gold motes fly into the Growth tile, which pulses with the amount.
+  - **Weather:** each bracket pulse now names its mechanic, e.g. "Sun 4: +1 Growth at Breakfast" or "Rain 8: Downpour".
+  - Defeats by Leech Seed or a Grass Pokémon wilt away in leaves; a Grass victory gets leaf and petal confetti.
+  - `?autoplay&decks=grass,fire` picks the decks for an autoplay match.
+  - Tests (`tests/vfx.test.js`): every Grass card maps to its own animation and counter, every timeline stays inside its budget, and skip and Instant finish them. Checked in the browser: Razor Leaf, Leech Seed vines, Sleep tint, Synthesis, Solar Beam and an evolution into Sunflora. Rock Throw and Sleep Powder are covered by the tests only.
 
 Add `?seed=123` to the URL to replay the same shuffle and coin flip. Add `?hotseat` for two players on one screen, or `?join=CODE` to join a friend's room.
 
