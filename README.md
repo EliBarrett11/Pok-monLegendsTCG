@@ -304,6 +304,33 @@ No build step: plain HTML, CSS and JavaScript modules. Working rules for each se
   - **Only the Fire-side lever gets Grass there against Fire:** core+R+H+SP+FB is 55.5% against Fire (5.6 Rounds), but 60.5% against Water (9.5 Rounds) and it breaks Fire–Water (Fire 39.0%; FB alone takes Fire–Water to 42.5%).
   - **Overshoot against Water:** SP is the lever to trim (core+SP 70.5%; adding SP to R+H takes Water from 53.0% to 60.5%).
   - **Against Fire, by effect:** H +21 points (it Douses about 11 Burn counters a match), FB +9, R2 +7, SP +3, R +2.5 alone but +10.5 on top of H. Burn from Fire's cards (Firebreather, Houndoom, Ember, Heat Wave, Blaine, Mt. Ember) is about 32 of the 51 damage Fire deals to Grass's Trainers a match; Scorch is about 3, attacks about 15 (6 of them Infiltrator).
+- **Grass G3d** — the final tune of the balance experiment; no card or rule changes committed. Every variant is on top of **base** = core+R+H (W1 + E + BL + GD + TS + GX + R + H), the direction Elliott approved. New levers (`tools/balance.js --grass W1+E+BL+GD+TS+GX+R+H+D2`): D1 Gardenia's Power "(1) Gain 1 Growth, or Douse a friendly Trainer and heal it 1", D2 Mallow's Gift Bonus also Douses a friendly Trainer, D3 Synthesis 2 copies (Leech Seed 2). (The engine gained two effect options for these, unused by any card: an either/or Power and a second target chosen on its own.) Fire–Water isn't affected (every lever is Grass-only). 200 matches per matchup:
+
+  | Variant | Grass v Fire (wins per seat order) | Grass v Water | Fire v Water (Fire · Rounds) | Rounds vF / vW | Grass Trainer dmg dealt/match | Grass Trainer dmg taken/Round | Growth gained/spent | Evolves Breakfast+Battle | Solar Beam dmg | Peak Sun/Rain | Grass Alert blocked |
+  |---|---|---|---|---|---|---|---|---|---|---|---|
+  | base | 39.5% (38/41) | 53.0% (46/60) | — | 5.4 / 9.4 | 35.0 / 52.1 | 10.0 / 4.9 | 29.1/17.8 / 65.2/41.9 | 2.6+0.5 / 3.8+0.9 | 10.1 / 27.6 | ☀6.7 ☔3.6 / ☀2.4 ☔9.5 | 0.0% / 71.4% |
+  | base+D1 | 70.5% (68/73) | 64.5% (61/68) | — | 5.9 / 9.5 | 40.3 / 55.3 | 8.7 / 4.7 | 31.4/20.4 / 65.2/44.1 | 2.8+0.6 / 3.8+1.0 | 11.6 / 28.9 | ☀6.7 ☔3.9 / ☀2.5 ☔9.3 | 0.0% / 72.7% |
+  | base+D2 | 50.0% (46/54) | 56.0% (48/64) | — | 5.5 / 9.4 | 36.3 / 52.0 | 9.6 / 4.8 | 29.8/17.9 / 65.4/42.7 | 2.6+0.5 / 3.8+1.0 | 10.2 / 28.3 | ☀6.8 ☔3.7 / ☀2.5 ☔9.4 | 0.0% / 72.7% |
+  | base+D3 | 51.0% (46/56) | 55.5% (56/55) | — | 5.4 / 9.3 | 36.9 / 52.7 | 9.9 / 5.1 | 31.4/18.6 / 65.9/42.4 | 2.6+0.5 / 3.8+1.0 | 10.4 / 27.8 | ☀6.7 ☔3.7 / ☀2.5 ☔9.4 | 0.0% / 71.1% |
+  | base+D1+D2 | 70.5% (66/75) | 60.5% (57/64) | — | 5.8 / 9.4 | 40.5 / 53.1 | 8.6 / 4.8 | 30.6/19.7 / 63.1/42.6 | 2.8+0.5 / 3.8+1.0 | 11.1 / 27.9 | ☀6.6 ☔3.9 / ☀2.5 ☔9.2 | 0.0% / 71.3% |
+  | base+D1+D3 | 72.0% (73/71) | 66.5% (70/63) | — | 5.9 / 9.9 | 40.1 / 56.6 | 8.7 / 4.6 | 33.1/20.6 / 69.5/44.9 | 2.8+0.6 / 3.9+1.0 | 11.7 / 29.7 | ☀6.7 ☔3.8 / ☀2.5 ☔9.4 | 0.0% / 71.2% |
+  | base+D1+D2+D3 | 77.5% (75/80) | 66.0% (65/67) | — | 6.0 / 9.5 | 41.3 / 54.9 | 8.2 / 4.9 | 34.0/20.7 / 67.5/44.6 | 2.9+0.6 / 3.9+1.0 | 11.8 / 29.5 | ☀6.6 ☔3.8 / ☀2.5 ☔9.4 | 0.0% / 71.9% |
+
+  Fire's damage to Grass's Trainers per match, by source, and Burn kept off Grass's cards per match:
+
+  | Variant | Total | Attacks | Infiltrator attacks | Overrun | Burn from cards | Burn from Scorch | Other | Rain 4 (Burn hits softened) | Rain 8 (counters washed) | Douse (counters) |
+  |---|---|---|---|---|---|---|---|---|---|---|
+  | base | 53.9 | 12.6 | 8.2 | 0.4 | 28.9 | 3.5 | 0.3 | 0.5 | 0.0 | 10.6 |
+  | base+D1 | 51.3 | 17.0 | 9.7 | 0.7 | 20.4 | 3.0 | 0.4 | 0.8 | 0.0 | 26.7 |
+  | base+D2 | 52.3 | 13.0 | 8.6 | 0.4 | 26.8 | 3.2 | 0.3 | 0.6 | 0.0 | 14.2 |
+  | base+D3 | 53.4 | 12.8 | 8.9 | 0.4 | 27.2 | 3.7 | 0.3 | 0.5 | 0.0 | 13.8 |
+  | base+D1+D2 | 49.3 | 17.3 | 10.1 | 0.7 | 17.9 | 2.8 | 0.4 | 0.7 | 0.0 | 28.3 |
+  | base+D1+D3 | 51.0 | 18.2 | 9.9 | 0.7 | 19.1 | 2.9 | 0.3 | 0.7 | 0.0 | 29.4 |
+  | base+D1+D2+D3 | 49.2 | 18.2 | 9.8 | 0.7 | 17.2 | 2.9 | 0.5 | 0.7 | 0.0 | 31.4 |
+
+  - **No variant is strictly inside 45–55% against both.** Closest: **base+D3**, 51.0% against Fire (5.4 Rounds) and 55.5% against Water (9.3 Rounds); then **base+D2**, 50.0% against Fire (5.5 Rounds) and 56.0% against Water (9.4 Rounds). Both miss by under a point against Water, well inside the sampling noise of 200 matches (about ±7 points).
+  - **D1 overshoots:** 70.5% against Fire and 64.5% against Water. Gardenia Douses a Trainer most Rounds (Douse removes about 27 Burn counters a match, against about 11 for base), so Burn from Fire's cards falls from 29 to 20 damage a match.
+  - Base alone is 39.5% against Fire and 53.0% against Water.
 
 Add `?seed=123` to the URL to replay the same shuffle and coin flip. Add `?hotseat` for two players on one screen, or `?join=CODE` to join a friend's room.
 
