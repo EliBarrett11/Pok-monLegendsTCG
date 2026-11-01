@@ -98,7 +98,16 @@ Existing triggers (On Summon, On Attack, On Defend, On Defeated, On Breakfast, O
 - **Spent:**
   - on **Evolve costs**, where 1 Growth replaces 1 Energy, mixed with Energy as the player chooses;
   - on card effects that say "spend Growth".
-- It's shown in the resource panel as its own tile (icon: `assets/ui/icons/growth.webp`).
+- **Display (Elliott, 1 Nov):** Growth is not a standard resource, so it is **not** in the resource panel. It appears **on the field** only while a player has 1 or more Growth: a Growth card in one of that player's empty Pokémon Spaces, chosen at random when it first appears, showing the amount. It grows through four images (`assets/ui/growth-1.jpg` … `growth-4.jpg`):
+
+  | Growth | Image | Meaning |
+  |---|---|---|
+  | 1–2 | growth-1: a sapling | just started |
+  | 3–4 | growth-2: a young tree | enough for most Evolves |
+  | 5–7 | growth-3: a tree | a strong Solar Beam |
+  | 8+ | growth-4: a great tree | Solar Beam fully charged (its maximum is 8) |
+
+  At 0 it disappears. If a Pokémon is played into its space, it moves to another empty space of that player's (at random); if none is empty, it sits in that player's side of the board margin beside the Zones. It's a display only: it never blocks a space, can't be targeted, and is public (both players see it).
 
 ### 2.8 Evolution
 
