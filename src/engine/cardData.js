@@ -174,7 +174,8 @@ function heldItem(id, name, cost, rarity, effectText, held) {
 // each adds to the ones below it.
 //   rule   a named rule the engine checks where it applies (weatherRule in board.js):
 //          'burnPlus'  each Burn applied +1          'healPlus'   each heal +1
-//          'noSleep'   Sleep can't be applied        'burnMinus'  Burn deals 1 less at Supper (min 0)
+//          'firstEvolveLess' each player's first Evolve each Round costs 1 less
+//          'burnMinus'  Burn deals 1 less at Supper (min 0)
 //          'drought'   no healing of any kind        'leechTwo'   Leech Seed drains 2 instead of 1
 //   timed  [{ at: 'breakfast' | 'supper', effects }] resolving at that moment,
 //          before Pokémon abilities (and Burn) at the same moment
@@ -202,7 +203,7 @@ export const WEATHER = {
       { at: 4, mode: 'also', text: 'At Breakfast, each player gains +1 Growth.', timed: [{
         at: 'breakfast', effects: [{ op: 'gainGrowth', amount: 1, each: true }],
       }] },
-      { at: 6, mode: 'also', rule: 'noSleep', text: 'Sleep can\'t be applied.' },
+      { at: 6, mode: 'also', rule: 'firstEvolveLess', text: "Each player's first Evolve each Round costs 1 less." },
       { at: 8, mode: 'also', rule: 'drought', text: 'Drought: no healing of any kind (Regenerate and Leech Seed included).' },
     ],
   },
@@ -444,16 +445,19 @@ const growth = (amount) => [{ op: 'gainGrowth', amount }];
 const ENEMY_IN_ZONE = { mode: 'targeted', side: 'opponent', zone: 'source' };
 
 export const GRASS_POKEMON = [
-  pokemon('Bulbasaur', 1, 'Grass', 'Special', 1, 'Hitpoints', 5, 'Steady', 'Common', ability('On Breakfast', 'Gain 1 Growth.', growth(1))),
+  pokemon('Bulbasaur', 1, 'Grass', 'Special', 2, 'Special Defence', 6, 'Steady', 'Common', ability('On Breakfast', 'Gain 1 Growth.', growth(1))),
   evolution('Stage 1', 'Bulbasaur', 2, pokemon('Ivysaur', null, 'Grass', 'Special', 3, 'Hitpoints', 7, 'Steady', 'Common', abilities(
     ability('On Breakfast', 'Gain 1 Growth.', growth(1)),
     ability('On Evolve', "Leech Seed an enemy Pokémon in this Pokémon's Zone.", [{ op: 'applyStatus', status: 'leechSeed', target: ENEMY_IN_ZONE }]),
   ))),
-  evolution('Stage 2', 'Ivysaur', 3, pokemon('Venusaur', null, 'Grass', 'Special', 5, 'Hitpoints', 12, 'Slow', 'Epic', {
+  evolution('Stage 2', 'Ivysaur', 3, pokemon('Venusaur', null, 'Grass', 'Special', 5, 'Special Defence', 12, 'Slow', 'Epic', {
     innatePower: 'Shell 1',
     ...ability('On Breakfast', 'Gain 2 Growth.', growth(2)),
   })),
-  pokemon('Oddish', 1, 'Grass', 'Special', 2, 'Hitpoints', 4, 'Steady', 'Common', ability('On Attack', 'Gain 1 Growth.', growth(1))),
+  pokemon('Oddish', 1, 'Grass', 'Special', 3, 'Hitpoints', 5, 'Steady', 'Common', abilities(
+    ability('On Breakfast', 'Gain 1 Growth.', growth(1)),
+    ability('On Attack', 'Gain 1 Growth.', growth(1)),
+  )),
   evolution('Stage 1', 'Oddish', 2, pokemon('Gloom', null, 'Grass', 'Special', 3, 'Hitpoints', 6, 'Steady', 'Common',
     ability('On Evolve', "Put an enemy Pokémon in this Pokémon's Zone to Sleep.", [{ op: 'applyStatus', status: 'sleep', target: ENEMY_IN_ZONE }]))),
   evolution('Stage 2', 'Gloom', 2, pokemon('Bellossom', null, 'Grass', 'Special', 4, 'Hitpoints', 9, 'Steady', 'Rare', abilities(
@@ -462,7 +466,10 @@ export const GRASS_POKEMON = [
     ]),
     ability('On Attack', 'Gain 1 Growth.', growth(1)),
   ))),
-  pokemon('Sunkern', 1, 'Grass', 'Special', 2, 'Hitpoints', 6, 'Slow', 'Common', { weatherTokens: { Sun: 1 } }),
+  pokemon('Sunkern', 1, 'Grass', 'Special', 3, 'Defence', 7, 'Slow', 'Common', {
+    weatherTokens: { Sun: 1 },
+    ...ability('On Breakfast', 'Gain 1 Growth.', growth(1)),
+  }),
   evolution('Stage 1', 'Sunkern', 2, pokemon('Sunflora', null, 'Grass', 'Special', 5, 'Hitpoints', 8, 'Slow', 'Rare', {
     weatherTokens: { Sun: 2 },
     effectText: 'Deals +2 damage with its attack while Sun is 4 or more.',
@@ -476,7 +483,10 @@ export const GRASS_POKEMON = [
     ),
     evolveSameRound: true,   // checked by evolveTargets (game.js) while it is in its owner's arena
   }),
-  pokemon('Sewaddle', 1, 'Bug', 'Physical', 2, 'Hitpoints', 5, 'Steady', 'Common', ability('On Defeated', 'Gain 2 Growth.', growth(2))),
+  pokemon('Sewaddle', 1, 'Bug', 'Physical', 3, 'Hitpoints', 6, 'Steady', 'Common', abilities(
+    ability('On Breakfast', 'Gain 1 Growth.', growth(1)),
+    ability('On Defeated', 'Gain 2 Growth.', growth(2)),
+  )),
   pokemon('Sudowoodo', 3, 'Rock', 'Physical', 3, 'Defence', 9, 'Slow', 'Rare'),
 ];
 
@@ -487,10 +497,11 @@ export const GRASS_STRATEGY = [
   strategy('sleep-powder', 'Sleep Powder', 2, 'Common', 'Put an enemy Pokémon to Sleep.', [
     { op: 'applyStatus', status: 'sleep', target: { mode: 'targeted', side: 'opponent' } },
   ]),
-  strategy('synthesis', 'Synthesis', 1, 'Common', 'Gain 2 Growth, or 3 if Sun is 2 or more. Heal a friendly Pokémon 2.', [
+  strategy('synthesis', 'Synthesis', 1, 'Common', 'Gain 2 Growth, or 3 if Sun is 2 or more. Heal a friendly Pokémon or Trainer 2 and Douse it.', [
     { op: 'gainGrowth', amount: 2, amountIf: { weather: 'Sun', min: 2, amount: 3 } },
-    // (With no friendly Pokémon to heal it can still be played, for the Growth alone: Elliott, G2 answers.)
-    { op: 'heal', amount: 2, target: { mode: 'targeted', side: 'friendly', optional: true } },
+    // (With nothing friendly to heal it can still be played, for the Growth alone: Elliott, G2 answers.)
+    { op: 'heal', amount: 2, target: { mode: 'targeted', side: 'friendly', kinds: ['pokemon', 'trainer'], optional: true } },
+    { op: 'douse', target: { mode: 'chosen' } },
   ]),
   // "Spend up to 8 Growth": the player chooses how much as they play it (the action's growth; all of it, up to 8, by default).
   strategy('solar-beam', 'Solar Beam', 3, 'Rare', 'Spend up to 8 Growth: deal that much damage to an enemy Pokémon or Trainer. Retain.', [
@@ -526,17 +537,17 @@ export const GRASS_SUPPORTERS = [
 ];
 
 export const GRASS_LOCATIONS = [
-  location('floaroma-meadow', 'Floaroma Meadow', 'Common', { Sun: 2 },
+  location('floaroma-meadow', 'Floaroma Meadow', 'Common', { Rain: 2 },
     { text: 'Gain 6 Growth.', label: 'Growth gained', on: 'growth', count: 6 },
     2, 'Friendly Pokémon in this Zone gain +2 Strength.', [
       { op: 'buff', attack: 0, strength: 2, target: { mode: 'area', side: 'friendly', zone: 'source' } },
     ]),
-  location('eterna-forest', 'Eterna Forest', 'Rare', { Sun: 1 },
+  location('eterna-forest', 'Eterna Forest', 'Rare', { Rain: 1 },
     { text: 'Evolve 2 Pokémon.', label: 'Pokémon evolved', on: 'evolve', count: 2 },
     3, 'Search your Draw Pile for an evolution card; it gains Retain.', [
       { op: 'search', filter: EVOLUTION_CARD, retain: true },
     ]),
-  location('petalburg-woods', 'Petalburg Woods', 'Rare', { Sun: 2 },
+  location('petalburg-woods', 'Petalburg Woods', 'Rare', { Rain: 2 },
     { text: 'Put to Sleep or Leech Seed 3 times.', label: 'Sleep or Leech Seed applied', on: 'sleepSeed', count: 3 },
     2, 'Leech Seed each enemy Pokémon in this Zone.', [
       { op: 'applyStatus', status: 'leechSeed', target: { mode: 'area', side: 'opponent', zone: 'source' } },
@@ -551,10 +562,11 @@ const CANDY_BASICS = [...new Set(ALL_POKEMON.filter((c) => c.stage === 'Stage 2'
 export const GRASS_ITEMS = [
   heldItem('miracle-seed', 'Miracle Seed', 2, 'Common', "Holder gains +1 Attack. If it's a Grass Pokémon, it also gains Regenerate 1.",
     { attack: 1, also: { ...GRASS, keywords: [{ key: 'Regenerate', amount: 1 }] } }),
-  item('oran-berry', 'Oran Berry', 'Consumed', 1, 'Common', "Heal a friendly Pokémon 3. If it's a Grass Pokémon, also gain 1 Growth. Retain.", {
+  item('oran-berry', 'Oran Berry', 'Consumed', 1, 'Common', "Heal a friendly Pokémon or Trainer 3 and Douse it. If it's a Grass Pokémon, also gain 1 Growth. Retain.", {
     retain: true,
     effects: [
-      { op: 'heal', amount: 3, target: { mode: 'targeted', side: 'friendly' } },
+      { op: 'heal', amount: 3, target: { mode: 'targeted', side: 'friendly', kinds: ['pokemon', 'trainer'] } },
+      { op: 'douse', target: { mode: 'chosen' } },
       { op: 'gainGrowth', amount: 1, onlyIf: GRASS, target: CHOSEN },
     ],
   }),
@@ -616,16 +628,16 @@ export const TRAINER_CARDS = [
     { cost: 1, text: 'Return a Pokémon from your Discard Pile to your hand.', effects: [{ op: 'return', filter: { cardType: 'Pokémon' } }] },
     { text: "The first Pokémon you summon into Wallace's Zone each Round costs 1 less.", cost: { amount: 1, first: true } }),
   // Grass
-  trainer('erika', 'Erika', 15,
+  trainer('erika', 'Erika', 17,
     { cost: 2, text: "Put an enemy Pokémon in Erika's Zone to Sleep.", effects: [
       { op: 'applyStatus', status: 'sleep', target: { mode: 'targeted', side: 'opponent', zone: 'source' } },
     ] },
     { text: "Friendly Pokémon in Erika's Zone gain +2 Strength.",
       aura: { attack: 0, strength: 2, target: { side: 'friendly', zone: 'source' } } }),
-  trainer('gardenia', 'Gardenia', 16,
+  trainer('gardenia', 'Gardenia', 18,
     { cost: 1, text: 'Gain 1 Growth.', effects: growth(1) },
     { text: "Evolving a Pokémon in Gardenia's Zone costs 1 less (minimum 0).", evolveCost: 1 }),
-  trainer('ramos', 'Ramos', 15,
+  trainer('ramos', 'Ramos', 17,
     { cost: 1, text: "Leech Seed an enemy Pokémon in Ramos's Zone.", effects: [
       { op: 'applyStatus', status: 'leechSeed', target: { mode: 'targeted', side: 'opponent', zone: 'source' } },
     ] },
@@ -695,7 +707,7 @@ export const DECKS = {
     trainers: ['erika', 'gardenia', 'ramos'],
     list: {
       bulbasaur: 3, ivysaur: 2, venusaur: 1, oddish: 2, gloom: 2, bellossom: 1, sunkern: 2, sunflora: 1, celebi: 1, sewaddle: 2, sudowoodo: 1,
-      'leech-seed': 3, 'sleep-powder': 2, synthesis: 1, 'solar-beam': 2,
+      'leech-seed': 2, 'sleep-powder': 2, synthesis: 2, 'solar-beam': 2,
       mallow: 2, 'pokemon-breeder': 1, 'professor-oak': 1,
       'floaroma-meadow': 2, 'eterna-forest': 1, 'petalburg-woods': 1,
       'miracle-seed': 2, 'oran-berry': 2, 'rare-candy': 1, 'big-root': 1,

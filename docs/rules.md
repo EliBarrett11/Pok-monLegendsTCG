@@ -126,7 +126,7 @@ Keyword abilities on Pokémon that always apply. A Pokémon can have more than o
 | Have N friendly Pokémon in this Zone at Supper | Checked at each Supper, right after On Supper (so Pokémon that Burn defeated that Supper don't count); it completes when the count is N or more then. Its progress shows how many are there now. |
 | Gain N Growth | All Growth you gain, from any source (Sun 4 included). |
 | Evolve N Pokémon | Each of your Evolves. |
-| Put to Sleep or Leech Seed N times | Each Sleep or Leech Seed you apply to an enemy Pokémon (one that actually takes hold: not a reapplied seed, not Sleep blocked by Sun 6). |
+| Put to Sleep or Leech Seed N times | Each Sleep or Leech Seed you apply to an enemy Pokémon (one that actually takes hold: not a reapplied seed or Sleep on a Pokémon already Asleep). |
 
 - A Location's completion effect on "Pokémon in this Zone" is a one-off: it affects the Pokémon there when it completes, permanently, not ones summoned later.
 - The Locations are listed with their decks (section 9).
@@ -148,7 +148,7 @@ Keyword abilities on Pokémon that always apply. A Pokémon can have more than o
 |---|---|---|
 | **2** | Each Burn applied is increased by 1 (Scorch and Burn boosted by Blaine included). | Each heal is increased by 1 (Regenerate and Leech Seed's heal included: under Rain 6 a seed drains 2 and heals 3). |
 | **4** | At Breakfast, each player gains +1 Growth. | Burn deals 1 less damage at Supper (minimum 0). |
-| **6** | Sleep can't be applied. | Leech Seed drains 2 instead of 1. |
+| **6** | Each player's first Evolve each Round costs 1 less (minimum 0; Breakfast Evolves count). | Leech Seed drains 2 instead of 1. |
 | **8** | **Drought:** no healing of any kind (Regenerate and Leech Seed included). | **Downpour:** at Supper, before Burn, all Burn is removed from every card (Pokémon and Trainers, both sides). |
 
 - **Bubble Beam** still checks "Rain is 2 or more".
@@ -204,7 +204,6 @@ A Status Effect is a counter or flag on a Pokémon or a Trainer, shown on the ca
 - An Asleep (Spent) Pokémon can't hit back in a trade.
 - Cured by Evolving and Full Heal.
 - "Becomes Active" effects (Kabu's Power, Chili's Gift, Sneasel) skip an Asleep Pokémon: they can't wake it.
-- **Sun 6:** Sleep can't be applied.
 
 **Leech Seed** (Pokémon only, placed on an enemy Pokémon; it belongs to whoever applied it, the "seeder")
 - At Supper (after Burn), each Leech Seed:
@@ -232,7 +231,7 @@ A Status Effect is a counter or flag on a Pokémon or a Trainer, shown on the ca
 
 ### 1.10 Growth
 
-- Each player has a **Growth** pool, starting at 0. Like XP and PokéDollars, it carries over between Rounds and has no maximum. It's public, shown as its own tile in the resource panel.
+- Each player has a **Growth** pool, starting at 0. Like XP and PokéDollars, it carries over between Rounds and has no maximum. It's public. It isn't in the resource panel: while a player has 1 or more, it shows **on the field** as a Growth card in one of that player's empty Pokémon Spaces (a display only: it never blocks the space and can't be targeted; docs/decks.md 2.7).
 - **Gained** only by card effects (Leech Seed, On Evolve abilities…) and by Sun 4 (section 1.6).
 - **Spent:**
   - on **Evolve costs**, where 1 Growth replaces 1 Energy, mixed with Energy as the player chooses (section 1.11);
@@ -241,8 +240,8 @@ A Status Effect is a counter or flag on a Pokémon or a Trainer, shown on the ca
 ### 1.11 Evolution
 
 - **Stages:** every Pokémon is a **Basic**, **Stage 1** or **Stage 2**. An evolution card names what it evolves from ("Evolves from Bulbasaur") and has an **Evolve cost** instead of an Energy Cost. Evolution cards can't be summoned on their own (not even by a free summon).
-- **Evolve** is a Battle Phase Action: play the evolution card from your hand onto a matching Pokémon in your arena, paying the Evolve cost in Energy (Base Energy, then Exert) and/or Growth. When both could pay, you choose how much Growth to use (the screen suggests as much Growth as possible).
-  - The Pokémon must have been in your arena since the start of this Round: it can't have been summoned or evolved this Round.
+- **Evolve** is a Battle Phase Action, and can also be done in the **Breakfast Evolve step** without using an Action (section 4.1.2): play the evolution card from your hand onto a matching Pokémon in your arena, paying the Evolve cost in Energy (Base Energy, then Exert) and/or Growth. When both could pay, you choose how much Growth to use (the screen suggests as much Growth as possible).
+  - The Pokémon must have been in your arena since the start of this Round: it can't have been summoned or evolved this Round. A Pokémon Evolves at most once per Round (a Breakfast Evolve counts).
   - It can be Active or Spent; it stays as it was. Evolving doesn't Spend it.
 - **What changes:**
   - It takes the evolution card's name, Type, Attack, Strength (and Strength-Type), Speed, Innate Powers, abilities and Weather Tokens.
@@ -299,6 +298,7 @@ Every Round, each player:
 6. **Draws 7 cards**, one at a time. If the Draw Pile is empty when a card needs drawing, shuffle the Discard Pile to form a new Draw Pile, then keep drawing. If both piles are empty, drawing stops and the player keeps a smaller hand.
 7. **Timed Weather** effects (section 1.6: Sun 4's Growth), then **On Breakfast** abilities and **Regenerate** (section 1.3) fire (section 8).
 8. **XP step** (after the mulligan in Round 1): see 4.1.1.
+9. **Breakfast Evolve step:** see 4.1.2.
 
 **Mulligan (Round 1 only):** each player may put any number of cards from their hand into their Discard Pile, then draw the same number from their Draw Pile. Both players choose in secret and reveal together.
 
@@ -308,6 +308,14 @@ Every Round, each player:
 - Both players choose in secret and lock in, like the mulligan. (A player with no XP, or no Pokémon in hand, has nothing to choose and skips it.)
 - XP buffs become permanent once the Pokémon is played; a Strength buff raises current and maximum Strength.
 - If the Pokémon leaves your hand without being played (discarded at Supper, or used to pay a Supporter), the buff and the XP are lost.
+
+#### 4.1.2 Breakfast Evolve (settled by Elliott, G3)
+
+- After the XP step, each player may **Evolve any number of their Pokémon**, paying each Evolve cost in Growth and/or Energy as usual (section 1.11), **without using the Battle Action**. The Evolve Battle Action stays as well.
+- **Which Pokémon** (the lenient reading): any Pokémon that was in your arena before this Breakfast, not already evolved this Round. The Round 1 Breakfast has none.
+- Both players choose in secret and lock in, like the XP step; then both sides' Evolves are revealed and resolve, the player with initiative's first. Each is checked again as it resolves (one that can no longer be paid for is skipped).
+- A player with nothing they could Evolve skips the step. If neither has anything, there is no step.
+- Each counts as an Evolve for everything (On Evolve, quests, Sun 6's first-Evolve discount, Gardenia's discount, PokéDollars for the stack).
 
 ### 4.2 Battle Phase
 
@@ -579,27 +587,27 @@ Three decks, as approved in `docs/decks.md` (the source of truth for them). The 
 
 ### 9.4 🌿 Grass — Combo · Engine
 
-**Plan:** plant cheap engine Pokémon and Locations that produce **Growth** every Round, spend Growth to **evolve** them into large final stages, and finish with **Solar Beam**, which turns stored Growth into a big hit on a Trainer. Sleep and Leech Seed buy time while the engine runs. **Trade-off:** a weak start (Rounds 1–3) and engine pieces that must survive on the board; vulnerable to fast pressure and to losing its Basics before they evolve. Trainer Strength 46 in all.
+**Plan:** plant cheap engine Pokémon and Locations that produce **Growth** every Round, spend Growth to **evolve** them into large final stages, and finish with **Solar Beam**, which turns stored Growth into a big hit on a Trainer. Sleep and Leech Seed buy time while the engine runs. **Trade-off:** a weak start (Rounds 1–3) and engine pieces that must survive on the board; vulnerable to fast pressure and to losing its Basics before they evolve. Trainer Strength 52 in all.
 
 | Pokémon | × | Stage | Cost | Type | Attack | Strength | Speed | Rarity | Abilities / Weather |
 |---|---|---|---|---|---|---|---|---|---|
-| Bulbasaur | 3 | Basic | 1 | Grass | 1 Special | 5 Hitpoints | Steady | Common | On Breakfast: gain 1 Growth. |
+| Bulbasaur | 3 | Basic | 1 | Grass | 2 Special | 6 Special Defence | Steady | Common | On Breakfast: gain 1 Growth. |
 | Ivysaur | 2 | Stage 1 (Bulbasaur) | Evolve 2 | Grass | 3 Special | 7 Hitpoints | Steady | Common | On Breakfast: gain 1 Growth. On Evolve: Leech Seed an enemy Pokémon in this Pokémon's Zone. |
-| Venusaur | 1 | Stage 2 (Ivysaur) | Evolve 3 | Grass | 5 Special | 12 Hitpoints | Slow | Epic | Shell 1. On Breakfast: gain 2 Growth. |
-| Oddish | 2 | Basic | 1 | Grass | 2 Special | 4 Hitpoints | Steady | Common | On Attack: gain 1 Growth. |
+| Venusaur | 1 | Stage 2 (Ivysaur) | Evolve 3 | Grass | 5 Special | 12 Special Defence | Slow | Epic | Shell 1. On Breakfast: gain 2 Growth. |
+| Oddish | 2 | Basic | 1 | Grass | 3 Special | 5 Hitpoints | Steady | Common | On Breakfast: gain 1 Growth. On Attack: gain 1 Growth. |
 | Gloom | 2 | Stage 1 (Oddish) | Evolve 2 | Grass | 3 Special | 6 Hitpoints | Steady | Common | On Evolve: put an enemy Pokémon in this Pokémon's Zone to Sleep. |
 | Bellossom | 1 | Stage 2 (Gloom) | Evolve 2 | Grass | 4 Special | 9 Hitpoints | Steady | Rare | On Evolve: put each enemy Pokémon in this Pokémon's Zone to Sleep. On Attack: gain 1 Growth. |
-| Sunkern | 2 | Basic | 1 | Grass | 2 Special | 6 Hitpoints | Slow | Common | Weather Tokens: 1 Sun. |
+| Sunkern | 2 | Basic | 1 | Grass | 3 Special | 7 Defence | Slow | Common | On Breakfast: gain 1 Growth. Weather Tokens: 1 Sun. |
 | Sunflora | 1 | Stage 1 (Sunkern) | Evolve 2 | Grass | 5 Special | 8 Hitpoints | Slow | Rare | Weather Tokens: 2 Sun. Deals +2 damage with its attack while Sun is 4 or more. |
 | Celebi | 1 | Basic | 4 | Grass | 3 Special | 7 Hitpoints | Swift | Legendary | On Summon: gain 3 Growth. Your Pokémon can Evolve the Round they're summoned. |
-| Sewaddle | 2 | Basic | 1 | Bug | 2 Physical | 5 Hitpoints | Steady | Common | On Defeated: gain 2 Growth. |
+| Sewaddle | 2 | Basic | 1 | Bug | 3 Physical | 6 Hitpoints | Steady | Common | On Breakfast: gain 1 Growth. On Defeated: gain 2 Growth. |
 | Sudowoodo | 1 | Basic | 3 | Rock | 3 Physical | 9 Defence | Slow | Rare | (none: a sturdy guard) |
 
 | Strategy | × | Cost | Rarity | Effect |
 |---|---|---|---|---|
-| Leech Seed | 3 | 1 | Common | Leech Seed an enemy Pokémon. (Targeted) |
+| Leech Seed | 2 | 1 | Common | Leech Seed an enemy Pokémon. (Targeted) |
 | Sleep Powder | 2 | 2 | Common | Put an enemy Pokémon to Sleep. (Targeted) |
-| Synthesis | 1 | 1 | Common | Gain 2 Growth, or 3 if Sun is 2 or more. Heal a friendly Pokémon 2. |
+| Synthesis | 2 | 1 | Common | Gain 2 Growth, or 3 if Sun is 2 or more. Heal a friendly Pokémon or Trainer 2 and Douse it. |
 | Solar Beam | 2 | 3 | Rare | Spend up to 8 Growth: deal that much damage to an enemy Pokémon or Trainer. Retain. (Targeted) |
 
 | Supporter | × | Rarity | Card-Cost | Effect | Gift Challenge | Gift Bonus |
@@ -610,34 +618,35 @@ Three decks, as approved in `docs/decks.md` (the source of truth for them). The 
 
 | Location | × | Rarity | Weather | Quest | XP | Effect on completion |
 |---|---|---|---|---|---|---|
-| Floaroma Meadow | 2 | Common | 2 Sun | Gain 6 Growth. | 2 | Friendly Pokémon in this Zone gain +2 Strength. |
-| Eterna Forest | 1 | Rare | 1 Sun | Evolve 2 Pokémon. | 3 | Search your Draw Pile for an evolution card; it gains Retain. |
-| Petalburg Woods | 1 | Rare | 2 Sun | Put to Sleep or Leech Seed 3 times. | 2 | Leech Seed each enemy Pokémon in this Zone. |
+| Floaroma Meadow | 2 | Common | 2 Rain | Gain 6 Growth. | 2 | Friendly Pokémon in this Zone gain +2 Strength. |
+| Eterna Forest | 1 | Rare | 1 Rain | Evolve 2 Pokémon. | 3 | Search your Draw Pile for an evolution card; it gains Retain. |
+| Petalburg Woods | 1 | Rare | 2 Rain | Put to Sleep or Leech Seed 3 times. | 2 | Leech Seed each enemy Pokémon in this Zone. |
 
 | Item | × | Rarity | Item-Type | PokéDollars | Effect |
 |---|---|---|---|---|---|
 | Miracle Seed | 2 | Common | Held | 2 | Holder gains +1 Attack. If it's a Grass Pokémon, it also gains Regenerate 1. |
-| Oran Berry | 2 | Common | Consumed | 1 | Heal a friendly Pokémon 3. If it's a Grass Pokémon, also gain 1 Growth. Retain. |
+| Oran Berry | 2 | Common | Consumed | 1 | Heal a friendly Pokémon or Trainer 3 and Douse it. If it's a Grass Pokémon, also gain 1 Growth. Retain. |
 | Rare Candy | 1 | Rare | Consumed | 3 | This Round, a friendly Basic Pokémon may Evolve straight into its Stage 2 (paying only the Stage 2's Evolve cost), even if it was summoned this Round. |
 | Big Root | 1 | Rare | Held | 3 | Healing the holder receives is increased by 1. Leech Seeds you apply heal the holder first. |
 
 | Trainer | Strength | Power | Passive |
 |---|---|---|---|
-| Erika | 15 | (2) Put an enemy Pokémon in Erika's Zone to Sleep. | Friendly Pokémon in Erika's Zone gain +2 Strength. |
-| Gardenia | 16 | (1) Gain 1 Growth. | Evolving a Pokémon in Gardenia's Zone costs 1 less (minimum 0). |
-| Ramos | 15 | (1) Leech Seed an enemy Pokémon in Ramos's Zone. | Leech Seeds on enemy Pokémon in Ramos's Zone drain 1 more. |
+| Erika | 17 | (2) Put an enemy Pokémon in Erika's Zone to Sleep. | Friendly Pokémon in Erika's Zone gain +2 Strength. |
+| Gardenia | 18 | (1) Gain 1 Growth. | Evolving a Pokémon in Gardenia's Zone costs 1 less (minimum 0). |
+| Ramos | 17 | (1) Leech Seed an enemy Pokémon in Ramos's Zone. | Leech Seeds on enemy Pokémon in Ramos's Zone drain 1 more. |
 
 **How the Grass cards work** (settled with Elliott after G2):
 - **Several abilities on one card** (Ivysaur, Bellossom, Celebi) each trigger on their own, with their own Trigger Word.
 - **Sunflora** deals +2 damage when it attacks (a Command) while Sun is 4 or more. Not when it hits back in a trade, and its Attack Value stays the same.
 - **Celebi:** while it's in your arena, your Pokémon summoned this Round can Evolve, including ones summoned before Celebi. A Pokémon still Evolves at most once per Round.
 - **Solar Beam:** you choose how much Growth to spend, from 1 up to 8 (or all you have): the screen asks after you pick the target, starting at as much as possible. It needs at least 1 Growth to be played. Its damage is effect damage (Shell reduces it, no On Defend).
-- **Synthesis, Oran Berry and Mallow's Gift** heal and do something else, so (like Aqua Ring, section 7.1) they can target a friendly Pokémon that isn't damaged. **Synthesis** can be played with no friendly Pokémon in the arena, for the Growth alone. Oran Berry needs a friendly Pokémon to heal. Mallow's Gift chooses its heal target after the cost is paid, as the effect resolves.
+- **Synthesis, Oran Berry and Mallow's Gift** heal and do something else, so (like Aqua Ring, section 7.1) they can target a friendly Pokémon that isn't damaged. **Synthesis and Oran Berry** can also target a friendly Trainer (G3), and Douse what they heal. Synthesis can be played with nothing chosen to heal, for the Growth alone. Mallow's Gift chooses its heal target after the cost is paid, as the effect resolves.
 - **Pokémon Breeder** finds Pokémon whose "evolves from" names one of your Pokémon in the arena (an Ivysaur in the arena lets it find Venusaur). Its Gift Challenge "an evolution card" is a Stage 1 or Stage 2 card.
 - **Rare Candy** can only target a Basic that has a Stage 2 (Bulbasaur, Oddish). That Basic may then Evolve straight into its Stage 2 this Round, paying the Stage 2's Evolve cost (Gardenia's discount still applies); only the Basic goes into the stack.
 - **Big Root:** a seed you applied heals the Big Root holder instead of your most-damaged Pokémon, if the holder is damaged (otherwise the most-damaged one as usual).
 - **Ramos:** "drain 1 more" is 1 more damage and 1 more healing, on top of Rain 6.
 - **Gardenia** lowers the Evolve cost of a Pokémon in her Zone while she's in play; the screen and the AI show the lower cost.
+- **Grass balance (settled by Elliott, G3):** the cards above are the G3 balance: Sun 6 makes each player's first Evolve each Round 1 cheaper (it used to block Sleep), the Breakfast Evolve step (section 4.1.2), Basics +1/+1, Bulbasaur and Venusaur Special Defence and Sunkern Defence, Trainers +2, Oddish, Sunkern and Sewaddle "On Breakfast: gain 1 Growth", Rain-making Locations, Synthesis and Oran Berry healing and Dousing Trainers, and Synthesis ×2 / Leech Seed ×2. How it was chosen is in the README build log (Grass G3a–G3d, G3).
 - **Sewaddle's** Growth goes to its owner. **Petalburg Woods'** seeds belong to its owner.
 
 ## Open questions
@@ -652,15 +661,12 @@ Three decks, as approved in `docs/decks.md` (the source of truth for them). The 
 - **Timed Weather order:** if two Weather types have timed effects at the same moment, the build resolves them in Weather order (Rain, then Sun). Is that right?
 - **Trainer vs Pokémon order:** when a Trainer's Passive and a Pokémon in the same zone trigger at the same moment, which goes first? (The build puts the Trainer after the Pokémon in its zone.)
 - **On Supper:** no card uses it yet; the hook is built and tested.
-- **Grass balance:** Grass wins about 0% against Fire and 3% against Water. The G3a experiment (README build log, `tools/balance.js --grass`) tried Weather, Sun, attack-type, Infiltrator, early-stat, Evolve-cost and Solar Beam changes and their combinations; none reached 45–55%. G3b tried structural changes (Breakfast Evolve, Grass guards, Trainer Strength, more Growth, +4 Trainer Strength for everyone): Grass reaches 47.5% against Water with Breakfast Evolve + Grass guards + Grass Trainers +2 + more Growth, but no more than 6.5% against Fire. G3c (Breakfast Evolve read as Elliott meant it: any Pokémon in the arena at Breakfast) tried Rain-making Locations, Trainer healing that Douses, a cheaper Sleep Powder and, on the Fire side, Firebreather and Houndoom Burning one Trainer: Grass reaches 39.5% against Fire and 53% against Water with Rain Locations and Douse-healing; only the Fire-side change gets it to 45–55% against Fire, and that breaks Fire–Water. G3d (on Rain Locations + Douse-healing, the approved direction) tried more Trainer Douse: one more Synthesis gives 51% against Fire and 55.5% against Water; Mallow's Gift also Dousing a Trainer gives 50% and 56%; Gardenia's Power Dousing a Trainer overshoots (70.5% and 64.5%). Elliott decides which to adopt.
 
 ## Placeholders in the current build
 
 - **Card art** comes from `assets/cards/<card id>.jpg` (e.g. `crasher-wake.jpg`). A card without a file shows the placeholder look: a box tinted by Pokémon Type or striped by Card-Type. Art for the retired placeholder cards stays in `assets/` but is no longer used.
 - Rain and Sun (section 1.6) are placeholder Weather types.
-- **Sleep and Leech Seed looks** (dim and sway with "z"s; green vines and a drain beam) are placeholders, and Evolving has a simple glow-and-swap; the full Evolve moment comes with Grass G4.
 - **Test-only Grass cards:** Growth, Evolution, Sleep, Leech Seed, On Evolve and the three new quests are also tested with test-only cards (Test Sprout → Test Bloom → Test Blossom, Test Dozer, Test Seeder in `tests/fixtures.js`).
-- **Grass animations:** Grass, Bug and Rock attacks use the generic Physical or Special attack tinted by their Type, and the four Grass Strategy Cards use the generic Strategy animation, until they get their own.
 - **Hot-seat names:** the two players are "Player 1" and "Player 2" until players can choose their own names.
 - Agility and the Trigger Words On Attack, On Defend, On Defeated, On Supper and On Trainer Strike are built and tested (with test-only cards in `tests/`), but no Fire or Water card uses them yet. So are the quest types "Attack N times" and "Use N Trainer Powers".
 - **The AI** places Trainers at random and only spends Base Energy (never Exert). On a Battle turn it scores every legal move and Pass, and picks the best (ties at random). It scores most moves by trying them on a copy of the game: winning, bringing an enemy Trainer to 0, defeating enemy Pokémon without losing its own, damage to enemy Trainers (Overrun and effects included), damage and healing, stats and keywords gained, Pokémon made Active, Burn (as the damage it will still deal over the coming Suppers, three times as much on a Trainer, and removing Burn from its own cards counts the same way), cards gained, PokéDollars and XP, less the Energy or cards it costs. Draws and Searches are scored without trying them, so it never sees its own Draw Pile. **Each deck's plan** weighs these differently: as **Fire** it values damage to Trainers, Burn and Overrun more; as **Water** it values healing, Dousing its own Burn, growing its board, keeping its Pokémon alive and summoning into Zones where it already has Pokémon; as **Grass** it values each Growth twice as much as the other decks do (4 points, not 1), adds 8 for summoning a Basic it can evolve later (Bulbasaur, Oddish, Sunkern), weighs losing its own Pokémon 1.5× (protecting its Basics), adds 12 for every Evolve (trying both ways to pay: all the Growth it has, or as much Base Energy as it can, keeping Growth for Solar Beam), holds Solar Beam (it has Retain) unless it can spend at least 6 Growth or the hit brings an enemy Trainer to 0, and values Sleep and Leech Seed on enemy Pokémon 1.5× (Sleep by 3× the Attack it stops, so it goes on the biggest threat; a seed by 3 + the Pokémon's Strength up to 6, so it goes on sturdy targets). Every deck counts Sleep and Leech Seed on its own Pokémon as worth curing, and Growth at 1 point each. A Pass that gains +1 Base Energy scores what that Energy could buy, weighed by the chance the opponent passes straight back. Supporters: it puts a card that meets the Gift Challenge into the payment when it has one. Locations: only into empty Location spaces. XP: all of it on the cheapest Pokémon in hand it can afford this Round, split at random between Attack and Strength. Open Bag: an Item bought from hand is used straight away if it has a legal target (a Held Item preferring a Pokémon without one), otherwise stored; it sometimes buys from the PokéMart. Choices: it tries each target and takes the best; a Search, Return or free summon takes the strongest card it could afford next Round; Retain goes on a card it can't afford now but can next Round.

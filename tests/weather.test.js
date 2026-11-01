@@ -3,7 +3,7 @@
 // Weather changes a Pokémon's stats by Type any more.
 // Run with: node tests/weather.test.js
 import assert from 'node:assert/strict';
-import { createGame, applyAction, attackOf, maxStrengthOf, weatherState, PLAYERS } from '../src/engine/game.js';
+import { createGame, applyAction, attackOf, maxStrengthOf, weatherState, evolveReductions, PLAYERS } from '../src/engine/game.js';
 import { WEATHER } from '../src/engine/cardData.js';
 import { refreshAuras, resolveEffects } from '../src/engine/effects.js';
 import { inPlay } from '../src/engine/board.js';
@@ -74,7 +74,7 @@ for (const [type, def] of Object.entries(WEATHER)) {
   for (const b of def.brackets) assert.ok(b.mode === 'also' && b.text, `${type} ${b.at}: every bracket adds to the ones below`);
   assert.ok(def.brackets.every((b) => !b.stats), `${type}: no Type-based stat changes`);
 }
-assert.deepEqual(WEATHER.Sun.brackets.map((b) => b.rule ?? 'timed'), ['burnPlus', 'timed', 'noSleep', 'drought']);
+assert.deepEqual(WEATHER.Sun.brackets.map((b) => b.rule ?? 'timed'), ['burnPlus', 'timed', 'firstEvolveLess', 'drought']);
 assert.deepEqual(WEATHER.Rain.brackets.map((b) => b.rule ?? 'timed'), ['healPlus', 'burnMinus', 'leechTwo', 'timed']);
 
 // --- No Type-based Weather any more ----------------------------------------------
@@ -130,19 +130,19 @@ assert.deepEqual(WEATHER.Rain.brackets.map((b) => b.rule ?? 'timed'), ['healPlus
   assert.deepEqual(PLAYERS.map((w) => s.players[w].growth), [2, 2], 'Growth carries over and builds');
 }
 
-// --- ☀ Sun 6: Sleep can't be applied ----------------------------------------------------
+// --- ☀ Sun 6: each player's first Evolve each Round costs 1 less (G3; Sleep is no longer blocked) ---
 
 {
   const s = match();
   const foe = place(s, 'ai', 0, 0, 'test-mud', { spent: false });
-  weather(s, { Sun: 6 });
-  cast(s, 'player', [{ op: 'applyStatus', status: 'sleep', target: ENEMY }], pref('ai', 0, 0));
-  assert.equal(foe.status?.sleep, undefined, 'not Asleep');
-  assert.equal(foe.spent, false, 'and not Spent');
-  assert.ok(logged(s, "can't be put to Sleep (☀ Sun 6)"));
   weather(s, { Sun: 5 });
+  assert.deepEqual(evolveReductions(s, 'player', 0), [], 'below 6: no discount');
+  weather(s, { Sun: 6 });
+  assert.deepEqual(evolveReductions(s, 'player', 0), [{ amount: 1, name: 'Weather' }], 'Sun 6: the first Evolve this Round');
+  s.players.player.evolvedThisRound = s.round;
+  assert.deepEqual(evolveReductions(s, 'player', 0), [], 'after an Evolve: no more');
   cast(s, 'player', [{ op: 'applyStatus', status: 'sleep', target: ENEMY }], pref('ai', 0, 0));
-  assert.ok(foe.status.sleep && foe.spent, 'below 6 it works');
+  assert.ok(foe.status.sleep && foe.spent, 'Sleep still works at Sun 6');
 }
 
 // --- ☀ Sun 8 (Drought): no healing of any kind -------------------------------------------

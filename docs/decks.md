@@ -113,6 +113,7 @@ Existing triggers (On Summon, On Attack, On Defend, On Defeated, On Breakfast, O
 
 - **Stages:** every Pokémon is a **Basic**, **Stage 1** or **Stage 2**. An evolution card names what it evolves from ("Evolves from Bulbasaur") and has an **Evolve cost** instead of an Energy Cost. Evolution cards can't be summoned on their own.
 - **Evolve** is a Battle Phase Action: play the evolution card from your hand onto a matching Pokémon in your arena, paying the Evolve cost in Energy (Base Energy, then Exert) and/or Growth.
+- **Breakfast Evolve (Elliott, G3; the lenient reading):** a Breakfast step after the XP step. Any Pokémon in your arena at Breakfast (there before this Breakfast, not evolved this Round) may Evolve then, paying Growth and/or Energy, without using the Battle Action. Any number; both players choose in secret and reveal together, like XP. The Evolve Battle Action stays.
   - The Pokémon must have been in your arena since the start of this Round: it can't have been summoned or evolved this Round.
   - It can be Active or Spent; it stays as it was. Evolving doesn't Spend it.
 - **What changes:**
@@ -135,7 +136,6 @@ Statuses are shown on the card by **animation only**, like Burn's smoulder (Elli
 - An Asleep (Spent) Pokémon can't hit back in a trade.
 - Sleep doesn't stack.
 - Cured by Evolving and Full Heal.
-- **Sun 6:** Sleep can't be applied.
 
 **Leech Seed** (Pokémon only, placed on an enemy Pokémon; it belongs to whoever applied it)
 - At Supper (after Burn), each Leech Seed:
@@ -173,7 +173,7 @@ How Weather builds up is unchanged: tokens on cards, the combined count from bot
 |---|---|---|
 | **2** | Each Burn applied is increased by 1. | Each heal is increased by 1. |
 | **4** | At Breakfast, each player gains +1 Growth. | Burn deals 1 less damage at Supper (minimum 0). |
-| **6** | Sleep can't be applied. | Leech Seed drains 2 instead of 1. |
+| **6** | Each player's first Evolve each Round costs 1 less (G3; it used to be "Sleep can't be applied"). | Leech Seed drains 2 instead of 1. |
 | **8** | **Drought:** no healing of any kind (Regenerate and Leech Seed included). | **Downpour:** at Supper, before Burn, all Burn is removed from every card. |
 
 - **Removed:** every Type-based Weather effect (Fire/Water +Attack, +1/+1, −1 Attack, Water healing at Rain 8, non-Fire damage at Sun 8).
@@ -324,22 +324,24 @@ Curve: cost 1 ×2, 2 ×4, 3 ×5, 4 ×4, 5 ×2, 6 ×1.
 
 **Plan:** plant cheap engine Pokémon and Locations that produce **Growth** every Round, spend Growth to **evolve** them into large final stages, and finish with **Solar Beam**, which turns stored Growth into a big hit on a Trainer. Sleep and Leech Seed buy time while the engine runs. **Trade-off:** a weak start (Rounds 1–3) and engine pieces that must survive on the board; vulnerable to fast pressure and to losing its Basics before they evolve.
 
+**G3 balance (approved by Elliott):** the numbers below include the G3 changes: Basics +1/+1, Bulbasaur and Venusaur Special Defence and Sunkern Defence, "On Breakfast: gain 1 Growth" on Oddish, Sunkern and Sewaddle, Rain-making Locations, Synthesis and Oran Berry healing and Dousing Trainers, Synthesis ×2 and Leech Seed ×2, Trainers +2. With the Sun 6 and Breakfast Evolve rules (2.8, 2.12).
+
 Stat guideline: Basics use the normal budget (Attack + Strength ≈ 2 × Cost + 6, adjusted). Evolutions use the budget of their **total** cost (Basic cost + Evolve costs) **+1 per stage**, for the setup risk. All numbers are a first pass, to be tuned with the balance tool.
 
 ### Pokémon (18: 15 Grass, 3 allies)
 
 | id | Name | × | Stage | Cost | Type | Attack | Strength | Speed | Rarity | Abilities / Weather |
 |---|---|---|---|---|---|---|---|---|---|---|
-| bulbasaur | Bulbasaur | 3 | Basic | 1 | Grass | 1 Special | 5 Hitpoints | Steady | Common | On Breakfast: gain 1 Growth. |
+| bulbasaur | Bulbasaur | 3 | Basic | 1 | Grass | 2 Special | 6 Special Defence | Steady | Common | On Breakfast: gain 1 Growth. |
 | ivysaur | Ivysaur | 2 | Stage 1 (Bulbasaur) | Evolve 2 | Grass | 3 Special | 7 Hitpoints | Steady | Common | On Breakfast: gain 1 Growth. On Evolve: Leech Seed an enemy Pokémon in this Pokémon's Zone. |
-| venusaur | Venusaur | 1 | Stage 2 (Ivysaur) | Evolve 3 | Grass | 5 Special | 12 Hitpoints | Slow | Epic | Shell 1. On Breakfast: gain 2 Growth. |
-| oddish | Oddish | 2 | Basic | 1 | Grass | 2 Special | 4 Hitpoints | Steady | Common | On Attack: gain 1 Growth. |
+| venusaur | Venusaur | 1 | Stage 2 (Ivysaur) | Evolve 3 | Grass | 5 Special | 12 Special Defence | Slow | Epic | Shell 1. On Breakfast: gain 2 Growth. |
+| oddish | Oddish | 2 | Basic | 1 | Grass | 3 Special | 5 Hitpoints | Steady | Common | On Breakfast: gain 1 Growth. On Attack: gain 1 Growth. |
 | gloom | Gloom | 2 | Stage 1 (Oddish) | Evolve 2 | Grass | 3 Special | 6 Hitpoints | Steady | Common | On Evolve: put an enemy Pokémon in this Pokémon's Zone to Sleep. |
 | bellossom | Bellossom | 1 | Stage 2 (Gloom) | Evolve 2 | Grass | 4 Special | 9 Hitpoints | Steady | Rare | On Evolve: put each enemy Pokémon in this Pokémon's Zone to Sleep. On Attack: gain 1 Growth. |
-| sunkern | Sunkern | 2 | Basic | 1 | Grass | 2 Special | 6 Hitpoints | Slow | Common | Weather Tokens: 1 Sun. |
+| sunkern | Sunkern | 2 | Basic | 1 | Grass | 3 Special | 7 Defence | Slow | Common | On Breakfast: gain 1 Growth. Weather Tokens: 1 Sun. |
 | sunflora | Sunflora | 1 | Stage 1 (Sunkern) | Evolve 2 | Grass | 5 Special | 8 Hitpoints | Slow | Rare | Weather Tokens: 2 Sun. Deals +2 damage with its attack while Sun is 4 or more. |
 | celebi | Celebi | 1 | Basic | 4 | Grass | 3 Special | 7 Hitpoints | Swift | Legendary | On Summon: gain 3 Growth. Your Pokémon can Evolve the Round they're summoned. |
-| sewaddle | Sewaddle | 2 | Basic | 1 | Bug | 2 Physical | 5 Hitpoints | Steady | Common | On Defeated: gain 2 Growth. |
+| sewaddle | Sewaddle | 2 | Basic | 1 | Bug | 3 Physical | 6 Hitpoints | Steady | Common | On Breakfast: gain 1 Growth. On Defeated: gain 2 Growth. |
 | sudowoodo | Sudowoodo | 1 | Basic | 3 | Rock | 3 Physical | 9 Defence | Slow | Rare | (none: a sturdy guard) |
 
 Basic curve: cost 1 ×9, 3 ×1, 4 ×1 (11 Basics). Evolutions: Evolve 2 ×6, Evolve 3 ×1.
@@ -348,9 +350,9 @@ Basic curve: cost 1 ×9, 3 ×1, 4 ×1 (11 Basics). Evolutions: Evolve 2 ×6, Evo
 
 | id | Name | × | Cost | Rarity | Effect |
 |---|---|---|---|---|---|
-| leech-seed | Leech Seed | 3 | 1 | Common | Leech Seed an enemy Pokémon. (Targeted) |
+| leech-seed | Leech Seed | 2 | 1 | Common | Leech Seed an enemy Pokémon. (Targeted) |
 | sleep-powder | Sleep Powder | 2 | 2 | Common | Put an enemy Pokémon to Sleep. (Targeted) |
-| synthesis | Synthesis | 1 | 1 | Common | Gain 2 Growth, or 3 if Sun is 2 or more. Heal a friendly Pokémon 2. |
+| synthesis | Synthesis | 2 | 1 | Common | Gain 2 Growth, or 3 if Sun is 2 or more. Heal a friendly Pokémon or Trainer 2 and Douse it. |
 | solar-beam | Solar Beam | 2 | 3 | Rare | Spend up to 8 Growth: deal that much damage to an enemy Pokémon or Trainer. Retain. (Targeted) |
 
 ### Supporters (4)
@@ -365,26 +367,26 @@ Basic curve: cost 1 ×9, 3 ×1, 4 ×1 (11 Basics). Evolutions: Evolve 2 ×6, Evo
 
 | id | Name | × | Rarity | Weather | Quest | XP | Effect on completion |
 |---|---|---|---|---|---|---|---|
-| floaroma-meadow | Floaroma Meadow | 2 | Common | 2 Sun | Gain 6 Growth. | 2 | Friendly Pokémon in this Zone gain +2 Strength. |
-| eterna-forest | Eterna Forest | 1 | Rare | 1 Sun | Evolve 2 Pokémon. | 3 | Search your Draw Pile for an evolution card; it gains Retain. |
-| petalburg-woods | Petalburg Woods | 1 | Rare | 2 Sun | Put to Sleep or Leech Seed 3 times. | 2 | Leech Seed each enemy Pokémon in this Zone. |
+| floaroma-meadow | Floaroma Meadow | 2 | Common | 2 Rain | Gain 6 Growth. | 2 | Friendly Pokémon in this Zone gain +2 Strength. |
+| eterna-forest | Eterna Forest | 1 | Rare | 1 Rain | Evolve 2 Pokémon. | 3 | Search your Draw Pile for an evolution card; it gains Retain. |
+| petalburg-woods | Petalburg Woods | 1 | Rare | 2 Rain | Put to Sleep or Leech Seed 3 times. | 2 | Leech Seed each enemy Pokémon in this Zone. |
 
 ### Items (6)
 
 | id | Name | × | Rarity | Item-Type | PokéDollars | Effect |
 |---|---|---|---|---|---|---|
 | miracle-seed | Miracle Seed | 2 | Common | Held | 2 | Holder gains +1 Attack. If it's a Grass Pokémon, it also gains Regenerate 1. |
-| oran-berry | Oran Berry | 2 | Common | Consumed | 1 | Heal a friendly Pokémon 3. If it's a Grass Pokémon, also gain 1 Growth. Retain. |
+| oran-berry | Oran Berry | 2 | Common | Consumed | 1 | Heal a friendly Pokémon or Trainer 3 and Douse it. If it's a Grass Pokémon, also gain 1 Growth. Retain. |
 | rare-candy | Rare Candy | 1 | Rare | Consumed | 3 | This Round, a friendly Basic Pokémon may Evolve straight into its Stage 2 (paying only the Stage 2's Evolve cost), even if it was summoned this Round. |
 | big-root | Big Root | 1 | Rare | Held | 3 | Healing the holder receives is increased by 1. Leech Seeds you apply heal the holder first. |
 
-### Trainers (total Strength 46)
+### Trainers (total Strength 52)
 
 | id | Name | Strength | Power | Passive |
 |---|---|---|---|---|
-| erika | Erika | 15 | (2) Put an enemy Pokémon in Erika's Zone to Sleep. | Friendly Pokémon in Erika's Zone gain +2 Strength. |
-| gardenia | Gardenia | 16 | (1) Gain 1 Growth. | Evolving a Pokémon in Gardenia's Zone costs 1 less (minimum 0). |
-| ramos | Ramos | 15 | (1) Leech Seed an enemy Pokémon in Ramos's Zone. | Leech Seeds on enemy Pokémon in Ramos's Zone drain 1 more. |
+| erika | Erika | 17 | (2) Put an enemy Pokémon in Erika's Zone to Sleep. | Friendly Pokémon in Erika's Zone gain +2 Strength. |
+| gardenia | Gardenia | 18 | (1) Gain 1 Growth. | Evolving a Pokémon in Gardenia's Zone costs 1 less (minimum 0). |
+| ramos | Ramos | 17 | (1) Leech Seed an enemy Pokémon in Ramos's Zone. | Leech Seeds on enemy Pokémon in Ramos's Zone drain 1 more. |
 
 ---
 

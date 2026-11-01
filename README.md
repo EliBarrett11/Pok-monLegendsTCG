@@ -342,6 +342,23 @@ No build step: plain HTML, CSS and JavaScript modules. Working rules for each se
   - `?autoplay&decks=grass,fire` picks the decks for an autoplay match.
   - Tests (`tests/vfx.test.js`): every Grass card maps to its own animation and counter, every timeline stays inside its budget, and skip and Instant finish them. Checked in the browser: Razor Leaf, Leech Seed vines, Sleep tint, Synthesis, Solar Beam and an evolution into Sunflora. Rock Throw and Sleep Powder are covered by the tests only.
 
+- **Grass G3** — the Grass balance and Breakfast Evolve, committed as real cards and rules (Elliott approved the direction and both rule changes: core+R+H+D3). **Not on `main` yet:** the confirmation run puts Grass–Water outside 45–55% (below), so it waits for Elliott.
+  - **Rules:** Sun 6 is now "each player's first Evolve each Round costs 1 less" (it used to block Sleep). The **Breakfast Evolve** step (rules 4.1.2, the lenient reading): after the XP step, any Pokémon in the arena before this Breakfast may Evolve, paying Growth and/or Energy, without using the Battle Action; the Evolve Battle Action stays.
+  - **Cards:** Bulbasaur 2/6, Oddish 3/5, Sunkern 3/7, Sewaddle 3/6; Bulbasaur and Venusaur Special Defence, Sunkern Defence; Erika 17, Gardenia 18, Ramos 17 (Grass Trainers 52 in all); Oddish, Sunkern and Sewaddle also "On Breakfast: gain 1 Growth"; Floaroma Meadow 2 Rain, Eterna Forest 1 Rain, Petalburg Woods 2 Rain; Synthesis and Oran Berry can heal a friendly Trainer and Douse what they heal; Synthesis ×2, Leech Seed ×2. `docs/decks.md` (2.8, 2.12, section 5) and `docs/rules.md` (Weather table, 4.1.2, 9.4) updated; "Grass balance" left Open questions for a settled note in 9.4. `tools/balance.js` keeps the uncommitted levers only (W2, S, P, I, G, B, T4, R2, SP, FB, D1, D2).
+  - **Breakfast Evolve on screen:** after the XP step, if you can Evolve, click an evolution card and the Pokémon it can go onto glow (as in Battle); click one (the Growth/Energy chooser asks when both could pay) and it's added to your plan, tagged "→ Sunflora" on the board. Evolve any number, Undo, then **Done**. Simultaneous like XP: hidden until both lock in (the opponent sees "ready" only), then both sides' evolutions play out and the caption says who evolved what. Skipped when there's nothing to Evolve. Works against the AI, in hot-seat and online.
+  - **Growth on the field** (decks.md 2.7): the Growth tile is gone from both resource panels. While a player has Growth, a Growth card (`assets/ui/growth-1…4.jpg` for 1–2, 3–4, 5–7, 8+) sits in one of their empty Pokémon Spaces, chosen at random when it first appears (the same on both screens), with the amount in a badge. It slides to another empty space if its space is used, sits in the board margin beside the Zones when none is free, grows up into the next image when it crosses a threshold, and withers away at 0. Display only. Growth motes (Synthesis, Leech Seed, evolutions, Solar Beam's drain) fly to and from it.
+  - `?autoplay&stopAt=breakfastEvolve` lets the AI play both sides until that step, then hands you the controls (for testing).
+  - Tests: `tests/growthfield.test.js` (image from amount, hidden at 0, an empty space is chosen, stays put, relocates, the margin); `tests/grassdeck.test.js` (Breakfast Evolve as a rule, skipped when nothing to Evolve, secret until both lock in in `viewFor`, Sun 6, Synthesis and Oran Berry on Trainers); decks, weather updated. Checked in the browser: the step, the glowing target, the chooser, the plan tag, the reveal (Sunkern into Sunflora) and the Growth card going 6 → 4.
+  - **Confirmation, 400 matches per matchup** (200 per seat order, seeds 1–200):
+
+  | Matchup | Win rate | Per seat order ("You" seat / AI seat) | Rounds |
+  |---|---|---|---|
+  | Fire v Water | Fire 47.5% | 47.5% / 47.5% | 5.7 |
+  | Grass v Fire | Grass 48.8% | 46.0% / 51.5% | 5.4 |
+  | Grass v Water | **Grass 57.3%** (outside 45–55%) | 53.5% / 61.0% | 9.4 |
+
+  Overall: Fire 49.4%, Water 47.6%, Grass 53.0%. Grass diagnostics (v Fire / v Water): Growth gained 31.3 / 67.3 and spent 18.4 / 43.3 per match; Evolves 2.5 + 0.5 / 3.8 + 0.9 per match (Breakfast + Battle), first Evolve in Round 3.0 / 3.1, lost before evolving anything in 1.0% / 0.6% of its losses; Solar Beam 1.8 / 4.5 played, 10.5 / 28.6 damage per match; Trainer damage dealt 36.3 / 53.1 per match; its Alert Pokémon guarded off every Trainer 0% / 71.6% of the time; peak Sun 6.7 v Fire, peak Rain 9.4 v Water.
+
 Add `?seed=123` to the URL to replay the same shuffle and coin flip. Add `?hotseat` for two players on one screen, or `?join=CODE` to join a friend's room.
 
 ## Balance report

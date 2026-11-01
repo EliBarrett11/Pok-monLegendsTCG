@@ -400,7 +400,7 @@ async function strategyVfx(root, prev, next, main, t) {
       }),
       heal: () => heals.forEach(hitTarget),
       // Grass G4: Leech Seed's vines and Sleep Powder take hold; Synthesis's Growth
-      // rises to the Growth tile; Solar Beam drains the Growth spent into the card.
+      // rises to the Growth card; Solar Beam drains the Growth spent into the card.
       seed: () => statuses.forEach((x) => { take(x); const d = shown(x.target.uid); if (d) floatNumber(rectOf(d), 'Leech Seed', 'status', t(1100)); }),
       sleep: () => statuses.forEach((x) => { take(x); const d = shown(x.target.uid); if (d) floatNumber(rectOf(d), 'Asleep', 'status', t(1100)); }),
       growth: () => growths.forEach((x) => { take(x); growthMotes(root, x.who, centre(rectOf(target ?? el)), x.amount, t); }),
@@ -807,7 +807,7 @@ async function statusGoneBeat(e, t) {
 }
 
 // Growth: green-gold motes fly from where it came from into the player's Growth
-// tile, which pulses as they land; reverse: from the tile (Growth being spent).
+// card on the field, which pulses as they land; reverse: from it (Growth being spent).
 function growthMotes(root, who, from, amount, t, { reverse = false } = {}) {
   const tile = pile(root, `${who}-growth`);
   if (!tile || !from || skipping || t(1) <= 0) return;
@@ -826,7 +826,7 @@ function growthMotes(root, who, from, amount, t, { reverse = false } = {}) {
 }
 
 // The evolution moment: the Pokémon glows white and its silhouette pulses (any
-// Growth paid flies in from the Growth tile); a Stage 2 bursts into light and
+// Growth paid flies in from the Growth card); a Stage 2 bursts into light and
 // petals; then the new card is revealed. About 2 s at Fast; click to skip.
 async function evolveBeat(root, e, t, events) {
   // The Pokémon on the board (before the redraw, the one evolving; after it, the new card).
@@ -863,7 +863,7 @@ async function evolveBeat(root, e, t, events) {
 }
 
 // Leech Seed at Supper: a green stream drains from the seeded Pokémon to the one
-// it heals, and a mote goes to the seeder's Growth tile.
+// it heals, and a mote goes to the seeder's Growth card.
 async function leechBeat(root, e, t) {
   const from = shown(e.from.uid);
   if (!from) return;
@@ -1709,6 +1709,7 @@ export function captionFor(state, actor) {
   const reveals = all('trainersRevealed');
   const mulls = all('mulligan');
   const xpLocks = all('xpLocked');
+  const evoLocks = all('evolveLocked');
   const main = ev.find((e) => ['cardPlayed', 'itemBought', 'itemUsed', 'attack', 'powerUsed', 'pass', 'choiceMade'].includes(e.type));
   if (reveals.length) {
     const theirs = reveals.find((e) => e.who === 'ai');
@@ -1721,13 +1722,19 @@ export function captionFor(state, actor) {
       const m = mulls.find((e) => e.who === w);
       return m.count ? `${subject(w)} mulliganed ${plural(m.count, 'card')}` : `${subject(w)} kept ${w === 'player' ? 'your' : 'their'} hand`;
     }).join(' · ');
-  } else if (xpLocks.length && find('phaseChanged')) {
+  } else if (xpLocks.length && !state.xpStep) {
     text = ['ai', 'player'].map((w) => {
       const x = ev.find((e) => e.type === 'xpSpent' && e.who === w);
       if (!x) return `${subject(w)} spent no XP`;
       return `${subject(w)} spent ${x.total} XP (${x.parts.map((p) => `${p.name} ${[p.attack && `+${p.attack} Attack`, p.strength && `+${p.strength} Strength`].filter(Boolean).join(', ')}`).join('; ')})`;
     }).join(' · ');
-  } else if (find('trainersLocked') || find('mulliganLocked') || xpLocks.length) {
+  } else if (evoLocks.length && !state.evolveStep) {
+    // Both locked in: what each side evolved at Breakfast.
+    text = ['ai', 'player'].map((w) => {
+      const done = ev.filter((e) => e.type === 'evolved' && e.who === w);
+      return done.length ? `${subject(w)} evolved ${done.map((e) => `${e.from.name} into ${e.name}`).join(', ')}` : `${subject(w)} evolved nothing`;
+    }).join(' · ');
+  } else if (find('trainersLocked') || find('mulliganLocked') || xpLocks.length || evoLocks.length) {
     text = actor === 'player' ? 'You locked in — waiting for the opponent' : 'Opponent is ready — your move';
   } else if (main?.type === 'cardPlayed') {
     const where = main.to.kind === 'pokemon' || main.to.kind === 'location' ? ` ${main.to.kind === 'location' ? 'in' : 'into'} Zone ${main.to.zone + 1}` : '';

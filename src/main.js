@@ -25,7 +25,7 @@ import { renderStart } from './ui/lobby.js';
 import { initVfx, syncStatus } from './ui/vfx/engine.js';
 import { createOnline, savedHostMatch, forgetHostMatch } from './online.js';
 
-export const BUILD = 'Grass G4 — Grass visuals';
+export const BUILD = 'Grass G3 — Grass balance and Breakfast Evolve';
 
 
 // The whole game is drawn on a fixed 1920×1080 stage, scaled uniformly to
@@ -44,8 +44,10 @@ const root = document.getElementById('app');
 const params = new URLSearchParams(location.search);
 const seedFromUrl = Number(params.get('seed'));
 // ?autoplay: the AI plays both sides (for watching, and for testing the
-// presentation), with the decks picked at random.
-const autoplay = params.has('autoplay');
+// presentation), with the decks picked at random. ?autoplay&stopAt=breakfastEvolve
+// hands the player's side back to you the first time that action is yours to take.
+let autoplay = params.has('autoplay');
+const stopAt = params.get('stopAt');
 // null while the player is choosing a deck (before each match).
 let state = null;
 
@@ -95,10 +97,10 @@ async function show(prev, next, who) {
   await present(root, viewOf(prev), viewOf(next), screenSeat(who, viewer), draw);
 }
 
-// Simultaneous steps (Trainers, mulligan, XP): both players choose at once.
+// Simultaneous steps (Trainers, mulligan, XP, Breakfast Evolve): both players choose at once.
 // The AI takes a moment, then locks in on its own, so "Opponent ready" shows
 // while the player is still choosing. Input stays open meanwhile.
-const SIMULTANEOUS = ['assignTrainers', 'mulligan', 'spendXp'];
+const SIMULTANEOUS = ['assignTrainers', 'mulligan', 'spendXp', 'breakfastEvolve'];
 let lockInTimer = null;
 function scheduleAiLockIn(id) {
   clearTimeout(lockInTimer);
@@ -183,6 +185,7 @@ async function ready() {
 // first, and is shown in full before the next starts.
 async function opponentActs(id) {
   for (let guard = 0; guard < 1000 && id === match; guard++) {
+    if (autoplay && stopAt && legalActions(state, 'player').includes(stopAt)) autoplay = false;
     let who = 'ai';
     let action = chooseAction(state, 'ai');
     if (!action && autoplay) {

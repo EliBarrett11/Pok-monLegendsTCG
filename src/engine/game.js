@@ -52,7 +52,7 @@ function newPlayer(name, owner, state, deck) {
     supporterRound: null, // the Round this player last played a Supporter (1 per Round)
     xp: 0,               // stored indefinitely; spent at Breakfast on Pokémon in hand
     xpChoice: null,      // the XP step: this player's locked-in spending, revealed together
-    evolveChoice: null,  // the Breakfast Evolve step (RULE_FLAGS.breakfastEvolve): this player's locked-in Evolves
+    evolveChoice: null,  // the Breakfast Evolve step: this player's locked-in Evolves
     dollars: 0,          // PokéDollars: earned for defeating Pokémon, spent on Items; kept between Rounds
     growth: 0,           // Growth: gained by card effects (and Sun 4), spent on Evolve costs; kept between Rounds
     bag: [],             // up to BAG_SIZE Items; { ...item, inDelivery } until the next Breakfast
@@ -222,8 +222,7 @@ export function evolveReductions(state, who, zone) {
   const trainer = p.zones[zone]?.trainer;
   const cut = trainer && trainer.strength > 0 ? trainer.passive?.evolveCost : 0;
   const out = cut ? [{ amount: cut, name: trainer.name }] : [];
-  // Weather rule 'firstEvolveLess' (unused by the current brackets; a balance experiment,
-  // tools/balance.js --grass W1): each player's first Evolve each Round costs 1 less.
+  // Weather rule 'firstEvolveLess' (Sun 6): each player's first Evolve each Round costs 1 less.
   if (weatherRule(state, 'firstEvolveLess') && p.evolvedThisRound !== state.round) out.push({ amount: 1, name: 'Weather' });
   return out;
 }
@@ -1070,7 +1069,7 @@ const HANDLERS = {
     queueStep(state, 'endTurn', { who, passed: false });
   },
 
-  // Breakfast Evolve step (RULE_FLAGS.breakfastEvolve): evolves: [{ uid, zone, space, growth? }],
+  // Breakfast Evolve step: evolves: [{ uid, zone, space, growth? }],
   // locked in secret; both reveal together, then resolve (initiative first).
   breakfastEvolve(state, { who, evolves = [] }) {
     const p = state.players[who];
@@ -1298,11 +1297,7 @@ function startBreakfast(state) {
 }
 
 function endBreakfast(state) {
-  if (RULE_FLAGS.breakfastEvolve) {
-    startEvolveStep(state);
-    return;
-  }
-  finishBreakfast(state);
+  startEvolveStep(state);
 }
 
 function finishBreakfast(state) {
@@ -1310,15 +1305,15 @@ function finishBreakfast(state) {
   startBattle(state);
 }
 
-// --- Breakfast Evolve (a balance experiment: RULE_FLAGS.breakfastEvolve, off by default) ---
+// --- Breakfast Evolve (rules 4.2): after the XP step ---
 
 // The Pokémon this evolution card can go onto at Breakfast: the one it evolves
-// from, not evolved this Round, and in the arena since the start of the previous
-// Round's Battle ('strict') or before this Breakfast ('lenient').
+// from, not evolved this Round, and in the arena before this Breakfast
+// (Elliott's lenient reading, G3).
 export function breakfastEvolveTargets(state, who, uid) {
   const card = state.players[who].hand.find((c) => c.uid === uid);
   if (!isEvolution(card)) return [];
-  const since = RULE_FLAGS.breakfastEvolve === 'strict' ? state.round - 1 : state.round;
+  const since = state.round;
   const out = [];
   state.players[who].zones.forEach((z, zone) => z.pokemon.forEach((c, space) => {
     if (c && c.name === card.evolvesFrom && c.evolvedRound !== state.round && (c.arrivedRound ?? 0) < since) out.push({ zone, space });

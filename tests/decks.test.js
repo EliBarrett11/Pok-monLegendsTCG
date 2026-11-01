@@ -41,7 +41,7 @@ assert.deepEqual(DECKS.water.list, {
 });
 assert.deepEqual(DECKS.grass.list, {
   bulbasaur: 3, ivysaur: 2, venusaur: 1, oddish: 2, gloom: 2, bellossom: 1, sunkern: 2, sunflora: 1, celebi: 1, sewaddle: 2, sudowoodo: 1,
-  'leech-seed': 3, 'sleep-powder': 2, synthesis: 1, 'solar-beam': 2,
+  'leech-seed': 2, 'sleep-powder': 2, synthesis: 2, 'solar-beam': 2,
   mallow: 2, 'pokemon-breeder': 1, 'professor-oak': 1,
   'floaroma-meadow': 2, 'eterna-forest': 1, 'petalburg-woods': 1,
   'miracle-seed': 2, 'oran-berry': 2, 'rare-candy': 1, 'big-root': 1,
@@ -108,16 +108,16 @@ const POKEMON = {
   vaporeon: [5, 'Water', 5, 'Special', 7, 'Special Defence', 'Steady', 'Epic', 'Regenerate 2', 'On Heal', null],
   kyogre: [6, 'Water', 7, 'Special', 11, 'Hitpoints', 'Slow', 'Legendary', null, 'On Summon', { Rain: 2 }],
   // Grass: evolution cards have no Energy Cost (their stage line is below); several abilities show no single trigger word.
-  bulbasaur: [1, 'Grass', 1, 'Special', 5, 'Hitpoints', 'Steady', 'Common', null, 'On Breakfast', null],
+  bulbasaur: [1, 'Grass', 2, 'Special', 6, 'Special Defence', 'Steady', 'Common', null, 'On Breakfast', null],
   ivysaur: [null, 'Grass', 3, 'Special', 7, 'Hitpoints', 'Steady', 'Common', null, null, null],
-  venusaur: [null, 'Grass', 5, 'Special', 12, 'Hitpoints', 'Slow', 'Epic', 'Shell 1', 'On Breakfast', null],
-  oddish: [1, 'Grass', 2, 'Special', 4, 'Hitpoints', 'Steady', 'Common', null, 'On Attack', null],
+  venusaur: [null, 'Grass', 5, 'Special', 12, 'Special Defence', 'Slow', 'Epic', 'Shell 1', 'On Breakfast', null],
+  oddish: [1, 'Grass', 3, 'Special', 5, 'Hitpoints', 'Steady', 'Common', null, null, null],
   gloom: [null, 'Grass', 3, 'Special', 6, 'Hitpoints', 'Steady', 'Common', null, 'On Evolve', null],
   bellossom: [null, 'Grass', 4, 'Special', 9, 'Hitpoints', 'Steady', 'Rare', null, null, null],
-  sunkern: [1, 'Grass', 2, 'Special', 6, 'Hitpoints', 'Slow', 'Common', null, null, { Sun: 1 }],
+  sunkern: [1, 'Grass', 3, 'Special', 7, 'Defence', 'Slow', 'Common', null, 'On Breakfast', { Sun: 1 }],
   sunflora: [null, 'Grass', 5, 'Special', 8, 'Hitpoints', 'Slow', 'Rare', null, null, { Sun: 2 }],
   celebi: [4, 'Grass', 3, 'Special', 7, 'Hitpoints', 'Swift', 'Legendary', null, null, null],
-  sewaddle: [1, 'Bug', 2, 'Physical', 5, 'Hitpoints', 'Steady', 'Common', null, 'On Defeated', null],
+  sewaddle: [1, 'Bug', 3, 'Physical', 6, 'Hitpoints', 'Steady', 'Common', null, null, null],
   sudowoodo: [3, 'Rock', 3, 'Physical', 9, 'Defence', 'Slow', 'Rare', null, null, null],
 };
 // id: [stage, evolves from, Evolve cost]
@@ -133,6 +133,8 @@ const words = (id) => cardDefinition(id).abilityParts.map((p) => p.word);
 assert.deepEqual(words('ivysaur'), ['On Breakfast', 'On Evolve']);
 assert.deepEqual(words('bellossom'), ['On Evolve', 'On Attack']);
 assert.deepEqual(words('celebi'), ['On Summon', null]);
+assert.deepEqual(words('oddish'), ['On Breakfast', 'On Attack']);
+assert.deepEqual(words('sewaddle'), ['On Breakfast', 'On Defeated']);
 assert.deepEqual(POKEMON_CARDS.map((c) => c.id), Object.keys(POKEMON));
 for (const c of POKEMON_CARDS) {
   assert.deepEqual([c.energyCost, c.pokemonType, c.attackValue, c.attackType, c.strengthValue, c.strengthType, c.speedTier, c.rarity,
@@ -165,7 +167,7 @@ for (const c of SUPPORTER_CARDS) {
 const LOCATIONS = {
   'mt-ember': ['Common', { Sun: 2 }, 4, 2], 'cinnabar-volcano': ['Rare', { Sun: 2 }, 3, 3], 'stark-mountain': ['Rare', { Sun: 3 }, 2, 2],
   'cerulean-cape': ['Common', { Rain: 2 }, 3, 2], 'lake-of-rage': ['Rare', { Rain: 2 }, 10, 3], 'route-119': ['Rare', { Rain: 3 }, 3, 2],
-  'floaroma-meadow': ['Common', { Sun: 2 }, 6, 2], 'eterna-forest': ['Rare', { Sun: 1 }, 2, 3], 'petalburg-woods': ['Rare', { Sun: 2 }, 3, 2],
+  'floaroma-meadow': ['Common', { Rain: 2 }, 6, 2], 'eterna-forest': ['Rare', { Rain: 1 }, 2, 3], 'petalburg-woods': ['Rare', { Rain: 2 }, 3, 2],
 };
 assert.deepEqual(LOCATION_CARDS.map((c) => c.id), Object.keys(LOCATIONS));
 for (const c of LOCATION_CARDS) assert.deepEqual([c.rarity, c.weatherTokens, c.quest.count, c.xp], LOCATIONS[c.id], c.name);
@@ -181,17 +183,17 @@ const ITEMS = {
 assert.deepEqual(ITEM_CARDS.map((c) => c.id), Object.keys(ITEMS));
 for (const c of ITEM_CARDS) assert.deepEqual([c.itemType, c.cost, c.rarity, Boolean(c.retain)], ITEMS[c.id], c.name);
 
-// Trainers: Fire totals 43 Strength, Water 48, Grass 46.
+// Trainers: Fire totals 43 Strength, Water 48, Grass 52.
 const TRAINERS = {
   blaine: [14, 1], flannery: [13, 1], kabu: [16, 2], misty: [16, 1], 'crasher-wake': [17, 2], wallace: [15, 1],
-  erika: [15, 2], gardenia: [16, 1], ramos: [15, 1],
+  erika: [17, 2], gardenia: [18, 1], ramos: [17, 1],
 };
 assert.deepEqual(TRAINER_CARDS.map((t) => t.id), Object.keys(TRAINERS));
 for (const t of TRAINER_CARDS) assert.deepEqual([t.strength, t.power.cost], TRAINERS[t.id], t.name);
 const total = (id) => buildTrainers('p', id).reduce((sum, t) => sum + t.strength, 0);
 assert.equal(total('fire'), 43);
 assert.equal(total('water'), 48);
-assert.equal(total('grass'), 46);
+assert.equal(total('grass'), 52);
 assert.deepEqual(buildTrainers('ai', 'water').map((t) => [t.uid, t.maxStrength]),
   [['ai-trainer-misty', 16], ['ai-trainer-crasher-wake', 17], ['ai-trainer-wallace', 15]]);
 

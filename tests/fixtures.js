@@ -197,6 +197,8 @@ export function nextRound(s) {
   s = applyAction(s, { type: 'pass', who: 'player' });
   s = applyAction(s, { type: 'pass', who: 'ai' });
   for (const who of PLAYERS) if (s.xpStep && legalActions(s, who).includes('spendXp')) s = applyAction(s, { type: 'spendXp', who, spend: [] });
+  // (The Breakfast Evolve step: nothing evolved.)
+  for (const who of PLAYERS) if (s.evolveStep && legalActions(s, who).includes('breakfastEvolve')) s = applyAction(s, { type: 'breakfastEvolve', who, evolves: [] });
   return s;
 }
 

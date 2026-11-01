@@ -437,9 +437,9 @@ function locationScore(state, who, { uid, zone }) {
   return 14 + 2 * card.xp + (card.quest.inZone ? 3 * here : 0);
 }
 
-// Breakfast Evolve (a rule experiment): every Evolve it can afford with Growth
+// Breakfast Evolve: every Evolve it can afford with Growth
 // and Base Energy (never Exert), the biggest evolution first, as much Growth as it has.
-// (Only the first each Round gets the Sun 6 discount, if that rule is on: later ones cost 1 more.)
+// (Only the first each Round gets the Sun 6 discount: later ones cost 1 more.)
 function breakfastEvolves(state, who) {
   const p = state.players[who];
   let growth = p.growth ?? 0;

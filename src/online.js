@@ -423,7 +423,8 @@ export function createOnline({ build, seed, draw, lock, toStart, stage }) {
     const theirs = v.pending ? v.pending.who === 'ai'
       : v.phase === 'battle' ? v.turn === 'ai'
         : v.phase === 'trainers' ? !v.players.ai.pending
-          : v.phase === 'breakfast' && (v.xpStep ? !v.players.ai.xpChoice : v.round === 1 && !v.players.ai.pending);
+          : v.phase === 'breakfast' && (v.evolveStep ? !v.players.ai.evolveChoice
+            : v.xpStep ? !v.players.ai.xpChoice : v.round === 1 && !v.players.ai.pending);
     if (theirs) setCaption('Opponent is choosing…');
   }
 

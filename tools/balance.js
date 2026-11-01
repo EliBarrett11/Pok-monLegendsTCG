@@ -14,28 +14,17 @@
 // longer variants.)
 // --decks fire,grass plays only that matchup (fire,fire: a mirror, for checking the seats);
 // --matchups grass-fire,grass-water plays those.
-// --grass X tries Grass G3a variants (docs: README build log), combined as in W1SPE:
-//   W1 Sun 6: no Sleep block; each player's first Evolve each Round costs 1 less
-//   W2 Sun 6 does nothing     S Grass makes less Sun     P the Oddish line is Physical
-//   I  Venusaur and Bellossom gain Infiltrator     E Grass Basics +1/+1
-//   G  every Evolve cost −1     B Solar Beam costs 2 and spends up to 10
-// G3b (join with +, as in W1+E+BE+GD):
-//   BE Breakfast Evolve step (rule flag, all decks): Pokémon in the arena since the start of the
-//      previous Round's Battle;  BL the same, any Pokémon in the arena before this Breakfast
-//   GD Grass guards: Bulbasaur and Venusaur Special Defence, Sunkern Defence
-//   TS Grass Trainers +2 (Erika 17, Gardenia 18, Ramos 17)
-//   GX Oddish, Sunkern and Sewaddle also gain "On Breakfast: gain 1 Growth"
+// --grass X tries Grass balance variants on top of the current cards (join with +, as in SP+FB).
+// The approved ones (W1, BL, E, GD, TS, GX, R, H, D3) are the real cards and rules now (Grass G3), so
+// no longer variants. Still here:
+//   W2 Sun 6 does nothing     S Grass makes Sun instead of Rain     P the Oddish line is Physical
+//   I  Venusaur and Bellossom gain Infiltrator     G  every Evolve cost −1     B Solar Beam costs 2 and spends up to 10
 //   T4 every Trainer in every deck +4 Strength
-// G3c:
-//   R  Grass's Locations make Rain (Floaroma Meadow 2, Eterna Forest 1, Petalburg Woods 2)
-//   R2 as R, and Sunkern 1 Rain, Sunflora 2 Rain
-//   H  Synthesis and Oran Berry can also target a friendly Trainer, and Douse what they heal
-//   SP Sleep Powder costs 1, 3 copies; Leech Seed 2 copies
+//   R2 Sunkern 1 Rain, Sunflora 2 Rain (instead of Sun)
+//   SP Sleep Powder costs 1, 3 copies (Leech Seed 2 is already the list)
 //   FB (Fire side, a diagnostic) Firebreather and Houndoom Burn one chosen enemy Trainer instead of each
-// G3d:
 //   D1 Gardenia's Power: (1) Gain 1 Growth, or Douse a friendly Trainer and heal it 1
 //   D2 Mallow's Gift Bonus also Douses a friendly Trainer
-//   D3 Synthesis 2 copies (Leech Seed 2)
 // --json FILE also writes the numbers as JSON.
 //
 // The same matches every time (seeds 1..N for each seat order, the AI's
@@ -49,7 +38,7 @@ import { chooseAction, usePlan } from '../src/ai/opponent.js';
 import { nextRandom } from '../src/engine/random.js';
 import { writeFileSync } from 'node:fs';
 import {
-  WEATHER, DECK_IDS, DECKS, POKEMON_CARDS, ability, STRATEGY_CARDS, SUPPORTER_CARDS, LOCATION_CARDS, ITEM_CARDS, TRAINER_CARDS,
+  WEATHER, DECK_IDS, DECKS, POKEMON_CARDS, STRATEGY_CARDS, SUPPORTER_CARDS, LOCATION_CARDS, ITEM_CARDS, TRAINER_CARDS,
 } from '../src/engine/cardData.js';
 
 const args = process.argv.slice(2);
@@ -142,27 +131,19 @@ const VARIANTS = {
 const parts = VARIANT.match(/E2?|[A-DGILNSTUWZ]/g) ?? [];
 if (parts.join('') !== VARIANT) throw new Error(`Unknown variant: ${VARIANT}`);
 for (const part of parts) if (typeof VARIANTS[part] === 'function') VARIANTS[part]();
-// Grass G3a experiments (--grass): in memory only, like the variants above.
+// Grass experiments (--grass): in memory only, like the variants above.
 const sunAt = (n) => WEATHER.Sun.brackets.find((b) => b.at === n);
 const GRASS_VARIANTS = {
-  W1: () => Object.assign(sunAt(6), { rule: 'firstEvolveLess', text: "Each player's first Evolve each Round costs 1 less." }),
   W2: () => Object.assign(sunAt(6), { rule: undefined, text: '(no effect)' }),
   S: () => {
-    card(LOCATION_CARDS, 'floaroma-meadow').weatherTokens = { Sun: 1 };
+    card(LOCATION_CARDS, 'floaroma-meadow').weatherTokens = { Sun: 2 };
     card(LOCATION_CARDS, 'eterna-forest').weatherTokens = { Sun: 1 };
-    card(LOCATION_CARDS, 'petalburg-woods').weatherTokens = { Rain: 1 };
-    card(POKEMON_CARDS, 'sunflora').weatherTokens = { Sun: 1 };
+    card(LOCATION_CARDS, 'petalburg-woods').weatherTokens = { Sun: 2 };
   },
   P: () => { for (const id of ['oddish', 'gloom', 'bellossom']) card(POKEMON_CARDS, id).attackType = 'Physical'; },
   I: () => {
     card(POKEMON_CARDS, 'venusaur').innatePower = 'Shell 1, Infiltrator';
     card(POKEMON_CARDS, 'bellossom').innatePower = 'Infiltrator';
-  },
-  E: () => {
-    for (const id of ['bulbasaur', 'oddish', 'sunkern', 'sewaddle']) {
-      card(POKEMON_CARDS, id).attackValue += 1;
-      card(POKEMON_CARDS, id).strengthValue += 1;
-    }
   },
   G: () => { for (const c of POKEMON_CARDS) if (c.evolveCost) c.evolveCost -= 1; },
   B: () => {
@@ -170,49 +151,14 @@ const GRASS_VARIANTS = {
     Object.assign(beam, { energyCost: 2, spendsGrowth: 10, effectText: beam.effectText.replace('up to 8', 'up to 10') });
     beam.effects.find((e) => e.op === 'spendGrowth').max = 10;
   },
-};
-Object.assign(GRASS_VARIANTS, {
-  BE: () => { RULE_FLAGS.breakfastEvolve = 'strict'; },
-  BL: () => { RULE_FLAGS.breakfastEvolve = 'lenient'; },
-  GD: () => {
-    card(POKEMON_CARDS, 'bulbasaur').strengthType = 'Special Defence';
-    card(POKEMON_CARDS, 'sunkern').strengthType = 'Defence';
-    card(POKEMON_CARDS, 'venusaur').strengthType = 'Special Defence';
-  },
-  TS: () => { for (const [id, n] of [['erika', 17], ['gardenia', 18], ['ramos', 17]]) card(TRAINER_CARDS, id).strength = n; },
-  GX: () => {
-    const extra = ability('On Breakfast', 'Gain 1 Growth.', [{ op: 'gainGrowth', amount: 1 }]);
-    for (const id of ['oddish', 'sunkern', 'sewaddle']) {
-      const c = card(POKEMON_CARDS, id);
-      const own = [c.ability].flat().filter(Boolean).map((a) => ({ ...a, word: a.word ?? c.effectTrigger, text: a.text ?? c.effectText }));
-      c.ability = [...own, { ...extra.ability, word: 'On Breakfast', text: 'Gain 1 Growth.' }];
-      c.effectText = [c.effectText, 'On Breakfast: gain 1 Growth.'].filter(Boolean).join(' ');
-    }
-  },
   T4: () => { for (const t of TRAINER_CARDS) t.strength += 4; },
-  R: () => {
-    card(LOCATION_CARDS, 'floaroma-meadow').weatherTokens = { Rain: 2 };
-    card(LOCATION_CARDS, 'eterna-forest').weatherTokens = { Rain: 1 };
-    card(LOCATION_CARDS, 'petalburg-woods').weatherTokens = { Rain: 2 };
-  },
   R2: () => {
-    GRASS_VARIANTS.R();
     card(POKEMON_CARDS, 'sunkern').weatherTokens = { Rain: 1 };
     card(POKEMON_CARDS, 'sunflora').weatherTokens = { Rain: 2 };
   },
-  H: () => {
-    const synthesis = card(STRATEGY_CARDS, 'synthesis');
-    const heal = synthesis.effects.find((e) => e.op === 'heal');
-    heal.target = { ...heal.target, kinds: ['pokemon', 'trainer'] };
-    synthesis.effects.push({ op: 'douse', target: { mode: 'chosen' } });
-    const oran = card(ITEM_CARDS, 'oran-berry');
-    const berry = oran.effects.find((e) => e.op === 'heal');
-    berry.target = { ...berry.target, kinds: ['pokemon', 'trainer'] };
-    oran.effects.splice(1, 0, { op: 'douse', target: { mode: 'chosen' } });
-  },
   SP: () => {
     card(STRATEGY_CARDS, 'sleep-powder').energyCost = 1;
-    Object.assign(DECKS.grass.list, { 'sleep-powder': 3, 'leech-seed': 2 });
+    Object.assign(DECKS.grass.list, { 'sleep-powder': 3 });
   },
   FB: () => {
     const one = { mode: 'targeted', side: 'opponent', kinds: ['trainer'] };
@@ -237,10 +183,9 @@ Object.assign(GRASS_VARIANTS, {
     mallow.gift.bonusText += ' Douse a friendly Trainer.';
     mallow.gift.effects.push({ op: 'douse', target: { mode: 'targeted', side: 'friendly', kinds: ['trainer'], separate: true } });
   },
-  D3: () => { Object.assign(DECKS.grass.list, { synthesis: 2, 'leech-seed': 2 }); },
-});
-const grassParts = GRASS.includes('+') ? GRASS.split('+') : (GRASS.match(/W[12]|[SPIEGB]/g) ?? []);
-if (grassParts.join(GRASS.includes('+') ? '+' : '') !== GRASS || grassParts.some((x) => !GRASS_VARIANTS[x])) throw new Error(`Unknown --grass variant: ${GRASS}`);
+};
+const grassParts = GRASS ? GRASS.split('+') : [];
+if (grassParts.some((x) => !GRASS_VARIANTS[x])) throw new Error(`Unknown --grass variant: ${GRASS}`);
 for (const part of grassParts) GRASS_VARIANTS[part]();
 
 const STALL_ROUND = 100;

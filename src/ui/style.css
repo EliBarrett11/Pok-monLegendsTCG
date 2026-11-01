@@ -631,6 +631,7 @@ button.primary {
 }
 .pay-badge.discard { background: #e8953a; color: var(--ink); }
 .pay-badge.release { background: var(--burgundy); color: #fff; }
+.pay-badge.planned { background: #6fbf4a; color: var(--ink); }
 .xp-tag { color: #6a4ec0; font-weight: 800; }
 
 /* Hover preview: the full card, floating beside the hovered one */
@@ -878,19 +879,19 @@ button.primary {
   display: flex; align-items: center; gap: 14px;
 }
 /* --- Feedback batch 2: resource panels (docs/design/player-panel-mockup.jpg) ----------- */
-/* Six framed tiles: Energy, Exert, XP, PokéDollars, Growth (Grass G1) and the Bag row. Mine is
+/* Five framed tiles: Energy, Exert, XP, PokéDollars and the Bag row (Growth is on the field, G3). Mine is
    large, in the strip below the board right of the hand and under the side
    panel; the opponent's is the same, compact, along the top. */
 .res { position: absolute; display: grid; color: var(--cream-muted); font-size: 13px; --frame: linear-gradient(#6a4526, #3d2514); }
 .res.player {
   left: 986px; top: 0; width: 723px; height: 140px; padding: 8px 8px 7px; gap: 6px;
-  grid-template-columns: 162px 186px 104px 1fr 128px; grid-template-rows: 66px 1fr;
-  grid-template-areas: "energy exert xp dollars growth" "bag bag bag bag bag";
+  grid-template-columns: 178px 196px 150px 1fr; grid-template-rows: 66px 1fr;
+  grid-template-areas: "energy exert xp dollars" "bag bag bag bag";
 }
 .res.ai {
   position: relative; width: 940px; height: 70px; flex: none; padding: 5px 6px; gap: 5px; margin-top: -4px;
-  grid-template-columns: 112px 124px 78px 112px 92px 1fr; grid-template-rows: 1fr;
-  grid-template-areas: "energy exert xp dollars growth bag";
+  grid-template-columns: 118px 128px 92px 122px 1fr; grid-template-rows: 1fr;
+  grid-template-areas: "energy exert xp dollars bag";
 }
 /* The name tag ("You", "Opponent"), with whose move it is and who passed last. */
 .res-tag {
@@ -910,8 +911,7 @@ button.primary {
   border: 1px solid var(--brass-mid); box-shadow: inset 0 0 0 1px rgba(246, 221, 154, 0.18), inset 0 2px 8px rgba(0, 0, 0, 0.6);
 }
 .tile.t-energy { grid-area: energy; } .tile.t-exert { grid-area: exert; } .tile.t-xp { grid-area: xp; }
-.tile.t-dollars { grid-area: dollars; } .tile.t-growth { grid-area: growth; } .tile.t-bag { grid-area: bag; }
-.growth-word { font-size: 30px; color: #8fe07a; }
+.tile.t-dollars { grid-area: dollars; } .tile.t-bag { grid-area: bag; }
 .tile-label {
   display: flex; align-items: baseline; gap: 6px; white-space: nowrap; line-height: 1;
   font-family: var(--font-display); font-size: 13px; font-weight: 700; color: var(--brass); letter-spacing: 0.08em; text-transform: uppercase;
@@ -1668,3 +1668,37 @@ button.pulse { animation: soft-pulse 1.6s ease-in-out infinite; }
 .fx-num.growth span { color: #e2ffb0; -webkit-text-stroke: 1.5px #24501a; font-size: 24px; }
 .fx-num.weather span { white-space: nowrap; font-size: 22px; color: #fff3c4; -webkit-text-stroke: 1.5px #5a3a04; }
 .fx-num.weather.rain span { color: #e0f0ff; -webkit-text-stroke: 1.5px #0e3550; }
+
+/* --- Growth on the field (Grass G3, docs/decks.md 2.7) ------------------------------------
+   A Growth card in an empty Pokémon Space (or the board margin), growing through
+   four images; the amount in a clear badge. A display only: it never takes clicks. */
+.growth-card {
+  position: relative; width: calc(var(--space-w) - 10px); height: calc(var(--space-h) - 10px);
+  border-radius: 9px; overflow: visible; pointer-events: none;
+  box-shadow: 0 0 0 2px rgba(180, 230, 110, 0.75), 0 4px 12px rgba(0, 0, 0, 0.55), 0 0 16px rgba(160, 230, 90, 0.35);
+}
+.growth-card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 9px; }
+.growth-card .growth-old { z-index: 1; }
+.pokemon-space:has(.empty) .growth-card { position: absolute; opacity: 0.55; }
+.pokemon-space { position: relative; }
+.growth-badge {
+  position: absolute; z-index: 2; right: -9px; bottom: -9px; min-width: 38px; height: 38px; padding: 0 6px; border-radius: 19px;
+  display: grid; place-items: center; font-family: var(--font-display); font-size: 24px; font-weight: 800; line-height: 1;
+  color: #1d3a10; background: radial-gradient(circle at 35% 30%, #f4ffd0, #a9e05a 60%, #6aa632);
+  border: 2px solid #fff6c8; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+.growth-card.stage-4 .growth-badge { background: radial-gradient(circle at 35% 30%, #fffbe0, #ffe27a 55%, #c8a030); color: #3a2a05; }
+/* No empty space: in the margin right of that player's Zones, beside their Pokémon row, smaller. */
+.growth-card.margin { position: absolute; right: -12px; width: 62px; height: 86px; border-radius: 6px; }
+.growth-card.margin img { border-radius: 6px; }
+.side.player .growth-card.margin { top: 46px; }
+.side.opponent .growth-card.margin { bottom: 46px; }
+.growth-card.margin .growth-badge { min-width: 26px; height: 26px; font-size: 16px; right: auto; left: -10px; bottom: -8px; }
+.growth-ghost { pointer-events: none; }
+/* Breakfast Evolve: a Pokémon planned to Evolve (and into what). */
+.pokemon-space.evo-planned { box-shadow: 0 0 0 2px rgba(150, 220, 90, 0.9), 0 0 16px rgba(150, 220, 90, 0.55); border-radius: 10px; }
+.evo-tag {
+  position: absolute; z-index: 3; left: 50%; bottom: -12px; transform: translateX(-50%); white-space: nowrap; pointer-events: none;
+  padding: 2px 9px; border-radius: 10px; background: #6fbf4a; color: var(--ink);
+  font-family: var(--font-display); font-size: 13px; font-weight: 800; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.55);
+}

@@ -35,7 +35,7 @@ export function pileDepth(count) {
 // --- The resource panels (Feedback batch 2) ---------------------------------------------
 //
 // What a player's resource panel shows, section by section: Energy, Exert,
-// XP, PokéDollars, Growth (Grass G1) and the Bag. Both panels (mine along the bottom, the
+// XP, PokéDollars and the Bag (Growth is on the field: growthSpot below). Both panels (mine along the bottom, the
 // opponent's compact along the top) draw from this.
 
 export function panelView(state, who) {
@@ -62,7 +62,6 @@ export function panelView(state, who) {
     },
     xp: { value: p.xp, tip: `XP: ${p.xp}. Spent in the XP step at Breakfast to raise a Pokémon's stats.` },
     dollars: { value: p.dollars, tip: `PokéDollars: $${p.dollars}. Buy Items from your hand or the PokéMart with Open Bag.` },
-    growth: { value: p.growth ?? 0, tip: `Growth: ${p.growth ?? 0}. Gained from card effects (and ☀ Sun 4); 1 Growth pays for 1 Energy of an Evolve cost. Kept between Rounds.` },
     bag: {
       count: p.bag.length, size: BAG_SIZE, full: p.bag.length >= BAG_SIZE, slots,
       tip: `Bag: ${p.bag.length} of ${BAG_SIZE} Items${delivery ? `, ${delivery} In Delivery (arriving next Round)` : ''}. Use one with Open Bag.`,
@@ -133,4 +132,62 @@ export function matchStats(state) {
     player: side('player'),
     ai: side('ai'),
   };
+}
+
+// --- Growth on the field (docs/decks.md 2.7) ----------------------------------------------
+//
+// Growth isn't in the resource panel: while a player has 1 or more it shows as
+// a Growth card in one of their empty Pokémon Spaces, growing through four
+// images with the amount. It's a display only (never blocks or is targeted).
+
+export const GROWTH_STAGES = [   // the smallest amount for each image
+  { min: 1, image: 'growth-1' },   // a sapling
+  { min: 3, image: 'growth-2' },   // a young tree
+  { min: 5, image: 'growth-3' },   // a tree
+  { min: 8, image: 'growth-4' },   // a great tree (Solar Beam fully charged)
+];
+
+// Which image (1–4) for an amount; 0 when there is none to show.
+export function growthStage(amount) {
+  let stage = 0;
+  GROWTH_STAGES.forEach((s, i) => { if ((amount ?? 0) >= s.min) stage = i + 1; });
+  return stage;
+}
+
+export const growthImage = (amount) => {
+  const stage = growthStage(amount);
+  return stage ? `assets/ui/${GROWTH_STAGES[stage - 1].image}.jpg` : null;
+};
+
+// The player's empty Pokémon Spaces, as { zone, space }.
+export function emptySpaces(p) {
+  const out = [];
+  p.zones.forEach((z, zone) => z.pokemon.forEach((c, space) => { if (!c) out.push({ zone, space }); }));
+  return out;
+}
+
+// A small deterministic pick, so both players' screens choose the same space.
+function hashPick(seed, n) {
+  let h = 2166136261;
+  for (const ch of seed) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  return (h >>> 0) % n;
+}
+
+// Where a player's Growth card is now, from where it was (`prev`, or null):
+//   null                     no Growth: nothing to show (it withers away)
+//   { amount, stage, image, zone, space }   in an empty Pokémon Space
+//   { amount, stage, image, margin: true }   every space is taken: in the board margin beside the Zones
+// It stays where it is while that space is empty; it appears (or moves) to a
+// random empty space when it first shows or its space is taken. `seed` makes the pick.
+export function growthSpot(p, prev, seed = '') {
+  const amount = p.growth ?? 0;
+  if (amount <= 0) return null;
+  const base = { amount, stage: growthStage(amount), image: growthImage(amount) };
+  const free = emptySpaces(p);
+  if (prev && !prev.margin && free.some((s) => s.zone === prev.zone && s.space === prev.space)) {
+    return { ...base, zone: prev.zone, space: prev.space };
+  }
+  if (!free.length) return { ...base, margin: true };
+  const pick = free[hashPick(`${seed}:${prev ? `${prev.zone ?? 'm'}${prev.space ?? ''}` : 'new'}`, free.length)];
+  return { ...base, zone: pick.zone, space: pick.space };
 }

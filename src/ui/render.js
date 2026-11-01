@@ -11,12 +11,12 @@ import {
   playableSupporters, supporterTargets, giftMet, playableLocations, locationSpaces, weatherState,
   openBagOptions, itemTargets, BAG_SIZE, passEndsPhase, PASS_ENERGY, applyAction, passSpends,
   summonCost, zoneReductions, cheapestCost, attackBlock, evolveOptions, evolveTargets, evolvePayment, isEvolution, evolveCost,
-  cheapestEvolveCost,
+  cheapestEvolveCost, breakfastEvolveTargets, evolveReductions,
 } from '../engine/game.js';
 import { canPay } from '../engine/energy.js';
 import { keywordSummary, keywordLabel } from '../engine/keywords.js';
 import { statusCount } from '../engine/status.js';
-import { pileDepth, panelView, pipTip, martView, matchStats } from './resources.js';
+import { pileDepth, panelView, pipTip, martView, matchStats, growthSpot } from './resources.js';
 import { heldBonus, weatherTotal, speedOf, cardAt, hasRetain } from '../engine/board.js';
 import { INNATE_POWERS, WEATHER, SPEED_TIERS } from '../engine/cardData.js';
 import { SPEEDS, getSpeed, setSpeed, speedFactor } from './settings.js';
@@ -116,9 +116,11 @@ function resetUiFor(state) {
   const was = ui.state;
   // (Never across seats: in hot-seat the next player starts afresh.)
   const keep = was && was.seat === state.seat && was.phase === state.phase && was.round === state.round && was.xpStep === state.xpStep
+    && was.evolveStep === state.evolveStep
     && ['trainers', 'breakfast'].includes(state.phase)
-    && !state.players.player.pending && !state.players.player.xpChoice
-    && { placing: ui.placing, selectedTrainer: ui.selectedTrainer, mulligan: ui.mulligan, xpPlan: ui.xpPlan, xpPick: ui.xpPick };
+    && !state.players.player.pending && !state.players.player.xpChoice && !state.players.player.evolveChoice
+    && { placing: ui.placing, selectedTrainer: ui.selectedTrainer, mulligan: ui.mulligan, xpPlan: ui.xpPlan, xpPick: ui.xpPick,
+      evoPlan: ui.evoPlan, evolve: ui.evolve, growthAsk: ui.growthAsk };
   ui.state = state;
   ui.placing = Array(ZONES).fill(null);
   ui.selectedTrainer = null;   // setup: Trainer picked from the tray
@@ -133,6 +135,7 @@ function resetUiFor(state) {
   ui.growthAsk = null;         // Growth being chosen: { mode: 'evolve', zone, space, cost, min, max, growth } (Energy or
                                // Growth for an Evolve) or { mode: 'spend', target, min, max, growth } (Solar Beam)
   ui.xpPlan = [];              // the XP step: [{ uid, stat }] planned before locking in
+  ui.evoPlan = [];             // the Breakfast Evolve step: [{ uid, zone, space, growth }] planned before locking in
   ui.xpPick = null;            // the XP step: uid of the Pokémon picked to buff
   ui.bag = null;               // Open Bag: { mode: null | 'buyHand' | 'buyMart' | 'useBag', uid, then, picking }
   ui.costFocus = null;         // the card or Power whose Energy cost is being previewed: { uid } | { power: zone }
@@ -195,6 +198,10 @@ function targeting(state, sel = ui) {
     return { source: `${me.zones[sel.power]?.trainer?.name ?? 'Trainer'}'s Power`, refs: powerTargets(state, 'player', sel.power), cls: ' power-target', cancel: true };
   }
   if (sel.strategy) return { source: named(sel.strategy), refs: strategyTargets(state, 'player', sel.strategy), cls: ' power-target', cancel: true };
+  if (sel.evolve && isEvolveStep(state)) {
+    const refs = breakfastTargets(state, sel.evolve, sel.evoPlan ?? []).map((t) => ({ kind: 'pokemon', owner: 'player', ...t }));
+    return { source: `${named(sel.evolve)} (Breakfast Evolve)`, refs, cls: ' power-target', cancel: true };
+  }
   if (sel.evolve) {
     const refs = evolveTargets(state, 'player', sel.evolve).map((t) => ({ kind: 'pokemon', owner: 'player', ...t }));
     return { source: `${named(sel.evolve)} (Evolve)`, refs, cls: ' power-target', cancel: true };
@@ -209,6 +216,44 @@ function targeting(state, sel = ui) {
 export function targetKeys(state, sel = ui) {
   const t = targeting(state, sel);
   return t ? { keys: new Set(t.refs.map(key)), cls: t.cls } : { keys: new Set(), cls: '' };
+}
+
+// --- The Breakfast Evolve step (rules 4.1.2) ---------------------------------------
+//
+// The player plans any number of Evolves, each paid from what the ones before
+// it leave (Growth, then Base Energy, then Exert), then locks them in with Done.
+
+const isEvolveStep = (state) => state.phase === 'breakfast' && state.evolveStep && !state.players.player.evolveChoice;
+
+// What the plan so far leaves to pay with, as a player-shaped object for evolvePayment.
+function afterPlan(state, plan) {
+  const me = state.players.player;
+  const left = { ...me, growth: me.growth ?? 0, baseEnergy: me.baseEnergy, exhaust: [...me.exhaust] };
+  for (const step of plan) {
+    left.growth -= step.growth;
+    let energy = step.cost - step.growth;
+    const base = Math.min(left.baseEnergy, energy);
+    left.baseEnergy -= base;
+    energy -= base;
+    for (let i = 0; i < energy; i++) left.exhaust.push({ planned: true });
+  }
+  return left;
+}
+
+// An Evolve's cost as the next in the plan: Sun 6's discount is only for the first.
+export function plannedEvolveCost(state, card, zone, plan) {
+  const cuts = evolveReductions(state, 'player', zone).filter((r) => !(plan.length && r.name === 'Weather'));
+  return Math.max(0, card.evolveCost - cuts.reduce((n, r) => n + r.amount, 0));
+}
+
+// Where this evolution card can go next: legal at Breakfast, not a Pokémon already planned, and affordable.
+export function breakfastTargets(state, uid, plan) {
+  const card = state.players.player.hand.find((c) => c.uid === uid);
+  if (!card || plan.some((p) => p.uid === uid)) return [];
+  const left = afterPlan(state, plan);
+  return breakfastEvolveTargets(state, 'player', uid)
+    .filter((t) => !plan.some((p) => p.zone === t.zone && p.space === t.space))
+    .filter((t) => evolvePayment(left, plannedEvolveCost(state, card, t.zone, plan)));
 }
 
 // The words for a set of targets: "an enemy Pokémon or Trainer", "a card in your hand".
@@ -282,7 +327,10 @@ function isMyMove(state) {
   if (state.phase === 'gameOver') return true;
   if (state.pending) return state.pending.who === 'player';
   if (state.phase === 'battle') return state.turn === 'player';
-  if (state.phase === 'breakfast') return state.xpStep ? !state.players.player.xpChoice : !state.players.player.pending;
+  if (state.phase === 'breakfast') {
+    if (state.evolveStep) return !state.players.player.evolveChoice;
+    return state.xpStep ? !state.players.player.xpChoice : !state.players.player.pending;
+  }
   if (state.phase === 'trainers') return !state.players.player.pending;
   return state.phase === 'initiative';
 }
@@ -299,6 +347,7 @@ const PHASE_NAMES = {
 export function render(root, state, actions) {
   resetUiFor(state);
   previews = [];
+  placeGrowth(state);
   const c = controls(state);
 
   const prompt = targetPrompt(state);
@@ -355,6 +404,7 @@ export function render(root, state, actions) {
   adoptCards(root);
   applyCost(root, state);
   animateResources(root, state);
+  animateGrowth(root, state);
   syncWeather(root, state.round ? weatherState(state) : null);   // Rain and Sun behind the cards
   trackFoil();
   const logBody = root.querySelector('.log-body');
@@ -422,7 +472,6 @@ function resources(state, who) {
       ${tile('exert', `Exert <em><span class="exert-ready">${v.exert.ready}</span> ready</em>`, `<span class="pips">${pips}</span>`, v.exert.tip)}
       ${tile('xp', 'XP', `${cardIcon('xp', { cls: 'tile-ico' })}${num('xp-n', v.xp.value)}`, v.xp.tip)}
       ${tile('dollars', 'PokéDollars', `${cardIcon('coin', { cls: 'tile-ico' })}${num('dollars-n', v.dollars.value)}`, v.dollars.tip)}
-      ${tile('growth', 'Growth', `${cardIcon('growth', { cls: 'tile-ico' })}${num('growth-n', v.growth.value)}`, v.growth.tip)}
       ${bagRow(state, who, v.bag)}
     </div>`;
 }
@@ -552,7 +601,7 @@ const lastRes = {};
 function animateResources(root, state) {
   for (const who of ['player', 'ai']) {
     const v = panelView(state, who);
-    const now = { round: state.round, energy: v.energy.value, exert: v.exert.ready, xp: v.xp.value, dollars: v.dollars.value, growth: v.growth.value, bag: v.bag.count };
+    const now = { round: state.round, energy: v.energy.value, exert: v.exert.ready, xp: v.xp.value, dollars: v.dollars.value, bag: v.bag.count };
     const was = lastRes[who];
     lastRes[who] = now;
     const f = speedFactor();
@@ -562,7 +611,7 @@ function animateResources(root, state) {
 
     // Every tile whose value changed: the number ticks to it, and the tile
     // pulses gold for a gain or red for a spend.
-    const tiles = { energy: '.base-n', exert: '.exert-ready', xp: '.xp-n', dollars: '.dollars-n', growth: '.growth-n', bag: '.bag-n' };
+    const tiles = { energy: '.base-n', exert: '.exert-ready', xp: '.xp-n', dollars: '.dollars-n', bag: '.bag-n' };
     for (const [k, num] of Object.entries(tiles)) {
       if (now[k] === was[k]) continue;
       const tile = box.querySelector(`.t-${k}`);
@@ -737,7 +786,8 @@ function martOverlay(state) {
 // at the front (nearest the centre). The player's side is the mirror image.
 function lanes(state, who) {
   const targets = targetKeys(state);
-  return state.players[who].zones.map((zone, z) => {
+  const spot = growth[who];
+  return (spot?.margin ? growthCard(who, spot) : '') + state.players[who].zones.map((zone, z) => {
     const fallen = zone.trainer && isFallen(state, who, z);
     return `
       <div class="lane">
@@ -805,10 +855,113 @@ function pokemonZone(state, who, z, targets, fallen) {
           selectable: alert && who === 'player' && myTurn,
           selected: who === 'player' && ui.attacker?.zone === z && ui.attacker?.space === s,
         };
-        const empty = placing.has(`${z}${s}`) ? `<span class="empty">Play here${zoneCostTag(state, z)}</span>` : '';
-        return `<div class="${cls}" data-owner="${who}" data-zone="${z}" data-space="${s}">${c ? card(c, 'board', opts) : empty}</div>`;
+        const spot = growth[who];
+        const here = !c && spot && !spot.margin && spot.zone === z && spot.space === s ? growthCard(who, spot) : '';
+        const empty = (placing.has(`${z}${s}`) ? `<span class="empty">Play here${zoneCostTag(state, z)}</span>` : '') + here;
+        // Breakfast Evolve: a Pokémon planned to Evolve shows into what.
+        const planned = who === 'player' && c && isEvolveStep(state) && ui.evoPlan.find((x) => x.zone === z && x.space === s);
+        const into = planned ? `<span class="evo-tag">→ ${p.hand.find((h) => h.uid === planned.uid)?.name ?? ''}</span>` : '';
+        return `<div class="${cls}${planned ? ' evo-planned' : ''}" data-owner="${who}" data-zone="${z}" data-space="${s}">${c ? card(c, 'board', opts) : empty}${into}</div>`;
       }).join('')}
     </div>`;
+}
+
+// --- Growth on the field (docs/decks.md 2.7) -------------------------------------------
+//
+// While a player has Growth, a Growth card sits in one of their empty Pokémon
+// Spaces (or the board margin if none is empty), growing through four images.
+// A display only: it never takes clicks. Where it is is remembered per engine
+// seat, so it stays put until its space is taken.
+
+const growthAt = {};           // engine seat → its last spot (growthSpot in resources.js)
+let growth = {};               // screen side ('player' | 'ai') → its spot this draw
+
+function placeGrowth(state) {
+  const seatOf = (who) => (who === 'player' ? state.seat ?? 'player' : (state.seat === 'ai' ? 'player' : 'ai'));
+  growth = {};
+  for (const who of ['player', 'ai']) {
+    const seat = seatOf(who);
+    const spot = state.round ? growthSpot(state.players[who], growthAt[seat] ?? null, `${seat}:${state.round}`) : null;
+    growthAt[seat] = spot;
+    growth[who] = spot;
+  }
+}
+
+function growthCard(who, spot) {
+  const tip = `${who === 'player' ? 'Your' : "The opponent's"} Growth: ${spot.amount}. 1 Growth pays for 1 Energy of an Evolve cost; Solar Beam spends it. Kept between Rounds.`;
+  return `<div class="growth-card stage-${spot.stage}${spot.margin ? ' margin' : ''}" data-pile="${who}-growth" data-stage="${spot.stage}" title="${attr(tip)}">
+    <img src="${spot.image}" alt="" draggable="false"><b class="growth-badge">${spot.amount}</b>
+  </div>`;
+}
+
+// Its animations, from the last draw to this one: it sprouts when it appears,
+// slides when it moves, grows up when it crosses into a bigger image, and
+// withers away at 0.
+const lastGrowth = {};
+function animateGrowth(root, state) {
+  const f = speedFactor();
+  const scale = root.getBoundingClientRect().width / STAGE.width || 1;
+  const box = root.getBoundingClientRect();
+  const local = (r) => ({ x: (r.left - box.left) / scale, y: (r.top - box.top) / scale, w: r.width / scale, h: r.height / scale });
+  for (const who of ['player', 'ai']) {
+    const el = root.querySelector(`.growth-card[data-pile="${who}-growth"]`);
+    const now = growth[who] ? { ...growth[who], rect: el ? local(el.getBoundingClientRect()) : null, seat: state.seat, round: state.round } : null;
+    const was = lastGrowth[who];
+    lastGrowth[who] = now;
+    if (!was || was.seat !== state.seat || !state.round || state.round < was.round || f === 0) {
+      if (now && !was && f > 0 && el && state.round) sprout(el, f);
+      continue;
+    }
+    if (!now) { if (was.rect) wither(root, who, was, f); continue; }
+    if (!el) continue;
+    const moved = was.margin !== now.margin || was.zone !== now.zone || was.space !== now.space;
+    if (moved && was.rect && now.rect) {
+      el.animate([
+        { transform: `translate(${was.rect.x - now.rect.x}px, ${was.rect.y - now.rect.y}px)` },
+        { transform: 'translate(0, 0)' },
+      ], { duration: 650 * f, easing: 'cubic-bezier(.3,.7,.3,1)' });
+    }
+    if (now.stage !== was.stage) growUp(el, was, now.stage > was.stage, f);
+  }
+}
+
+function sprout(el, f) {
+  el.animate([
+    { transform: 'scale(0.15) translateY(20px)', opacity: 0, filter: 'brightness(2)' },
+    { transform: 'scale(1.12)', opacity: 1, filter: 'brightness(1.4)', offset: 0.6 },
+    { transform: 'scale(1)', opacity: 1, filter: 'none' },
+  ], { duration: 650 * f, easing: 'ease-out' });
+}
+
+// Crossing a threshold: the old image fades out over the new one as it grows (or shrinks).
+function growUp(el, was, up, f) {
+  const old = document.createElement('img');
+  old.src = `assets/ui/growth-${was.stage}.jpg`;
+  old.className = 'growth-old';
+  el.append(old);
+  old.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 700 * f, fill: 'forwards' }).finished.then(() => old.remove(), () => old.remove());
+  el.animate(up ? [
+    { transform: 'scale(0.9)', filter: 'brightness(1)' },
+    { transform: 'scale(1.18)', filter: 'brightness(1.8) drop-shadow(0 0 14px #c8f060)', offset: 0.45 },
+    { transform: 'scale(1)', filter: 'none' },
+  ] : [
+    { transform: 'scale(1.05)' }, { transform: 'scale(0.94)', offset: 0.5 }, { transform: 'scale(1)' },
+  ], { duration: 800 * f, easing: 'ease-out' });
+}
+
+// At 0 it withers: a copy where it stood droops, browns and fades away.
+function wither(root, who, was, f) {
+  const ghost = document.createElement('div');
+  ghost.className = `growth-card growth-ghost stage-${was.stage}`;
+  ghost.dataset.pile = `${who}-growth`;   // (Growth motes spent from it still have somewhere to come from)
+  ghost.innerHTML = `<img src="${was.image}" alt="">`;
+  Object.assign(ghost.style, { position: 'absolute', left: `${was.rect.x}px`, top: `${was.rect.y}px`, width: `${was.rect.w}px`, height: `${was.rect.h}px`, zIndex: 40 });
+  root.append(ghost);
+  ghost.animate([
+    { transform: 'none', filter: 'none', opacity: 1 },
+    { transform: 'rotate(-6deg) scale(0.92)', filter: 'sepia(0.8) saturate(0.6) brightness(0.8)', opacity: 0.9, offset: 0.4 },
+    { transform: 'rotate(-12deg) scale(0.6) translateY(30px)', filter: 'sepia(1) saturate(0.3) brightness(0.45)', opacity: 0 },
+  ], { duration: 1100 * f, easing: 'ease-in', fill: 'forwards' }).finished.then(() => ghost.remove(), () => ghost.remove());
 }
 
 // --- Hand -----------------------------------------------------------------------
@@ -856,7 +1009,8 @@ function fan(cards) {
 function handCards(state) {
   const me = state.players.player;
   const xpStep = state.phase === 'breakfast' && state.xpStep && !me.xpChoice;
-  const mulligan = state.phase === 'breakfast' && !state.xpStep && state.round === 1 && !me.pending;
+  const mulligan = state.phase === 'breakfast' && !state.xpStep && !state.evolveStep && state.round === 1 && !me.pending;
+  const evolveStep = isEvolveStep(state);
   const myTurn = isMyBattleTurn(state);
   const playable = myTurn
     ? [...playablePokemon(state, 'player'), ...playableStrategies(state, 'player'), ...playableSupporters(state, 'player'),
@@ -872,6 +1026,13 @@ function handCards(state) {
   const isTarget = (c) => targets.keys.has(key({ kind: 'hand', owner: 'player', uid: c.uid }));
   return fan(me.hand.map((c) => {
     if (mulligan) return hand(c, { selectable: true, selected: ui.mulligan.has(c.uid) });
+    if (evolveStep) {
+      // Planned ones stay picked (click to take it back); others glow if they have somewhere to go.
+      const planned = ui.evoPlan.some((p) => p.uid === c.uid);
+      const can = isEvolution(c) && breakfastTargets(state, c.uid, ui.evoPlan).length > 0;
+      if (planned) return hand(c, { selectable: true, selected: true, planned: true });
+      return can ? hand(c, { selectable: true, playable: true, selected: ui.evolve === c.uid }) : hand(c, { unavailable: isEvolution(c) });
+    }
     if (xpStep) {
       if (c.cardType !== 'Pokémon') return hand(c);
       return hand(c, { selectable: true, selected: ui.xpPick === c.uid, plan: plannedXp(c.uid) });
@@ -975,7 +1136,8 @@ function stateClasses({ selectable, selected, unavailable, pay, playable, cantAf
 }
 
 // Marks a hand card chosen to pay a Supporter's Card-Cost.
-function payBadge({ pay }) {
+function payBadge({ pay, planned }) {
+  if (planned) return '<div class="pay-badge planned">Evolving</div>';
   if (pay === 'discard') return '<div class="pay-badge discard">Discard</div>';
   if (pay === 'release') return '<div class="pay-badge release">Release · gone</div>';
   return '';
@@ -1409,6 +1571,18 @@ function controls(state) {
     case 'initiative':
       return { hint: 'Flip a coin to decide who has initiative.', secondary: '', primary: primary('flip', 'Flip', 'coin') };
     case 'breakfast': {
+      if (state.evolveStep) {
+        if (me.evolveChoice) return waiting;
+        const named = (uid) => me.hand.find((c) => c.uid === uid)?.name;
+        const onto = (p) => me.zones[p.zone].pokemon[p.space]?.name;
+        const list = ui.evoPlan.map((p) => `<b>${named(p.uid)}</b> onto ${onto(p)} (Zone ${p.zone + 1}: ${[p.growth && `${p.growth} Growth`, p.cost - p.growth && `${p.cost - p.growth} Energy`].filter(Boolean).join(' + ') || 'free'})`);
+        return {
+          hint: `${together(state, 'Breakfast Evolve', Boolean(state.players.ai.evolveChoice))}
+            <p>Evolve any of your Pokémon now, without using an Action: click an evolution card, then a glowing Pokémon. ${list.length ? `Planned: ${list.join('; ')}.` : ''}</p>`,
+          secondary: button('evo-undo', 'Undo', { disabled: !ui.evoPlan.length, cls: 'secondary' }),
+          primary: primary('evo-lock', 'Done', ui.evoPlan.length ? `evolve ${ui.evoPlan.length}` : 'evolve none'),
+        };
+      }
       if (state.xpStep) {
         if (me.xpChoice) return waiting;
         const left = me.xp - ui.xpPlan.length;
@@ -1547,7 +1721,7 @@ function growthBox(state) {
     </div>
     <div class="pass-warn-buttons">
       <button data-action="growth-cancel" class="secondary">Cancel</button>
-      <button data-action="growth-confirm">${spend ? `Play ${c.name}` : 'Evolve'}</button>
+      <button data-action="growth-confirm">${spend ? `Play ${c.name}` : isEvolveStep(state) ? 'Add to plan' : 'Evolve'}</button>
     </div>
   </div>`;
 }
@@ -1750,6 +1924,12 @@ function wire(root, state, actions) {
   on('[data-action="xp-undo"]', () => { ui.xpPlan.pop(); redraw(); });
   on('[data-action="xp-lock"]', () => dispatch({ type: 'spendXp', who: 'player', spend: [...ui.xpPlan] }));
 
+  // Breakfast Evolve step: plan Evolves (evolveOnto below), undo, then lock in with Done.
+  on('[data-action="evo-undo"]', () => { ui.evoPlan.pop(); ui.evolve = null; ui.growthAsk = null; redraw(); });
+  on('[data-action="evo-lock"]', () => dispatch({
+    type: 'breakfastEvolve', who: 'player', evolves: ui.evoPlan.map(({ uid, zone, space, growth }) => ({ uid, zone, space, growth })),
+  }));
+
   // Location: pick the card, then one of your Location spaces.
   on('.player .location-space.target', (el) => {
     const zone = Number(el.dataset.zone);
@@ -1787,7 +1967,15 @@ function wire(root, state, actions) {
       dispatchBag({ kind: 'hand', owner: 'player', uid });
       return;
     }
-    if (state.phase === 'breakfast' && state.xpStep) {
+    if (isEvolveStep(state)) {
+      // A planned card: take it back out of the plan. Otherwise pick it (again: put it down).
+      const planned = ui.evoPlan.findIndex((p) => p.uid === uid);
+      ui.growthAsk = null;
+      if (planned >= 0) {
+        ui.evoPlan.splice(planned, 1);
+        ui.evolve = null;
+      } else ui.evolve = ui.evolve === uid ? null : uid;
+    } else if (state.phase === 'breakfast' && state.xpStep) {
       ui.xpPick = ui.xpPick === uid ? null : uid;
     } else if (state.phase === 'breakfast') {
       ui.mulligan.has(uid) ? ui.mulligan.delete(uid) : ui.mulligan.add(uid);
@@ -1936,13 +2124,23 @@ function wire(root, state, actions) {
   // Evolve: the evolution card onto a highlighted Pokémon. Paid with Energy
   // and/or Growth: when both could pay, ask how much Growth (most by default).
   const evolve = (zone, space, growth) => {
+    if (isEvolveStep(state)) {
+      const c = state.players.player.hand.find((h) => h.uid === ui.evolve);
+      ui.evoPlan.push({ uid: ui.evolve, zone, space, growth, cost: plannedEvolveCost(state, c, zone, ui.evoPlan) });
+      ui.evolve = null;
+      ui.growthAsk = null;
+      redraw();
+      return;
+    }
     if (!confirmExert(costPreview(state, 'player', ui.evolve, zone, growth).fromExert)) return;
     dispatch({ type: 'evolve', who: 'player', uid: ui.evolve, zone, space, growth });
   };
   const evolveOnto = ({ zone, space }) => {
     const c = state.players.player.hand.find((h) => h.uid === ui.evolve);
-    const cost = evolveCost(state, 'player', c, zone);   // (Gardenia's Zone: 1 less)
-    const pay = evolvePayment(state.players.player, cost);
+    const step = isEvolveStep(state);
+    // (Gardenia's Zone: 1 less. At Breakfast: paid from what the plan so far leaves.)
+    const cost = step ? plannedEvolveCost(state, c, zone, ui.evoPlan) : evolveCost(state, 'player', c, zone);
+    const pay = evolvePayment(step ? afterPlan(state, ui.evoPlan) : state.players.player, cost);
     if (!pay) return;
     if (pay.minGrowth === pay.maxGrowth) { evolve(zone, space, pay.maxGrowth); return; }
     ui.growthAsk = { mode: 'evolve', zone, space, cost, min: pay.minGrowth, max: pay.maxGrowth, growth: pay.maxGrowth };
@@ -2045,8 +2243,9 @@ function dragPlan(state, el, { redraw, dispatch, dispatchBag, usePower }) {
 
   if (el.closest('.hand')) {
     if (state.pending?.who === 'player' && state.pending.kind === 'freeSummon' && state.pending.uid === uid) return { kind: 'card' };
-    if (!isMyBattleTurn(state) || ui.supporter || !el.classList.contains('selectable')) return null;
     const c = me.hand.find((h) => h.uid === uid);
+    if (isEvolveStep(state) && el.classList.contains('playable')) return { kind: 'card', prepare: pick(() => { ui.evolve = uid; }) };
+    if (!isMyBattleTurn(state) || ui.supporter || !el.classList.contains('selectable')) return null;
     if (isEvolution(c)) return { kind: 'card', prepare: pick(() => { ui.evolve = uid; }) };
     if (c.cardType === 'Pokémon') return { kind: 'card', prepare: pick(() => { ui.selectedPokemon = uid; }) };
     if (c.cardType === 'Location') return { kind: 'card', prepare: pick(() => { ui.location = uid; }) };
@@ -2142,7 +2341,7 @@ function outcome(state, el) {
     action = { type: 'command', who: me, from: ui.attacker, target: ref.kind === 'trainer' ? { kind: 'trainer', zone: ref.zone } : { kind: 'pokemon', zone: ref.zone, space: ref.space } };
   } else if (ui.power !== null) action = { type: 'usePower', who: me, zone: ui.power, target: ref };
   else if (ui.strategy) action = { type: 'playStrategy', who: me, uid: ui.strategy, target: ref };
-  else if (ui.evolve && ref.kind === 'pokemon') {
+  else if (ui.evolve && ref.kind === 'pokemon' && !isEvolveStep(state)) {
     const c = state.players.player.hand.find((h) => h.uid === ui.evolve);
     const growth = evolvePayment(state.players.player, evolveCost(state, me, c, ref.zone))?.maxGrowth ?? 0;
     action = { type: 'evolve', who: me, uid: ui.evolve, zone: ref.zone, space: ref.space, growth };

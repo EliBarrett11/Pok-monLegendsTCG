@@ -43,7 +43,7 @@ export const BUDGETS = {
   trainer: { min: 250, max: 1800 },   // a Trainer flinching, or cracking and falling
   supporter: { min: 900, max: 2000 },   // a Supporter's portrait moment
   evolve: { min: 2000, max: 3200 },     // the evolution moment: "about 2 s at Fast" (Normal runs it 1.5× longer)
-  growth: { min: 300, max: 900 },       // Growth motes flying into the Growth tile
+  growth: { min: 300, max: 900 },       // Growth motes flying into the Growth card
   ending: { min: 2500, max: 4000 },   // the Victory or Defeat crest and what falls round it
 };
 
@@ -202,13 +202,13 @@ export function defeatStyle(e) {
 export const EVOLVE = 'evolve-moment';
 export const EVOLVE_STAGE2 = 'evolve-stage2';
 export const evolveAnimation = (card) => (card?.stage === 'Stage 2' ? EVOLVE_STAGE2 : EVOLVE);
-// Growth gained: green-gold motes fly from where it came from into the Growth tile.
+// Growth gained: green-gold motes fly from where it came from into the Growth card.
 export const GROWTH_MOTES = { count: (n) => Math.max(2, Math.min(8, 2 * n)), ms: 650, tex: 'glow', size: 18, color: '#c8f060' };
 // A Weather bracket switching on: the pulse names what it now does.
 export const WEATHER_PULSE = {
   'Sun 2': 'Sun 2: Burn +1',
   'Sun 4': 'Sun 4: +1 Growth at Breakfast',
-  'Sun 6': 'Sun 6: no Sleep',
+  'Sun 6': 'Sun 6: first Evolve costs 1 less',
   'Sun 8': 'Sun 8: Drought',
   'Rain 2': 'Rain 2: heals +1',
   'Rain 4': 'Rain 4: Burn −1',
@@ -846,7 +846,7 @@ export const TIMELINES = {
       { at: 620, cue: 'sleep', bloom: 0.3 },
     ],
   },
-  // Synthesis: sunlight pours down onto the caster, it heals, and Growth motes rise to the Growth tile.
+  // Synthesis: sunlight pours down onto the caster, it heals, and Growth motes rise to the Growth card.
   'strategy-synthesis': {
     budget: 'strategy', duration: 1200,
     beats: [

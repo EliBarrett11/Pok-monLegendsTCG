@@ -7,7 +7,7 @@ import {
   createGame, applyAction, legalActions, PLAYERS, evolveOptions, evolveCost, attackOf, maxStrengthOf, itemTargets,
   attackPower, playableStrategies, breakfastEvolveTargets,
 } from '../src/engine/game.js';
-import { RULE_FLAGS } from '../src/engine/board.js';
+import { viewFor } from '../src/engine/view.js';
 import { resolveEffects } from '../src/engine/effects.js';
 import { hasKeyword, keywordAmount } from '../src/engine/keywords.js';
 import { weatherCounts } from '../src/engine/board.js';
@@ -121,8 +121,9 @@ function breakfastGrowth(s) {
   place(s, 'player', 1, 0, 'sunflora');   // (Zone 2: no Passive bonuses)
   assert.equal(weatherCounts(s).Sun, 2);
   assert.equal(attackPower(s, at(s, 'player', 1, 0)), 5, 'Sun 2: printed Attack');
-  place(s, 'player', 2, 1, 'sunkern');
-  place(s, 'player', 2, 2, 'sunkern');
+  // (Sunkern is a Defence guard: these two aren't, so the trade below can target Sunflora.)
+  place(s, 'player', 2, 1, 'sunkern', { strengthType: 'Hitpoints' });
+  place(s, 'player', 2, 2, 'sunkern', { strengthType: 'Hitpoints' });
   assert.equal(weatherCounts(s).Sun, 4);
   assert.deepEqual([attackOf(at(s, 'player', 1, 0)), attackPower(s, at(s, 'player', 1, 0))], [5, 7], 'Sun 4: +2 on its attacks; its Attack stays 5');
   // Its attack: 7 damage.
@@ -192,15 +193,26 @@ function breakfastGrowth(s) {
   s = strategy(s, 'synthesis', pref('player', 0, 0));
   assert.equal(growthOf(s), before + 3, 'Sun 2: 3 Growth');
 }
-// With no friendly Pokémon to heal, Synthesis can still be played for the Growth (Elliott, G2 answers).
+// Synthesis can heal a friendly Trainer too, and Douses what it heals (G3). With no friendly Pokémon it can
+// still be played (Elliott, G2 answers): its targets are then the Trainers.
 {
   let s = grass();
+  trainerAt(s, 'player', 1).status = { burn: { count: 2, by: 'ai' } };
+  trainerAt(s, 'player', 1).strength -= 3;
   const before = growthOf(s);
   const uid = give(s, 'player', 'synthesis');
   assert.ok(playableStrategies(s, 'player').some((c) => c.uid === uid));
-  s = act(s, 'player', { type: 'playStrategy', uid });
+  s = act(s, 'player', { type: 'playStrategy', uid, target: tref('player', 1) });
   assert.equal(growthOf(s), before + 2);
-  assert.equal(s.pending, null);
+  assert.ok(!trainerAt(s, 'player', 1).status?.burn, 'Doused');
+  assert.equal(trainerAt(s, 'player', 1).strength, trainerAt(s, 'player', 1).maxStrength - 1, 'healed 2');
+  // Oran Berry likewise: heal a Pokémon 3 and Douse it.
+  place(s, 'player', 0, 0, 'bulbasaur');
+  Object.assign(at(s, 'player', 0, 0), { currentStrength: 1, status: { burn: { count: 1, by: 'ai' } } });
+  const card = ITEM_CARDS.find((c) => c.id === 'oran-berry');
+  cast(s, 'player', card.effects, pref('player', 0, 0));
+  assert.equal(at(s, 'player', 0, 0).currentStrength, 4);
+  assert.ok(!at(s, 'player', 0, 0).status?.burn, 'Doused');
 }
 // Solar Beam: spend up to 8 Growth (the player's choice; all of it up to 8 by default); that much damage.
 {
@@ -287,9 +299,9 @@ const locate = (s, id, zone) => act(s, 'player', { type: 'playLocation', uid: gi
   let s = grass();
   place(s, 'player', 1, 0, 'bulbasaur');
   s = locate(s, 'floaroma-meadow', 1);
-  assert.equal(weatherCounts(s).Sun, 2);
+  assert.equal(weatherCounts(s).Rain, 2);
   cast(s, 'player', [{ op: 'gainGrowth', amount: 6 }]);
-  assert.equal(maxStrengthOf(at(s, 'player', 1, 0)), 5 + 2 + 0);
+  assert.equal(maxStrengthOf(at(s, 'player', 1, 0)), 6 + 2 + 0);
   assert.equal(s.players.player.zones[1].location, null, 'completed and Released');
 }
 // Eterna Forest: Evolve 2 → Search for an evolution card (Retain).
@@ -329,8 +341,8 @@ assert.equal(ITEM_CARDS.length, 11, 'the PokéMart holds 11 Items');
   place(s, 'player', 0, 1, 'sewaddle');
   s = useItem(s, 'miracle-seed', pref('player', 0, 0));
   s = useItem(s, 'miracle-seed', pref('player', 0, 1));
-  assert.deepEqual([attackOf(at(s, 'player', 0, 0)), keywordAmount(at(s, 'player', 0, 0), 'Regenerate')], [2, 1]);
-  assert.deepEqual([attackOf(at(s, 'player', 0, 1)), hasKeyword(at(s, 'player', 0, 1), 'Regenerate')], [3, false], 'Bug: no Regenerate');
+  assert.deepEqual([attackOf(at(s, 'player', 0, 0)), keywordAmount(at(s, 'player', 0, 0), 'Regenerate')], [3, 1]);
+  assert.deepEqual([attackOf(at(s, 'player', 0, 1)), hasKeyword(at(s, 'player', 0, 1), 'Regenerate')], [4, false], 'Bug: no Regenerate');
 }
 // Oran Berry: heal 3; a Grass Pokémon also gives 1 Growth.
 {
@@ -389,13 +401,13 @@ assert.equal(ITEM_CARDS.length, 11, 'the PokéMart holds 11 Items');
 {
   const s0 = grass();
   assert.deepEqual(s0.players.player.zones.map((z) => z.trainer.id), ['erika', 'gardenia', 'ramos']);
-  assert.equal(s0.players.player.zones.reduce((n, z) => n + z.trainer.strength, 0), 46);
+  assert.equal(s0.players.player.zones.reduce((n, z) => n + z.trainer.strength, 0), 52);
 }
 // Erika: (2) put an enemy Pokémon in her Zone to Sleep; friendly Pokémon in her Zone +2 Strength.
 {
   let s = grass();
   place(s, 'player', 0, 0, 'bulbasaur');
-  assert.equal(maxStrengthOf(at(s, 'player', 0, 0)), 7);
+  assert.equal(maxStrengthOf(at(s, 'player', 0, 0)), 8);
   place(s, 'ai', 0, 1, 'goldeen');
   place(s, 'ai', 1, 1, 'horsea');
   s = act(s, 'player', { type: 'usePower', zone: 0, target: pref('ai', 0, 1) });
@@ -438,9 +450,7 @@ assert.equal(ITEM_CARDS.length, 11, 'the PokéMart holds 11 Items');
 // --- Balance experiment rule (off by default): "each player's first Evolve each Round costs 1 less" ----------
 
 {
-  const sun6 = WEATHER.Sun.brackets.find((b) => b.at === 6);
-  const saved = { ...sun6 };
-  Object.assign(sun6, { rule: 'firstEvolveLess' });   // (as tools/balance.js --grass W1 does)
+  assert.equal(WEATHER.Sun.brackets.find((b) => b.at === 6).rule, 'firstEvolveLess');
   let s = grass();
   for (const [zone, space] of [[2, 0], [2, 1], [2, 2]]) place(s, 'player', zone, space, 'sunflora');   // Sun 6
   place(s, 'player', 0, 0, 'bulbasaur');
@@ -451,12 +461,9 @@ assert.equal(ITEM_CARDS.length, 11, 'the PokéMart holds 11 Items');
   if (s.pending) s = choose(s, { target: s.pending.options[0] });
   const second = give(s, 'player', 'ivysaur');
   assert.equal(evolveCost(s, 'player', s.players.player.hand.find((c) => c.uid === second), 0), 2, 'the second: full cost');
-  Object.assign(sun6, saved);
-  sun6.rule = saved.rule;
-  assert.equal(WEATHER.Sun.brackets.find((b) => b.at === 6).rule, 'noSleep', 'restored');
 }
 
-// --- Balance experiment rule (off by default): Breakfast Evolve (RULE_FLAGS.breakfastEvolve) ------------------
+// --- Breakfast Evolve (rules 4.2; the lenient reading, Elliott G3) ------------------
 
 function toBreakfastEvolve(s) {
   s.turn = 'player';
@@ -466,8 +473,7 @@ function toBreakfastEvolve(s) {
   for (const who of PLAYERS) if (legalActions(s, who).includes('spendXp')) s = applyAction(s, { type: 'spendXp', who, spend: [] });
   return s;
 }
-for (const mode of ['strict', 'lenient']) {
-  RULE_FLAGS.breakfastEvolve = mode;
+{
   let s = grass();
   place(s, 'player', 1, 0, 'bulbasaur');                                   // here since before this Round
   place(s, 'player', 1, 1, 'bulbasaur', { arrivedRound: s.round });       // summoned in this Round's Battle
@@ -475,9 +481,10 @@ for (const mode of ['strict', 'lenient']) {
   const ivy2 = give(s, 'player', 'ivysaur', { retainGranted: true });
   s = toBreakfastEvolve(s);
   assert.equal(s.phase, 'breakfast');
-  assert.deepEqual(legalActions(s, 'player'), ['breakfastEvolve'], `${mode}: the Breakfast Evolve step`);
+  assert.deepEqual(legalActions(s, 'player'), ['breakfastEvolve'], 'the Breakfast Evolve step');
+  assert.deepEqual(legalActions(s, 'ai'), [], 'nothing for Water to Evolve: skipped');
   const targets = breakfastEvolveTargets(s, 'player', ivy).map((t) => t.space);
-  assert.deepEqual(targets, mode === 'strict' ? [0] : [0, 1], `${mode}: which Bulbasaur can Evolve at Breakfast`);
+  assert.deepEqual(targets, [0, 1], 'any Bulbasaur in the arena before this Breakfast');
   const growth = s.players.player.growth = 2;
   s = applyAction(s, { type: 'breakfastEvolve', who: 'player', evolves: [{ uid: ivy, zone: 1, space: 0, growth }] });
   while (s.pending) s = choose(s, { target: s.pending.options[0] });
@@ -487,10 +494,43 @@ for (const mode of ['strict', 'lenient']) {
   assert.ok(!evolveOptions(s, 'player').some((o) => o.zone === 1 && o.space === 0));
   assert.ok(ivy2);
 }
-RULE_FLAGS.breakfastEvolve = null;
-assert.equal(grass().phase, 'battle', 'off by default');
+// Secret until both lock in (viewFor): the opponent sees only that you've locked in, then both sides' Evolves.
+{
+  let s = grass({ ai: 'grass' });
+  place(s, 'player', 1, 0, 'bulbasaur');
+  place(s, 'ai', 1, 0, 'oddish');
+  const ivy = give(s, 'player', 'ivysaur', { retainGranted: true });
+  const gloom = give(s, 'ai', 'gloom', { retainGranted: true });
+  s = toBreakfastEvolve(s);
+  assert.deepEqual([legalActions(s, 'player'), legalActions(s, 'ai')], [['breakfastEvolve'], ['breakfastEvolve']]);
+  s.players.player.growth = 2;
+  s.players.ai.growth = 2;
+  s = applyAction(s, { type: 'breakfastEvolve', who: 'player', evolves: [{ uid: ivy, zone: 1, space: 0, growth: 2 }] });
+  const theirs = viewFor(s, 'ai');
+  assert.deepEqual(theirs.players.player.evolveChoice, [], 'locked in, but not what');
+  assert.equal(theirs.players.player.zones[1].pokemon[0].name, 'Bulbasaur');
+  assert.ok(theirs.players.player.hand.find((c) => c.uid === ivy).hidden, 'the card stays hidden in hand');
+  assert.deepEqual(theirs.events.map((e) => e.type), ['evolveLocked']);
+  assert.ok(!JSON.stringify(theirs).includes('Ivysaur'), 'nothing names it');
+  s = applyAction(s, { type: 'breakfastEvolve', who: 'ai', evolves: [{ uid: gloom, zone: 1, space: 0, growth: 2 }] });
+  // (Each On Evolve may ask for a target as it resolves.)
+  const seen = viewFor(s, 'ai').events;
+  while (s.pending) {
+    s = choose(s, { target: s.pending.options[0] });
+    seen.push(...viewFor(s, 'ai').events);
+  }
+  assert.deepEqual(seen.filter((e) => e.type === 'evolved').map((e) => e.name).sort(), ['Gloom', 'Ivysaur'], 'both revealed together');
+  assert.equal(viewFor(s, 'ai').players.player.zones[1].pokemon[0].name, 'Ivysaur');
+  assert.equal(s.phase, 'battle');
+}
+// Nothing to Evolve: the step is skipped (straight to the Battle Phase).
+{
+  let s = grass();
+  s = toBreakfastEvolve(s);
+  assert.equal(s.phase, 'battle');
+}
 
-// --- Balance experiment effect flags (tools/balance.js --grass D1, D2): either/or, and a second target ---------
+// --- Effect flags (unused by the cards; tools/balance.js --grass D1, D2): either/or, and a second target ---------
 
 {
   // "Gain 1 Growth, or Douse a friendly Trainer and heal it 1": no target → Growth; a Trainer → Douse and heal.

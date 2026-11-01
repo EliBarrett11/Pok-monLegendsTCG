@@ -45,10 +45,6 @@ export function applyStatus(state, ref, id, amount, by) {
   if (def.pokemonOnly && ref.kind !== 'pokemon') return 0;
   if (def.flag) {
     if (statusCount(card, id)) return 0;   // doesn't stack: reapplying does nothing
-    if (id === 'sleep' && weatherRule(state, 'noSleep')) {
-      log(state, `${describeRef(state, ref, true)} can't be put to Sleep (☀ Sun 6).`);
-      return 0;
-    }
     (card.status ??= {})[id] = { count: 1, by };
     if (id === 'sleep') card.spent = true;
     emit(state, 'statusApplied', { status: id, target: info(state, ref), amount: 1, before: 0, after: 1, by });
