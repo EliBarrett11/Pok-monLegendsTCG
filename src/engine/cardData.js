@@ -450,7 +450,7 @@ export const GRASS_POKEMON = [
     ability('On Breakfast', 'Gain 1 Growth.', growth(1)),
     ability('On Evolve', "Leech Seed an enemy Pokémon in this Pokémon's Zone.", [{ op: 'applyStatus', status: 'leechSeed', target: ENEMY_IN_ZONE }]),
   ))),
-  evolution('Stage 2', 'Ivysaur', 3, pokemon('Venusaur', null, 'Grass', 'Special', 5, 'Special Defence', 12, 'Slow', 'Epic', {
+  evolution('Stage 2', 'Ivysaur', 3, pokemon('Venusaur', null, 'Grass', 'Special', 5, 'Hitpoints', 12, 'Slow', 'Epic', {
     innatePower: 'Shell 1',
     ...ability('On Breakfast', 'Gain 2 Growth.', growth(2)),
   })),

@@ -359,6 +359,30 @@ No build step: plain HTML, CSS and JavaScript modules. Working rules for each se
 
   Overall: Fire 49.4%, Water 47.6%, Grass 53.0%. Grass diagnostics (v Fire / v Water): Growth gained 31.3 / 67.3 and spent 18.4 / 43.3 per match; Evolves 2.5 + 0.5 / 3.8 + 0.9 per match (Breakfast + Battle), first Evolve in Round 3.0 / 3.1, lost before evolving anything in 1.0% / 0.6% of its losses; Solar Beam 1.8 / 4.5 played, 10.5 / 28.6 damage per match; Trainer damage dealt 36.3 / 53.1 per match; its Alert Pokémon guarded off every Trainer 0% / 71.6% of the time; peak Sun 6.7 v Fire, peak Rain 9.4 v Water.
 
+- **Grass G3 trim** — after shipping G3 as it was (Grass–Water 57.3%), a trim experiment on Grass's guards and Solar Beam, variants only, 400 matches per matchup (200 per seat order; Grass's win rate by seat: "You" seat / AI seat). Levers (in a scratchpad copy of `tools/balance.js`, not committed): V Venusaur becomes Hitpoints; BH Bulbasaur becomes Hitpoints; S6 Solar Beam spends up to 6 Growth (was 8).
+
+  | Variant | Grass v Water | You / AI | Rounds | Water couldn't reach a Grass Trainer | Grass Solar Beam dmg/match |
+  |---|---|---|---|---|---|
+  | G3 as shipped | 57.3% | 53.5 / 61.0 | 9.4 | 59.0% | 28.6 |
+  | V | **47.8%** | 45.0 / 50.5 | 9.0 | 48.1% | 26.8 |
+  | BH | 50.5% | 45.5 / 55.5 | 8.8 | 43.1% | 25.5 |
+  | S6 | 47.5% | 41.5 / 53.5 | 9.6 | 58.0% | 20.1 |
+  | V+S6 | 38.5% | 37.5 / 39.5 | 9.0 | 46.7% | 17.8 |
+  | BH+S6 | 45.8% | 42.5 / 49.0 | 8.8 | 42.5% | 18.0 |
+
+  | Variant | Grass v Fire | You / AI | Rounds | Fire couldn't reach a Grass Trainer | Grass Solar Beam dmg/match |
+  |---|---|---|---|---|---|
+  | G3 as shipped | 48.8% | 46.0 / 51.5 | 5.4 | 51.9% | 10.5 |
+  | V | **47.0%** | 44.5 / 49.5 | 5.4 | 50.1% | 10.3 |
+  | BH | 41.8% | 40.5 / 43.0 | 5.3 | 40.2% | 9.9 |
+  | S6 | 44.5% | 38.5 / 50.5 | 5.6 | 52.1% | 8.5 |
+  | V+S6 | 41.8% | 37.5 / 46.0 | 5.5 | 50.4% | 8.3 |
+  | BH+S6 | 36.0% | 34.0 / 38.0 | 5.4 | 40.4% | 8.1 |
+
+  - **V is the only variant inside 45–55% against both** (47.8% and 47.0%), and Elliott adopted it: Venusaur is now Hitpoints. Venusaur arrives late, so dropping its guard opens Grass's Trainers to Water (59% → 48% guarded) but barely changes the Fire matchup.
+  - BH is even against Water but Bulbasaur is an early guard, so Fire gets through (41.8%). S6 cuts Solar Beam damage by about 30% and drops Grass below 45% against Fire; both combinations overshoot.
+  - Final numbers with V: Fire–Water 47.5% Fire, Grass–Fire 47.0% Grass, Grass–Water 47.8% Grass.
+
 Add `?seed=123` to the URL to replay the same shuffle and coin flip. Add `?hotseat` for two players on one screen, or `?join=CODE` to join a friend's room.
 
 ## Balance report

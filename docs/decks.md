@@ -324,7 +324,7 @@ Curve: cost 1 ×2, 2 ×4, 3 ×5, 4 ×4, 5 ×2, 6 ×1.
 
 **Plan:** plant cheap engine Pokémon and Locations that produce **Growth** every Round, spend Growth to **evolve** them into large final stages, and finish with **Solar Beam**, which turns stored Growth into a big hit on a Trainer. Sleep and Leech Seed buy time while the engine runs. **Trade-off:** a weak start (Rounds 1–3) and engine pieces that must survive on the board; vulnerable to fast pressure and to losing its Basics before they evolve.
 
-**G3 balance (approved by Elliott):** the numbers below include the G3 changes: Basics +1/+1, Bulbasaur and Venusaur Special Defence and Sunkern Defence, "On Breakfast: gain 1 Growth" on Oddish, Sunkern and Sewaddle, Rain-making Locations, Synthesis and Oran Berry healing and Dousing Trainers, Synthesis ×2 and Leech Seed ×2, Trainers +2. With the Sun 6 and Breakfast Evolve rules (2.8, 2.12).
+**G3 balance (approved by Elliott):** the numbers below include the G3 changes: Basics +1/+1, Bulbasaur Special Defence and Sunkern Defence (Venusaur stays Hitpoints, the G3 trim), "On Breakfast: gain 1 Growth" on Oddish, Sunkern and Sewaddle, Rain-making Locations, Synthesis and Oran Berry healing and Dousing Trainers, Synthesis ×2 and Leech Seed ×2, Trainers +2. With the Sun 6 and Breakfast Evolve rules (2.8, 2.12).
 
 Stat guideline: Basics use the normal budget (Attack + Strength ≈ 2 × Cost + 6, adjusted). Evolutions use the budget of their **total** cost (Basic cost + Evolve costs) **+1 per stage**, for the setup risk. All numbers are a first pass, to be tuned with the balance tool.
 
@@ -334,7 +334,7 @@ Stat guideline: Basics use the normal budget (Attack + Strength ≈ 2 × Cost + 
 |---|---|---|---|---|---|---|---|---|---|---|
 | bulbasaur | Bulbasaur | 3 | Basic | 1 | Grass | 2 Special | 6 Special Defence | Steady | Common | On Breakfast: gain 1 Growth. |
 | ivysaur | Ivysaur | 2 | Stage 1 (Bulbasaur) | Evolve 2 | Grass | 3 Special | 7 Hitpoints | Steady | Common | On Breakfast: gain 1 Growth. On Evolve: Leech Seed an enemy Pokémon in this Pokémon's Zone. |
-| venusaur | Venusaur | 1 | Stage 2 (Ivysaur) | Evolve 3 | Grass | 5 Special | 12 Special Defence | Slow | Epic | Shell 1. On Breakfast: gain 2 Growth. |
+| venusaur | Venusaur | 1 | Stage 2 (Ivysaur) | Evolve 3 | Grass | 5 Special | 12 Hitpoints | Slow | Epic | Shell 1. On Breakfast: gain 2 Growth. |
 | oddish | Oddish | 2 | Basic | 1 | Grass | 3 Special | 5 Hitpoints | Steady | Common | On Breakfast: gain 1 Growth. On Attack: gain 1 Growth. |
 | gloom | Gloom | 2 | Stage 1 (Oddish) | Evolve 2 | Grass | 3 Special | 6 Hitpoints | Steady | Common | On Evolve: put an enemy Pokémon in this Pokémon's Zone to Sleep. |
 | bellossom | Bellossom | 1 | Stage 2 (Gloom) | Evolve 2 | Grass | 4 Special | 9 Hitpoints | Steady | Rare | On Evolve: put each enemy Pokémon in this Pokémon's Zone to Sleep. On Attack: gain 1 Growth. |

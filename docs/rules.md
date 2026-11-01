@@ -593,7 +593,7 @@ Three decks, as approved in `docs/decks.md` (the source of truth for them). The 
 |---|---|---|---|---|---|---|---|---|---|
 | Bulbasaur | 3 | Basic | 1 | Grass | 2 Special | 6 Special Defence | Steady | Common | On Breakfast: gain 1 Growth. |
 | Ivysaur | 2 | Stage 1 (Bulbasaur) | Evolve 2 | Grass | 3 Special | 7 Hitpoints | Steady | Common | On Breakfast: gain 1 Growth. On Evolve: Leech Seed an enemy Pokémon in this Pokémon's Zone. |
-| Venusaur | 1 | Stage 2 (Ivysaur) | Evolve 3 | Grass | 5 Special | 12 Special Defence | Slow | Epic | Shell 1. On Breakfast: gain 2 Growth. |
+| Venusaur | 1 | Stage 2 (Ivysaur) | Evolve 3 | Grass | 5 Special | 12 Hitpoints | Slow | Epic | Shell 1. On Breakfast: gain 2 Growth. |
 | Oddish | 2 | Basic | 1 | Grass | 3 Special | 5 Hitpoints | Steady | Common | On Breakfast: gain 1 Growth. On Attack: gain 1 Growth. |
 | Gloom | 2 | Stage 1 (Oddish) | Evolve 2 | Grass | 3 Special | 6 Hitpoints | Steady | Common | On Evolve: put an enemy Pokémon in this Pokémon's Zone to Sleep. |
 | Bellossom | 1 | Stage 2 (Gloom) | Evolve 2 | Grass | 4 Special | 9 Hitpoints | Steady | Rare | On Evolve: put each enemy Pokémon in this Pokémon's Zone to Sleep. On Attack: gain 1 Growth. |
@@ -646,7 +646,7 @@ Three decks, as approved in `docs/decks.md` (the source of truth for them). The 
 - **Big Root:** a seed you applied heals the Big Root holder instead of your most-damaged Pokémon, if the holder is damaged (otherwise the most-damaged one as usual).
 - **Ramos:** "drain 1 more" is 1 more damage and 1 more healing, on top of Rain 6.
 - **Gardenia** lowers the Evolve cost of a Pokémon in her Zone while she's in play; the screen and the AI show the lower cost.
-- **Grass balance (settled by Elliott, G3):** the cards above are the G3 balance: Sun 6 makes each player's first Evolve each Round 1 cheaper (it used to block Sleep), the Breakfast Evolve step (section 4.1.2), Basics +1/+1, Bulbasaur and Venusaur Special Defence and Sunkern Defence, Trainers +2, Oddish, Sunkern and Sewaddle "On Breakfast: gain 1 Growth", Rain-making Locations, Synthesis and Oran Berry healing and Dousing Trainers, and Synthesis ×2 / Leech Seed ×2. How it was chosen is in the README build log (Grass G3a–G3d, G3).
+- **Grass balance (settled by Elliott, G3):** the cards above are the G3 balance: Sun 6 makes each player's first Evolve each Round 1 cheaper (it used to block Sleep), the Breakfast Evolve step (section 4.1.2), Basics +1/+1, Bulbasaur Special Defence and Sunkern Defence (Venusaur Hitpoints: the G3 trim, Elliott's decision), Trainers +2, Oddish, Sunkern and Sewaddle "On Breakfast: gain 1 Growth", Rain-making Locations, Synthesis and Oran Berry healing and Dousing Trainers, and Synthesis ×2 / Leech Seed ×2. Final numbers (400 AI-vs-AI matches each, 200 per seat order): Fire–Water 47.5% Fire, Grass–Fire 47.0% Grass, Grass–Water 47.8% Grass. How it was chosen is in the README build log (Grass G3a–G3d, G3, G3 trim).
 - **Sewaddle's** Growth goes to its owner. **Petalburg Woods'** seeds belong to its owner.
 
 ## Open questions

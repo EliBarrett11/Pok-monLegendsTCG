@@ -110,7 +110,7 @@ const POKEMON = {
   // Grass: evolution cards have no Energy Cost (their stage line is below); several abilities show no single trigger word.
   bulbasaur: [1, 'Grass', 2, 'Special', 6, 'Special Defence', 'Steady', 'Common', null, 'On Breakfast', null],
   ivysaur: [null, 'Grass', 3, 'Special', 7, 'Hitpoints', 'Steady', 'Common', null, null, null],
-  venusaur: [null, 'Grass', 5, 'Special', 12, 'Special Defence', 'Slow', 'Epic', 'Shell 1', 'On Breakfast', null],
+  venusaur: [null, 'Grass', 5, 'Special', 12, 'Hitpoints', 'Slow', 'Epic', 'Shell 1', 'On Breakfast', null],
   oddish: [1, 'Grass', 3, 'Special', 5, 'Hitpoints', 'Steady', 'Common', null, null, null],
   gloom: [null, 'Grass', 3, 'Special', 6, 'Hitpoints', 'Steady', 'Common', null, 'On Evolve', null],
   bellossom: [null, 'Grass', 4, 'Special', 9, 'Hitpoints', 'Steady', 'Rare', null, null, null],
