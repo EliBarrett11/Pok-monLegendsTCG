@@ -231,7 +231,7 @@ assert.equal(summonAnimation(cardDefinition('horsea')), 'summon-common');
   assert.ok(has('summon-kyogre', (b) => EMITTERS[b.emit]?.tex === 'wave') && has('summon-kyogre', (b) => b.emit === 'rainBurst'), 'Kyogre: a wave and rain');
   assert.ok(has('summon-blaziken', (b) => b.emit === 'eruption' && b.on === 'ground'), 'Blaziken: an eruption from its space');
   assert.ok(has('summon-celebi', (b) => EMITTERS[b.emit]?.tex === 'ripple' && b.on === 'target'), 'Celebi: time-ripples as it descends');
-  assert.ok(has('summon-celebi', (b) => EMITTERS[b.emit]?.tex === 'leaves' && b.on === 'ground') && has('summon-celebi', (b) => EMITTERS[b.emit]?.tex === 'petals'), 'Celebi: leaves and petals from its space');
+  assert.ok(has('summon-celebi', (b) => EMITTERS[b.emit]?.tex === 'leaves') && has('summon-celebi', (b) => EMITTERS[b.emit]?.tex === 'petals' && b.on === 'ground'), 'Celebi: leaves and petals swirl, petals burst from its space');
   assert.ok(has('summon-celebi', (b) => b.cue === 'land' && b.at === 1900) && has('summon-celebi', (b) => b.at === 1900 && EMITTERS[b.emit]?.tex === 'sparkle'), 'Celebi: a burst of sparkle as it lands');
   // Quick Attack: lands Active, with a speed streak.
   const quick = composeSummon('summon-common', { quick: true });

@@ -384,6 +384,15 @@ No build step: plain HTML, CSS and JavaScript modules. Working rules for each se
   - Final numbers with V: Fire–Water 47.5% Fire, Grass–Fire 47.0% Grass, Grass–Water 47.8% Grass.
   - **Seat check, Grass mirror** (with V, 400 matches, 200 per seat order): the "You" seat wins 50.8% and the AI seat 49.3% (108–92 and 95–105 in the two seat orders), 9.5 Rounds per match, no draws or stalls. That's inside 50 ± 5, so there's no Grass-specific seat asymmetry (Breakfast Evolve lock-in order, the Growth card, Leech Seed or Sleep timing); nothing changed. (The "You" seat had Round 1 initiative in 57% of these seeds and won 51.8% of those, 49.4% of the rest.)
 
+- **Grass animation polish** — a browser pass over the Grass animations, with fixes:
+  - **Celebi** gets its own Legendary cinematic (about 2.5 s at Fast, like Kyogre's and Blaziken's): the board dims, Celebi descends in a shimmer of green-gold time-ripples, leaves and petals swirl up around it, and it lands softly in a burst of sparkle and petals. `tests/vfx.test.js` now checks every Legendary in the decks has its own cinematic.
+  - **Rock Throw** (Sudowoodo) borrowed Body Slam's heavy dust cloud, which hid the target and the damage number; it now has a light puff of stone dust, so the impact star, shards and "−3" read clearly.
+  - **Synthesis** on a burned Trainer: a hiss of steam as it Douses (it heals, then Douses).
+  - **Captions:** Sleep and Leech Seed were captioned as Burn ("Quagsire Burned 1"); each status now has its own words ("falls Asleep", "is seeded", "wakes up", "Doused"), with a test in `tests/pass.test.js`.
+  - **Growth card in the margin:** its badge sits under the card, clear of the Pokémon beside it.
+  - Checked in the browser: Rock Throw, Sleep Powder, Synthesis on a burned Trainer, Celebi's entrance, a Breakfast Evolve reveal in hot-seat (Sunkern into Sunflora) and the Growth tree in its margin spot with all nine spaces full.
+  - `?hotseat&autoplay` (with `&stopAt=breakfastEvolve`, `&decks=grass,grass`) plays both seats of a hot-seat match until that step, then passes the screen as usual (for testing).
+
 Add `?seed=123` to the URL to replay the same shuffle and coin flip. Add `?hotseat` for two players on one screen, or `?join=CODE` to join a friend's room.
 
 ## Balance report

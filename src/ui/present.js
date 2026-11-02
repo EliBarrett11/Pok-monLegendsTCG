@@ -1642,7 +1642,7 @@ async function after(root, snap, next, actor, t, late) {
     if (e.type === 'heal') await healBeat(e, t);
     else if (e.type === 'buff') await buffBeat(e, t);
     else if (e.type === 'damage' && shown(e.target.uid)) await hitBeat(root, e, t);
-    else if (e.type === 'statusApplied' && shown(e.target.uid)) await burnApplied(e, t);
+    else if (e.type === 'statusApplied' && shown(e.target.uid)) await (e.status === 'burn' ? burnApplied(e, t) : statusBeat(e, t));
   }
   // Retain at Supper: the kept cards glow in my hand (the opponent's count stays put).
   for (const e of ev.filter((x) => x.type === 'retained')) {
@@ -1789,8 +1789,13 @@ export function captionFor(state, actor) {
   const extra = [
     burned.length ? `Burn: ${burned.map((e) => `${named(e.target)} −${e.amount}`).join(', ')}` : '',
     ...all('overrun').map((e) => `Overrun: ${e.amount} through to ${named(e.target)}`),
-    ...all('statusApplied').map((e) => `${named(e.target)} Burned ${e.amount}${e.after !== e.amount ? ` (now ${e.after})` : ''}`),
-    ...all('statusCleared').map((e) => `${named(e.target)} Doused`),
+    // (Each status in its own words: Sleep and Leech Seed aren't Burn.)
+    ...all('statusApplied').map((e) => (e.status === 'sleep' ? `${named(e.target)} falls Asleep`
+      : e.status === 'leechSeed' ? `${named(e.target)} is seeded`
+        : `${named(e.target)} Burned ${e.amount}${e.after !== e.amount ? ` (now ${e.after})` : ''}`)),
+    ...all('statusCleared').map((e) => (e.status === 'sleep' ? `${named(e.target)} wakes up`
+      : e.status === 'leechSeed' ? `${named(e.target)}'s Leech Seed is gone`
+        : `${named(e.target)} Doused`)),
     ...all('searched').map((e) => `${subject(e.who)} ${verb(e.who, 'search', 'searches')} for ${e.cards.map((c) => c.name).join(', ')}${e.retain ? ' (Retain)' : ''}`),
     ...all('returned').map((e) => e.cards.length ? `${subject(e.who)} ${verb(e.who, 'return')} ${e.cards.map((c) => c.name).join(', ')} to hand${e.retain ? ' (Retain)' : ''}` : `${subject(e.who)} ${verb(e.who, 'return')} nothing`),
     ...all('searchNone').map((e) => `${subject(e.who)} ${verb(e.who, 'search', 'searches')}: nothing found`),

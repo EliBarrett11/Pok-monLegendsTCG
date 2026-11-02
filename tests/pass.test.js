@@ -136,4 +136,16 @@ assert.equal(PASS_ENERGY, 1);
   assert.deepEqual([pass.endsPhase, pass.gain], [true, 0]);
 }
 
+// Captions name each status in its own words (Sleep and Leech Seed are not Burn).
+{
+  const target = { kind: 'pokemon', owner: 'ai', name: 'Quagsire', uid: 'q' };
+  const caption = (events) => captionFor({ events }, 'player');
+  assert.ok(caption([{ type: 'statusApplied', status: 'sleep', target, amount: 1, after: 1 }]).includes('Quagsire falls Asleep'));
+  assert.ok(caption([{ type: 'statusApplied', status: 'leechSeed', target, amount: 1, after: 1 }]).includes('Quagsire is seeded'));
+  assert.ok(caption([{ type: 'statusApplied', status: 'burn', target, amount: 2, after: 2 }]).includes('Quagsire Burned 2'));
+  assert.ok(caption([{ type: 'statusCleared', status: 'sleep', target }]).includes('Quagsire wakes up'));
+  assert.ok(caption([{ type: 'statusCleared', status: 'burn', target }]).includes('Quagsire Doused'));
+  assert.ok(!caption([{ type: 'statusApplied', status: 'sleep', target, amount: 1, after: 1 }]).includes('Burned'));
+}
+
 console.log('All Pass tests passed.');

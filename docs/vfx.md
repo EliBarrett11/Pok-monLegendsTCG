@@ -87,7 +87,7 @@ Every Strategy Card gets its own animation, a big moment. It opens the same way 
    - Common slams onto the board with a dust ring.
    - Rare slams in with a type-coloured flare.
    - Epic arrives with a larger flare and a light shaft.
-   - Legendary gets a short cinematic: Kyogre brings a wave and a burst of rain, Blaziken an eruption.
+   - Legendary gets a short cinematic: Kyogre brings a wave and a burst of rain, Blaziken an eruption, and Celebi descends in a shimmer of green-gold time-ripples with leaves and petals swirling around it, landing softly in a burst of sparkle.
 2. **Defeat:** a Pokémon dissolves according to what defeated it (burnt to ash for Fire and Burn, washed away for Water, shattered for others), and the pieces drift to the Released Pile.
 3. **Weather on the board:** Rain falls across the board, and Sun brings heat haze and light shafts. Both get stronger at each bracket (2, 4, 6, 8), so the Weather level is readable at a glance. This is ambient, low-key, and never hides cards.
 4. **Defensive feedback:** Shell is shown as an absorbing shimmer on hit. Regenerate and healing show as a rising glow with the number.
