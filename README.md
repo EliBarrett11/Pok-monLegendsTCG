@@ -382,6 +382,7 @@ No build step: plain HTML, CSS and JavaScript modules. Working rules for each se
   - **V is the only variant inside 45–55% against both** (47.8% and 47.0%), and Elliott adopted it: Venusaur is now Hitpoints. Venusaur arrives late, so dropping its guard opens Grass's Trainers to Water (59% → 48% guarded) but barely changes the Fire matchup.
   - BH is even against Water but Bulbasaur is an early guard, so Fire gets through (41.8%). S6 cuts Solar Beam damage by about 30% and drops Grass below 45% against Fire; both combinations overshoot.
   - Final numbers with V: Fire–Water 47.5% Fire, Grass–Fire 47.0% Grass, Grass–Water 47.8% Grass.
+  - **Seat check, Grass mirror** (with V, 400 matches, 200 per seat order): the "You" seat wins 50.8% and the AI seat 49.3% (108–92 and 95–105 in the two seat orders), 9.5 Rounds per match, no draws or stalls. That's inside 50 ± 5, so there's no Grass-specific seat asymmetry (Breakfast Evolve lock-in order, the Growth card, Leech Seed or Sleep timing); nothing changed. (The "You" seat had Round 1 initiative in 57% of these seeds and won 51.8% of those, 49.4% of the rest.)
 
 Add `?seed=123` to the URL to replay the same shuffle and coin flip. Add `?hotseat` for two players on one screen, or `?join=CODE` to join a friend's room.
 
