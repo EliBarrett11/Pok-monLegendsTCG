@@ -213,6 +213,9 @@ for (const c of deckPokemon) {
 }
 assert.equal(summonAnimation(cardDefinition('kyogre')), 'summon-kyogre');
 assert.equal(summonAnimation(cardDefinition('blaziken')), 'summon-blaziken');
+assert.equal(summonAnimation(cardDefinition('celebi')), 'summon-celebi');
+// Every Legendary in the decks has its own cinematic.
+for (const c of POKEMON_CARDS.filter((x) => x.rarity === 'Legendary')) assert.ok(LEGENDARY_SUMMONS[c.id], `${c.name}: its own Legendary cinematic`);
 assert.equal(summonAnimation({ id: 'mew', rarity: 'Legendary' }), 'summon-legendary', 'other Legendaries: the general cinematic');
 assert.equal(summonAnimation(cardDefinition('horsea')), 'summon-common');
 {
@@ -227,6 +230,9 @@ assert.equal(summonAnimation(cardDefinition('horsea')), 'summon-common');
   }
   assert.ok(has('summon-kyogre', (b) => EMITTERS[b.emit]?.tex === 'wave') && has('summon-kyogre', (b) => b.emit === 'rainBurst'), 'Kyogre: a wave and rain');
   assert.ok(has('summon-blaziken', (b) => b.emit === 'eruption' && b.on === 'ground'), 'Blaziken: an eruption from its space');
+  assert.ok(has('summon-celebi', (b) => EMITTERS[b.emit]?.tex === 'ripple' && b.on === 'target'), 'Celebi: time-ripples as it descends');
+  assert.ok(has('summon-celebi', (b) => EMITTERS[b.emit]?.tex === 'leaves' && b.on === 'ground') && has('summon-celebi', (b) => EMITTERS[b.emit]?.tex === 'petals'), 'Celebi: leaves and petals from its space');
+  assert.ok(has('summon-celebi', (b) => b.cue === 'land' && b.at === 1900) && has('summon-celebi', (b) => b.at === 1900 && EMITTERS[b.emit]?.tex === 'sparkle'), 'Celebi: a burst of sparkle as it lands');
   // Quick Attack: lands Active, with a speed streak.
   const quick = composeSummon('summon-common', { quick: true });
   assert.ok(quick.beats.some((b) => b.ribbon === 'speedStreak') && quick.beats.some((b) => b.cue === 'active'), 'Quick Attack: a speed streak');

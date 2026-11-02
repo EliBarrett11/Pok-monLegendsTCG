@@ -165,7 +165,7 @@ export const SWEEPS = {
 
 // A Pokémon's entrance by rarity; Legendaries have their own cinematic.
 export const SUMMONS = { Common: 'summon-common', Rare: 'summon-rare', Epic: 'summon-epic', Legendary: 'summon-legendary' };
-export const LEGENDARY_SUMMONS = { kyogre: 'summon-kyogre', blaziken: 'summon-blaziken' };
+export const LEGENDARY_SUMMONS = { kyogre: 'summon-kyogre', blaziken: 'summon-blaziken', celebi: 'summon-celebi' };
 export function summonAnimation(card) {
   if (card?.rarity === 'Legendary') return LEGENDARY_SUMMONS[card.id] ?? SUMMONS.Legendary;
   return SUMMONS[card?.rarity] ?? SUMMONS.Common;
@@ -492,6 +492,13 @@ export const EMITTERS = {
   // The evolution moment
   evolveMotes: { tex: 'glow', blend: 'add', rate: 60, at: 'ring', radius: R(130, 220), dir: 'inward', speed: 2.4, drag: 1.5, life: 420, size: [R(0.25, 0.45), 0.1], alpha: [0, 1], tint: ['#ffffff', '#e6ffd0'] },
   evolveFlash: { tex: 'glow', blend: 'add', count: 1, at: 'centre', life: 520, size: [0.8, 3.2], alpha: [1, 0], tint: '#ffffff' },
+  // Celebi's entrance: time-ripples around it as it descends, leaves and petals swirling up from its space, a soft sparkle as it lands.
+  timeRipples: { tex: 'ripple', blend: 'add', rate: 9, at: 'centre', dir: 'none', life: R(700, 950), size: [0.25, 1.5], alpha: [0.85, 0], squash: 0.55, tint: ['#b8f070', '#ffe08a', '#d8ffb0'] },
+  timeShimmer: { tex: 'sparkle', blend: 'add', rate: 30, at: 'card', area: 1.1, dir: 'radial', speed: R(20, 80), life: R(400, 700), size: [R(0.12, 0.22), 0.04], alpha: [1, 0], spin: R(-3, 3), tint: ['#e8ffb0', '#fff3c4'] },
+  swirlLeaves: { tex: 'leaves', blend: 'alpha', rate: 26, at: 'orbit', radius: R(0.5, 0.8), offsetY: 0.45, orbit: R(3.5, 5), rise: R(260, 420), life: R(800, 1200), size: [R(0.35, 0.6), 0.2], alpha: [1, 0], spin: R(-6, 6) },
+  swirlPetals: { tex: 'petals', blend: 'alpha', rate: 18, at: 'orbit', radius: R(0.45, 0.75), offsetY: 0.45, orbit: R(3.5, 5), rise: R(220, 380), life: R(900, 1300), size: [R(0.3, 0.5), 0.2], alpha: [1, 0], spin: R(-5, 5) },
+  celebiSparkle: { tex: 'sparkle', blend: 'add', count: 34, at: 'centre', dir: 'radial', speed: R(140, 420), drag: 1.6, life: R(600, 1000), size: [R(0.22, 0.38), 0.04], alpha: [1, 0], spin: R(-3, 3), tint: ['#d8ffa0', '#fff3c4', '#ffffff'] },
+  celebiRing: { tex: 'ripple', blend: 'add', count: 2, at: 'centre', offsetY: 0.2, life: R(700, 900), size: [0.3, 2.2], alpha: [0.8, 0], squash: 0.4, tint: ['#b8f070', '#ffe08a'] },
   evolveSparkle: { tex: 'sparkle', blend: 'add', count: 26, at: 'card', area: 1, dir: 'radial', speed: R(120, 360), drag: 1.5, life: R(600, 1000), size: [R(0.2, 0.34), 0.04], alpha: [1, 0], spin: R(-3, 3), tint: ['#ffffff', '#fff3c4'] },
   // Statuses: Sleep's drifting "z"s, Leech Seed's creeping vines, a waking jolt
   sleepZ: { tex: 'sleep-z', blend: 'alpha', rate: 0.7, at: 'top', dir: 'up', speed: R(14, 26), lift: 6, life: R(1800, 2400), size: [R(0.05, 0.07), R(0.09, 0.12)], alpha: [0.9, 0], fadeIn: 400, rot: R(-0.3, 0.1), spin: R(-0.3, 0.3), tint: '#cfe0ff' },
@@ -855,6 +862,10 @@ export const TIMELINES = {
       { at: 100, end: 900, emit: 'sunGlints', on: 'target' },
       { at: 0, end: 900, track: 'target', motion: 'sunlit' },
       { at: 560, cue: 'heal', emit: 'healGlints', on: 'target', bloom: 0.5 },
+      // (G3: it Douses what it heals: a hiss of steam as the Burn goes out.)
+      { at: 640, cue: 'douse', when: 'douse' },
+      { at: 640, emit: 'steam', on: 'target', when: 'douse' },
+      { at: 640, emit: 'steamHiss', on: 'target', when: 'douse' },
       { at: 700, cue: 'growth' },
     ],
   },
@@ -1222,6 +1233,26 @@ export const TIMELINES = {
       { at: 1900, emit: 'fireImpactEmbers', on: 'ground' },
       { at: 1900, end: 2300, emit: 'eruptionColumn', on: 'ground' },
       { at: 1900, emit: 'bigLandRing', on: 'ground' },
+      { at: 2250, cue: 'undim' },
+    ],
+  },
+  // Celebi: it descends in a shimmer of green-gold time-ripples, leaves and petals swirl up
+  // from its space, and it lands softly in a burst of sparkle (no heavy slam).
+  'summon-celebi': {
+    budget: 'cinematic', duration: 2450,
+    beats: [
+      { at: 0, cue: 'dim' },
+      { at: 0, end: 900, track: 'target', motion: 'descend' },
+      { at: 100, end: 1600, emit: 'timeRipples', on: 'target' },
+      { at: 200, end: 1500, emit: 'timeShimmer', on: 'target' },
+      { at: 700, end: 1900, emit: 'swirlLeaves', on: 'ground' },
+      { at: 800, end: 1900, emit: 'swirlPetals', on: 'ground' },
+      { at: 900, end: 1500, track: 'target', motion: 'hover' },
+      { at: 1500, end: 1900, track: 'target', motion: 'shrinkHome' },
+      { at: 1900, cue: 'land', shake: 5, flash: 'grass', bloom: 1.1 },
+      { at: 1900, emit: 'celebiSparkle', on: 'ground' },
+      { at: 1900, emit: 'celebiRing', on: 'ground' },
+      { at: 1900, emit: 'petalBurst', on: 'ground' },
       { at: 2250, cue: 'undim' },
     ],
   },

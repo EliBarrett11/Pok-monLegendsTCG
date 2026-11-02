@@ -46,6 +46,8 @@ const seedFromUrl = Number(params.get('seed'));
 // ?autoplay: the AI plays both sides (for watching, and for testing the
 // presentation), with the decks picked at random. ?autoplay&stopAt=breakfastEvolve
 // hands the player's side back to you the first time that action is yours to take.
+// ?hotseat&autoplay plays both seats of a hot-seat match the same way (with stopAt:
+// until either seat could take that action, then the screen is passed as usual).
 let autoplay = params.has('autoplay');
 const stopAt = params.get('stopAt');
 // null while the player is choosing a deck (before each match).
@@ -53,7 +55,7 @@ let state = null;
 
 // 'ai', 'hotseat' or 'online'; null on the start screen.
 // ?autoplay plays the AI, ?hotseat goes straight to hot-seat, ?join=CODE joins a friend.
-let mode = autoplay ? 'ai' : params.has('hotseat') ? 'hotseat' : params.has('join') ? 'online' : null;
+let mode = params.has('hotseat') ? 'hotseat' : autoplay ? 'ai' : params.has('join') ? 'online' : null;
 const isHotseat = () => mode === 'hotseat';
 
 // Hot-seat: two players take turns at one screen. Seat 'player' is Player 1, 'ai' Player 2.
@@ -231,7 +233,10 @@ function newGame() {
   lastShown = null;
   // ?autoplay&decks=grass,fire watches that matchup (otherwise random decks).
   const chosen = (params.get('decks') ?? '').split(',');
-  if (autoplay) startMatch(DECK_IDS.includes(chosen[0]) ? chosen[0] : randomDeck(), DECK_IDS.includes(chosen[1]) ? chosen[1] : 'random');
+  if (autoplay && isHotseat()) {
+    picks = { player: DECK_IDS.includes(chosen[0]) ? chosen[0] : randomDeck(), ai: DECK_IDS.includes(chosen[1]) ? chosen[1] : randomDeck() };
+    beginMatch({ ...picks });
+  } else if (autoplay) startMatch(DECK_IDS.includes(chosen[0]) ? chosen[0] : randomDeck(), DECK_IDS.includes(chosen[1]) ? chosen[1] : 'random');
   else draw();
 }
 
@@ -264,6 +269,28 @@ function beginMatch(decks) {
   state = createGame(seed, { decks, ...(isHotseat() ? { names: HOTSEAT_NAMES } : {}) });
   draw();
   if (!isHotseat()) start();
+  else if (autoplay) autoHotseat(match);
+}
+
+// ?hotseat&autoplay: the AI plays both seats, each from its own view, until
+// stopAt (then the screen is passed to whoever must act, as usual).
+async function autoHotseat(id) {
+  lock(true);
+  for (let guard = 0; guard < 5000 && autoplay && id === match && state.phase !== 'gameOver'; guard++) {
+    if (stopAt && PLAYERS.some((w) => legalActions(state, w).includes(stopAt))) { autoplay = false; break; }
+    const seat = PLAYERS.find((w) => legalActions(state, w).length);
+    const action = state.phase === 'initiative' ? { type: 'flipCoin' } : seat && chooseAction(state, seat);
+    if (!action) break;
+    await nextFrame();
+    if (id !== match) return;
+    const prev = state;
+    state = applyAction(state, action);
+    await show(prev, state, seat ?? viewer);
+  }
+  if (id !== match) return;
+  lock(false);
+  await handOver(id);
+  draw();
 }
 
 // Hot-seat deck selection: Player 1 chooses, the screen is passed, Player 2

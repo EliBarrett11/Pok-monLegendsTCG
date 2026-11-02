@@ -1693,7 +1693,7 @@ button.pulse { animation: soft-pulse 1.6s ease-in-out infinite; }
 .growth-card.margin img { border-radius: 6px; }
 .side.player .growth-card.margin { top: 46px; }
 .side.opponent .growth-card.margin { bottom: 46px; }
-.growth-card.margin .growth-badge { min-width: 26px; height: 26px; font-size: 16px; right: auto; left: -10px; bottom: -8px; }
+.growth-card.margin .growth-badge { min-width: 26px; height: 26px; font-size: 16px; right: auto; left: 50%; transform: translateX(-50%); bottom: -15px; }
 .growth-ghost { pointer-events: none; }
 /* Breakfast Evolve: a Pokémon planned to Evolve (and into what). */
 .pokemon-space.evo-planned { box-shadow: 0 0 0 2px rgba(150, 220, 90, 0.9), 0 0 16px rgba(150, 220, 90, 0.55); border-radius: 10px; }
