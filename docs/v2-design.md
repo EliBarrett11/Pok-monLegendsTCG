@@ -18,6 +18,8 @@
 - **Both players** can work on its objective, each with their own progress. Objectives have **milestones**, so both players are rewarded for investing in it, not only whoever finishes first.
 - Objectives must be achievable by **any deck**: generic goals, not Type- or mechanic-specific ones.
 - Locations still carry **Weather Tokens** (the current Weather system stays).
+- A Location **can be placed over lanes where Pokémon already stand**; those Pokémon are then in that Location.
+- **Combat isn't lane-restricted:** a Pokémon can attack any target, whatever its lane or Location. Lanes matter for Locations and lane-based effects.
 
 ### 1.3 The player character and Recognition
 - Trainers-as-health are retired. Each player is a **player character** that can be targeted exactly as Trainers were (guard rules apply).
@@ -33,7 +35,7 @@
 - **Trainer Points** (replacing XP) are earned during the match and **assigned to Trainers between Rounds**. Each Trainer unlocks in tiers:
   1. its **Passive**;
   2. its **Ability**;
-  3. its **Partner Pokémon**, summoned from outside the deck into the Trainer's space.
+  3. its **Partner Pokémon**, summoned from outside the deck into the Trainer's space. If that space is occupied, the player moves the Partner to a free space; if none is free, the summon waits until the next opportunity.
 - Points are earned per player, not per Trainer, so a Trainer played later can still catch up. Snowballing must be checked thoroughly.
 
 ## 3. Supporters: a real sacrifice
@@ -45,12 +47,13 @@
 
 ## 4. Pokémon Training series
 
-- Each Pokémon is a **series of cards, Level 1 to 9**. Levels improve base stats, **evolve the species** at set Levels (e.g. Horsea → Seadra → Kingdra) and strengthen its ability, and also raise its cost.
-- **Level 10 is for Legendaries only** and can't be trained into.
+- Each Pokémon is a **series of cards, Level 1 to 6**: **2 Levels per evolution stage** (e.g. Horsea L1–2, Seadra L3–4, Kingdra L5–6), so a final stage can appear as early as Round 5. Levels improve base stats, **evolve the species** at the set Levels and strengthen its ability, and also raise its cost (more slowly than the Level; see 6.1).
+- **Level 7 is for Legendaries only** and can't be trained into.
 - **Deckbuilding:** you choose each card's **training cap**, the Level it will train up to. Each card in a series uses 1 copy slot of its rarity.
-- **In a match, a card's Level = the Round number, up to its cap.** A Level-9 Kingdra drawn in Round 1 is a Level-1 Horsea. The Level doesn't reset when the card is drawn or discarded.
+- **In a match, a card's Level = the Round number, up to its cap.** A Level-6 Kingdra drawn in Round 1 is a Level-1 Horsea. The Level doesn't reset when the card is drawn or discarded.
 - **Once played, a Pokémon stays at the Level it was played** (the moment the player committed to it). It trains on the board only through specific effects.
-- **Evolution belongs to every Type** through Training. Grass can lean into it more strongly, for example with board-training effects.
+- **Evolution belongs to every Type** through Training. The current Evolve action and Breakfast Evolve retire.
+- **Growth (Grass):** Growth trains Pokémon **on the board**, raising their Level and evolving them in play, which no other deck can do. This makes Grass the master of Evolution.
 - Elliott provides art for every species in each line.
 
 ## 5. Strategy Cards: scalable costs with breakpoints
@@ -67,7 +70,7 @@
 | Resource | v2 |
 |---|---|
 | Base Energy | Stays |
-| Exert / Exhaust | **Removed.** New ways to gain Energy replace it. |
+| Exert / Exhaust | **Removed.** New ways to gain Energy replace it (6.2). |
 | XP | **Replaced** by Trainer Points |
 | PokéDollars, PokéMart | **Removed** |
 | Items | **Stay** in some form, to be revisited (no PokéDollars) |
@@ -75,18 +78,32 @@
 | Weather | Stays (via Locations) |
 | Recognition | **New**: the score and win condition |
 
+### 6.1 Cost curve (proposal)
+
+Costs grow more slowly than Levels, so a trained Pokémon doesn't take the whole turn. Species can adjust it by ±1.
+
+| Level | 1 | 2 | 3 | 4 | 5 | 6 | 7 (Legendary) |
+|---|---|---|---|---|---|---|---|
+| Cost | 1 | 1 | 2 | 3 | 3 | 4 | 5 |
+
+### 6.2 Ways to gain Energy (proposal)
+
+- **Pass** (as now): +1.
+- **Stored Energy:** up to 1 unspent Base Energy carries over to the next Round. This keeps some of Exert's flexibility.
+- **Location milestones:** some reward +1 Energy.
+- **Trainer Abilities and Pokémon abilities:** a natural home for the future Resource-Based archetype.
+
 ## 7. Open questions
 
-1. **Match length vs Training.** Levels follow the Round number, but matches last 5–9 Rounds today. Level 7–9 forms would rarely appear unless matches run longer (a Recognition target can be set for that) or Levels rise faster than one per Round.
-2. **Cost curve.** Base Energy = Round number, and Level = Round number. If a Level-N Pokémon costs about N, a fully trained card takes your whole turn. Is that intended, or should costs grow more slowly than Levels?
-3. **Lanes and combat.** Can a Pokémon attack anywhere, as now, or only its own lane or nearby lanes? Lanes and lane-based Locations suggest some lane combat, and Infiltrator and guards would need to fit it.
-4. **Locations over Pokémon.** Can a Location be placed over lanes where Pokémon already stand (they stay and become "in" the Location), or only on empty lanes?
-5. **Recognition target, and the trigger for each milestone reward.**
-6. **The Partner Pokémon's space:** what if the Trainer's space is already occupied when its Partner unlocks?
-7. **Trainer Point sources and unlock costs** (e.g. 2 / 4 / 6). Is there a hand limit on Trainers in play?
-8. **Energy without Exert:** which new Energy-gain opportunities?
-9. **Items without PokéDollars:** how are they played?
-10. **Current systems:** do Breakfast Evolve and the Evolve action retire in favour of Training? What does Growth do in v2?
+Settled 2 Nov: 2 Levels per stage, L1–6 plus L7 for Legendaries; costs grow more slowly than Levels; attacks can target anywhere; Locations can cover Pokémon; Partner placement; Growth trains on the board.
+
+1. **Two-stage and single-stage Pokémon:** how do Growlithe → Arcanine (two stages) and Chansey or Sudowoodo (one stage) fill Levels 1–6?
+2. **Cost curve and Energy gains:** approve or adjust 6.1 and 6.2.
+3. **Recognition target**, and how long matches should run (it sets which Levels are seen).
+4. **Locations:** how long the Round timer is, the milestone rewards, and lane widths.
+5. **Trainer Points:** sources and unlock costs (e.g. 2/4/6); any limit on Trainers in play.
+6. **Items** without PokéDollars: how are they played?
+7. **Deck building:** 40 cards? Do Trainers join the deck split? How does choosing a cap work in the deck builder?
 
 ## 8. Build approach (proposal)
 
