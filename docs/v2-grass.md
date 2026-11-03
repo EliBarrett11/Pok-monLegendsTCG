@@ -1,6 +1,6 @@
-# DRAFT: v2 Grass deck, "Engine" (Combo)
+# v2 Grass deck, "Engine" (Combo)
 
-**Status: a proposal for Elliott. Don't build from this file.** Same format as `docs/v2-fire.md` and `docs/v2-water.md`.
+**Status: approved by Elliott (3 Nov).** V6 builds it. Numbers are first-pass values for the V7 balance pass.
 
 ## Identity in v2
 
@@ -10,7 +10,7 @@
 - **From v1:** Breakfast Evolve and the Evolve action retire (v2-design 4). The G3 lessons stay: Rain-making Locations, Douse for the player character, guards early.
 - **Neutrals from N1:** Metapod (now Caterpie → Metapod → Butterfree), Geodude (now → Graveler → Golem), Rock Slide, Brock. Sudowoodo becomes Bonsly → Sudowoodo.
 
-## New rule needed: spending Growth to train (Elliott to approve)
+## New rule: Nurture (approved: Claude's judgement, Elliott 3 Nov)
 
 - **Nurture** (Battle Action, 0 Energy): spend **2 Growth** to **train 1** one of your Pokémon on the board (up to its cap). Each Pokémon can be Nurtured once per Round.
 - Training into a new stage triggers **On Evolve** abilities (the v1 trigger, carried over).
@@ -90,11 +90,13 @@ Stats are **Attack/Strength** at each Level, L1 → L6.
 
 **Have:** bulbasaur, ivysaur, venusaur, oddish, gloom, bellossom, sunkern, sunflora, sewaddle, swadloon, leavanny, eevee, metapod, geodude, sudowoodo, celebi, leech-seed, sleep-powder, synthesis, solar-beam, rock-slide, mallow, pokemon-breeder, professor-oak, brock, erika, gardenia, ramos, floaroma-meadow, eterna-forest, petalburg-woods, miracle-seed, big-root, rare-candy, oran-berry; the Growth tree (growth-1 … 4).
 
-**Needed (9):** leafeon, caterpie, butterfree, graveler, golem, bonsly, vileplume (Erika's Partner), roserade (Gardenia's Partner), gogoat (Ramos's Partner).
+**Delivered (3 Nov):** vileplume, gogoat, roserade.
 
-## Open questions for Elliott
+**Still needed (6):** leafeon, caterpie, butterfree, graveler, golem, bonsly. Eevee uses the same art in the Vaporeon and Leafeon lines until Elliott makes an alternative.
 
-1. **Nurture** (2 Growth: train 1, once per Pokémon per Round) as the v2 rule for spending Growth. OK?
-2. **Eevee appears in Water and Grass** (Vaporeon / Leafeon). Fine, or give Grass something else?
-3. **Partners:** Vileplume (Erika), Roserade (Gardenia), Gogoat (Ramos), from each Trainer's team in the games. OK?
-4. **Four Common lines at 3 copies:** Grass has the most copies of anything, which makes its engine consistent. That's the right feel for Combo?
+## Settled (3 Nov)
+
+- **Nurture:** 2 Growth trains a Pokémon 1, once per Pokémon per Round (to be tuned in V7).
+- **Eevee** is in both Water and Grass; both lines share the Eevee art for now.
+- **Partners:** Vileplume (Erika), Roserade (Gardenia), Gogoat (Ramos).
+- **Copies:** four Common lines at 3 copies, for a consistent engine.
