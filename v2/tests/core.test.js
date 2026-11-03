@@ -1,6 +1,6 @@
 // V1 — the v2 core: setup, Energy and storing, summoning, targeting with the guard
 // rules (and Infiltrator), trades, Recognition from damage to the player character,
-// the win at 60, passing, Supper's Retain, and the basic AI playing whole matches.
+// the win at 60, passing, Supper's Retain (Breakfast draws 7 on top), and the AI playing whole matches.
 // Run with: node v2/tests/core.test.js
 import assert from 'node:assert/strict';
 import {
@@ -220,7 +220,7 @@ const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass
   s = passBoth(s);
   const hand = s.players.player.hand;
   assert.equal(hand.filter((c) => c.id === 'oddish').length >= 1, true, 'Oddish (Retain) kept');
-  assert.equal(hand.length, HAND_SIZE, 'drawn up to 7');
+  assert.equal(hand.length, 1 + HAND_SIZE, 'Breakfast draws 7 on top of the kept card (Elliott\'s ruling)');
   assert.ok(s.players.player.discard.some((c) => c.id === 'horsea'), 'Horsea discarded');
   assert.equal(s.players.player.row[0].spent, false, 'Active again at Breakfast');
 }
@@ -240,12 +240,12 @@ const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass
       assert.ok(legalActions(s, who).includes(action.type), `${action.type} is legal`);
       s = applyAction(s, action);
     }
-    if (s.winner) {
+    if (s.phase === 'gameOver' && s.winner) {
       results[s.winner] += 1;
-      assert.ok(s.players[s.winner].recognition >= RECOGNITION_TARGET);
-    } else results.unfinished += 1;
+      if (s.result.reason === 'target') assert.ok(s.players[s.winner].recognition >= RECOGNITION_TARGET);
+    } else if (s.phase !== 'gameOver') results.unfinished += 1;
   }
-  assert.equal(results.unfinished, 0, 'every match reaches 60');
+  assert.equal(results.unfinished, 0, 'every match ends (60 Recognition, or after Round 12)');
   assert.ok(results.player > 0 && results.ai > 0, 'either side can win');
   // It takes a win when it sees one.
   let s = battle();

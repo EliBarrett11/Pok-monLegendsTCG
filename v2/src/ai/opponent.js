@@ -11,10 +11,22 @@
 //   summoning: 15 + 3 × cost (pricier first), into the lane facing the most
 //   enemy pressure (a Pokémon opposite), else the middle
 //   Pass: 0 (−6 if it would make its own Pokémon Spent by unmatched speed)
+// Locations (V2):
+//   every move also scores the objective progress it makes (its own, toward the
+//   next milestone or completion, weighted by that reward) and the Recognition its
+//   rewards bring
+//   playing a Location: 20, + its rewards' worth, + its own Pokémon already in those
+//   lanes for summon/attack/presence objectives (− the enemy's); not worth it when
+//   the Championship would end it before it pays (it plays them from Round 9 only
+//   when nothing else is useful)
+//   summoning goes into a Location whose objective a Pokémon there helps
+//   (summon/attack/presence), else as in V1
 import {
-  applyAction, legalActions, legalTargets, alertSpaces, playable, passSpends, opponentOf, pokemonOf,
+  applyAction, legalActions, legalTargets, alertSpaces, playable, placeable, locationStarts, locationAt,
+  passSpends, opponentOf, pokemonOf, pokemonIn,
 } from '../engine/game.js';
-import { LANES } from '../engine/rules.js';
+import { LANES, CHAMPIONSHIP_ROUND } from '../engine/rules.js';
+import { OBJECTIVES } from '../engine/locations.js';
 
 const value = (card) => card.cost * 3 + card.attack;
 
@@ -35,19 +47,82 @@ export function moves(state, who) {
       out.push({ type: 'summon', who, uid: card.uid, space });
     }
   }
+  if (legal.includes('playLocation')) {
+    const seen = new Set();
+    for (const card of placeable(state, who)) {
+      if (seen.has(card.id)) continue;
+      seen.add(card.id);
+      out.push({ type: 'playLocation', who, uid: card.uid, start: bestStart(state, who, card) });
+    }
+  }
   if (legal.includes('pass')) out.push({ type: 'pass', who });
   return out;
 }
 
-// The empty space to summon into: opposite an enemy Pokémon if one stands across an
-// empty space of ours, otherwise the empty space nearest the middle.
+// What a reward is worth, in points of score.
+const rewardWorth = (r = {}) => 3 * (r.recognition ?? 0) + 6 * (r.energy ?? 0) + 5 * (r.draw ?? 0);
+// Locations whose objective a Pokémon standing (or arriving) in them helps.
+const wantsPokemon = (loc, who) => OBJECTIVES[loc.objective.kind].inLocation && !loc.completed[who];
+
+// The empty space to summon into: inside a Location that wants Pokémon (summon,
+// attack, presence) if there is one, else opposite an enemy Pokémon if one stands
+// across an empty space of ours, otherwise the empty space nearest the middle.
 function bestSpace(state, who) {
   const row = state.players[who].row;
   const enemy = state.players[opponentOf(who)].row;
   const empty = row.map((c, i) => (c ? null : i)).filter((i) => i !== null);
-  const opposite = empty.filter((i) => enemy[i]);
   const middle = (LANES - 1) / 2;
-  return (opposite.length ? opposite : empty).sort((a, b) => Math.abs(a - middle) - Math.abs(b - middle))[0];
+  const near = (list) => list.sort((a, b) => Math.abs(a - middle) - Math.abs(b - middle))[0];
+  const inLocation = empty.filter((i) => { const loc = locationAt(state, i); return loc && wantsPokemon(loc, who); });
+  if (inLocation.length) {
+    // The Location closest to a reward first.
+    const worth = (i) => { const loc = locationAt(state, i); return loc.progress[who] / loc.objective.count + (loc.championship ? 0 : 0.5); };
+    return inLocation.sort((a, b) => worth(b) - worth(a) || Math.abs(a - middle) - Math.abs(b - middle))[0];
+  }
+  const opposite = empty.filter((i) => enemy[i]);
+  return near(opposite.length ? opposite : empty);
+}
+
+// Where to put a Location: over the most of its own Pokémon (for objectives that
+// count Pokémon in it) and the fewest enemy ones, or with the most empty spaces of
+// its own to summon into; then nearest the middle.
+function bestStart(state, who, card) {
+  const middle = (LANES - card.lanes) / 2;
+  const kind = OBJECTIVES[card.objective.kind];
+  const score = (start) => {
+    const lanes = Array.from({ length: card.lanes }, (_, i) => start + i);
+    const own = lanes.filter((l) => state.players[who].row[l]).length;
+    const foe = lanes.filter((l) => state.players[opponentOf(who)].row[l]).length;
+    if (!kind.inLocation) return -Math.abs(start - middle) * 0.1;
+    if (card.objective.kind === 'summon') return (card.lanes - own) * 2 - foe - Math.abs(start - middle) * 0.1;
+    return own * 3 - foe * 2 + (card.lanes - own) - Math.abs(start - middle) * 0.1;
+  };
+  return locationStarts(state, card).sort((a, b) => score(b) - score(a))[0];
+}
+
+// Progress worth: for each Location, its progress toward the next milestone or
+// completion, weighted by that reward.
+function progressWorth(state, who) {
+  let worth = 0;
+  for (const loc of state.locations) {
+    const goals = [...loc.milestones.map((m) => ({ at: m.at, r: m.reward })), { at: loc.objective.count, r: loc.completion }];
+    for (const g of goals) worth += Math.min(loc.progress[who], g.at) / g.at * rewardWorth(g.r) * 0.5;
+  }
+  return worth;
+}
+
+function locationScore(state, who, move) {
+  const card = state.players[who].hand.find((c) => c.uid === move.uid);
+  const endsAt = state.round + card.rounds - 1;
+  // The Championship ends it in Round 10: from Round 9 a Location has one Round to pay.
+  if (state.round >= CHAMPIONSHIP_ROUND - 1) return -2;
+  const lanes = Array.from({ length: card.lanes }, (_, i) => move.start + i);
+  const own = lanes.filter((l) => state.players[who].row[l]).length;
+  const foe = lanes.filter((l) => state.players[opponentOf(who)].row[l]).length;
+  let score = 20 + 0.4 * (rewardWorth(card.completion) + card.milestones.reduce((n, m) => n + rewardWorth(m.reward), 0));
+  if (OBJECTIVES[card.objective.kind].inLocation) score += 4 * own - 3 * foe;
+  if (endsAt >= CHAMPIONSHIP_ROUND) score -= 3 * (endsAt - CHAMPIONSHIP_ROUND + 1);
+  return score;
 }
 
 export function scoreMove(state, who, move) {
@@ -55,22 +130,30 @@ export function scoreMove(state, who, move) {
   if (move.type === 'pass') return passSpends(state, who).length ? -6 : 0;
   const after = applyAction(state, move);
   if (after.winner === who) return 1000;
+  // Objective progress and reward Recognition this move brings (on top of its own worth).
+  const gained = after.players[who].recognition - state.players[who].recognition;
+  const objective = progressWorth(after, who) - progressWorth(state, who);
+  return baseScore(state, after, who, move, gained) + objective;
+}
+
+function baseScore(state, after, who, move, gained) {
+  if (move.type === 'playLocation') return locationScore(state, who, move);
   if (move.type === 'summon') {
     const card = state.players[who].hand.find((c) => c.uid === move.uid);
-    return 15 + 3 * card.cost;
+    return 15 + 3 * card.cost + 3 * gained;
   }
   // An attack.
   const foe = opponentOf(who);
-  const gained = after.players[who].recognition - state.players[who].recognition;
   if (move.target.kind === 'player') return 20 + 3 * gained;
   const defender = state.players[foe].row[move.target.space];
   const attacker = state.players[who].row[move.from];
   const killed = !after.players[foe].row[move.target.space];
   const lost = !after.players[who].row[move.from];
-  if (killed && !lost) return 40 + value(defender);
-  if (lost && !killed) return -20;
-  if (killed && lost) return 10 + value(defender) - value(attacker);
-  return 5 + (defender.currentStrength - after.players[foe].row[move.target.space].currentStrength);
+  const bonus = 3 * gained;
+  if (killed && !lost) return 40 + value(defender) + bonus;
+  if (lost && !killed) return -20 + bonus;
+  if (killed && lost) return 10 + value(defender) - value(attacker) + bonus;
+  return 5 + (defender.currentStrength - after.players[foe].row[move.target.space].currentStrength) + bonus;
 }
 
 export function chooseAction(state, who, { rng = Math.random } = {}) {
@@ -85,4 +168,4 @@ export function chooseAction(state, who, { rng = Math.random } = {}) {
   return best;
 }
 
-export { pokemonOf };
+export { pokemonOf, pokemonIn };

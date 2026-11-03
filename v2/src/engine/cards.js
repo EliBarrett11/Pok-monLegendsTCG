@@ -1,3 +1,5 @@
+import { TEST_LOCATIONS } from './locations.js';
+
 // V1 test cards: fixed stats, no Training yet (V3 brings Level series). They reuse
 // v1's art (assets/cards/<id>.jpg) so the board looks right; the stats are v2's own.
 // Every Pokémon: cost, Type, Attack and its Attack-Type (Physical / Special),
@@ -25,16 +27,17 @@ export const TEST_POKEMON = [
   pokemon('arcanine', 'Arcanine', 5, 4, 'Fire', 6, 'Physical', 6, 'Hitpoints', 'Swift'),
 ];
 
-// The test deck both players use: 40 cards (7a).
+// The test deck both players use: 40 cards (7a): 34 Pokémon and 6 test Locations (V2).
 export const TEST_DECK = {
-  horsea: 4, charmander: 4, bulbasaur: 3, growlithe: 4, oddish: 3, goldeen: 3, ponyta: 3, chinchou: 3,
+  horsea: 3, charmander: 3, bulbasaur: 3, growlithe: 3, oddish: 2, goldeen: 2, ponyta: 3, chinchou: 2,
   quagsire: 3, sneasel: 2, sudowoodo: 2, magmar: 2, lapras: 2, arcanine: 2,
+  'cerulean-cape': 2, 'eterna-forest': 1, 'mt-ember': 1, 'route-119': 1, 'stark-mountain': 1,
 };
 
 export const SPEEDS = ['Slow', 'Steady', 'Swift'];
 
 export function cardDef(id) {
-  const c = TEST_POKEMON.find((p) => p.id === id);
+  const c = TEST_POKEMON.find((p) => p.id === id) ?? TEST_LOCATIONS.find((l) => l.id === id);
   if (!c) throw new Error(`Unknown card: ${id}`);
   return c;
 }
