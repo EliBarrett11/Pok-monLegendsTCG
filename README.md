@@ -427,6 +427,8 @@ No build step: plain HTML, CSS and JavaScript modules. Working rules for each se
 
   Brock is played in 76% of Grass's matches against Fire, and Grass wins 55.7% of those (37.9% without).
 
+- **V0 — v2 setup** — the current game is tagged `v1.0` and doesn't change. v2 (docs/v2-design.md) is built beside it in `v2/`, with its own build log in [`v2/README.md`](v2/README.md); it shares the root `assets/` by relative path. Its "in development" page: https://elibarrett11.github.io/Pok-monLegendsTCG/v2/
+
 Add `?seed=123` to the URL to replay the same shuffle and coin flip. Add `?hotseat` for two players on one screen, or `?join=CODE` to join a friend's room.
 
 ## Balance report
