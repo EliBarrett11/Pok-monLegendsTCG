@@ -118,6 +118,22 @@ Costs grow more slowly than Levels, so a trained Pokémon doesn't take the whole
    - Plus some Items as ordinary deck cards with an Energy cost.
 4. **Deck size:** keep 40 until the prototype. Recycling matters less now that Levels follow the Round number, so bigger decks (more variety, fewer reshuffles) become possible. But Release costs weigh less when cards rarely come back. Decide after playtesting.
 
+## 7a. Settled 3 Nov (late)
+
+**Approved:**
+- Weight classes (light −1, standard 0, heavy +1/+2) and the optional Empowered summon.
+- Items found at Locations into the Bag, plus some Items as deck cards.
+- **The Championship covers every lane.** When it arrives, every other Location ends: milestones already earned are kept, unfinished completions are lost, and Pokémon stay where they are.
+
+**Claude's starting picks** (Elliott tests them and gives feedback; tune them with the balance tool):
+- **End of the match:**
+  - **Recognition target 60:** reaching it wins immediately.
+  - **Round limit 12.**
+  - **The Championship** arrives at the start of **Round 10** and runs to the end of Round 12. Then the highest Recognition wins.
+  - **Tiebreaker:** the most Championship progress; if still tied, one sudden-death Round.
+- **Why these numbers:** today's decks deal about 7 damage a Round to the opposing player. With Location rewards on top, 60 should be reachable before the Championship only by a clearly dominant player. Aim for about a third of matches won early, two thirds decided in the Championship. Level-6 Pokémon appear from Round 6, so the last third of the match is when the strongest forms clash.
+- **Deck size: 40** for the first build. It keeps consistency, and today's balance numbers stay comparable. Revisit after playtesting; the balance tool should report reshuffles per match.
+
 ## 7b. Look (approved by Elliott, 3 Nov)
 
 v2 should look like the concept mockups `docs/design/v2-board-concept.jpg` and `docs/design/v2-training-series.jpg`:
