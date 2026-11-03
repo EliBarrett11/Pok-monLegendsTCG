@@ -335,7 +335,7 @@ Curve: cost 1 ×3, 2 ×4, 3 ×4, 4 ×3, 5 ×2, 6 ×2.
 |---|---|---|---|---|
 | Dragonite | Dragon Pokémon | Reach and a finisher: it flies over guards to hit Trainers. | 1 Quagsire | dragonite |
 | Shinx | Electric Pokémon | An early answer to Water's slow start. | 1 Lapras | shinx |
-| Thunderbolt | Strategy | Burst, which Water lacked. | 1 Bubble Beam | new art to come: thunderbolt (placeholder look until then) |
+| Thunderbolt | Strategy | Burst, which Water lacked. | 1 Bubble Beam | thunderbolt |
 | Rocky Helmet | Item (Held) | A defence that punishes Fire's Infiltrators, which ignore guards. | 1 Mystic Water | rocky-helmet |
 | Tracey | Supporter | Card selection, which builds on Water's value plan. | 1 Nurse Joy | tracey |
 
@@ -419,7 +419,7 @@ Basic curve: cost 1 ×8, 2 ×1, 3 ×1, 4 ×1 (11 Basics). Evolutions: Evolve 2 �
 |---|---|---|---|---|
 | Metapod | Bug Pokémon, a Defence guard | A cheap Round-1 guard against Fire's Physical attackers. | 1 Sewaddle | metapod |
 | Geodude | Rock Pokémon, a Defence guard | A second early guard that chips at aggro. | 1 Bulbasaur | geodude |
-| Rock Slide | Strategy | Damage and a partial board clear; Grass had neither. | 1 Leech Seed | new art to come: rock-slide (placeholder look until then) |
+| Rock Slide | Strategy | Damage and a partial board clear; Grass had neither. | 1 Leech Seed | rock-slide |
 | Brock | Supporter | A defensive turn to survive the early rush; builds on Sudowoodo and Geodude. | 1 Mallow | brock |
 
 ### Trainers (total Strength 52)

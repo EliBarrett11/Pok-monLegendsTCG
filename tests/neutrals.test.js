@@ -43,7 +43,7 @@ const supporter = (s, id, pay, target) => {
   assert.deepEqual(['growlithe', 'magmar', 'ember', 'x-attack'].map((id) => has('fire', id)), [2, 1, 2, 1]);
   assert.deepEqual(['quagsire', 'lapras', 'bubble-beam', 'mystic-water', 'nurse-joy'].map((id) => has('water', id)), [2, 1, 1, 1, 1]);
   assert.deepEqual(['sewaddle', 'bulbasaur', 'leech-seed', 'mallow'].map((id) => has('grass', id)), [1, 2, 1, 1]);
-  // Art: in assets/cards for 11; Hyper Voice's file is hypervoice.jpg; Thunderbolt and Rock Slide wait for theirs.
+  // Art: all 13 in assets/cards (Hyper Voice's file is hypervoice.jpg).
   assert.equal(cardDefinition('hyper-voice').image, 'assets/cards/hypervoice.jpg');
 }
 

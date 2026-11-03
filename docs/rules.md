@@ -665,7 +665,7 @@ Three decks, as approved in `docs/decks.md` (the source of truth for them). The 
 
 ### 9.5 Neutral cards (N1, approved by Elliott)
 
-Each deck has a few unique **neutral cards** (marked "(neutral)" in its tables above): off-Type Pokémon and Type-free Strategy Cards, Supporters and Items that fill gaps in its kit. Each replaced one copy of a duplicate, so the decks keep 40 cards and the standard split. Black Belt and Rocky Helmet joined the PokéMart, which now holds 13 Items. Thunderbolt and Rock Slide use the placeholder look until their art arrives.
+Each deck has a few unique **neutral cards** (marked "(neutral)" in its tables above): off-Type Pokémon and Type-free Strategy Cards, Supporters and Items that fill gaps in its kit. Each replaced one copy of a duplicate, so the decks keep 40 cards and the standard split. Black Belt and Rocky Helmet joined the PokéMart, which now holds 13 Items.
 
 How they work (the build's reading; the open questions below list what Elliott hasn't ruled on yet):
 - **On Defend at the attacker** (Dusclops: Burn 1; Geodude: 1 damage): like every On Defend, it fires after the attack if this Pokémon is still in play, at the Pokémon that attacked it, if that Pokémon is still in play.
