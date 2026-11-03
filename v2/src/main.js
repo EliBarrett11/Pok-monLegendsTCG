@@ -1,7 +1,7 @@
 // Pokémon Legends v2 — entry point (V1 core + V2 Locations and the Championship, against the AI).
 // ?seed=123 replays the same shuffle and coin flip; ?autoplay lets the AI play
 // both sides (for watching and testing).
-import { createGame, applyAction } from './engine/game.js';
+import { createGame, applyAction, actor, legalActions } from './engine/game.js';
 import { chooseAction } from './ai/opponent.js';
 import { renderMatch } from './ui/board.js';
 import { toastsFor, showToasts } from './ui/toasts.js';
@@ -88,7 +88,9 @@ async function aiTurn(id) {
   ui.locked = true;
   redraw();
   for (let guard = 0; guard < 2000 && id === match && state.phase !== 'gameOver'; guard++) {
-    const who = state.phase === 'initiative' ? (autoplay ? 'player' : null) : state.turn;
+    // The assign step is simultaneous: the AI locks in while you choose.
+    const who = state.phase === 'assign' ? (legalNow('ai') ? 'ai' : autoplay ? actor(state) : null)
+      : state.phase === 'initiative' ? (autoplay ? 'player' : null) : state.turn;
     if (!who || (who === 'player' && !autoplay)) break;
     await wait(PAUSE);
     if (id !== match) return;
@@ -101,6 +103,8 @@ async function aiTurn(id) {
   ui.locked = false;
   redraw();
 }
+
+const legalNow = (who) => legalActions(state, who).length > 0;
 
 function newMatch() {
   match += 1;

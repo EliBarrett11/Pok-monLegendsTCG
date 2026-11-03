@@ -48,7 +48,7 @@ export function createGame(seed = Date.now(), { decks = { player: TEST_DECK, ai:
   const state = {
     seed, rng: seed >>> 0, round: 0, phase: 'initiative', turn: null, initiative: null, passesInARow: 0,
     winner: null, result: null, suddenDeath: false, locations: [], nextLocation: 0, players: {}, log: [], events: [],
-    itemPool: [], nextItem: 0,
+    itemPool: [], nextItem: 0, assign: null,
   };
   for (const who of PLAYERS) {
     state.players[who] = {
@@ -58,6 +58,7 @@ export function createGame(seed = Date.now(), { decks = { player: TEST_DECK, ai:
       row: Array(LANES).fill(null),
       energy: 0, roundEnergy: 0, stored: 0, bonusNext: 0, bonus: 0, recognition: 0,
       bag: [], burn: 0,
+      trainers: [], trainerPoints: 0, movedTrainer: false, waiting: [],
     };
   }
   // The shared Item pool (V4): one copy of each test Item, shuffled.
@@ -111,7 +112,7 @@ export function train(s, who, space, n) {
   const damage = card.strength - card.currentStrength;
   const next = {
     ...atLevel(card, to), spent: card.spent, arrivedRound: card.arrivedRound, empowered: card.empowered,
-    burn: card.burn, asleep: card.asleep, seededBy: card.seededBy,
+    burn: card.burn, asleep: card.asleep, seededBy: card.seededBy, shellRound: card.shellRound, partner: card.partner,
   };
   if (card.empowered) applyEmpower(next);
   if (card.held) applyHeld(next, card.held);
@@ -281,11 +282,63 @@ export const bagFull = (state, who) => state.players[who].bag.length >= BAG_SIZE
 export const playableItems = (state, who) => state.players[who].hand.filter((c) => c.cardType === 'Item' && c.cost <= state.players[who].energy
   && (itemUsable(state, who, c) || !bagFull(state, who)));
 export const usableBagItems = (state, who) => state.players[who].bag.filter((c) => itemUsable(state, who, c));
+// --- Trainers (V5) -------------------------------------------------------------------------------
+//
+// p.trainers: [{ …card, uid, space, points, abilityRound }]. Tiers unlock at their
+// costs (points assigned at the Breakfast assign step). One Trainer per space
+// (Claude's placeholder); a Pokémon may stand in the same space.
+export const tiersUnlocked = (t) => t.tiers.filter((tier) => t.points >= tier.cost).length;
+export const trainerAt = (state, who, space) => state.players[who].trainers.find((t) => t.space === space) ?? null;
+export const freeSpaces = (state, who) => state.players[who].row.map((c, i) => (c ? null : i)).filter((i) => i !== null);
+export const trainerSpaces = (state, who) => Array.from({ length: LANES }, (_, i) => i).filter((i) => !trainerAt(state, who, i));
+export const playableTrainers = (state, who) => (trainerSpaces(state, who).length
+  ? state.players[who].hand.filter((c) => c.cardType === 'Trainer' && c.cost <= state.players[who].energy) : []);
+export const canMoveTrainer = (state, who) => !state.players[who].movedTrainer && state.players[who].trainers.length > 0 && trainerSpaces(state, who).length > 0;
+// Abilities usable now: unlocked, affordable, not yet used this Round, with a target.
+export const usableAbilities = (state, who) => state.players[who].trainers.filter((t) => {
+  const ab = t.tiers[1].ability;
+  return tiersUnlocked(t) >= 2 && t.abilityRound !== state.round && ab.cost <= state.players[who].energy && canTarget(state, who, ab.target);
+});
+// Whether a player takes part in the assign step: Trainer Points, and a Trainer that can still use them.
+export const needsAssign = (state, who) => {
+  const p = state.players[who];
+  return p.trainerPoints > 0 && p.trainers.some((t) => t.points < t.tiers[2].cost);
+};
+// The sum of a Passive kind over your Trainers (that have it unlocked), optionally at a space.
+function passiveSum(s, who, kind, space, filter = () => true) {
+  return s.players[who].trainers.filter((t) => tiersUnlocked(t) >= 1 && t.tiers[0].passive.kind === kind
+    && (space === undefined || t.space === space) && filter(t.tiers[0].passive)).reduce((n, t) => n + t.tiers[0].passive.amount, 0);
+}
+// Shell N: each instance of damage this Pokémon takes is N less, minimum 1.
+export function shellOf(s, who, space) {
+  const card = s.players[who].row[space];
+  if (!card) return 0;
+  const printed = card.keywords.reduce((n, k) => n + (Number(/^Shell (\d+)$/.exec(k)?.[1]) || 0), 0);
+  return printed + (card.shellRound ?? 0) + passiveSum(s, who, 'spaceShell', space);
+}
+const afterShell = (amount, shell) => (amount > 0 ? Math.max(1, amount - shell) : 0);
+
+// Passives that change stats (Misty's lane Strength): kept in step with the board after
+// every action. Losing the bonus never defeats a Pokémon (at least 1 Strength is left).
+function syncPassives(s) {
+  for (const who of PLAYERS) {
+    for (const { space, card } of pokemonOf(s, who)) {
+      const want = passiveSum(s, who, 'laneStrength', space, (pv) => !pv.type || pv.type === card.type);
+      const have = card.passiveStrength ?? 0;
+      if (want === have) continue;
+      card.strength += want - have;
+      card.currentStrength = want > have ? card.currentStrength + (want - have) : Math.max(1, Math.min(card.currentStrength, card.strength));
+      card.passiveStrength = want;
+    }
+  }
+}
+
 // The Favour: met if a Released card meets the Supporter's condition.
 export const favourMet = (card, released) => !!card.favour && released.some((c) => FAVOURS[card.favour.condition].test(c));
 
 export function legalActions(state, who) {
   if (state.phase === 'initiative') return ['flipCoin'];
+  if (state.phase === 'assign') return needsAssign(state, who) && !state.assign?.[who] ? ['assignPoints'] : [];
   if (state.phase !== 'battle' || state.turn !== who) return [];
   return [
     'pass',
@@ -295,8 +348,20 @@ export function legalActions(state, who) {
     ...(playableSupporters(state, who).length ? ['playSupporter'] : []),
     ...(playableItems(state, who).length ? ['playItem'] : []),
     ...(usableBagItems(state, who).length ? ['useItem'] : []),
+    ...(playableTrainers(state, who).length ? ['playTrainer'] : []),
+    ...(canMoveTrainer(state, who) ? ['moveTrainer'] : []),
+    ...(usableAbilities(state, who).length ? ['useAbility'] : []),
+    ...(state.players[who].waiting.length && freeSpaces(state, who).length ? ['placePartner'] : []),
     ...(alertSpaces(state, who).some((s) => legalTargets(state, who, s).length) ? ['attack'] : []),
   ];
+}
+
+// Who acts next: the coin flip (the player), the assign step (each player that still
+// has to lock in), or the player whose turn it is.
+export function actor(state) {
+  if (state.phase === 'initiative') return 'player';
+  if (state.phase === 'assign') return PLAYERS.find((w) => legalActions(state, w).length) ?? null;
+  return state.turn;
 }
 
 // --- Actions ---------------------------------------------------------------------------------------
@@ -309,6 +374,7 @@ export function applyAction(state, action) {
   }
   if (action.type === 'flipCoin' && s.phase !== 'initiative') throw new Error('The coin has been flipped');
   ACTIONS[action.type](s, action);
+  syncPassives(s);
   return s;
 }
 
@@ -401,6 +467,8 @@ const ACTIONS = {
     p.released.push(...paid.map(plainCard));
     emit(s, 'supporter', { who, uid, name: card.name, released: paid.map((c) => c.name), favour });
     log(s, `${p.name} played ${card.name}, Releasing ${paid.map((c) => c.name).join(' and ')}${favour ? ` (Favour: ${FAVOURS[card.favour.condition].text}: ${card.favour.text})` : ''}.`);
+    // Meeting the Favour with a Trainer in play earns a Trainer Point (V5).
+    if (favour && p.trainers.length) gainTrainerPoints(s, who, 1, `${card.name}'s Favour`);
     runEffect(s, who, card.target, ops, targets);
     p.released.push(card);
     emit(s, 'released', { who, uid, name: card.name });
@@ -440,6 +508,81 @@ const ACTIONS = {
     endTurn(s, who, false);
   },
 
+  // Play a Trainer (V5): pay its cost and attach it to one of your spaces (one
+  // Trainer per space; a Pokémon may stand there too).
+  playTrainer(s, { who, uid, space }) {
+    const p = s.players[who];
+    const card = p.hand.find((c) => c.uid === uid);
+    if (!card || card.cardType !== 'Trainer') throw new Error('Choose a Trainer from your hand');
+    if (card.cost > p.energy) throw new Error(`Not enough Energy for ${card.name}`);
+    if (!(space >= 0 && space < LANES) || trainerAt(s, who, space)) throw new Error('Choose one of your spaces without a Trainer');
+    p.energy -= card.cost;
+    p.hand = p.hand.filter((c) => c !== card);
+    p.trainers.push({ ...card, space, points: 0, abilityRound: 0 });
+    emit(s, 'trainerPlayed', { who, uid, name: card.name, space });
+    log(s, `${p.name} played ${card.name} at space ${space + 1} (${card.cost} Energy).`);
+    endTurn(s, who, false);
+  },
+
+  // Move one of your Trainers to another of your spaces: once per Round, a Battle Action.
+  moveTrainer(s, { who, uid, space }) {
+    const p = s.players[who];
+    const t = p.trainers.find((x) => x.uid === uid);
+    if (!t) throw new Error('Choose one of your Trainers');
+    if (!(space >= 0 && space < LANES) || trainerAt(s, who, space)) throw new Error('Choose one of your spaces without a Trainer');
+    const from = t.space;
+    t.space = space;
+    p.movedTrainer = true;
+    emit(s, 'trainerMoved', { who, uid, name: t.name, from, to: space });
+    log(s, `${p.name} moved ${t.name} from space ${from + 1} to space ${space + 1}.`);
+    endTurn(s, who, false);
+  },
+
+  // A Trainer's Ability (its second tier): its Energy cost, once per Round per Trainer.
+  useAbility(s, { who, uid, targets }) {
+    const p = s.players[who];
+    const t = p.trainers.find((x) => x.uid === uid);
+    if (!t || tiersUnlocked(t) < 2) throw new Error('That Trainer has no Ability unlocked');
+    if (t.abilityRound === s.round) throw new Error(`${t.name}'s Ability was used this Round`);
+    const ab = t.tiers[1].ability;
+    if (ab.cost > p.energy) throw new Error(`Not enough Energy for ${t.name}'s Ability`);
+    chooseTargets(s, who, ab.target, targets);
+    p.energy -= ab.cost;
+    t.abilityRound = s.round;
+    emit(s, 'abilityUsed', { who, uid, name: t.name, text: t.tiers[1].text });
+    log(s, `${p.name} used ${t.name}'s Ability: ${t.tiers[1].text}.`);
+    runEffect(s, who, ab.target, ab.ops, targets);
+    endTurn(s, who, false);
+  },
+
+  // A waiting Partner arrives in a free space you choose (not a Battle Action).
+  placePartner(s, { who, uid, space }) {
+    const p = s.players[who];
+    const card = p.waiting.find((c) => c.uid === uid);
+    if (!card) throw new Error('No such Partner is waiting');
+    if (!(space >= 0 && space < LANES) || p.row[space]) throw new Error('Choose a free space of yours');
+    p.waiting = p.waiting.filter((c) => c !== card);
+    partnerInto(s, who, card, space);
+  },
+
+  // The Breakfast assign step: lock in how many Trainer Points each Trainer gets. Both
+  // players choose at once; nothing is revealed or applied until both have locked in.
+  assignPoints(s, { who, points = {} }) {
+    const p = s.players[who];
+    let total = 0;
+    for (const [uid, n] of Object.entries(points)) {
+      const t = p.trainers.find((x) => x.uid === uid);
+      if (!t) throw new Error('Assign points to your Trainers in play');
+      if (!Number.isInteger(n) || n < 0) throw new Error('Assign whole points');
+      if (t.points + n > t.tiers[2].cost) throw new Error(`${t.name} needs only ${t.tiers[2].cost - t.points} more`);
+      total += n;
+    }
+    if (total > p.trainerPoints) throw new Error(`You have ${p.trainerPoints} Trainer Points`);
+    s.assign[who] = { ...points };
+    emit(s, 'assignLocked', { who });
+    if (PLAYERS.every((w) => s.assign[w] || !needsAssign(s, w))) resolveAssign(s);
+  },
+
   // Attack with an Alert Pokémon (from: its space). A Pokémon target that is also
   // Alert hits back (a trade); both become Spent. Damage to the enemy player
   // character becomes the attacker's Recognition.
@@ -463,13 +606,15 @@ const ACTIONS = {
     }
     const defender = s.players[foe].row[target.space];
     const trades = isAlert(s, defender);   // decided before anyone becomes Spent
-    defender.currentStrength -= attacker.attack;
+    const hit = afterShell(attacker.attack, shellOf(s, foe, target.space));
+    const back = trades ? afterShell(defender.attack, shellOf(s, who, from)) : 0;
+    defender.currentStrength -= hit;
     defender.asleep = false;   // damage wakes a sleeping Pokémon (it stays Spent)
-    if (trades) attacker.currentStrength -= defender.attack;
+    if (trades) attacker.currentStrength -= back;
     attacker.spent = true;
     if (trades) defender.spent = true;
-    emit(s, 'attack', { who, from, target: { kind: 'pokemon', who: foe, space: target.space }, amount: attacker.attack, attacker: attacker.name, defender: defender.name, trades, back: trades ? defender.attack : 0 });
-    log(s, `${p.name === 'You' ? 'Your' : "The Opponent's"} ${attacker.name} attacked ${defender.name} for ${attacker.attack}${trades ? `; ${defender.name} was Alert and hit back for ${defender.attack}` : ''}.`);
+    emit(s, 'attack', { who, from, target: { kind: 'pokemon', who: foe, space: target.space }, amount: hit, attacker: attacker.name, defender: defender.name, trades, back });
+    log(s, `${p.name === 'You' ? 'Your' : "The Opponent's"} ${attacker.name} attacked ${defender.name} for ${hit}${trades ? `; ${defender.name} was Alert and hit back for ${back}` : ''}.`);
     progressAt(s, who, 'attack', from);
     defeat(s, foe, target.space, who, from);
     defeat(s, who, from, foe, target.space);
@@ -500,7 +645,7 @@ function defeat(s, who, space, by, byLane) {
   if (!card || card.currentStrength > 0) return;
   s.players[who].row[space] = null;
   if (card.held) returnToPool(s, card.held);
-  s.players[who].released.push(plainCard(card));
+  if (!card.partner) s.players[who].released.push(plainCard(card));   // a Partner leaves the game
   emit(s, 'defeated', { who, space, name: card.name });
   log(s, `${NAMES[who] === 'You' ? 'Your' : "The Opponent's"} ${card.name} was defeated.`);
   if (by) progressAt(s, by, 'defeat', byLane);
@@ -577,6 +722,7 @@ function reward(s, who, r = {}) {
   if (r.energy) p.bonusNext += r.energy;
   if (r.draw) draw(s, who, r.draw);
   for (let i = 0; i < (r.item ?? 0); i++) findItem(s, who);
+  if (r.trainerPoints) gainTrainerPoints(s, who, r.trainerPoints, 'a Location');
   if (r.recognition) {
     p.recognition += r.recognition;
     emit(s, 'recognition', { who, amount: r.recognition, total: p.recognition, reward: true });
@@ -637,11 +783,84 @@ function startRound(s, round) {
       const n = regenerateOf(card);
       if (n) healPokemon(s, who, space, n);
     }
+    // Erika's Passive: your Pokémon in her lane train at Breakfast.
+    for (const { space } of pokemonOf(s, who)) {
+      const n = passiveSum(s, who, 'laneTrain', space);
+      if (n) train(s, who, space, n);
+    }
+    p.movedTrainer = false;
   }
+  // The assign step (after drawing): both players assign Trainer Points at once.
+  if (PLAYERS.some((w) => needsAssign(s, w))) {
+    s.phase = 'assign';
+    s.turn = null;
+    s.assign = { player: null, ai: null };
+    emit(s, 'phaseChanged', { phase: 'assign', round });
+    log(s, 'Breakfast: assign Trainer Points to your Trainers.');
+    return;
+  }
+  beginBattle(s);
+}
+
+function beginBattle(s) {
   s.phase = 'battle';
   s.turn = s.initiative;
   s.passesInARow = 0;
-  emit(s, 'phaseChanged', { phase: 'battle', round, turn: s.turn });
+  emit(s, 'phaseChanged', { phase: 'battle', round: s.round, turn: s.turn });
+}
+
+// --- Trainer Points and tiers (V5) ---------------------------------------------------------------
+
+function gainTrainerPoints(s, who, n, why) {
+  s.players[who].trainerPoints += n;
+  emit(s, 'trainerPoints', { who, amount: n, total: s.players[who].trainerPoints, why });
+  log(s, `${NAMES[who]}: +${n} Trainer Point${n === 1 ? '' : 's'} (${why}).`);
+}
+
+// Both have locked in: the points go onto the Trainers, tiers unlock, Partners arrive.
+function resolveAssign(s) {
+  for (const who of PLAYERS) {
+    const p = s.players[who];
+    for (const [uid, n] of Object.entries(s.assign[who] ?? {})) {
+      if (!n) continue;
+      const t = p.trainers.find((x) => x.uid === uid);
+      const before = tiersUnlocked(t);
+      t.points += n;
+      p.trainerPoints -= n;
+      emit(s, 'pointsAssigned', { who, uid, name: t.name, amount: n, points: t.points });
+      log(s, `${NAMES[who]} assigned ${n} Trainer Point${n === 1 ? '' : 's'} to ${t.name} (${t.points}).`);
+      for (let tier = before; tier < tiersUnlocked(t); tier++) unlockTier(s, who, t, tier);
+    }
+  }
+  s.assign = null;
+  syncPassives(s);
+  beginBattle(s);
+}
+
+function unlockTier(s, who, t, tier) {
+  const info = t.tiers[tier];
+  emit(s, 'tierUnlocked', { who, uid: t.uid, name: t.name, tier: tier + 1, kind: info.kind, text: info.text });
+  log(s, `${t.name}'s ${info.kind} is unlocked: ${info.text}.`);
+  if (info.partner) {
+    const { series, level } = info.partner;
+    const card = { ...pokemonAt(series, level), cap: level, uid: `partner-${t.uid}`, partner: true, trainer: t.name };
+    if (!s.players[who].row[t.space]) partnerInto(s, who, card, t.space);
+    else {
+      s.players[who].waiting.push(card);
+      emit(s, 'partnerWaiting', { who, uid: card.uid, name: card.name, trainer: t.name });
+      log(s, `${card.name}, ${t.name}'s Partner, waits for a free space.`);
+    }
+  }
+}
+
+// A Partner Pokémon arrives: like a summon (arrives Spent unless Quick Attack; counts for
+// summon objectives), from outside the deck.
+function partnerInto(s, who, card, space) {
+  const played = { ...card, empowered: false, arrivedRound: s.round, currentStrength: card.strength, spent: !hasKeyword(card, 'Quick Attack') };
+  s.players[who].row[space] = played;
+  emit(s, 'partnerArrived', { who, uid: card.uid, name: card.name, space, trainer: card.trainer, level: card.level });
+  log(s, `${card.trainer}'s Partner ${card.name} (Level ${card.level}) arrives in space ${space + 1}!`);
+  progressAt(s, who, 'summon', space);
 }
 
 function draw(s, who, n) {
@@ -665,6 +884,8 @@ function supper(s) {
   emit(s, 'phaseChanged', { phase: 'supper', round: s.round });
   log(s, `Round ${s.round} · Supper.`);
   statusesAtSupper(s);
+  // "This Round" effects expire (after Burn).
+  for (const who of PLAYERS) for (const { card } of pokemonOf(s, who)) card.shellRound = 0;
   for (const who of PLAYERS) {
     const p = s.players[who];
     p.discard.push(...p.hand.filter((c) => !c.retain));
@@ -717,7 +938,7 @@ function finalScore(s) {
 
 // --- Effects at work (V4) ------------------------------------------------------------------------
 
-const NO_TARGET = new Set(['draw', 'energy', 'energyNext', 'recognition', 'findItem']);
+const NO_TARGET = new Set(['draw', 'energy', 'energyNext', 'recognition', 'findItem', 'enemyLosesRecognition']);
 const owner = (who) => (NAMES[who] === 'You' ? 'Your' : "The Opponent's");
 
 // Run an effect: each op on each target (or on its player when it has none).
@@ -740,6 +961,12 @@ function selfOp(s, who, op) {
     emit(s, 'recognition', { who, amount: op.amount, total: p.recognition, effect: true });
     log(s, `${p.name}: +${op.amount} Recognition (now ${p.recognition}).`);
     if (p.recognition >= RECOGNITION_TARGET) win(s, who);
+  } else if (op.op === 'enemyLosesRecognition') {
+    const foe = s.players[opponentOf(who)];
+    const loss = Math.min(foe.recognition, op.amount);
+    foe.recognition -= loss;
+    emit(s, 'recognitionLost', { who: opponentOf(who), amount: loss, total: foe.recognition });
+    log(s, `${foe.name} ${opponentOf(who) === 'player' ? 'lose' : 'loses'} ${loss} Recognition (now ${foe.recognition}).`);
   } else if (op.op === 'findItem') findItem(s, who);
   else throw new Error(`Unknown effect op: ${op.op}`);
 }
@@ -774,6 +1001,7 @@ function targetOp(s, who, op, t) {
       }
       break;
     case 'train': if (card) train(s, t.who, t.space, op.amount); break;
+    case 'shellRound': if (card) card.shellRound = (card.shellRound ?? 0) + op.amount; break;
     default: throw new Error(`Unknown effect op: ${op.op}`);
   }
 }
@@ -781,7 +1009,7 @@ function targetOp(s, who, op, t) {
 // Burn X adds X Burn counters (Sun 2: +1 each time Burn is applied). On a player
 // character it removes Recognition at Supper (V4).
 function applyBurn(s, t, amount, by) {
-  const n = amount + (bracket(s, 'Sun', 2) ? 1 : 0);
+  const n = amount + (bracket(s, 'Sun', 2) ? 1 : 0) + (by ? passiveSum(s, by, 'burnPlus') : 0);
   const target = t.kind === 'pokemon' ? s.players[t.who].row[t.space] : s.players[t.who];
   target.burn = (target.burn ?? 0) + n;
   emit(s, 'burned', { who: t.who, kind: t.kind, space: t.space, amount: n, total: target.burn, by });
@@ -790,9 +1018,10 @@ function applyBurn(s, t, amount, by) {
 
 // Effect damage (Strategy Cards, Burn, Leech Seed): it wakes a sleeping Pokémon and
 // can defeat it. It has no attacking Pokémon, so it counts for no Location objective.
-function effectDamage(s, who, space, amount) {
+function effectDamage(s, who, space, raw) {
   const card = s.players[who].row[space];
-  if (!card || amount <= 0) return;
+  if (!card || raw <= 0) return;
+  const amount = afterShell(raw, shellOf(s, who, space));
   card.currentStrength -= amount;
   card.asleep = false;
   emit(s, 'effectDamage', { who, space, amount, name: card.name });
@@ -907,7 +1136,7 @@ function removeHeld(card) {
 
 // A card leaving play keeps none of its play-only state.
 function plainCard(card) {
-  const { currentStrength, spent, arrivedRound, burn, asleep, seededBy, held, ...plain } = card;
+  const { currentStrength, spent, arrivedRound, burn, asleep, seededBy, held, shellRound, passiveStrength, ...plain } = card;
   return plain;
 }
 

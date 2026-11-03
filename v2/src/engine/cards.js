@@ -9,20 +9,20 @@ import { DECK_SIZE, COPY_LIMITS, LEGENDARY_PER_DECK, MAX_LEVEL, levelFor } from 
 // In a match a Pokémon card's Level = the Round number, up to its cap (series.js has
 // each Level's stats); once played it stays at that Level.
 
-// The premade test deck both players use by default: 40 cards (7a): 22 Pokémon in
-// 13 series, each with its own caps, 5 Locations, 7 Strategy Cards, 3 Supporters
-// and 3 Items (V4).
+// The premade test deck both players use by default: 40 cards (7a): 18 Pokémon in
+// 12 series, each with its own caps, 5 Locations, 7 Strategy Cards, 3 Supporters,
+// 3 Items (V4) and 4 Trainers (V5).
 const caps = (series, ...list) => list.map((cap) => ({ series, cap }));
 const cards = (...ids) => ids.map((card) => ({ card }));
 export const TEST_DECK = [
-  ...caps('horsea', 3, 6), ...caps('growlithe', 3, 6, 6), ...caps('oddish', 2, 6), ...caps('chansey', 6),
-  ...caps('kyogre', 7), ...caps('charmander', 3, 6), ...caps('bulbasaur', 4, 6), ...caps('goldeen', 3, 6),
-  ...caps('ponyta', 3, 6), ...caps('chinchou', 6), ...caps('wooper', 3, 6), ...caps('sudowoodo', 6),
-  ...caps('sneasel', 6),
+  ...caps('horsea', 6), ...caps('growlithe', 3, 6, 6), ...caps('oddish', 2, 6), ...caps('chansey', 6),
+  ...caps('kyogre', 7), ...caps('charmander', 3, 6), ...caps('bulbasaur', 4, 6), ...caps('goldeen', 6),
+  ...caps('ponyta', 3, 6), ...caps('chinchou', 6), ...caps('wooper', 6), ...caps('sudowoodo', 6),
   ...['cerulean-cape', 'eterna-forest', 'mt-ember', 'route-119', 'stark-mountain'].map((location) => ({ location })),
   ...cards('ember', 'ember', 'thunderbolt', 'recover', 'quickdraw', 'sleep-powder', 'leech-seed'),
   ...cards('professor-oak', 'ash', 'pokemon-breeder'),
   ...cards('oran-berry', 'choice-band', 'full-heal'),
+  ...cards('misty', 'blaine', 'brock', 'erika'),
 ];
 
 export const SPEEDS = ['Slow', 'Steady', 'Swift'];
@@ -89,6 +89,7 @@ export function deckProblems(deck) {
     }
     const line = SERIES.find((l) => l.id === e.series);
     if (!line) { problems.push(`Unknown series: ${e.series}`); continue; }
+    if (line.partnerOnly) { problems.push(`${line.stages.at(-1).name} is a Partner Pokémon: it comes from a Trainer, not the deck`); continue; }
     const top = line.legendary ? line.maxLevel : MAX_LEVEL;
     if (!(Number.isInteger(e.cap) && e.cap >= 1 && e.cap <= top)) problems.push(`${line.stages[0].name}: the cap must be a Level from 1 to ${top} (not ${e.cap})`);
   }

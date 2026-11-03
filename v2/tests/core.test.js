@@ -4,7 +4,7 @@
 // Run with: node v2/tests/core.test.js
 import assert from 'node:assert/strict';
 import {
-  createGame, applyAction, legalActions, legalTargets, isAlert, playable, passSpends, PLAYERS,
+  actor, createGame, applyAction, legalActions, legalTargets, isAlert, playable, passSpends, PLAYERS,
 } from '../src/engine/game.js';
 import { cardDef, TEST_DECK, deckProblems } from '../src/engine/cards.js';
 import { LANES, RECOGNITION_TARGET, HAND_SIZE } from '../src/engine/rules.js';
@@ -236,7 +236,7 @@ const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass
     let k = seed;
     const rng = () => { k = (k * 9301 + 49297) % 233280; return k / 233280; };
     for (let guard = 0; guard < 4000 && s.phase !== 'gameOver' && s.round < 40; guard++) {
-      const who = s.phase === 'initiative' ? 'player' : s.turn;
+      const who = actor(s);
       const action = chooseAction(s, who, { rng });
       assert.ok(action, 'always a move');
       assert.ok(legalActions(s, who).includes(action.type), `${action.type} is legal`);

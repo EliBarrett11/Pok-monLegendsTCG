@@ -6,7 +6,7 @@
 // Run with: node v2/tests/locations.test.js
 import assert from 'node:assert/strict';
 import {
-  createGame, applyAction, legalActions, locationStarts, locationAt, placeable, pokemonIn, weatherTotals,
+  actor, createGame, applyAction, legalActions, locationStarts, locationAt, placeable, pokemonIn, weatherTotals,
   championship, PLAYERS,
 } from '../src/engine/game.js';
 import { cardDef, TEST_DECK } from '../src/engine/cards.js';
@@ -382,7 +382,7 @@ function round12({ player, ai, champ = { player: 0, ai: 0 } }) {
     let k = seed;
     const rng = () => { k = (k * 9301 + 49297) % 233280; return k / 233280; };
     for (let guard = 0; guard < 5000 && s.phase !== 'gameOver'; guard++) {
-      const who = s.phase === 'initiative' ? 'player' : s.turn;
+      const who = actor(s);
       const action = chooseAction(s, who, { rng });
       assert.ok(legalActions(s, who).includes(action.type));
       s = applyAction(s, action);

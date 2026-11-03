@@ -41,6 +41,7 @@ import {
   applyAction, legalActions, legalTargets, alertSpaces, playable, placeable, locationStarts, locationAt,
   passSpends, opponentOf, pokemonOf, pokemonIn, summonCost, targetOptions, breakpointsFor, playableStrategies,
   playableSupporters, playableItems, usableBagItems, itemUsable, bagFull, trainTop,
+  playableTrainers, trainerSpaces, canMoveTrainer, usableAbilities, freeSpaces, tiersUnlocked, needsAssign,
 } from '../engine/game.js';
 import { FAVOURS } from '../engine/cardtypes.js';
 import { LANES, CHAMPIONSHIP_ROUND } from '../engine/rules.js';
@@ -54,6 +55,37 @@ export function moves(state, who) {
   const legal = legalActions(state, who);
   const out = [];
   if (legal.includes('flipCoin')) return [{ type: 'flipCoin' }];
+  if (legal.includes('assignPoints')) return [{ type: 'assignPoints', who, points: assignPlan(state, who) }];
+  // A waiting Partner arrives first (it isn't a Battle Action).
+  if (legal.includes('placePartner')) {
+    const card = state.players[who].waiting[0];
+    return [{ type: 'placePartner', who, uid: card.uid, space: bestSpace(state, who) }];
+  }
+  if (legal.includes('playTrainer')) {
+    const seen = new Set();
+    for (const card of playableTrainers(state, who)) {
+      if (seen.has(card.id)) continue;
+      seen.add(card.id);
+      out.push({ type: 'playTrainer', who, uid: card.uid, space: bestTrainerSpace(state, who, card) });
+    }
+  }
+  if (legal.includes('moveTrainer')) {
+    for (const t of state.players[who].trainers) {
+      if (tiersUnlocked(t) < 1) continue;
+      const space = bestTrainerSpace(state, who, t);
+      if (space !== t.space && trainerSpaceValue(state, who, t, space) - trainerSpaceValue(state, who, t, t.space) >= 2) {
+        out.push({ type: 'moveTrainer', who, uid: t.uid, space });
+      }
+    }
+  }
+  if (legal.includes('useAbility')) {
+    for (const t of usableAbilities(state, who)) {
+      const ab = t.tiers[1].ability;
+      for (const targets of targetSets(state, who, ab.target, (x) => ({ type: 'useAbility', who, uid: t.uid, targets: x }))) {
+        out.push({ type: 'useAbility', who, uid: t.uid, ...(targets ? { targets } : {}) });
+      }
+    }
+  }
   if (legal.includes('attack')) {
     for (const from of alertSpaces(state, who)) for (const target of legalTargets(state, who, from)) out.push({ type: 'attack', who, from, target });
   }
@@ -122,6 +154,42 @@ export function moves(state, who) {
   }
   if (legal.includes('pass')) out.push({ type: 'pass', who });
   return out;
+}
+
+// --- Trainers (V5) ---------------------------------------------------------------------------------
+
+// Assign Trainer Points one at a time to the Trainer closest to its next tier, so a
+// tier is finished before points are spread (ties: the Trainer played first).
+function assignPlan(state, who) {
+  const p = state.players[who];
+  const plan = {};
+  const pts = Object.fromEntries(p.trainers.map((t) => [t.uid, t.points]));
+  for (let i = 0; i < p.trainerPoints; i++) {
+    const open = p.trainers.filter((t) => pts[t.uid] < t.tiers[2].cost);
+    if (!open.length) break;
+    const toNext = (t) => t.tiers.find((tier) => tier.cost > pts[t.uid]).cost - pts[t.uid];
+    const t = open.sort((a, b) => toNext(a) - toNext(b))[0];
+    pts[t.uid] += 1;
+    plan[t.uid] = (plan[t.uid] ?? 0) + 1;
+  }
+  return plan;
+}
+
+// What a Trainer's Passive is worth at a space: Misty beside a Water Pokémon, Brock
+// behind a strong one, Erika where a Pokémon can still train; a little for the middle.
+function trainerSpaceValue(state, who, t, space) {
+  const card = state.players[who].row[space];
+  const pv = t.tiers[0].passive;
+  let v = -Math.abs(space - (LANES - 1) / 2) * 0.1;
+  if (pv.kind === 'laneStrength') v += card ? (!pv.type || card.type === pv.type ? 4 : 0) : 1;
+  else if (pv.kind === 'spaceShell') v += card ? (card.attack + card.strength) / 3 : 0.5;
+  else if (pv.kind === 'laneTrain') v += card ? (card.level < trainTop(card) ? 4 : 0) : 1;
+  return v;
+}
+function bestTrainerSpace(state, who, t) {
+  const spaces = trainerSpaces(state, who);
+  if (t.space !== undefined) spaces.push(t.space);
+  return spaces.sort((a, b) => trainerSpaceValue(state, who, t, b) - trainerSpaceValue(state, who, t, a))[0];
 }
 
 // The target choices worth trying: none (no spec, or 'all'); each single target;
@@ -260,7 +328,7 @@ function locationScore(state, who, move) {
 }
 
 export function scoreMove(state, who, move) {
-  if (move.type === 'flipCoin') return 0;
+  if (move.type === 'flipCoin' || move.type === 'assignPoints' || move.type === 'placePartner') return 0;
   if (move.type === 'pass') return passSpends(state, who).length ? -6 : 0;
   const after = applyAction(state, move);
   if (after.winner === who) return 1000;
@@ -272,6 +340,16 @@ export function scoreMove(state, who, move) {
 
 function baseScore(state, after, who, move, gained) {
   if (move.type === 'playLocation') return locationScore(state, who, move);
+  if (move.type === 'playTrainer') {
+    // Early Trainers have time to earn points; from the Championship on, little.
+    const card = state.players[who].hand.find((c) => c.uid === move.uid);
+    return (state.round >= CHAMPIONSHIP_ROUND ? 2 : 20 - state.round) + trainerSpaceValue(state, who, card, move.space) - card.cost;
+  }
+  if (move.type === 'moveTrainer') {
+    const t = state.players[who].trainers.find((x) => x.uid === move.uid);
+    return 3 * (trainerSpaceValue(state, who, t, move.space) - trainerSpaceValue(state, who, t, t.space)) - 2;
+  }
+  if (move.type === 'useAbility') return 6 + evaluate(after, who) - evaluate(state, who);
   if (['playStrategy', 'playSupporter', 'playItem', 'useItem'].includes(move.type)) return 6 + evaluate(after, who) - evaluate(state, who);
   if (move.type === 'summon') {
     const card = state.players[who].hand.find((c) => c.uid === move.uid);

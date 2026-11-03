@@ -133,6 +133,26 @@ export const SERIES = [
   }),
 ];
 
+// Partner Pokémon (V5): summoned by a Trainer's third tier, from outside the deck;
+// never in a deck. No art yet: they show the Pokémon frame (artFor gives null).
+SERIES.push(
+  line({
+    id: 'staryu', rarity: 'Rare', type: 'Water', attackType: 'Special', strengthType: 'Hitpoints', speed: 'Swift', partnerOnly: true,
+    stages: two({ name: 'Staryu', art: null }, { name: 'Starmie', art: null }),
+    stats: [[2, 3], [3, 3], [3, 4], [5, 6], [6, 6], [6, 7]],
+  }),
+  line({
+    id: 'onix', rarity: 'Rare', type: 'Rock', attackType: 'Physical', strengthType: 'Defence', speed: 'Slow', weight: 'heavy', partnerOnly: true,
+    stages: single({ name: 'Onix', art: null }),
+    stats: [[2, 6], [2, 7], [3, 8], [3, 10], [4, 11], [4, 12]],
+  }),
+  line({
+    id: 'tangela', rarity: 'Rare', type: 'Grass', attackType: 'Special', strengthType: 'Special Defence', speed: 'Steady', partnerOnly: true,
+    stages: single({ name: 'Tangela', art: null }),
+    stats: [[2, 4], [2, 5], [3, 6], [4, 7], [4, 8], [5, 8]],
+  }),
+);
+
 export function seriesDef(id) {
   const s = SERIES.find((l) => l.id === id);
   if (!s) throw new Error(`Unknown series: ${id}`);

@@ -8,7 +8,8 @@
 // Ops, applied to each target (or to its player when there is none):
 //   damage N · burn N · heal N · douse · cure (all statuses) · sleep · leechSeed ·
 //   train N · draw N · energy N (now) · energyNext N (next Round) · recognition N ·
-//   findItem (from the shared Item pool into your Bag)
+//   enemyLosesRecognition N (never below 0) · findItem (from the shared Item pool into
+//   your Bag) · shellRound N (Shell N until Supper; V5)
 //
 // Strategy Cards: a list of breakpoints { cost, text, target?, ops }. The Energy you
 // choose to pay sets the effect, and only a breakpoint amount can be paid. A card
@@ -29,30 +30,33 @@ function strategy(id, name, rarity, breakpoints, extra = {}) {
   return { id, name, cardType: 'Strategy', rarity, art: id, breakpoints, cost: breakpoints[0].cost, ...extra };
 }
 
+// V5: Elliott's rule "each extra Energy must be truly worth it": every higher
+// breakpoint gives more value per Energy than the one below it.
 export const STRATEGIES = [
-  // Scaling: damage.
+  // Scaling: damage. 2 per Energy · 7 for 3 (2.3) · 14 for 5 (2.8).
   strategy('thunderbolt', 'Thunderbolt', 'Common', [
     { cost: 1, text: '2 damage to an enemy Pokémon', target: ENEMY(1, ['pokemon']), ops: [{ op: 'damage', amount: 2 }] },
-    { cost: 3, text: '4 damage to an enemy Pokémon', target: ENEMY(1, ['pokemon']), ops: [{ op: 'damage', amount: 4 }] },
-    { cost: 5, text: '4 damage to two enemy Pokémon', target: ENEMY(2, ['pokemon']), ops: [{ op: 'damage', amount: 4 }] },
+    { cost: 3, text: '7 damage to an enemy Pokémon', target: ENEMY(1, ['pokemon']), ops: [{ op: 'damage', amount: 7 }] },
+    { cost: 5, text: '7 damage to two enemy Pokémon', target: ENEMY(2, ['pokemon']), ops: [{ op: 'damage', amount: 7 }] },
   ]),
-  // Scaling: Burn (the design's example).
+  // Scaling: Burn (Elliott's example). Burn 2 · Burn 2 twice and −1 Recognition ·
+  // Burn 2 every enemy, and −2 Recognition.
   strategy('ember', 'Ember', 'Common', [
     { cost: 2, text: 'Burn 2 an enemy Pokémon or the enemy player', target: ENEMY(1), ops: [{ op: 'burn', amount: 2 }] },
-    { cost: 4, text: 'Burn 2, and also a second target', target: ENEMY(2), ops: [{ op: 'burn', amount: 2 }] },
-    { cost: 6, text: 'Burn 2 every enemy (every enemy Pokémon and the enemy player)', target: ENEMY('all'), ops: [{ op: 'burn', amount: 2 }] },
+    { cost: 4, text: 'Burn 2 two targets, and the enemy player loses 1 Recognition', target: ENEMY(2), ops: [{ op: 'burn', amount: 2 }, { op: 'enemyLosesRecognition', amount: 1 }] },
+    { cost: 6, text: 'Burn 2 every enemy Pokémon and the enemy player, and the enemy player loses 2 Recognition', target: ENEMY('all'), ops: [{ op: 'burn', amount: 2 }, { op: 'enemyLosesRecognition', amount: 2 }] },
   ]),
-  // Scaling: heal.
+  // Scaling: heal. 2 per Energy · up to 8 and Douse for 3 · 6 to every one, Douse all, draw 1 for 5.
   strategy('recover', 'Recover', 'Common', [
     { cost: 1, text: 'Heal 2 a friendly Pokémon', target: FRIEND(1, ['pokemon'], 'damaged'), ops: [{ op: 'heal', amount: 2 }] },
-    { cost: 3, text: 'Heal 3 and Douse up to two friendly Pokémon', target: FRIEND(2, ['pokemon'], 'damaged'), ops: [{ op: 'heal', amount: 3 }, { op: 'douse' }] },
-    { cost: 5, text: 'Heal 4 every friendly Pokémon; Douse them and your player character', target: FRIEND('all', ['pokemon', 'player']), ops: [{ op: 'heal', amount: 4 }, { op: 'douse' }] },
+    { cost: 3, text: 'Heal 4 and Douse up to two friendly Pokémon', target: FRIEND(2, ['pokemon'], 'damaged'), ops: [{ op: 'heal', amount: 4 }, { op: 'douse' }] },
+    { cost: 5, text: 'Heal 6 every friendly Pokémon; Douse them and your player character; draw 1', target: FRIEND('all', ['pokemon', 'player']), ops: [{ op: 'heal', amount: 6 }, { op: 'douse' }, { op: 'draw', amount: 1 }] },
   ]),
-  // Scaling: draw.
+  // Scaling: draw. 1 card per Energy · 3 cards and +1 Energy for 3 · 5 cards and +2 Energy for 5.
   strategy('quickdraw', 'Quickdraw', 'Common', [
     { cost: 1, text: 'Draw 1', ops: [{ op: 'draw', amount: 1 }] },
-    { cost: 3, text: 'Draw 2', ops: [{ op: 'draw', amount: 2 }] },
-    { cost: 5, text: 'Draw 3 and +1 Energy next Round', ops: [{ op: 'draw', amount: 3 }, { op: 'energyNext', amount: 1 }] },
+    { cost: 3, text: 'Draw 3 and +1 Energy next Round', ops: [{ op: 'draw', amount: 3 }, { op: 'energyNext', amount: 1 }] },
+    { cost: 5, text: 'Draw 5 and +2 Energy next Round', ops: [{ op: 'draw', amount: 5 }, { op: 'energyNext', amount: 2 }] },
   ]),
   // Fixed cost (no scaling): a single breakpoint.
   strategy('sleep-powder', 'Sleep Powder', 'Common', [
@@ -110,7 +114,58 @@ export const ITEMS = [
 
 export const BAG_SIZE = 6;
 
-export const ALL_OTHER_CARDS = [...STRATEGIES, ...SUPPORTERS, ...ITEMS];
+// --- Trainers (V5) ----------------------------------------------------------------------------------
+//
+// Played from hand as a Battle Action (cost 1–2) above or below one of your spaces; a
+// Pokémon can stand there too. They can't be attacked or removed (no effect does so
+// yet). Trainer Points assigned to a Trainer unlock its tiers at their costs:
+//   passive  always on: { kind, … } (see game.js: passives)
+//            laneStrength { type?, amount }   your Pokémon (of that Type) in this lane +N Strength
+//            burnPlus { amount }              each Burn you apply +N
+//            spaceShell { amount }            your Pokémon in this space: Shell N
+//            laneTrain { amount }             at Breakfast, your Pokémon in this lane train N
+//   ability  a Battle Action with its own Energy cost: { cost, text, target, ops }, once per
+//            Round per Trainer (Claude's placeholder)
+//   partner  { series, level }: summoned at once from outside the deck into the Trainer's
+//            space (or a free space you choose; if none is free, it waits)
+// Art: the Trainer's portrait (v1's art). Test values throughout.
+function trainer(id, name, cost, [passive, ability, partner], extra = {}) {
+  return {
+    id, name, cardType: 'Trainer', rarity: 'Rare', art: id, cost,
+    tiers: [
+      { kind: 'Passive', cost: passive.cost, text: passive.text, passive: passive.effect },
+      { kind: 'Ability', cost: ability.cost, text: ability.text, ability: ability.effect },
+      { kind: 'Partner', cost: partner.cost, text: partner.text, partner: partner.effect },
+    ],
+    ...extra,
+  };
+}
+
+export const TRAINERS = [
+  trainer('misty', 'Misty', 1, [
+    { cost: 2, text: 'Your Water Pokémon in this lane +1 Strength', effect: { kind: 'laneStrength', type: 'Water', amount: 1 } },
+    { cost: 4, text: '1 Energy: heal a friendly Pokémon 3', effect: { cost: 1, target: FRIEND(1, ['pokemon'], 'damaged'), ops: [{ op: 'heal', amount: 3 }] } },
+    { cost: 6, text: 'Partner: Starmie (Level 4)', effect: { series: 'staryu', level: 4 } },
+  ]),
+  trainer('blaine', 'Blaine', 2, [
+    { cost: 2, text: 'Each Burn you apply +1', effect: { kind: 'burnPlus', amount: 1 } },
+    { cost: 4, text: '2 Energy: Burn 2 the enemy player', effect: { cost: 2, target: ENEMY(1, ['player']), ops: [{ op: 'burn', amount: 2 }] } },
+    { cost: 6, text: 'Partner: Magmar (Level 4)', effect: { series: 'magmar', level: 4 } },
+  ]),
+  trainer('brock', 'Brock', 1, [
+    { cost: 2, text: 'Your Pokémon in this space: Shell 1 (each damage it takes is 1 less, minimum 1)', effect: { kind: 'spaceShell', amount: 1 } },
+    { cost: 4, text: '1 Energy: a friendly Pokémon gains Shell 1 this Round', effect: { cost: 1, target: FRIEND(1, ['pokemon']), ops: [{ op: 'shellRound', amount: 1 }] } },
+    { cost: 6, text: 'Partner: Onix (Level 4)', effect: { series: 'onix', level: 4 } },
+  ]),
+  trainer('erika', 'Erika', 2, [
+    { cost: 2, text: 'At Breakfast, your Pokémon in this lane train 1', effect: { kind: 'laneTrain', amount: 1 } },
+    { cost: 4, text: '2 Energy: put an enemy Pokémon to Sleep', effect: { cost: 2, target: ENEMY(1, ['pokemon']), ops: [{ op: 'sleep' }] } },
+    { cost: 6, text: 'Partner: Tangela (Level 4)', effect: { series: 'tangela', level: 4 } },
+  ]),
+];
+export const trainerDef = (id) => TRAINERS.find((t) => t.id === id) ?? null;
+
+export const ALL_OTHER_CARDS = [...STRATEGIES, ...SUPPORTERS, ...ITEMS, ...TRAINERS];
 export const otherCard = (id) => ALL_OTHER_CARDS.find((c) => c.id === id) ?? null;
 export const itemDef = (id) => ITEMS.find((c) => c.id === id) ?? null;
 

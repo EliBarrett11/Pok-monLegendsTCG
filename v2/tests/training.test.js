@@ -4,7 +4,7 @@
 // and how often each stage is seen).
 // Run with: node v2/tests/training.test.js
 import assert from 'node:assert/strict';
-import { createGame, applyAction, legalActions, train, trainTop, summonCost, PLAYERS } from '../src/engine/game.js';
+import { actor, createGame, applyAction, legalActions, train, trainTop, summonCost, PLAYERS } from '../src/engine/game.js';
 import { SERIES, seriesDef, pokemonAt, artFor, stagesText } from '../src/engine/series.js';
 import { TEST_DECK, cardAt, cardDef, deckProblems, copiesOf, copyLimit } from '../src/engine/cards.js';
 import { levelFor, costFor, MAX_LEVEL, LEGENDARY_LEVEL, COPY_LIMITS, CHAMPIONSHIP_ROUND } from '../src/engine/rules.js';
@@ -254,7 +254,7 @@ const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass
     let k = seed;
     const rng = () => { k = (k * 9301 + 49297) % 233280; return k / 233280; };
     for (let guard = 0; guard < 5000 && s.phase !== 'gameOver'; guard++) {
-      const who = s.phase === 'initiative' ? 'player' : s.turn;
+      const who = actor(s);
       const action = chooseAction(s, who, { rng });
       assert.ok(legalActions(s, who).includes(action.type));
       s = applyAction(s, action);

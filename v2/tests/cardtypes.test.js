@@ -5,7 +5,7 @@
 // Run with: node v2/tests/cardtypes.test.js
 import assert from 'node:assert/strict';
 import {
-  createGame, applyAction, legalActions, breakpointsFor, targetOptions, favourMet, bracket, PLAYERS,
+  actor, createGame, applyAction, legalActions, breakpointsFor, targetOptions, favourMet, bracket, PLAYERS,
 } from '../src/engine/game.js';
 import { cardDef, TEST_DECK, deckProblems } from '../src/engine/cards.js';
 import { STRATEGIES, SUPPORTERS, ITEMS, BAG_SIZE, costRange } from '../src/engine/cardtypes.js';
@@ -58,31 +58,38 @@ function weather(s, kind, count) {
   assert.deepEqual([t.players.ai.row[3].burn, t.players.player.energy, t.turn], [2, 2, 'ai']);
   assert.ok(t.players.player.discard.some((c) => c.id === 'ember'), 'to the discard pile');
   assert.ok(t.events.some((e) => e.type === 'strategy' && e.pay === 2 && e.level === 0));
-  // 4: also a second target.
+  // 4: two targets, and the enemy player loses 1 Recognition.
+  s.players.ai.recognition = 5;
   assert.throws(() => act(s, { type: 'playStrategy', who: 'player', uid, pay: 2, targets: [mon('ai', 3), pc('ai')] }), /Choose a target/, 'one target at 2');
   t = act(s, { type: 'playStrategy', who: 'player', uid, pay: 4, targets: [mon('ai', 3), pc('ai')] });
-  assert.deepEqual([t.players.ai.row[3].burn, t.players.ai.burn], [2, 2]);
+  assert.deepEqual([t.players.ai.row[3].burn, t.players.ai.burn, t.players.ai.recognition], [2, 2, 4]);
   assert.throws(() => act(s, { type: 'playStrategy', who: 'player', uid, pay: 4, targets: [pc('ai'), pc('ai')] }), /different targets/);
   assert.throws(() => act(s, { type: 'playStrategy', who: 'player', uid, pay: 2, targets: [mon('player', 0)] }), /not a legal target/, 'enemies only');
   // 6: every enemy (no choice).
   place(s, 'ai', 5, 'growlithe');
   s.players.player.energy = 6;
   t = act(s, { type: 'playStrategy', who: 'player', uid, pay: 6 });
-  assert.deepEqual([t.players.ai.row[3].burn, t.players.ai.row[5].burn, t.players.ai.burn, t.players.player.energy], [2, 2, 2, 0]);
-  // Damage scaling: Thunderbolt 1: 2 · 3: 4 · 5: 4 to two.
+  assert.deepEqual([t.players.ai.row[3].burn, t.players.ai.row[5].burn, t.players.ai.burn, t.players.ai.recognition, t.players.player.energy], [2, 2, 2, 3, 0], '6: every enemy, and −2 Recognition');
+  s.players.ai.recognition = 1;
+  assert.equal(act(s, { type: 'playStrategy', who: 'player', uid, pay: 6 }).players.ai.recognition, 0, 'never below 0');
+  // Damage scaling: Thunderbolt 1: 2 · 3: 7 · 5: 7 to two.
   s = battle();
-  place(s, 'ai', 0, 'sudowoodo', 4);   // 3/8
-  place(s, 'ai', 1, 'horsea', 3);      // 4/6
+  place(s, 'ai', 0, 'sudowoodo', 6);   // 4/10
+  place(s, 'ai', 1, 'horsea', 6);      // 7/9
   uid = give(s, 'player', 'thunderbolt');
   t = act(s, { type: 'playStrategy', who: 'player', uid, pay: 1, targets: [mon('ai', 0)] });
-  assert.equal(t.players.ai.row[0].currentStrength, 6);
+  assert.equal(t.players.ai.row[0].currentStrength, 8);
+  t = act(s, { type: 'playStrategy', who: 'player', uid, pay: 3, targets: [mon('ai', 0)] });
+  assert.equal(t.players.ai.row[0].currentStrength, 3);
   t = act(s, { type: 'playStrategy', who: 'player', uid, pay: 5, targets: [mon('ai', 0), mon('ai', 1)] });
-  assert.deepEqual([t.players.ai.row[0].currentStrength, t.players.ai.row[1].currentStrength], [4, 2]);
+  assert.deepEqual([t.players.ai.row[0].currentStrength, t.players.ai.row[1].currentStrength], [3, 2]);
   // Effect damage defeats.
   place(s, 'ai', 2, 'sneasel', 1);   // 2/3
+  t = act(s, { type: 'playStrategy', who: 'player', uid, pay: 1, targets: [mon('ai', 2)] });
+  assert.equal(t.players.ai.row[2].currentStrength, 1);
   t = act(s, { type: 'playStrategy', who: 'player', uid, pay: 3, targets: [mon('ai', 2)] });
   assert.equal(t.players.ai.row[2], null);
-  // Heal scaling: Recover 1: heal 2 · 3: heal 3 + Douse two · 5: heal 4 all + Douse all.
+  // Heal scaling: Recover 1: heal 2 · 3: heal 4 + Douse two · 5: heal 6 all + Douse all + draw 1.
   s = battle();
   place(s, 'player', 0, 'horsea', 5, { currentStrength: 2, burn: 3 });   // 6/8
   place(s, 'player', 1, 'horsea', 5, { currentStrength: 7 });
@@ -92,15 +99,30 @@ function weather(s, kind, count) {
   t = act(s, { type: 'playStrategy', who: 'player', uid, pay: 1, targets: [mon('player', 0)] });
   assert.deepEqual([t.players.player.row[0].currentStrength, t.players.player.row[0].burn], [4, 3]);
   t = act(s, { type: 'playStrategy', who: 'player', uid, pay: 3, targets: [mon('player', 0), mon('player', 1)] });
-  assert.deepEqual([t.players.player.row[0].currentStrength, t.players.player.row[0].burn, t.players.player.row[1].currentStrength], [5, 0, 8], 'heal 3, Douse; never above its Strength');
+  assert.deepEqual([t.players.player.row[0].currentStrength, t.players.player.row[0].burn, t.players.player.row[1].currentStrength], [6, 0, 8], 'heal 4, Douse; never above its Strength');
   t = act(s, { type: 'playStrategy', who: 'player', uid, pay: 5 });
-  assert.deepEqual([t.players.player.row[0].currentStrength, t.players.player.burn], [6, 0], 'heal 4 all; Douse your player character too');
-  // Draw scaling: Quickdraw 1: draw 1 · 3: draw 2 · 5: draw 3 and +1 Energy next Round.
+  assert.deepEqual([t.players.player.row[0].currentStrength, t.players.player.burn, t.players.player.hand.length], [8, 0, 1], 'heal 6 all; Douse your player character too; draw 1');
+  // Draw scaling: Quickdraw 1: draw 1 · 3: draw 3 and +1 Energy · 5: draw 5 and +2 Energy.
   s = battle();
   uid = give(s, 'player', 'quickdraw');
-  assert.equal(act(s, { type: 'playStrategy', who: 'player', uid, pay: 3 }).players.player.hand.length, 2);
-  t = act(s, { type: 'playStrategy', who: 'player', uid, pay: 5 });
+  assert.equal(act(s, { type: 'playStrategy', who: 'player', uid, pay: 1 }).players.player.hand.length, 1);
+  t = act(s, { type: 'playStrategy', who: 'player', uid, pay: 3 });
   assert.deepEqual([t.players.player.hand.length, t.players.player.bonusNext], [3, 1]);
+  t = act(s, { type: 'playStrategy', who: 'player', uid, pay: 5 });
+  assert.deepEqual([t.players.player.hand.length, t.players.player.bonusNext], [5, 2]);
+  // Elliott's rule: every higher breakpoint gives more value per Energy than the one
+  // below. One scale: 1 per damage, heal, Burn counter or Recognition point; 2 per card
+  // drawn; 1.5 per Energy next Round; "every" counted as two Pokémon (and the player).
+  const value = {
+    thunderbolt: [2, 7, 7 * 2],
+    ember: [2, 2 * 2 + 1, 2 * 3 + 2],
+    recover: [2, 4 * 2, 6 * 2 + 2],
+    quickdraw: [2, 3 * 2 + 1.5, 5 * 2 + 2 * 1.5],
+  };
+  for (const [id, values] of Object.entries(value)) {
+    const per = cardDef(id).breakpoints.map((b, i) => values[i] / b.cost);
+    assert.ok(per.every((v, i) => i === 0 || v > per[i - 1]), `${id}: value per Energy rises (${per.map((v) => v.toFixed(2)).join(' < ')})`);
+  }
   // A card without a target can't be played (Thunderbolt with no enemy Pokémon).
   s = battle();
   give(s, 'player', 'thunderbolt');
@@ -368,7 +390,7 @@ function weather(s, kind, count) {
   // The premade deck has every card type.
   assert.deepEqual(deckProblems(TEST_DECK), []);
   const types = new Set(TEST_DECK.map((e) => cardDef(e.card ?? e.location ?? e.series).cardType));
-  assert.deepEqual([...types].sort(), ['Item', 'Location', 'Pokémon', 'Strategy', 'Supporter']);
+  assert.deepEqual([...types].sort(), ['Item', 'Location', 'Pokémon', 'Strategy', 'Supporter', 'Trainer']);
 }
 
 // --- The AI: breakpoints, Supporters with Favour, Items; AI-vs-AI matches finish ------------------------
@@ -415,7 +437,7 @@ function weather(s, kind, count) {
     let k = seed;
     const rng = () => { k = (k * 9301 + 49297) % 233280; return k / 233280; };
     for (let guard = 0; guard < 6000 && s.phase !== 'gameOver'; guard++) {
-      const who = s.phase === 'initiative' ? 'player' : s.turn;
+      const who = actor(s);
       const action = chooseAction(s, who, { rng });
       assert.ok(legalActions(s, who).includes(action.type), action.type);
       s = applyAction(s, action);

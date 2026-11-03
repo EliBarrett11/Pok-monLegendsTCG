@@ -54,7 +54,11 @@ assert.ok(!existsSync(join(V2, 'assets')), 'no copy of assets/ in v2/');
 // Paths built in JS for the page: every test card's art and Type icon exist (shared from the root).
 for (const line of SERIES) {
   // Every Level shows art: its own stage's, or the line's base art.
-  for (let level = 1; level <= line.maxLevel; level++) assert.ok(existsSync(join(ROOT, "assets/cards", `${artFor(line, level)}.jpg`)), `${line.id} L${level}: art`);
+  // A Partner with no art yet shows the Pokémon frame (V5).
+  for (let level = 1; level <= line.maxLevel; level++) {
+    const art = artFor(line, level);
+    assert.ok(art ? existsSync(join(ROOT, 'assets/cards', `${art}.jpg`)) : line.partnerOnly && existsSync(join(ROOT, 'assets/ui/frame-pokemon.jpg')), `${line.id} L${level}: art`);
+  }
   assert.ok(existsSync(join(ROOT, 'assets/ui/icons', `type-${line.type.toLowerCase()}.webp`)), `${line.id}: Type icon`);
 }
 assert.ok(existsSync(join(ROOT, 'assets/ui/card-back.jpg')));
