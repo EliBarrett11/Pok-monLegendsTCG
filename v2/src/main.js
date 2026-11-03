@@ -8,7 +8,7 @@ import { toastsFor, showToasts } from './ui/toasts.js';
 import { openDeckBuilder } from './ui/deckbuilder.js';
 import { DECKS, POOL_ITEMS, deckProblems } from './engine/cards.js';
 
-export const BUILD = 'V6 — the v2 decks';
+export const BUILD = 'V7a — rulings, Legendaries, coded icons';
 
 const STAGE = { width: 1920, height: 1080 };
 const stage = document.getElementById('stage');

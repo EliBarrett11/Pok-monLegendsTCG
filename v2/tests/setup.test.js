@@ -58,7 +58,7 @@ for (const file of source) {
   for (const p of fromPage) refs.push({ file, p, base: V2 });
   for (const p of fromFile) refs.push({ file, p, base: dirname(file) });
 }
-const checked = refs.filter(({ p }) => !/^https?:/.test(p) && !p.includes('${'));
+const checked = refs.filter(({ p }) => !/^(https?|node):/.test(p) && !p.includes('${'));
 assert.ok(checked.length > 5, 'found the references');
 for (const { file, p, base } of checked) {
   assert.ok(!p.startsWith('/'), `${relative(ROOT, file)}: "${p}" must be relative (GitHub Pages serves v2 at …/v2/)`);
