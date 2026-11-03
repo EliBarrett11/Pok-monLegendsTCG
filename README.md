@@ -414,6 +414,19 @@ No build step: plain HTML, CSS and JavaScript modules. Working rules for each se
   Neutral cards (played in % of matches · won with / without), against Fire / Water: **Grass** Metapod 69% · 37/41 / 97% · 46/83; Brock 65% · 41/34 / 92% · 47/50; Geodude 34% / 83%; Rock Slide 7% / 31%. **Water** Shinx 85% / 98% (vs Grass), Tracey 75% / 97%, Dragonite 15% · 69/48 / 69% · 59/41, Thunderbolt 19% / 55%, Rocky Helmet 13% / 51% (it Retaliates about 0.2 damage a match). **Fire** Black Belt 39% / 28%, Dusclops 9% / 12%, Absol 7% / 10%, Hyper Voice 6% / 9% (vs Water / vs Grass).
   - **Grass–Fire is outside 45–55%.** Tunes to the new neutrals only (in a scratchpad copy of the tool, not committed), Grass v Fire: Geodude cost 1: 39.0%; Rock Slide cost 2: 37.0%; Geodude cost 1 + Metapod 1/7: 38.8%; Brock +3 Strength: 36.8%; **Brock also Douses the chosen Zone's friendly Trainer: 46.3%; Brock Douses every friendly Trainer: 51.5%** (51.0 / 52.0 by seat; Grass v Water unchanged at 46.8%, Fire–Water untouched). Proposed for Elliott: Brock Douses every friendly Trainer. Nothing changed without his OK.
 
+- **N1 — neutral cards (tuned)** — Elliott's tune and rulings:
+  - **Brock also Douses every friendly Trainer** (in addition to his +2 Strength and Shell 1 until your next Breakfast; Gift or not). `docs/decks.md`, `docs/rules.md` 9.5 and `tests/neutrals.test.js` updated.
+  - **Rulings settled** (moved from Open questions into rules 1.3 and 9.5): Rocky Helmet triggers even if the holder is defeated, and not when the holder takes damage hitting back in a trade; Tracey with fewer than 4 cards in the Draw Pile looks at those (no refill), and the rest go to the bottom in their order; Brock's buff reaches only the Pokémon in the Zone when he's played, and losing it never defeats; Absol's +2 is for its own attack only; the names Shinx, Absol, Dragonite, Black Belt, Tracey and Brock now belong to the neutral cards.
+  - **Confirmation, 400 matches per matchup (200 per seat order):**
+
+  | Matchup | Win rate | "You" seat / AI seat | Rounds |
+  |---|---|---|---|
+  | Grass v Fire | Grass 51.5% (was 38.3%) | 51.0% / 52.0% | 5.8 |
+  | Grass v Water | Grass 46.8% (unchanged: Water applies no Burn) | 47.0% / 46.5% | 9.3 |
+  | Fire v Water | Fire 49.3% (unchanged: Brock is Grass's) | 49.5% / 49.0% | 5.6 |
+
+  Brock is played in 76% of Grass's matches against Fire, and Grass wins 55.7% of those (37.9% without).
+
 Add `?seed=123` to the URL to replay the same shuffle and coin flip. Add `?hotseat` for two players on one screen, or `?join=CODE` to join a friend's room.
 
 ## Balance report
