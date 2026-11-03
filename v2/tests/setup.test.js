@@ -9,8 +9,7 @@ import { fileURLToPath } from 'node:url';
 import {
   LANES, RECOGNITION_TARGET, ROUND_LIMIT, CHAMPIONSHIP_ROUND, MAX_LEVEL, LEGENDARY_LEVEL, levelFor, costFor, DECK_SIZE,
 } from '../src/engine/rules.js';
-import { chooseAction } from '../src/ai/opponent.js';
-import { renderPlaceholder } from '../src/ui/placeholder.js';
+import { TEST_POKEMON } from '../src/engine/cards.js';
 
 const V2 = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOT = resolve(V2, '..');
@@ -52,9 +51,12 @@ for (const { file, p, base } of checked) {
 }
 // Shared art is used from the root, never copied into v2/.
 assert.ok(!existsSync(join(V2, 'assets')), 'no copy of assets/ in v2/');
-// Paths built in JS for the page: the preview cards' art and Type icons exist.
-for (const id of ['horsea', 'charmander', 'bulbasaur', 'growlithe', 'oddish', 'goldeen']) assert.ok(existsSync(join(ROOT, 'assets/cards', `${id}.jpg`)), id);
-for (const type of ['water', 'fire', 'grass']) assert.ok(existsSync(join(ROOT, 'assets/ui/icons', `type-${type}.webp`)), type);
+// Paths built in JS for the page: every test card's art and Type icon exist (shared from the root).
+for (const c of TEST_POKEMON) {
+  assert.ok(existsSync(join(ROOT, 'assets/cards', `${c.id}.jpg`)), `${c.name}: art`);
+  assert.ok(existsSync(join(ROOT, 'assets/ui/icons', `type-${c.type.toLowerCase()}.webp`)), `${c.name}: Type icon`);
+}
+assert.ok(existsSync(join(ROOT, 'assets/ui/card-back.jpg')));
 
 // --- The engine has no DOM code (the same rule as v1) -------------------------------------------
 
@@ -74,20 +76,6 @@ assert.deepEqual([1, 2, 3, 4, 5, 6].map((l) => costFor(l, 'heavy')), [2, 2, 3, 4
 assert.deepEqual([1, 2, 3, 4, 5, 6].map((l) => costFor(l, 'very heavy')), [3, 3, 4, 5, 5, 6], 'heavy: +2');
 assert.deepEqual([1, 2, 3].map((l) => costFor(l, 'light')), [1, 1, 1], 'light: −1, never below 1');
 assert.throws(() => costFor(8), /No Level 8/);
-assert.equal(chooseAction(), null, 'no AI moves before V1');
-
-// --- The placeholder page: "in development", in the board's shape ---------------------------------
-
-{
-  const root = { innerHTML: '' };
-  renderPlaceholder(root, { build: 'V0 — setup' });
-  const html = root.innerHTML;
-  assert.ok(html.includes('Pokémon Legends v2 — in development'));
-  assert.equal((html.match(/class="v2-space"/g) ?? []).length, 2 * LANES, 'two facing rows of 9');
-  assert.ok(html.includes(`of ${RECOGNITION_TARGET} to win`) && html.includes(`Round ${CHAMPIONSHIP_ROUND}`));
-  assert.ok(html.includes('href="../"'), 'a link back to the current game');
-  assert.equal((html.match(/class="v2-card"/g) ?? []).length, 6, 'the fanned hand of preview cards (from v1\'s card data)');
-}
 
 // --- The current game is untouched: v2 only reads from the root ----------------------------------
 

@@ -31,3 +31,14 @@ export function costFor(level, weight = 'standard') {
 
 // The deck (7a): 40 cards for the first build.
 export const DECK_SIZE = 40;
+
+// Energy (6, 6.2): no Exert. Base Energy is the Round number, up to 10. Up to 1
+// unspent Energy is stored into the next Round. A Pass gains +1 (not the Pass that
+// ends the Battle Phase).
+export const MAX_BASE_ENERGY = 10;
+export const STORE_LIMIT = 1;
+export const PASS_ENERGY = 1;
+export const baseEnergyFor = (round) => Math.min(round, MAX_BASE_ENERGY);
+
+// Breakfast draws up to this many cards in hand.
+export const HAND_SIZE = 7;
