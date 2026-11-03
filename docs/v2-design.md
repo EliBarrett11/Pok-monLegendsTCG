@@ -118,6 +118,19 @@ Costs grow more slowly than Levels, so a trained Pokémon doesn't take the whole
    - Plus some Items as ordinary deck cards with an Energy cost.
 4. **Deck size:** keep 40 until the prototype. Recycling matters less now that Levels follow the Round number, so bigger decks (more variety, fewer reshuffles) become possible. But Release costs weigh less when cards rarely come back. Decide after playtesting.
 
+## 7b. Look (approved by Elliott, 3 Nov)
+
+v2 should look like the concept mockups `docs/design/v2-board-concept.jpg` and `docs/design/v2-training-series.jpg`:
+- **Board layout:**
+  - two facing rows of 9 spaces, with unlit Home lanes;
+  - Locations as coloured frames over their lanes on both sides, with an objective banner in the middle of the board (both players' progress bars with milestone ticks, a Round timer, Weather);
+  - Trainers as compact tabs above or below a space, showing tier pips and Trainer Points.
+- **Around the board:**
+  - each player's Recognition on the left;
+  - a side panel with Round, Championship, Energy (plus stored), Trainer Points, Bag and Weather;
+  - a fanned hand below the board.
+- **Pokémon:** full-art cards with **minimal stats**: a Level badge, a small Type icon, the name, and plain ⚔ Attack / ♥ Strength numbers. Elliott prefers this to the current card icons.
+
 ## 8. Build approach (proposal)
 
 v2 replaces the board, the win condition, two card types and the resource system, so it's a new ruleset rather than a patch.
