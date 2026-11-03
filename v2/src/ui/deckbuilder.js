@@ -2,16 +2,23 @@
 // series and setting each card's cap (the highest Level it trains to), with its cost
 // at the cap and the copy limits by rarity (each card in a series uses 1 copy slot).
 // Locations are added by count. The deck is checked with the engine's deckProblems.
-import { SERIES, TEST_DECK, deckProblems, copiesOf, copyLimit, ALL_OTHER_CARDS } from '../engine/cards.js';
+import { SERIES, deckProblems, copiesOf, copyLimit, ALL_OTHER_CARDS, ALL_LOCATIONS } from '../engine/cards.js';
 import { costRange } from '../engine/cardtypes.js';
 import { pokemonAt, stagesText } from '../engine/series.js';
-import { TEST_LOCATIONS, lastsText } from '../engine/locations.js';
+import { lastsText } from '../engine/locations.js';
 import { DECK_SIZE, LEGENDARY_PER_DECK } from '../engine/rules.js';
 
 const ASSETS = '../assets';
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
 // ctx: { deck, onUse(deck), onClose() }. The working copy lives here until "Use this deck".
+// V6: the real series and cards of the three decks (not the test cards), by deck.
+const DECK_ORDER = { fire: 0, water: 1, grass: 2 };
+const byDeck = (a, b) => DECK_ORDER[a.deck] - DECK_ORDER[b.deck];
+const REAL_SERIES = SERIES.filter((l) => l.deck).sort(byDeck);
+const REAL_LOCATIONS = ALL_LOCATIONS.filter((l) => l.deck).sort(byDeck);
+const REAL_CARDS = ALL_OTHER_CARDS.filter((c) => c.deck && c.deck !== 'pool').sort(byDeck);
+
 export function openDeckBuilder(host, ctx) {
   let deck = ctx.deck.map((e) => ({ ...e }));
   const el = document.createElement('div');
@@ -42,7 +49,7 @@ export function openDeckBuilder(host, ctx) {
     const n = copiesOf(deck)[loc.id] ?? 0;
     const limit = copyLimit(loc.id);
     return `<div class="v2-brow loc" style="--loc: ${loc.color}">
-      <div class="v2-bart" style="background-image: url('${ASSETS}/cards/${loc.id}.jpg')"></div>
+      <div class="v2-bart" style="background-image: url('${ASSETS}/cards/${loc.art ?? loc.id}.jpg')"></div>
       <div class="v2-binfo"><b>${esc(loc.name)}</b><small>Location · ${loc.lanes} lane${loc.lanes > 1 ? 's' : ''} · ${lastsText(loc.rounds)} · ${esc(loc.objective.text)}</small>
         <div class="v2-chips"><button data-loc-minus="${loc.id}"${n ? '' : ' disabled'}>−</button><span class="v2-count">${n}/${limit}</span><button data-loc-plus="${loc.id}"${n >= limit ? ' disabled' : ''}>+</button></div>
       </div></div>`;
@@ -71,9 +78,9 @@ export function openDeckBuilder(host, ctx) {
     el.innerHTML = `<div class="v2-panel v2-builder-panel">
       <header><h2>Deck builder</h2>
         <p>Each card is a series and a cap: in a match its Level is the Round number, up to the cap. Copy limits by rarity: Common 3, Rare 2, Legendary 1 (one Legendary per deck).</p>
-        <div class="v2-btotal ${deck.length === DECK_SIZE ? 'ok' : ''}">${deck.length} / ${DECK_SIZE} cards · ${pokemon} Pokémon · ${locations} Locations · ${deck.length - pokemon - locations} Strategy, Supporter and Item cards</div>
+        <div class="v2-btotal ${deck.length === DECK_SIZE ? 'ok' : ''}">${deck.length} / ${DECK_SIZE} cards · ${pokemon} Pokémon · ${locations} Locations · ${deck.length - pokemon - locations} Strategy, Supporter, Trainer and Item cards</div>
       </header>
-      <div class="v2-blist">${SERIES.filter((l) => !l.partnerOnly).map(seriesRow).join('')}${TEST_LOCATIONS.map(locationRow).join('')}${ALL_OTHER_CARDS.map(cardRow).join('')}</div>
+      <div class="v2-blist">${REAL_SERIES.map(seriesRow).join('')}${REAL_LOCATIONS.map(locationRow).join('')}${REAL_CARDS.map(cardRow).join('')}</div>
       <footer>
         <div class="v2-bproblems">${problems.length ? problems.map((p) => `<p>${esc(p)}</p>`).join('') : '<p class="ok">This deck is ready.</p>'}</div>
         <button data-b="premade">Premade deck</button>
@@ -97,7 +104,7 @@ export function openDeckBuilder(host, ctx) {
     on('[data-loc-minus]', 'click', (x) => { deck.splice(deck.findIndex((e) => e.location === x.dataset.locMinus), 1); draw(); });
     on('[data-card-plus]', 'click', (x) => { deck.push({ card: x.dataset.cardPlus }); draw(); });
     on('[data-card-minus]', 'click', (x) => { deck.splice(deck.findIndex((e) => e.card === x.dataset.cardMinus), 1); draw(); });
-    on('[data-b="premade"]', 'click', () => { deck = TEST_DECK.map((e) => ({ ...e })); draw(); });
+    on('[data-b="premade"]', 'click', () => { deck = ctx.premade.map((e) => ({ ...e })); draw(); });
     on('[data-b="close"]', 'click', close);
     on('[data-b="use"]', 'click', () => { ctx.onUse(deck); close(); });
   }

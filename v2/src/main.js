@@ -6,9 +6,9 @@ import { chooseAction } from './ai/opponent.js';
 import { renderMatch } from './ui/board.js';
 import { toastsFor, showToasts } from './ui/toasts.js';
 import { openDeckBuilder } from './ui/deckbuilder.js';
-import { TEST_DECK, deckProblems } from './engine/cards.js';
+import { DECKS, POOL_ITEMS, deckProblems } from './engine/cards.js';
 
-export const BUILD = 'V5 — Trainers';
+export const BUILD = 'V6 — the v2 decks';
 
 const STAGE = { width: 1920, height: 1080 };
 const stage = document.getElementById('stage');
@@ -31,11 +31,13 @@ const wait = (ms) => new Promise((r) => { setTimeout(r, ms); });
 const PAUSE = autoplay ? 250 : 650;   // a short pause before each AI action, so it can be followed
 
 let state = null;
+let playing = null;   // the deck names in this match
 let match = 0;   // bumped by New match, so an old match's AI loop stops
 const ui = { summon: null, location: null, attacker: null, empowerAsk: null, ask: null, pending: null, trainer: null, moveTrainer: null, assignDraft: null, locked: false };
 
-// Your deck: one built in the deck builder (kept in this browser), or the premade
-// test deck. The Opponent always plays the premade deck.
+// The decks (V6): Fire, Water, Grass or Random for each player (mirrors allowed),
+// chosen before the coin flip and remembered in this browser; or Your deck, built in
+// the deck builder (kept in this browser too).
 const DECK_KEY = 'pokemon-legends-v2-deck';
 function savedDeck() {
   try {
@@ -48,10 +50,22 @@ function saveDeck(deck) {
   customDeck = deck;
 }
 let customDeck = savedDeck();
+const CHOICE_KEY = 'pokemon-legends-v2-deck-choice';
+let deckChoice = { player: 'fire', ai: 'water' };
+try { deckChoice = { ...deckChoice, ...JSON.parse(localStorage.getItem(CHOICE_KEY) ?? '{}') }; } catch { /* the defaults */ }
+const DECK_IDS = Object.keys(DECKS);
+const resolve = (choice) => (choice === 'random' ? DECK_IDS[Math.floor(Math.random() * DECK_IDS.length)] : choice);
+function setDeck(who, value) {
+  deckChoice = { ...deckChoice, [who]: value };
+  try { localStorage.setItem(CHOICE_KEY, JSON.stringify(deckChoice)); } catch { /* this match only */ }
+  newMatch();
+}
 function openDeck() {
+  const base = DECKS[deckChoice.player] ?? DECKS.fire;
   openDeckBuilder(stage, {
-    deck: customDeck ?? TEST_DECK,
-    onUse: (deck) => { saveDeck(deck); newMatch(); },
+    deck: customDeck ?? base.list,
+    premade: base.list,
+    onUse: (deck) => { saveDeck(deck); deckChoice = { ...deckChoice, player: 'custom' }; newMatch(); },
   });
 }
 
@@ -62,7 +76,7 @@ function apply(action) {
 }
 
 function redraw() {
-  renderMatch(root, state, ui, { build: BUILD, autoplay, act, newMatch, redraw, openDeck, customDeck: !!customDeck });
+  renderMatch(root, state, ui, { build: BUILD, autoplay, act, newMatch, redraw, openDeck, customDeck: !!customDeck, deckChoice, setDeck, playing });
 }
 
 // An action from the screen (or the AI). Errors from the engine are shown, not thrown.
@@ -71,6 +85,9 @@ async function act(action) {
     apply(action);
   } catch (err) {
     alert(err.message);
+    // Start the choice over from a clean screen.
+    Object.assign(ui, { summon: null, location: null, attacker: null, empowerAsk: null, ask: null, pending: null, trainer: null, moveTrainer: null });
+    redraw();
     return;
   }
   ui.summon = null;
@@ -111,7 +128,16 @@ const legalNow = (who) => legalActions(state, who).length > 0;
 function newMatch() {
   match += 1;
   const seed = (match === 1 && Number(params.get('seed'))) || Date.now();
-  state = createGame(seed, { decks: { player: customDeck ?? TEST_DECK, ai: TEST_DECK } });
+  // ?decks=fire,grass picks both from the address (for testing).
+  const fromUrl = params.get('decks')?.split(',');
+  const pick = { player: fromUrl?.[0] ?? deckChoice.player, ai: fromUrl?.[1] ?? deckChoice.ai };
+  const mine = pick.player === 'custom' && customDeck ? null : resolve(pick.player === 'custom' ? 'fire' : pick.player);
+  const theirs = resolve(pick.ai === 'custom' ? 'water' : pick.ai);
+  playing = { player: mine ? DECKS[mine].name : 'Your deck', ai: DECKS[theirs].name };
+  state = createGame(seed, {
+    decks: { player: mine ? DECKS[mine].list : customDeck, ai: DECKS[theirs].list },
+    itemPool: POOL_ITEMS, plans: { player: mine ?? null, ai: theirs },
+  });
   ui.summon = null;
   ui.location = null;
   ui.attacker = null;

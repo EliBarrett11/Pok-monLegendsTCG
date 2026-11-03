@@ -10,6 +10,7 @@ import {
   LANES, RECOGNITION_TARGET, ROUND_LIMIT, CHAMPIONSHIP_ROUND, MAX_LEVEL, LEGENDARY_LEVEL, levelFor, costFor, DECK_SIZE,
 } from '../src/engine/rules.js';
 import { SERIES, artFor } from '../src/engine/series.js';
+import '../src/engine/cards.js';   // registers the V6 decks' series too
 
 const V2 = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOT = resolve(V2, '..');
@@ -59,7 +60,8 @@ for (const line of SERIES) {
     const art = artFor(line, level);
     assert.ok(art ? existsSync(join(ROOT, 'assets/cards', `${art}.jpg`)) : line.partnerOnly && existsSync(join(ROOT, 'assets/ui/frame-pokemon.jpg')), `${line.id} L${level}: art`);
   }
-  assert.ok(existsSync(join(ROOT, 'assets/ui/icons', `type-${line.type.toLowerCase()}.webp`)), `${line.id}: Type icon`);
+  // Ghost and Dragon have no icon yet: the card shows a short label (board.js TYPE_ICONS).
+  assert.ok(['Ghost', 'Dragon'].includes(line.type) || existsSync(join(ROOT, 'assets/ui/icons', `type-${line.type.toLowerCase()}.webp`)), `${line.id}: Type icon`);
 }
 assert.ok(existsSync(join(ROOT, 'assets/ui/card-back.jpg')));
 

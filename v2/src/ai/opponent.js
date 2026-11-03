@@ -93,16 +93,20 @@ export function moves(state, who) {
     for (const from of alertSpaces(state, who)) for (const target of legalTargets(state, who, from)) out.push({ type: 'attack', who, from, target });
   }
   if (legal.includes('summon')) {
-    const space = bestSpace(state, who);
+    const best = bestSpace(state, who);
     const seen = new Set();
     const energy = state.players[who].energy;
     for (const card of playable(state, who)) {
       const key = `${card.series}-${card.level}-${card.cap}`;
       if (seen.has(key)) continue;   // copies are the same move
       seen.add(key);
+      // Affordable only with Wallace's discount: into his lane.
+      const space = summonCost(card, false, state, who, best) <= energy ? best
+        : freeSpaces(state, who).find((i) => summonCost(card, false, state, who, i) <= energy);
+      if (space === undefined) continue;
       for (const targets of summonTargets(state, who, card, space)) {
         out.push({ type: 'summon', who, uid: card.uid, space, ...(targets ? { targets } : {}) });
-        if (card.empower && summonCost(card, true) <= energy) out.push({ type: 'summon', who, uid: card.uid, space, empowered: true, ...(targets ? { targets } : {}) });
+        if (card.empower && summonCost(card, true, state, who, space) <= energy) out.push({ type: 'summon', who, uid: card.uid, space, empowered: true, ...(targets ? { targets } : {}) });
       }
     }
   }

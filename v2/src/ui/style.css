@@ -446,3 +446,23 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #140a04; }
 .v2-trainer .v2-portrait { grid-row: 1; width: 26px; height: 26px; }
 .v2-trainer .v2-pips { grid-column: 1 / span 3; justify-content: space-between; }
 .v2-trainer .v2-pips i { flex: 1; text-align: center; font-size: 9.5px; padding: 0 2px; }
+
+/* --- V6: the decks ------------------------------------------------------------------------------ */
+/* The Growth tree in an empty space (display only), as in the current game. */
+.v2-growth { position: absolute; inset: 2px; border-radius: 9px; background: #1a2a12 center / cover; border: 2px solid #6cc04a; box-shadow: 0 0 14px rgba(120, 220, 100, 0.45); display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 6px; pointer-events: none; }
+.v2-growth b { font-family: var(--font-display); font-size: 30px; color: #eaffd8; text-shadow: 0 2px 6px #000; line-height: 1; }
+.v2-growth span { font-size: 13px; font-weight: 800; color: #d8ffb8; text-shadow: 0 1px 3px #000; }
+.v2-space .v2-card ~ .v2-growth, .v2-space .v2-growth ~ .v2-card { }
+/* Nurture, deck selection, "a chosen Location". */
+.v2-act button.v2-nurture { background: linear-gradient(#c8f0a0, #6cae4a); }
+.v2-decks { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.v2-decks label { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-weight: 700; }
+.v2-decks select { font: inherit; font-weight: 700; background: #3a2412; color: var(--cream); border: 1px solid var(--brass-mid); border-radius: 5px; padding: 2px 4px; }
+.v2-loc.loc-target { cursor: pointer; box-shadow: 0 0 26px 8px rgba(180, 130, 255, 0.7); }
+.v2-lane.loc-target { pointer-events: auto; cursor: pointer; border-radius: 10px; background: rgba(160, 110, 255, 0.16); box-shadow: inset 0 0 0 2px #c99aff; }
+.v2-lane.loc-target span { color: #e2ccff; }
+.v2-count.big { font-size: 20px; padding: 0 10px; }
+.v2-type.text { display: grid; place-items: center; width: 30px; height: 20px; border-radius: 10px; font-size: 11px; font-weight: 800; color: #fff; background: #5a4a8a; border: 1px solid #c8b8ff; }
+/* V6: the side panel fits the stage; the log takes what's left. */
+.v2-side { max-height: 976px; overflow: hidden; }
+.v2-keys i { font-size: 10.5px; }

@@ -17,7 +17,9 @@ import {
   isAlert, passEndsPhase, passSpends, opponentOf, summonCost, targetOptions, breakpointsFor, playableStrategies,
   playableSupporters, playableItems, usableBagItems, itemUsable, bagFull, favourMet, bracket, trainTop,
   trainerAt, tiersUnlocked, trainerSpaces, playableTrainers, canMoveTrainer, usableAbilities, freeSpaces, legalActions,
+  pickOptions, nurtureSpaces, nurtureCost,
 } from '../engine/game.js';
+import { DECKS } from '../engine/cards.js';
 import { costRange, BAG_SIZE, FAVOURS } from '../engine/cardtypes.js';
 import { RECOGNITION_TARGET, LANES, ROUND_LIMIT, CHAMPIONSHIP_ROUND } from '../engine/rules.js';
 import { rewardText, lastsText } from '../engine/locations.js';
@@ -46,9 +48,9 @@ function pokemonCard(card, opts = {}) {
       <div class="v2-art" style="background-image: url('${card.art === null ? `${ASSETS}/ui/frame-pokemon.jpg` : `${ASSETS}/cards/${card.art ?? card.id}.jpg`}')"></div>
       ${card.partner ? `<span class="v2-partner-tag" title="${esc(card.trainer)}'s Partner Pokémon">Partner</span>` : ''}
       <span class="v2-level">Lv ${card.level}${opts.inHand && card.cap > card.level ? `<small>/${card.cap}</small>` : ''}</span>
-      <img class="v2-type" src="${ASSETS}/ui/icons/type-${slug(card.type)}.webp" alt="${card.type}">
+      ${TYPE_ICONS.has(card.type) ? `<img class="v2-type" src="${ASSETS}/ui/icons/type-${slug(card.type)}.webp" alt="${card.type}">` : `<span class="v2-type text" title="${card.type}">${card.type.slice(0, 3)}</span>`}
       ${card.strengthType !== 'Hitpoints' ? `<span class="v2-guard">${card.strengthType === 'Defence' ? 'Def' : 'Sp. Def'}</span>` : ''}
-      ${card.keywords?.length ? `<span class="v2-keys">${card.keywords.map((k) => `<i>${k}</i>`).join('')}</span>` : ''}
+      ${card.keywords?.length ? `<span class="v2-keys">${keywordChips(card).map((k) => `<i>${k}</i>`).join('')}</span>` : ''}
       ${card.cost !== undefined && opts.showCost ? `<span class="v2-cost">${card.cost}</span>` : ''}
       <div class="v2-name">${card.name}</div>
       ${notes.length ? `<div class="v2-ability">${notes.map(esc).join('<br>')}</div>` : ''}
@@ -60,6 +62,19 @@ function pokemonCard(card, opts = {}) {
     </div>`;
 }
 
+// Keyword chips: numbered keywords summed (Scorch 1 + Scorch 1 = Scorch 2), the others once.
+function keywordChips(card) {
+  const sums = new Map();
+  for (const k of card.keywords) {
+    const m = /^(.*) (\d+)$/.exec(k);
+    const name = m ? m[1] : k;
+    sums.set(name, m ? (sums.get(name) ?? 0) + Number(m[2]) : 0);
+  }
+  return [...sums].filter(([name]) => name !== 'Big Root').map(([name, n]) => (n ? `${name} ${n}` : name));
+}
+
+// Types with an icon in the shared assets; others (Ghost, Dragon) show a short label.
+const TYPE_ICONS = new Set(['Bug', 'Dark', 'Electric', 'Fighting', 'Fire', 'Grass', 'Normal', 'Rock', 'Water']);
 const artUrl = (c) => (c.art ? `${ASSETS}/cards/${c.art}.jpg` : `${ASSETS}/ui/frame-item.jpg`);
 
 // Burn, Leech Seed (V4): small chips on the card, and its look (classes on the card).
@@ -88,6 +103,13 @@ function trainerTab(state, who, t, ui) {
 
 const partnerWaitingNow = (state, ui) => state.phase === 'battle' && state.turn === 'player' && !ui.locked && !ui.pending
   && state.players.player.waiting.length > 0 && legalActions(state, 'player').includes('placePartner');
+
+// The Growth tree: four images by amount (1, 3, 5, 8+), as in the current game.
+const GROWTH_STAGES = [1, 3, 5, 8];
+function growthTree(n) {
+  const stage = GROWTH_STAGES.filter((m) => n >= m).length;
+  return `<div class="v2-growth" style="background-image: url('${ASSETS}/ui/growth-${stage}.jpg')" title="Growth ${n}"><b>${n}</b><span>Growth</span></div>`;
+}
 
 // A Strategy Card, Supporter or Item (V4): its art, type, name, cost and text.
 function actionCard(card, opts = {}) {
@@ -129,7 +151,7 @@ function locationCard(card, opts = {}) {
   const goals = [...card.milestones.map((m) => `${m.at}: ${rewardText(m.reward)}`), `${card.objective.count}: ${rewardText(card.completion)}`].join(' · ');
   return `
     <div class="${cls}" ${opts.attrs ?? ''} style="--loc: ${card.color}" title="${esc(`${card.name} · Location · ${card.lanes} lane${card.lanes > 1 ? 's' : ''} · ${lastsText(card.rounds)} · ${card.objective.text} · ${goals}`)}">
-      <div class="v2-art" style="background-image: url('${ASSETS}/cards/${card.id}.jpg')"></div>
+      <div class="v2-art" style="background-image: url('${ASSETS}/cards/${card.art ?? card.id}.jpg')"></div>
       <span class="v2-level">Location</span>
       <span class="v2-loc-wx">${weatherIcons(card.weather)}</span>
       <div class="v2-name">${card.name}</div>
@@ -163,6 +185,8 @@ function recognitionPanel(state, who, targetable, ui) {
 function row(state, who, ui, targets) {
   const mine = who === 'player';
   const p = state.players[who];
+  // The Growth tree (V6, as in the current game): in the rightmost empty space, display only.
+  const treeSpace = p.growth > 0 ? [...p.row.keys()].reverse().find((i) => !p.row[i]) : undefined;
   const spaces = Array.from({ length: LANES }, (_, space) => {
     const card = p.row[space];
     const summonHere = mine && ui.summon && !card;
@@ -182,7 +206,8 @@ function row(state, who, ui, targets) {
     const partnerHere = mine && !card && partnerWaitingNow(state, ui);
     const arrived = card && state.events.find((e) => e.type === 'partnerArrived' && e.who === who && e.space === space);
     const extra = [placeHere && 'trainer-target', partnerHere && 'partner-target', arrived && 'partner-arrive'].filter(Boolean).join(' ');
-    return `<div class="${cls}${extra ? ` ${extra}` : ''}" data-who="${who}" data-space="${space}"${loc ? ` style="--loc: ${loc.color}"` : ''}>${face}${arrived ? '<span class="v2-flourish partner">Partner!</span>' : ''}${trainer ? trainerTab(state, who, trainer, ui) : ''}</div>`;
+    const tree = space === treeSpace ? growthTree(p.growth) : '';
+    return `<div class="${cls}${extra ? ` ${extra}` : ''}" data-who="${who}" data-space="${space}"${loc ? ` style="--loc: ${loc.color}"` : ''}>${tree}${face}${arrived ? '<span class="v2-flourish partner">Partner!</span>' : ''}${trainer ? trainerTab(state, who, trainer, ui) : ''}</div>`;
   }).join('');
   return `<div class="v2-row ${who === 'ai' ? 'opponent' : 'player'}">${spaces}</div>`;
 }
@@ -193,7 +218,7 @@ function sidePanel(state, ui, ctx) {
   let hint = '';
   let button = '';
   if (state.phase === 'initiative') {
-    hint = 'Flip a coin to decide who has initiative in Round 1.';
+    hint = `${deckPicker(ctx)}Flip a coin to decide who has initiative in Round 1.`;
     button = '<button data-action="flip">Flip the coin</button>';
   } else if (state.phase === 'gameOver') {
     hint = resultLine(state);
@@ -211,9 +236,11 @@ function sidePanel(state, ui, ctx) {
         : 'Your turn: summon a Pokémon, place a Location, play a card, use an Item from your Bag, attack with an Alert Pokémon, or Pass.';
     const ends = passEndsPhase(state);
     const spends = passSpends(state, 'player').length;
-    button = ui.pending
+    const nurture = !ui.pending && nurtureSpaces(state, 'player').length
+      ? `<button data-action="nurture" class="v2-nurture">Nurture<small>${Math.min(...nurtureSpaces(state, 'player').map((sp) => nurtureCost(state, 'player', sp)))} Growth: train 1 one of your Pokémon</small></button>` : '';
+    button = nurture + (ui.pending
       ? `${ui.pending.spec.count !== 1 ? `<button data-action="targets-done"${ui.pending.chosen.length ? '' : ' disabled'}>Confirm<small>${ui.pending.chosen.length} chosen</small></button>` : ''}<button data-action="targets-cancel" class="v2-ask-cancel">Cancel</button>`
-      : `<button data-action="pass" class="pass">Pass<small>${ends ? 'ends the Battle Phase' : `+1 Energy${spends ? ` · ${spends} become${spends === 1 ? 's' : ''} Spent` : ''}`}</small></button>`;
+      : `<button data-action="pass" class="pass">Pass<small>${ends ? 'ends the Battle Phase' : `+1 Energy${spends ? ` · ${spends} become${spends === 1 ? 's' : ''} Spent` : ''}`}</small></button>`);
   } else hint = ctx.autoplay ? 'Autoplay: the AI plays both sides.' : 'The Opponent is thinking…';
   const recent = state.log.slice(-4).map((l) => `<p>${esc(l)}</p>`).join('');
   return `
@@ -223,7 +250,8 @@ function sidePanel(state, ui, ctx) {
       ${champPanel(state)}
       <section class="v2-panel"><div class="v2-label">Energy</div>
         <b class="v2-big">${me.energy} <small>/ ${me.roundEnergy}${me.stored ? ` · +${me.stored} stored` : ''}${me.bonus ? ` · +${me.bonus} milestone` : ''}</small></b>
-        ${me.bonusNext ? `<p class="v2-note">+${me.bonusNext} next Round</p>` : ''}</section>
+        ${me.bonusNext ? `<p class="v2-note">+${me.bonusNext} next Round</p>` : ''}
+        ${me.growth || state.players.ai.growth ? `<p class="v2-note on"><b>🌱 Growth ${me.growth}</b> · Opponent ${state.players.ai.growth}</p>` : ''}</section>
       ${trainerPointsPanel(state)}
       ${bagPanel(state, ui)}
       <section class="v2-panel"><div class="v2-label">Weather</div>${weatherPanel(state)}</section>
@@ -238,7 +266,7 @@ function champPanel(state) {
   let text;
   if (champ) text = `<b>Now</b>, over all 9 lanes: ${esc(champ.objective.text)}. ${champ.roundsLeft} Round${champ.roundsLeft === 1 ? '' : 's'} left.`;
   else if (state.phase === 'gameOver') text = 'The match ended before it arrived.';
-  else text = `Arrives for both players in <b>Round ${CHAMPIONSHIP_ROUND}</b>: the final Location, over every lane, with the biggest Recognition rewards. Every other Location ends.`;
+  else text = `Arrives in <b>Round ${CHAMPIONSHIP_ROUND}</b>: the final Location over every lane, with the biggest rewards.`;
   return `<section class="v2-panel v2-champ${champ ? ' live' : ''}"><div class="v2-label">Championship</div><p>${text}</p></section>`;
 }
 
@@ -258,6 +286,15 @@ const WEATHER_BRACKETS = [
   { kind: 'Rain', at: 6, text: 'Leech Seed drains 2' },
   { kind: 'Rain', at: 8, text: 'Downpour: Burn washed away at Supper' },
 ];
+
+// Deck selection (V6): Fire, Water, Grass or Random for both players (mirrors allowed),
+// before the coin flip; Your deck when one is built.
+function deckPicker(ctx) {
+  const opts = (who) => [...Object.entries(DECKS).map(([k, d]) => [k, d.name]), ['random', 'Random'], ...(who === 'player' && ctx.customDeck ? [['custom', 'Your deck']] : [])]
+    .map(([k, name]) => `<option value="${k}"${ctx.deckChoice?.[who] === k ? ' selected' : ''}>${name}</option>`).join('');
+  return `<span class="v2-decks"><label>You <select data-deck="player">${opts('player')}</select></label>
+    <label>Opponent <select data-deck="ai">${opts('ai')}</select></label></span>`;
+}
 
 // Trainer Points (V5): the pool, assigned at Breakfast; and whether the Round's move is used.
 function trainerPointsPanel(state) {
@@ -288,7 +325,7 @@ function bagPanel(state, ui) {
 function pendingOptions(state, ui) {
   const pend = ui?.pending;
   if (!pend) return [];
-  return [...targetOptions(state, 'player', pend.spec), ...(pend.extra ?? [])];
+  return [...targetOptions(state, 'player', pend.spec, pend.ctx ?? {}), ...(pend.extra ?? [])];
 }
 function pendingHint(state, ui) {
   const { spec, label } = ui.pending;
@@ -330,12 +367,14 @@ function progressBar(loc, who) {
 // middle of the board; the middle of Home lanes says Home. While a Location from
 // hand is picked, the lanes it can start at glow.
 function locationLayer(state, ui) {
+  // "A chosen Location" (V6): the Locations (and Home) an effect may choose glow.
+  const locTargets = new Set(pendingOptions(state, ui).filter((o) => o.kind === 'location').map((o) => o.id));
   const flash = new Set(state.events.filter((e) => ['milestone', 'completed', 'locationPlaced', 'championship'].includes(e.type)).map((e) => e.location ?? e.uid));
   const frames = state.locations.map((loc) => {
     const width = loc.lanes.length;
     const goals = [...loc.milestones.map((m) => `${m.at}: ${rewardText(m.reward)}`), `${loc.objective.count}: ${rewardText(loc.completion)}`].join(' · ');
     return `
-      <div class="v2-loc w${width}${loc.championship ? ' champ' : ''}${flash.has(loc.uid) ? ' flash' : ''}" style="grid-column: ${loc.lanes[0] + 1} / span ${width}; --loc: ${loc.color}">
+      <div class="v2-loc w${width}${loc.championship ? ' champ' : ''}${flash.has(loc.uid) ? ' flash' : ''}${locTargets.has(loc.uid) ? ' loc-target' : ''}" data-loc-target="${loc.uid}" style="grid-column: ${loc.lanes[0] + 1} / span ${width}; --loc: ${loc.color}">
         <div class="v2-loc-art" style="background-image: url('${ASSETS}/${loc.image.replace(/^assets\//, '')}')"></div>
         <div class="v2-loc-banner" title="${esc(`${loc.name}: ${loc.objective.text}. Milestones and completion · ${goals}`)}">
           <header><h4>${esc(loc.name)}</h4><span class="v2-loc-wx">${weatherIcons(loc.weather)}</span></header>
@@ -351,7 +390,8 @@ function locationLayer(state, ui) {
   const lanes = Array.from({ length: LANES }, (_, lane) => {
     if (locationAt(state, lane)) return '';
     const can = starts.includes(lane);
-    return `<div class="v2-lane${can ? ' pick' : ''}" style="grid-column: ${lane + 1}" data-lane="${lane}">${can ? `<span>Place<br>here</span>` : '<span>Home</span>'}</div>`;
+    const home = locTargets.has('home');
+    return `<div class="v2-lane${can ? ' pick' : ''}${home ? ' loc-target' : ''}" style="grid-column: ${lane + 1}" data-lane="${lane}"${home ? ' data-loc-target="home"' : ''}>${can ? `<span>Place<br>here</span>` : `<span>${home ? 'Home<br>(choose)' : 'Home'}</span>`}</div>`;
   }).join('');
   const ghost = pick ? `<div class="v2-loc ghost" style="--loc: ${pick.color}; display: none"></div>` : '';
   return `<div class="v2-locs">${frames}${ghost}</div><div class="v2-lanes">${lanes}</div>`;
@@ -412,6 +452,46 @@ function costBox(state, ui) {
   </div></div>`;
 }
 
+// Solar Beam (V6): how much Growth to spend, from 1 up to the breakpoint's most.
+function amountBox(state, ui) {
+  const a = ui.ask;
+  if (a?.kind !== 'amount') return '';
+  return `<div class="v2-ask" role="dialog" aria-label="Spend Growth"><div class="v2-panel">
+    <p>${esc(a.label)}: spend how much Growth? (1 to ${a.max})</p>
+    <div class="v2-ask-buttons">
+      <button data-action="amount-step" data-step="-1"${a.x <= 1 ? ' disabled' : ''}>−</button>
+      <span class="v2-count big">${a.x} Growth → ${a.x} damage</span>
+      <button data-action="amount-step" data-step="1"${a.x >= a.max ? ' disabled' : ''}>+</button>
+    </div>
+    <div class="v2-ask-buttons"><button data-action="amount-done">Choose the target</button></div>
+    <button data-action="ask-cancel" class="v2-ask-cancel">Cancel</button>
+  </div></div>`;
+}
+
+// Choosing cards (V6): Search, Return, Tracey, Burglar, Swimmer. Up to `n`.
+function pickBox(state, ui) {
+  const a = ui.ask;
+  if (a?.kind !== 'pick') return '';
+  const options = pickOptions(state, 'player', a.op);
+  const tile = (c) => `<button class="v2-rel${a.chosen.includes(c.uid) ? ' on' : ''}" data-pick="${c.uid}" style="background-image: url('${c.cardType === 'Pokémon' ? (c.art ? `${ASSETS}/cards/${c.art}.jpg` : `${ASSETS}/ui/frame-pokemon.jpg`) : c.cardType === 'Location' ? `${ASSETS}/cards/${c.art ?? c.id}.jpg` : artUrl(c)}')"><span>${esc(c.name)}${c.level ? ` L${c.level}` : ''}</span></button>`;
+  return `<div class="v2-ask" role="dialog" aria-label="Choose cards"><div class="v2-panel v2-release-ask">
+    <p>${esc(a.label)}: choose ${a.n === 1 ? 'one' : `up to ${a.n}`}.</p>
+    <div class="v2-rels">${options.map(tile).join('') || '<p>Nothing matches.</p>'}</div>
+    <div class="v2-ask-buttons"><button data-action="pick-done"${a.chosen.length || !options.length ? '' : ' disabled'}>Done</button></div>
+  </div></div>`;
+}
+
+// Escape Rope (V6): which empty space to move to.
+function spaceBox(state, ui) {
+  const a = ui.ask;
+  if (a?.kind !== 'space') return '';
+  return `<div class="v2-ask" role="dialog" aria-label="Choose a space"><div class="v2-panel">
+    <p>${esc(a.label)}: move it to which empty space?</p>
+    <div class="v2-ask-buttons">${freeSpaces(state, 'player').map((i) => `<button data-space-pick="${i}">${i + 1}</button>`).join('')}</div>
+    <button data-action="ask-cancel" class="v2-ask-cancel">Cancel</button>
+  </div></div>`;
+}
+
 // The Release payment (Supporters): pick exactly N other cards from your hand; the
 // Favour shows whether it's met.
 function releaseBox(state, ui) {
@@ -421,7 +501,7 @@ function releaseBox(state, ui) {
   const others = state.players.player.hand.filter((c) => c !== card);
   const picked = others.filter((c) => a.chosen.includes(c.uid));
   const met = favourMet(card, picked);
-  const tiles = others.map((c) => `<button class="v2-rel${a.chosen.includes(c.uid) ? ' on' : ''}${FAVOURS[card.favour.condition].test(c) ? ' favour' : ''}" data-rel="${c.uid}" style="background-image: url('${c.cardType === 'Pokémon' ? `${ASSETS}/cards/${c.art}.jpg` : c.cardType === 'Location' ? `${ASSETS}/cards/${c.id}.jpg` : artUrl(c)}')"><span>${esc(c.name)}${c.level ? ` L${c.level}` : ''}</span></button>`).join('');
+  const tiles = others.map((c) => `<button class="v2-rel${a.chosen.includes(c.uid) ? ' on' : ''}${FAVOURS[card.favour.condition].test(c) ? ' favour' : ''}" data-rel="${c.uid}" style="background-image: url('${c.cardType === 'Pokémon' ? `${ASSETS}/cards/${c.art}.jpg` : c.cardType === 'Location' ? `${ASSETS}/cards/${c.art ?? c.id}.jpg` : artUrl(c)}')"><span>${esc(c.name)}${c.level ? ` L${c.level}` : ''}</span></button>`).join('');
   return `<div class="v2-ask" role="dialog" aria-label="Release cards"><div class="v2-panel v2-release-ask">
     <p><b>${card.name}</b>: Release ${card.release} card${card.release === 1 ? '' : 's'} from your hand (gone for the match). ${esc(card.text)}.</p>
     <p class="v2-favour${met ? ' met' : ''}">Favour: Release ${esc(FAVOURS[card.favour.condition].text)} → ${esc(card.favour.text)} ${met ? '✓ met' : ''}</p>
@@ -507,7 +587,7 @@ export function renderMatch(root, state, ui, ctx) {
   const playerTarget = targets.some((t) => t.kind === 'player');
   root.innerHTML = `
     <div class="v2-table">
-      <header class="v2-title"><h1>Pokémon Legends v2</h1><p>${ctx.build} · <a href="../">the current game</a> · <button class="v2-linkbtn" data-action="deck">${ctx.customDeck ? "Your deck" : "Deck builder"}</button></p></header>
+      <header class="v2-title"><h1>Pokémon Legends v2</h1><p>${ctx.playing ? `${ctx.playing.player} vs ${ctx.playing.ai} · ` : ''}${ctx.build} · <a href="../">the current game</a> · <button class="v2-linkbtn" data-action="deck">${ctx.customDeck ? "Your deck" : "Deck builder"}</button></p></header>
       ${backs(state.players.ai.hand.length)}
       ${recognitionPanel(state, 'ai', playerTarget, ui)}
       ${recognitionPanel(state, 'player', false, ui)}
@@ -524,6 +604,9 @@ export function renderMatch(root, state, ui, ctx) {
       ${costBox(state, ui)}
       ${releaseBox(state, ui)}
       ${itemBox(state, ui)}
+      ${amountBox(state, ui)}
+      ${pickBox(state, ui)}
+      ${spaceBox(state, ui)}
       ${trainerBox(state, ui)}
       ${assignBox(state, ui)}
       ${gameOver(state)}
@@ -537,6 +620,7 @@ function wire(root, state, ui, ctx) {
   on('[data-action="pass"]', () => ctx.act({ type: 'pass', who: 'player' }));
   on('[data-action="new"]', () => ctx.newMatch());
   on('[data-action="deck"]', () => ctx.openDeck());
+  root.querySelectorAll('select[data-deck]').forEach((el) => el.addEventListener('change', () => ctx.setDeck(el.dataset.deck, el.value)));
   // The assign step (simultaneous: not your turn, the Breakfast).
   on('[data-assign]', (el) => {
     ui.assignDraft ??= {};
@@ -552,21 +636,35 @@ function wire(root, state, ui, ctx) {
   if (!(state.phase === 'battle' && state.turn === 'player') || ui.locked) return;
   const hand = state.players.player.hand;
   // Start an action that may need targets: none (or 'all') acts at once; else choose.
-  const begin = (action, spec, label, extra = []) => {
+  // After targets: a card to pick (Search, Return, Tracey, Burglar, Swimmer) or a space
+  // (Escape Rope) asks; otherwise it acts.
+  const PICK_OPS = { search: (o) => o.count ?? 1, returnFromDiscard: (o) => o.count ?? 1, lookTop: (o) => o.take, stealItem: () => 1, freeSummon: () => 1 };
+  const finish = (action, ops = [], label = '') => {
+    ui.pending = null;
+    const pickOp = ops.find((o) => PICK_OPS[o.op]);
+    if (pickOp && pickOptions(state, 'player', pickOp).length) {
+      ui.ask = { kind: 'pick', action, op: pickOp, n: PICK_OPS[pickOp.op](pickOp), chosen: [], label };
+      return ctx.redraw();
+    }
+    if (ops.some((o) => o.op === 'moveTo')) { ui.ask = { kind: 'space', action, label }; return ctx.redraw(); }
+    return ctx.act(action);
+  };
+  const begin = (action, spec, label, extra = [], ops = [], tctx = {}) => {
     ui.ask = null;
-    const options = spec && spec.count !== 'all' ? [...targetOptions(state, 'player', spec), ...extra] : [];
-    if (!options.length) return ctx.act(action);
-    ui.pending = { action, spec, label, chosen: [], extra };
+    const options = spec && spec.count !== 'all' && !spec.special ? [...targetOptions(state, 'player', spec, tctx), ...extra] : [];
+    if (!options.length) return finish(action, ops, label);
+    ui.pending = { action, spec, label, chosen: [], extra, ops, ctx: tctx };
     ctx.redraw();
   };
   // A summon with an On summon ability (Chansey): choose its target, the new Pokémon included.
   const summonWith = (action) => {
     const card = hand.find((c) => c.uid === action.uid);
     const spec = card?.ability?.onSummon?.target;
-    const self = card && card.level < trainTop(card) ? [{ who: 'player', kind: 'pokemon', space: action.space }] : [];
-    if (!spec) return ctx.act(action);
+    // The new Pokémon itself only for a train target (Chansey may train itself).
+    const self = spec?.side === 'friendly' && spec.filter === 'canTrain' && card.level < trainTop(card) ? [{ who: 'player', kind: 'pokemon', space: action.space }] : [];
+    if (!spec || spec.count === 'all' || spec.special) return ctx.act(action);
     ui.empowerAsk = null;
-    begin(action, spec, `${card.name}: ${card.ability.text}`, self);
+    begin(action, spec, `${card.name}: ${card.ability.text}`, self, [], { space: action.space });
   };
   on('.v2-hand .v2-card.playable', (el) => {
     ui.attacker = null;
@@ -603,7 +701,34 @@ function wire(root, state, ui, ctx) {
   on('[data-pay]', (el) => {
     const card = hand.find((c) => c.uid === ui.ask.uid);
     const bp = card.breakpoints.find((b) => b.cost === Number(el.dataset.pay));
-    begin({ type: 'playStrategy', who: 'player', uid: card.uid, pay: bp.cost }, bp.target, `${card.name} (${bp.cost}): ${bp.text}`);
+    const label = `${card.name} (${bp.cost}): ${bp.text}`;
+    const spend = bp.ops.find((o) => o.op === 'solarBeam');
+    if (spend) {
+      const max = Math.min(spend.max, state.players.player.growth);
+      ui.ask = { kind: 'amount', uid: card.uid, pay: bp.cost, x: max, max, label };
+      return ctx.redraw();
+    }
+    begin({ type: 'playStrategy', who: 'player', uid: card.uid, pay: bp.cost }, bp.target, label, [], bp.ops);
+  });
+  on('[data-action="amount-step"]', (el) => { ui.ask.x = Math.max(1, Math.min(ui.ask.max, ui.ask.x + Number(el.dataset.step))); ctx.redraw(); });
+  on('[data-action="amount-done"]', () => {
+    const a = ui.ask;
+    const card = hand.find((c) => c.uid === a.uid);
+    const bp = card.breakpoints.find((b) => b.cost === a.pay);
+    begin({ type: 'playStrategy', who: 'player', uid: card.uid, pay: bp.cost, x: a.x }, bp.target, a.label, [], bp.ops);
+  });
+  on('[data-pick]', (el) => {
+    const a = ui.ask;
+    if (a.chosen.includes(el.dataset.pick)) a.chosen = a.chosen.filter((u) => u !== el.dataset.pick);
+    else if (a.chosen.length < a.n) a.chosen.push(el.dataset.pick);
+    else if (a.n === 1) a.chosen = [el.dataset.pick];
+    ctx.redraw();
+  });
+  on('[data-action="pick-done"]', () => ctx.act({ ...ui.ask.action, picks: ui.ask.chosen }));
+  on('[data-space-pick]', (el) => ctx.act({ ...ui.ask.action, picks: { space: Number(el.dataset.spacePick) } }));
+  on('[data-action="nurture"]', () => {
+    ui.summon = null; ui.location = null; ui.attacker = null;
+    begin({ type: 'nurture', who: 'player' }, { side: 'friendly', kinds: ['pokemon'], count: 1, filter: 'canNurture' }, 'Nurture: train 1 one of your Pokémon');
   });
   // Supporters: pick the cards to Release, then targets.
   on('[data-rel]', (el) => {
@@ -615,18 +740,20 @@ function wire(root, state, ui, ctx) {
   });
   on('[data-action="release-done"]', () => {
     const card = hand.find((c) => c.uid === ui.ask.uid);
-    begin({ type: 'playSupporter', who: 'player', uid: card.uid, release: [...ui.ask.chosen] }, card.target, `${card.name}: ${card.text}`);
+    const met = favourMet(card, hand.filter((c) => ui.ask.chosen.includes(c.uid)));
+    const spec = met && 'target' in card.favour ? card.favour.target : card.target;
+    begin({ type: 'playSupporter', who: 'player', uid: card.uid, release: [...ui.ask.chosen] }, spec, `${card.name}: ${met ? card.favour.text : card.text}`, [], met ? card.favour.ops : card.ops);
   });
   // Items from hand: use now (then targets) or into the Bag; from the Bag: use.
   on('[data-action="item-use"]', () => {
     const card = hand.find((c) => c.uid === ui.ask.uid);
-    begin({ type: 'playItem', who: 'player', uid: card.uid, mode: 'use' }, card.target, `${card.name}: ${card.text}`);
+    begin({ type: 'playItem', who: 'player', uid: card.uid, mode: 'use' }, card.target, `${card.name}: ${card.text}`, [], card.ops);
   });
   on('[data-action="item-bag"]', () => ctx.act({ type: 'playItem', who: 'player', uid: ui.ask.uid, mode: 'bag' }));
   on('.v2-bag .item.usable', (el) => {
     const card = state.players.player.bag.find((c) => c.uid === el.dataset.bag);
     ui.summon = null; ui.location = null; ui.attacker = null;
-    begin({ type: 'useItem', who: 'player', uid: card.uid }, card.target, `${card.name}: ${card.text}`);
+    begin({ type: 'useItem', who: 'player', uid: card.uid }, card.target, `${card.name}: ${card.text}`, [], card.ops);
   });
   on('[data-action="ask-cancel"]', () => { ui.ask = null; ctx.redraw(); });
   // Trainers: attach one from hand; open your Trainer (Ability, Move); a waiting Partner.
@@ -638,14 +765,16 @@ function wire(root, state, ui, ctx) {
   on('.v2-trainer.clickable', (el) => { ui.summon = null; ui.location = null; ui.trainer = null; ui.ask = { kind: 'trainer', uid: el.dataset.trainer }; ctx.redraw(); });
   on('[data-action="trainer-ability"]', () => {
     const t = state.players.player.trainers.find((x) => x.uid === ui.ask.uid);
-    begin({ type: 'useAbility', who: 'player', uid: t.uid }, t.tiers[1].ability.target, `${t.name}: ${t.tiers[1].text}`);
+    begin({ type: 'useAbility', who: 'player', uid: t.uid }, t.tiers[1].ability.target, `${t.name}: ${t.tiers[1].text}`, [], t.tiers[1].ability.ops, { space: t.space, lane: t.space });
   });
   on('[data-action="trainer-move"]', () => { ui.moveTrainer = ui.ask.uid; ui.ask = null; ctx.redraw(); });
   on('.v2-row.player .v2-space.partner-target', (el) => ctx.act({ type: 'placePartner', who: 'player', uid: state.players.player.waiting[0].uid, space: Number(el.dataset.space) }));
   // Choosing targets: one target acts at once; for more, toggle, then Confirm.
   const pickTarget = (ref) => {
     const pend = ui.pending;
-    if (pend.spec.count === 1) return ctx.act({ ...pend.action, targets: [ref] });
+    if (!pend) return;
+    if (pend.action.type === 'nurture') return ctx.act({ ...pend.action, space: ref.space });
+    if (pend.spec.count === 1) return finish({ ...pend.action, targets: [ref] }, pend.ops, pend.label);
     const key = (t) => `${t.who}:${t.kind}:${t.space ?? ''}`;
     if (pend.chosen.some((t) => key(t) === key(ref))) pend.chosen = pend.chosen.filter((t) => key(t) !== key(ref));
     else if (pend.chosen.length < pend.spec.count) pend.chosen.push(ref);
@@ -653,7 +782,11 @@ function wire(root, state, ui, ctx) {
   };
   on('.v2-space.effect-target', (el) => pickTarget({ who: el.dataset.who, kind: 'pokemon', space: Number(el.dataset.space) }));
   on('.v2-recognition.effect-target', (el) => pickTarget({ who: el.dataset.player, kind: 'player' }));
-  on('[data-action="targets-done"]', () => ctx.act({ ...ui.pending.action, targets: ui.pending.chosen }));
+  on('.loc-target', (el) => {
+    const opt = pendingOptions(state, ui).find((o) => o.kind === 'location' && o.id === el.dataset.locTarget);
+    if (opt) pickTarget(opt);
+  });
+  on('[data-action="targets-done"]', () => finish({ ...ui.pending.action, targets: ui.pending.chosen }, ui.pending.ops, ui.pending.label));
   on('[data-action="targets-cancel"]', () => { ui.pending = null; ctx.redraw(); });
   if (ui.pending) return;
   on('[data-action="summon-cancel"]', () => { ui.empowerAsk = null; ctx.redraw(); });
