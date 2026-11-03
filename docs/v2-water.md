@@ -1,6 +1,6 @@
-# DRAFT: v2 Water deck, "Value-Midrange" (Board-Based)
+# v2 Water deck, "Value-Midrange" (Board-Based)
 
-**Status: a proposal for Elliott. Don't build from this file.** Same format as `docs/v2-fire.md`.
+**Status: approved by Elliott (3 Nov).** V6 builds it. Numbers are first-pass values for the V7 balance pass.
 
 ## Identity in v2
 
@@ -88,11 +88,13 @@ Stats are **Attack/Strength** at each Level, L1 → L6.
 
 **Have:** squirtle, wartortle, blastoise, horsea, seadra, kingdra, magikarp, gyarados, wooper, quagsire, chinchou, lanturn, wingull, pelipper, eevee, vaporeon, happiny, chansey, blissey, dragonite, kyogre, aqua-ring, bubble-beam, dive, surf, thunderbolt, nurse-joy, swimmer, fisherman, tracey, misty, crasher-wake, wallace, cerulean-cape, lake-of-rage, route-119, mystic-water, leftovers, rocky-helmet, full-heal.
 
-**Needed (6):** dratini, dragonair, hydro-pump (Strategy), starmie (Misty's Partner), floatzel (Crasher Wake's Partner), milotic (Wallace's Partner).
+**Delivered (3 Nov):** hydro-pump, starmie, floatzel, milotic. Also luxio and luxray, kept for a future Shinx line.
 
-## Open questions for Elliott
+**Still needed (2):** dratini, dragonair.
 
-1. **Shinx dropped** for Wingull (see Identity). OK, or keep Shinx → Luxio → Luxray as a neutral (2 more arts)?
-2. **Hydro Pump** is a new Epic finisher, so Water has a way to end matches. Happy with that, or keep Water purely board-based?
-3. **Partners:** Starmie (Misty), Floatzel (Crasher Wake), Milotic (Wallace) are from each Trainer's team in the games. OK?
-4. **Magikarp's Splash** (draw 1 on summon): the right "small thing"?
+## Settled (3 Nov)
+
+- **Shinx** is out of Water and saved for a later deck (art for Luxio and Luxray is in).
+- **Hydro Pump** is Water's finisher.
+- **Partners:** Starmie (Misty), Floatzel (Crasher Wake), Milotic (Wallace).
+- **Magikarp's Splash:** draw 1 card on summon.
