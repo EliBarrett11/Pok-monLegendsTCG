@@ -259,3 +259,50 @@ To play locally: `python3 -m http.server` at the repository root, then open http
     - the cause tags: Bulbasaur and Oddish Growth, Erika training, Nurture;
     - a seeded run fills every new diagnostic.
     - All v2 tests pass. The game in the browser is unchanged.
+
+- **V7c — guards experiment.** These are flags for the tools only. Nothing changes in the game until Elliott decides.
+  - **New flags:**
+    - **LG, lane guards.** A Defence or Special Defence guard only restricts attacks on targets in its own lane. With one Pokémon per space, that leaves only the enemy player: an attack on the player is blocked only by a matching guard in the attacker's own lane (the space across). Every enemy Pokémon can be attacked. Infiltrator still ignores guards.
+    - **FG, Fire guards.** Growlithe → Arcanine has the Defence Strength-Type, with the same numbers. Duskull → Dusclops goes to 2 copies, replacing 1 Mankey; the deck stays legal at 40 cards.
+    - `node v2/tools/variants.js 100 --set=v7c` runs them, each on top of T90 + CH9.
+  - **New diagnostics:** for each deck, the share of its attacks on a target in its own lane and the share on the enemy player.
+  - **Results:** every config is on top of T90 + CH9, with 100 matches per matchup (50 per seat order). Win rates are for the first-named deck:
+
+    | Variant | Fire v Water (Fire) | Fire v Grass (Fire) | Water v Grass (Water) | Avg Rounds | Ends: early / Championship / final |
+    |---|---|---|---|---|---|
+    | T90+CH9 | 38% | 15% | 16% | 9.0 | 41% / 55% / 4% |
+    | T90+CH9+LG | 47% | 15% | 17% | 8.8 | 48% / 48% / 4% |
+    | T90+CH9+LG+F1 | 56% | 35% | 17% | 8.8 | 45% / 52% / 2% |
+    | T90+CH9+LG+N1+GX | 47% | 18% | 18% | 9.0 | 40% / 56% / 4% |
+    | T90+CH9+FG | 33% | 7% | 16% | 9.1 | 38% / 56% / 6% |
+    | T90+CH9+FG+F1 | 39% | 25% | 16% | 9.3 | 34% / 60% / 6% |
+    | T90+CH9+FG+N1+GX | 33% | 15% | 21% | 9.4 | 29% / 65% / 6% |
+    | T90+CH9+LG+FG | 41% | 11% | 17% | 8.8 | 49% / 47% / 5% |
+    | T90+CH9+LG+FG+N1+GX | 41% | 14% | 18% | 9.1 | 40% / 55% / 5% |
+    | T90+CH9+LG+FG+F1+W1+N1+GX | 40% | 40% | 30% | 8.9 | 40% / 57% / 3% |
+
+  - **What the guards showed:**
+    - **Guards aren't Grass's edge.**
+      - With FG, Grass's attacks meet a guard 13% of the time instead of 3%, yet it still makes about 86 attack Recognition a match and Fire falls to 7%.
+      - Fire loses a Mankey (its cheap Overrun damage), and Growlithe's Defence only guards against Physical attacks, while 11 of Grass's 17 Pokémon attack Special.
+      - With LG, guards limit only 16% of Fire's attacks instead of 34%. Fire's attack Recognition against Grass rises from 19.5 to 27.9, but its win rate stays at 15%.
+    - **Grass's real edge is attack volume.** It makes 28–32 attacks a match against 15–19 for Fire and Water. It loses fewer Pokémon (7–9 against 10–11).
+    - **Under LG**, attacks on a target in the attacker's own lane are only 5–11%: targeting stays "anywhere".
+      - Attacks on the enemy player rise for Fire (32% → 45%) and for Water against Grass (42% → 59%).
+      - Water–Grass becomes faster: 7.7 Rounds, 77% early.
+  - **What each lever moved:**
+    - **LG** fixes Fire–Water (38% → 47%) and nothing else.
+    - **LG+F1** gives Fire–Water 56% and Fire–Grass 35%.
+    - **FG** hurts Fire in both its matchups (33%, 7%). With F1 it's 39% and 25%.
+    - **N1+GX** adds 0–6 points for Grass's opponents, as in V7b.
+    - **Water–Grass stays at 16–18%** with every guard lever. Only W1 moves it: LG+FG+F1+W1+N1+GX gives 30%.
+    - **Pacing holds with T90 + CH9:** 8.8–9.4 Rounds and 29–49% early in every config.
+  - **Recommendation:**
+    - **No set puts all three matchups at 45–55%.** The closest are **LG + FG + F1 + W1 + N1 + GX** (40% / 40% / 30%, 8.9 Rounds, 40% early) and the smaller **LG + F1** (56% / 35% / 17%).
+    - **For Fire–Water alone, LG is the smallest fix:** 47% at T90 + CH9.
+    - **For Grass, guards are the wrong lever.** The next thing to look at is why Grass attacks almost twice as often (its Speed and the Alert rule, how many Pokémon it keeps Active, Quick Attack), and Water's lack of answers to it.
+  - **Tests:** `v2/tests/variants.test.js` adds:
+    - LG: a guard across blocks only the player; with no guard across, the player can be attacked too; without LG, any matching guard still restricts the attack;
+    - FG: Growlithe and Arcanine have Defence with the same numbers, the Fire list is still legal with 2 Duskull and 1 Mankey, and the list is unchanged without FG;
+    - the own-lane and player-attack counts.
+    - All v2 tests pass. The game in the browser is unchanged.
