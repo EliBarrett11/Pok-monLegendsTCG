@@ -390,3 +390,59 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #140a04; }
 .v2-ask .v2-rel.favour { border-color: #a37ae0; }
 .v2-ask .v2-rel.on { border-color: #fff0b0; box-shadow: 0 0 14px 4px rgba(255, 230, 140, 0.8); transform: translateY(-4px); }
 .v2-bag i { width: auto; min-width: 0; }
+
+/* --- V5: Trainers ------------------------------------------------------------------------------- */
+/* Rows move in to leave room for the Trainer tabs above the opponent's spaces and below yours. */
+.v2-row.opponent { top: 66px; }
+.v2-row.player { bottom: 66px; }
+.v2-locs, .v2-lanes { top: 58px; bottom: 58px; }
+.v2-board { overflow: visible; }
+.v2-mat { border-radius: 16px; }
+.v2-trainer {
+  position: absolute; z-index: 4; left: 4px; right: 4px; height: 52px; display: grid;
+  grid-template-columns: 38px 1fr auto; grid-template-rows: 22px 22px; column-gap: 5px; align-items: center;
+  padding: 3px 6px; border-radius: 8px; border: 1.5px solid var(--brass); color: var(--cream);
+  background: linear-gradient(rgba(58, 36, 16, 0.97), rgba(30, 17, 8, 0.97)); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
+}
+.v2-trainer.top { top: -60px; }
+.v2-trainer.bottom { bottom: -60px; }
+.v2-portrait { grid-row: 1 / span 2; width: 38px; height: 38px; border-radius: 50%; background: #3a2412 center 20% / cover; border: 1.5px solid var(--brass-mid); }
+.v2-trainer b { font-family: var(--font-display); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v2-tpts { font-size: 12px; font-weight: 800; padding: 0 5px; border-radius: 5px; color: var(--ink); background: linear-gradient(#f6dd9a, #c99a48); }
+.v2-pips { grid-column: 2 / span 2; display: flex; gap: 3px; }
+.v2-pips i { font-style: normal; font-size: 9.5px; font-weight: 800; padding: 0 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.08); color: rgba(240, 220, 180, 0.45); }
+.v2-pips i.lit { background: linear-gradient(#ffcf6a, #e08a2a); color: var(--ink); }
+.v2-trainer.clickable { cursor: pointer; }
+.v2-trainer.clickable:hover { border-color: var(--brass-light); }
+.v2-trainer.ability { box-shadow: 0 0 12px 3px rgba(255, 210, 120, 0.75); }
+.v2-trainer.moved { animation: v2-tab-move 0.9s ease-out; }
+.v2-trainer.unlocked { animation: v2-levelup 1.4s ease-out; }
+.v2-moved { position: absolute; right: -6px; top: -8px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 800; color: var(--ink); background: #8fd0ff; }
+@keyframes v2-tab-move { 0% { transform: translateX(-30px); opacity: 0.3; } 100% { transform: none; opacity: 1; } }
+.v2-space.trainer-target { cursor: pointer; border: 2px solid rgba(255, 214, 130, 0.95); box-shadow: 0 0 14px 4px rgba(255, 200, 110, 0.45); }
+.v2-space.partner-target { cursor: pointer; border: 2px solid #8fe08a; box-shadow: 0 0 16px 5px rgba(140, 230, 130, 0.55); }
+.v2-partner-tag { position: absolute; z-index: 2; left: 50%; bottom: 52px; transform: translateX(-50%); padding: 0 6px; border-radius: 4px; font-size: 11px; font-weight: 800; color: var(--ink); background: linear-gradient(#fff2b0, #f2c75a); }
+/* The Partner summon flourish. */
+.v2-space.partner-arrive .v2-card { animation: v2-partner 1.6s ease-out; }
+@keyframes v2-partner { 0% { transform: translateY(-40px) scale(1.25); opacity: 0; filter: brightness(3); } 40% { opacity: 1; } 100% { transform: none; filter: none; } }
+.v2-flourish.partner { z-index: 5; }
+/* Trainer cards in hand. */
+.v2-trainer-card { border-color: #e0b84a; }
+/* The Trainer dialog and the assign step. */
+.v2-trainer-ask { width: 640px !important; }
+.v2-tiers { list-style: none; margin: 0 0 12px; padding: 0; text-align: left; }
+.v2-tiers li { margin: 4px 0; padding: 4px 8px; border-radius: 6px; font-size: 15px; background: rgba(255, 255, 255, 0.05); color: var(--cream-muted); }
+.v2-tiers li.lit { background: rgba(255, 207, 106, 0.18); color: var(--cream); }
+.v2-tiers b { color: var(--brass-light); }
+.v2-assign-ask { width: 760px !important; }
+.v2-assign-row { display: grid; grid-template-columns: 46px 1fr auto auto auto; gap: 10px; align-items: center; text-align: left; padding: 6px; margin-bottom: 6px; border-radius: 8px; background: rgba(0, 0, 0, 0.25); }
+.v2-assign-row .v2-portrait { width: 44px; height: 44px; }
+.v2-assign-row small { display: block; font-size: 13px; color: var(--cream-muted); }
+.v2-assign-row .v2-pips { display: inline-flex; margin-left: 6px; }
+.v2-assign-row button { padding: 4px 12px !important; font-size: 18px !important; }
+.v2-tp .v2-big small { font-size: 14px; }
+/* The tab: the portrait and name on top, the three tier pips on their own row. */
+.v2-trainer { grid-template-columns: 28px 1fr auto; grid-template-rows: 26px 18px; row-gap: 2px; padding: 2px 5px; }
+.v2-trainer .v2-portrait { grid-row: 1; width: 26px; height: 26px; }
+.v2-trainer .v2-pips { grid-column: 1 / span 3; justify-content: space-between; }
+.v2-trainer .v2-pips i { flex: 1; text-align: center; font-size: 9.5px; padding: 0 2px; }

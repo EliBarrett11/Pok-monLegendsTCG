@@ -16,6 +16,7 @@ import {
   legalTargets, alertSpaces, playable, placeable, locationStarts, locationAt, weatherTotals, championship,
   isAlert, passEndsPhase, passSpends, opponentOf, summonCost, targetOptions, breakpointsFor, playableStrategies,
   playableSupporters, playableItems, usableBagItems, itemUsable, bagFull, favourMet, bracket, trainTop,
+  trainerAt, tiersUnlocked, trainerSpaces, playableTrainers, canMoveTrainer, usableAbilities, freeSpaces, legalActions,
 } from '../engine/game.js';
 import { costRange, BAG_SIZE, FAVOURS } from '../engine/cardtypes.js';
 import { RECOGNITION_TARGET, LANES, ROUND_LIMIT, CHAMPIONSHIP_ROUND } from '../engine/rules.js';
@@ -42,7 +43,8 @@ function pokemonCard(card, opts = {}) {
   const notes = [card.ability?.text, opts.inHand && card.empower && `Empower ${card.empower.text}`].filter(Boolean);
   return `
     <div class="${cls}" ${opts.attrs ?? ''} title="${esc(tip)}">
-      <div class="v2-art" style="background-image: url('${ASSETS}/cards/${card.art ?? card.id}.jpg')"></div>
+      <div class="v2-art" style="background-image: url('${card.art === null ? `${ASSETS}/ui/frame-pokemon.jpg` : `${ASSETS}/cards/${card.art ?? card.id}.jpg`}')"></div>
+      ${card.partner ? `<span class="v2-partner-tag" title="${esc(card.trainer)}'s Partner Pokémon">Partner</span>` : ''}
       <span class="v2-level">Lv ${card.level}${opts.inHand && card.cap > card.level ? `<small>/${card.cap}</small>` : ''}</span>
       <img class="v2-type" src="${ASSETS}/ui/icons/type-${slug(card.type)}.webp" alt="${card.type}">
       ${card.strengthType !== 'Hitpoints' ? `<span class="v2-guard">${card.strengthType === 'Defence' ? 'Def' : 'Sp. Def'}</span>` : ''}
@@ -65,15 +67,40 @@ function statusChips(card) {
   return `<span class="v2-status">${card.burn ? `<i class="burn" title="Burn ${card.burn}: ${card.burn} damage at Supper, then 1 less">🔥 ${card.burn}</i>` : ''}${card.seededBy ? '<i class="seed" title="Leech Seed: 1 damage at Supper, healing the seeder">🌱 Seeded</i>' : ''}</span>`;
 }
 
+// A Trainer tab (V5), above the opponent's space or below yours, as in the mockup: the
+// portrait, name, points toward the top tier ("4/6"), and the three tier pips, lit when
+// unlocked. Your own tab is clickable on your turn (Ability, Move).
+function trainerTab(state, who, t, ui) {
+  const lit = tiersUnlocked(t);
+  const mine = who === 'player' && state.phase === 'battle' && state.turn === 'player' && !ui.locked && !ui.pending;
+  const ability = who === 'player' && usableAbilities(state, 'player').some((x) => x.uid === t.uid);
+  const moved = state.events.some((e) => e.type === 'trainerMoved' && e.uid === t.uid);
+  const unlocked = state.events.some((e) => e.type === 'tierUnlocked' && e.uid === t.uid);
+  const cls = ['v2-trainer', who === 'ai' ? 'top' : 'bottom', mine && 'clickable', ability && mine && 'ability', moved && 'moved', unlocked && 'unlocked'].filter(Boolean).join(' ');
+  const tip = `${t.name} · ${t.points}/${t.tiers[2].cost} Trainer Points\n${t.tiers.map((x, i) => `${i < lit ? '●' : '○'} ${x.cost} · ${x.kind}: ${x.text}`).join('\n')}`;
+  return `<div class="${cls}" data-trainer="${t.uid}" title="${esc(tip)}">
+    <i class="v2-portrait" style="background-image: url('${ASSETS}/cards/${t.art}.jpg')"></i>
+    <b>${t.name}</b><span class="v2-tpts">${t.points}/${t.tiers[2].cost}</span>
+    <span class="v2-pips">${t.tiers.map((x, i) => `<i class="${i < lit ? 'lit' : ''}">${x.kind}</i>`).join('')}</span>
+    ${moved ? '<span class="v2-moved">↔</span>' : ''}
+  </div>`;
+}
+
+const partnerWaitingNow = (state, ui) => state.phase === 'battle' && state.turn === 'player' && !ui.locked && !ui.pending
+  && state.players.player.waiting.length > 0 && legalActions(state, 'player').includes('placePartner');
+
 // A Strategy Card, Supporter or Item (V4): its art, type, name, cost and text.
 function actionCard(card, opts = {}) {
-  const cls = ['v2-card', 'v2-act-card', `v2-${card.cardType.toLowerCase()}`, opts.cls].filter(Boolean).join(' ');
+  const cls = ['v2-card', 'v2-act-card', card.cardType === 'Trainer' ? 'v2-trainer-card' : `v2-${card.cardType.toLowerCase()}`, opts.cls].filter(Boolean).join(' ');
   let cost = '';
   let body = '';
   let label = card.cardType;
   if (card.cardType === 'Strategy') {
     cost = `<span class="v2-cost wide">${costRange(card)}</span>`;
     body = card.breakpoints.map((b) => `<p><b>${b.cost}:</b> ${esc(b.text)}</p>`).join('');
+  } else if (card.cardType === 'Trainer') {
+    cost = `<span class="v2-cost">${card.cost}</span>`;
+    body = card.tiers.map((t) => `<p><b>${t.cost} · ${t.kind}:</b> ${esc(t.text)}</p>`).join('');
   } else if (card.cardType === 'Supporter') {
     cost = `<span class="v2-cost release" title="Release ${card.release} card${card.release === 1 ? '' : 's'} from your hand">⟲${card.release}</span>`;
     body = `<p>${esc(card.text)}</p><p class="favour"><b>Favour</b> (${esc(FAVOURS[card.favour.condition].text)}): ${esc(card.favour.text)}</p>`;
@@ -82,7 +109,7 @@ function actionCard(card, opts = {}) {
     label = `Item · ${card.kind}`;
     body = `<p>${esc(card.text)}</p>`;
   }
-  const tip = `${card.name} · ${label}\n${card.cardType === 'Strategy' ? card.breakpoints.map((b) => `${b.cost}: ${b.text}`).join('\n') : card.text}${card.favour ? `\nRelease ${card.release}. Favour (${FAVOURS[card.favour.condition].text}): ${card.favour.text}` : ''}`;
+  const tip = `${card.name} · ${label}\n${card.cardType === 'Strategy' ? card.breakpoints.map((b) => `${b.cost}: ${b.text}`).join('\n') : card.cardType === 'Trainer' ? card.tiers.map((t) => `${t.cost} · ${t.kind}: ${t.text}`).join('\n') : card.text}${card.favour ? `\nRelease ${card.release}. Favour (${FAVOURS[card.favour.condition].text}): ${card.favour.text}` : ''}`;
   return `
     <div class="${cls}" ${opts.attrs ?? ''} title="${esc(tip)}">
       <div class="v2-art" style="background-image: url('${artUrl(card)}')"></div>
@@ -150,7 +177,12 @@ function row(state, who, ui, targets) {
     const trained = card && state.events.find((e) => e.type === 'trained' && e.who === who && e.space === space);
     const cardCls = [canAct && !ui.pending && 'selectable', trained && 'levelup', card?.asleep && 'asleep', card?.burn && 'burning', card?.seededBy && 'seeded'].filter(Boolean).join(' ');
     const face = card ? pokemonCard(card, { alert, cls: cardCls, badge: trained ? `Level ${trained.to}${trained.name !== trained.fromName ? ` · ${trained.name}!` : ''}` : '' }) : '';
-    return `<div class="${cls}" data-who="${who}" data-space="${space}"${loc ? ` style="--loc: ${loc.color}"` : ''}>${face}</div>`;
+    const trainer = trainerAt(state, who, space);
+    const placeHere = mine && ((ui.trainer || ui.moveTrainer) && !trainer);
+    const partnerHere = mine && !card && partnerWaitingNow(state, ui);
+    const arrived = card && state.events.find((e) => e.type === 'partnerArrived' && e.who === who && e.space === space);
+    const extra = [placeHere && 'trainer-target', partnerHere && 'partner-target', arrived && 'partner-arrive'].filter(Boolean).join(' ');
+    return `<div class="${cls}${extra ? ` ${extra}` : ''}" data-who="${who}" data-space="${space}"${loc ? ` style="--loc: ${loc.color}"` : ''}>${face}${arrived ? '<span class="v2-flourish partner">Partner!</span>' : ''}${trainer ? trainerTab(state, who, trainer, ui) : ''}</div>`;
   }).join('');
   return `<div class="v2-row ${who === 'ai' ? 'opponent' : 'player'}">${spaces}</div>`;
 }
@@ -166,8 +198,13 @@ function sidePanel(state, ui, ctx) {
   } else if (state.phase === 'gameOver') {
     hint = resultLine(state);
     button = '<button data-action="new">New match</button>';
+  } else if (state.phase === 'assign') {
+    hint = legalActions(state, 'player').length ? 'Breakfast: assign your Trainer Points.' : 'Waiting for the Opponent to assign theirs…';
   } else if (myTurn) {
     hint = ui.pending ? pendingHint(state, ui)
+      : partnerWaitingNow(state, ui) ? `${me.waiting[0].trainer}'s Partner ${me.waiting[0].name} is waiting: click a free space of yours (glowing green) for it.`
+      : ui.trainer ? 'Click one of your spaces (glowing) to attach the Trainer above or below it; a Pokémon may stand there too.'
+      : ui.moveTrainer ? 'Click one of your spaces without a Trainer to move it there (once per Round).'
       : ui.summon ? 'Click an empty space in your row to summon it, or the card again to cancel.'
       : ui.location ? 'Click a glowing lane in the middle of the board: the Location covers it and the lanes to its right, on both sides.'
       : ui.attacker !== null ? 'Click a glowing target: an enemy Pokémon, or the Opponent (their Recognition panel).'
@@ -187,6 +224,7 @@ function sidePanel(state, ui, ctx) {
       <section class="v2-panel"><div class="v2-label">Energy</div>
         <b class="v2-big">${me.energy} <small>/ ${me.roundEnergy}${me.stored ? ` · +${me.stored} stored` : ''}${me.bonus ? ` · +${me.bonus} milestone` : ''}</small></b>
         ${me.bonusNext ? `<p class="v2-note">+${me.bonusNext} next Round</p>` : ''}</section>
+      ${trainerPointsPanel(state)}
       ${bagPanel(state, ui)}
       <section class="v2-panel"><div class="v2-label">Weather</div>${weatherPanel(state)}</section>
       <section class="v2-panel v2-act"><p class="v2-hint">${hint}</p>${button}</section>
@@ -221,6 +259,15 @@ const WEATHER_BRACKETS = [
   { kind: 'Rain', at: 8, text: 'Downpour: Burn washed away at Supper' },
 ];
 
+// Trainer Points (V5): the pool, assigned at Breakfast; and whether the Round's move is used.
+function trainerPointsPanel(state) {
+  const me = state.players.player;
+  const them = state.players.ai;
+  return `<section class="v2-panel v2-tp"><div class="v2-label">Trainer Points</div>
+    <b class="v2-big">★ ${me.trainerPoints} <small>to assign at Breakfast</small></b>
+    <p class="v2-note">${me.trainers.length ? `${me.trainers.length} Trainer${me.trainers.length === 1 ? '' : 's'} in play · move ${me.movedTrainer ? 'used this Round' : 'available'}` : 'No Trainers in play yet'}${them.trainerPoints || them.trainers.length ? ` · Opponent ★ ${them.trainerPoints}` : ''}</p></section>`;
+}
+
 // The Bag (V4): 6 spaces, in the side panel as in the mockup. On your turn, an Item
 // you can use now glows; click it to use it (a Battle Action, cost 0).
 function bagPanel(state, ui) {
@@ -254,17 +301,17 @@ function hand(state, ui) {
   const cards = state.players.player.hand;
   const mine = state.phase === 'battle' && state.turn === 'player' && !ui.locked;
   const can = new Set(mine && !ui.pending ? [...playable(state, 'player'), ...placeable(state, 'player'), ...playableStrategies(state, 'player'),
-    ...playableSupporters(state, 'player'), ...playableItems(state, 'player')].map((c) => c.uid) : []);
+    ...playableSupporters(state, 'player'), ...playableItems(state, 'player'), ...playableTrainers(state, 'player')].map((c) => c.uid) : []);
   const n = cards.length;
   return `<div class="v2-hand">${cards.map((c, i) => {
-    const picked = ui.summon === c.uid || ui.location === c.uid;
+    const picked = ui.summon === c.uid || ui.location === c.uid || ui.trainer === c.uid;
     const angle = (i - (n - 1) / 2) * 4;
     const lift = Math.abs(i - (n - 1) / 2) * 6 - (picked ? 34 : 0);
     const cls = [can.has(c.uid) ? 'playable' : 'unaffordable', picked && 'picked'].filter(Boolean).join(' ');
     const attrs = `data-uid="${c.uid}" data-kind="${c.cardType.toLowerCase().replace('é', 'e')}"`;
     const up = state.events.find((e) => e.type === 'levelUp' && e.uid === c.uid);
     const face = c.cardType === 'Location' ? locationCard(c, { cls, attrs })
-      : ['Strategy', 'Supporter', 'Item'].includes(c.cardType) ? actionCard(c, { cls, attrs })
+      : ['Strategy', 'Supporter', 'Item', 'Trainer'].includes(c.cardType) ? actionCard(c, { cls, attrs })
       : pokemonCard(c, { cls: [cls, up && 'levelup'].filter(Boolean).join(' '), showCost: true, inHand: true, attrs, badge: up ? `Evolved: ${up.to}!` : '' });
     return `<div class="v2-hand-slot" style="transform: translateY(${lift}px) rotate(${angle}deg)">${face}</div>`;
   }).join('')}</div>`;
@@ -399,6 +446,53 @@ function itemBox(state, ui) {
   </div></div>`;
 }
 
+// Your Trainer (clicked): its tiers, and its Ability and the Round's move.
+function trainerBox(state, ui) {
+  const a = ui.ask;
+  const t = a?.kind === 'trainer' && state.players.player.trainers.find((x) => x.uid === a.uid);
+  if (!t) return '';
+  const lit = tiersUnlocked(t);
+  const ab = t.tiers[1].ability;
+  const canAbility = usableAbilities(state, 'player').some((x) => x.uid === t.uid);
+  const why = lit < 2 ? `unlocks at ${t.tiers[1].cost} points` : t.abilityRound === state.round ? 'used this Round' : `${ab.cost} Energy`;
+  return `<div class="v2-ask" role="dialog" aria-label="${esc(t.name)}"><div class="v2-panel v2-trainer-ask">
+    <p><b>${t.name}</b> · ${t.points}/${t.tiers[2].cost} Trainer Points · space ${t.space + 1}</p>
+    <ul class="v2-tiers">${t.tiers.map((x, i) => `<li class="${i < lit ? 'lit' : ''}"><b>${x.cost} · ${x.kind}</b> ${esc(x.text)}</li>`).join('')}</ul>
+    <div class="v2-ask-buttons">
+      <button data-action="trainer-ability"${canAbility ? '' : ' disabled'}>Ability<small>${why}</small></button>
+      <button data-action="trainer-move"${canMoveTrainer(state, 'player') ? '' : ' disabled'}>Move<small>${state.players.player.movedTrainer ? 'used this Round' : 'once per Round'}</small></button>
+    </div>
+    <button data-action="ask-cancel" class="v2-ask-cancel">Close</button>
+  </div></div>`;
+}
+
+// The Breakfast assign step: give your Trainer Points to your Trainers, then lock in.
+// The Opponent chooses at the same time; neither sees the other's until both lock in.
+function assignBox(state, ui) {
+  if (state.phase !== 'assign' || !legalActions(state, 'player').includes('assignPoints')) return '';
+  const p = state.players.player;
+  const draft = ui.assignDraft ?? {};
+  const used = Object.values(draft).reduce((a, b) => a + b, 0);
+  const rows = p.trainers.map((t) => {
+    const add = draft[t.uid] ?? 0;
+    const total = t.points + add;
+    const next = t.tiers.find((x) => x.cost > total);
+    return `<div class="v2-assign-row">
+      <i class="v2-portrait" style="background-image: url('${ASSETS}/cards/${t.art}.jpg')"></i>
+      <div><b>${t.name}</b> <span class="v2-tpts">${total}/${t.tiers[2].cost}</span>
+        <span class="v2-pips">${t.tiers.map((x) => `<i class="${total >= x.cost ? 'lit' : ''}">${x.kind}</i>`).join('')}</span>
+        <small>${next ? `next: ${next.kind} at ${next.cost} (${next.text})` : 'every tier unlocked'}</small></div>
+      <button data-assign="${t.uid}" data-step="-1"${add ? '' : ' disabled'}>−</button><span class="v2-count">+${add}</span>
+      <button data-assign="${t.uid}" data-step="1"${used < p.trainerPoints && total < t.tiers[2].cost ? '' : ' disabled'}>+</button>
+    </div>`;
+  }).join('');
+  return `<div class="v2-ask" role="dialog" aria-label="Assign Trainer Points"><div class="v2-panel v2-assign-ask">
+    <p><b>Breakfast · Trainer Points</b>: ${p.trainerPoints - used} of ${p.trainerPoints} left to assign. Points stay on the Trainer; the Opponent assigns theirs at the same time, hidden until you both lock in.</p>
+    ${rows}
+    <div class="v2-ask-buttons"><button data-action="assign-lock">Lock in</button></div>
+  </div></div>`;
+}
+
 function gameOver(state) {
   if (state.phase !== 'gameOver') return '';
   const title = state.winner === 'player' ? 'Victory' : state.winner === 'ai' ? 'Defeat' : 'Draw';
@@ -419,7 +513,6 @@ export function renderMatch(root, state, ui, ctx) {
       ${recognitionPanel(state, 'player', false, ui)}
       <section class="v2-board">
         <div class="v2-mat"></div>
-        ${strip(state)}
         ${locationLayer(state, ui)}
         ${row(state, 'ai', ui, targets)}
         ${row(state, 'player', ui, targets)}
@@ -431,6 +524,8 @@ export function renderMatch(root, state, ui, ctx) {
       ${costBox(state, ui)}
       ${releaseBox(state, ui)}
       ${itemBox(state, ui)}
+      ${trainerBox(state, ui)}
+      ${assignBox(state, ui)}
       ${gameOver(state)}
     </div>`;
   wire(root, state, ui, ctx);
@@ -442,6 +537,18 @@ function wire(root, state, ui, ctx) {
   on('[data-action="pass"]', () => ctx.act({ type: 'pass', who: 'player' }));
   on('[data-action="new"]', () => ctx.newMatch());
   on('[data-action="deck"]', () => ctx.openDeck());
+  // The assign step (simultaneous: not your turn, the Breakfast).
+  on('[data-assign]', (el) => {
+    ui.assignDraft ??= {};
+    const uid = el.dataset.assign;
+    ui.assignDraft[uid] = Math.max(0, (ui.assignDraft[uid] ?? 0) + Number(el.dataset.step));
+    ctx.redraw();
+  });
+  on('[data-action="assign-lock"]', () => {
+    const points = Object.fromEntries(Object.entries(ui.assignDraft ?? {}).filter(([, n]) => n > 0));
+    ui.assignDraft = null;
+    ctx.act({ type: 'assignPoints', who: 'player', points });
+  });
   if (!(state.phase === 'battle' && state.turn === 'player') || ui.locked) return;
   const hand = state.players.player.hand;
   // Start an action that may need targets: none (or 'all') acts at once; else choose.
@@ -468,6 +575,7 @@ function wire(root, state, ui, ctx) {
     if (kind === 'strategy') { ui.summon = null; ui.location = null; ui.ask = { kind: 'cost', uid: card.uid }; return ctx.redraw(); }
     if (kind === 'supporter') { ui.summon = null; ui.location = null; ui.ask = { kind: 'release', uid: card.uid, chosen: [] }; return ctx.redraw(); }
     if (kind === 'item') { ui.summon = null; ui.location = null; ui.ask = { kind: 'item', uid: card.uid }; return ctx.redraw(); }
+    if (kind === 'trainer') { ui.summon = null; ui.location = null; ui.moveTrainer = null; ui.trainer = ui.trainer === card.uid ? null : card.uid; return ctx.redraw(); }
     const key = el.dataset.kind === 'location' ? 'location' : 'summon';
     const other = key === 'location' ? 'summon' : 'location';
     ui[other] = null;
@@ -521,6 +629,19 @@ function wire(root, state, ui, ctx) {
     begin({ type: 'useItem', who: 'player', uid: card.uid }, card.target, `${card.name}: ${card.text}`);
   });
   on('[data-action="ask-cancel"]', () => { ui.ask = null; ctx.redraw(); });
+  // Trainers: attach one from hand; open your Trainer (Ability, Move); a waiting Partner.
+  on('.v2-row.player .v2-space.trainer-target', (el) => {
+    const space = Number(el.dataset.space);
+    if (ui.trainer) return ctx.act({ type: 'playTrainer', who: 'player', uid: ui.trainer, space });
+    return ctx.act({ type: 'moveTrainer', who: 'player', uid: ui.moveTrainer, space });
+  });
+  on('.v2-trainer.clickable', (el) => { ui.summon = null; ui.location = null; ui.trainer = null; ui.ask = { kind: 'trainer', uid: el.dataset.trainer }; ctx.redraw(); });
+  on('[data-action="trainer-ability"]', () => {
+    const t = state.players.player.trainers.find((x) => x.uid === ui.ask.uid);
+    begin({ type: 'useAbility', who: 'player', uid: t.uid }, t.tiers[1].ability.target, `${t.name}: ${t.tiers[1].text}`);
+  });
+  on('[data-action="trainer-move"]', () => { ui.moveTrainer = ui.ask.uid; ui.ask = null; ctx.redraw(); });
+  on('.v2-row.player .v2-space.partner-target', (el) => ctx.act({ type: 'placePartner', who: 'player', uid: state.players.player.waiting[0].uid, space: Number(el.dataset.space) }));
   // Choosing targets: one target acts at once; for more, toggle, then Confirm.
   const pickTarget = (ref) => {
     const pend = ui.pending;
@@ -540,6 +661,8 @@ function wire(root, state, ui, ctx) {
     const space = Number(el.closest('.v2-space').dataset.space);
     ui.summon = null;
     ui.location = null;
+    ui.trainer = null;
+    ui.moveTrainer = null;
     ui.attacker = ui.attacker === space ? null : space;
     ctx.redraw();
   });

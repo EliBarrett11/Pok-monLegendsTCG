@@ -39,7 +39,7 @@ export const TEST_LOCATIONS = [
     [{ at: 2, reward: { energy: 1 } }], { recognition: 3, trainerPoints: 2 }),
   location('eterna-forest', 'Eterna Forest', 3, 4, { Rain: 1, Sun: 1 }, '#5ec45a',
     { kind: 'attack', count: 5, text: 'Attack 5 times from this Location' },
-    [{ at: 2, reward: { item: 1 } }, { at: 4, reward: { recognition: 1 } }], { recognition: 4 }),
+    [{ at: 2, reward: { item: 1 } }, { at: 4, reward: { recognition: 1, trainerPoints: 1 } }], { recognition: 4, trainerPoints: 2 }),
   location('mt-ember', 'Mt. Ember', 1, 3, { Sun: 2 }, '#f08a3a',
     { kind: 'damage', count: 10, text: 'Deal 10 damage to the enemy player from this Location' },
     [{ at: 5, reward: { draw: 1, trainerPoints: 1 } }], { recognition: 3, trainerPoints: 2 }),
@@ -48,7 +48,7 @@ export const TEST_LOCATIONS = [
     [{ at: 2, reward: { energy: 1, trainerPoints: 1 } }], { recognition: 4 }),
   location('stark-mountain', 'Stark Mountain', 2, 4, { Sun: 3 }, '#c8603a',
     { kind: 'defeat', count: 3, text: 'Defeat 3 enemy Pokémon from this Location' },
-    [{ at: 2, reward: { draw: 1 } }], { recognition: 3, item: 1 }),
+    [{ at: 2, reward: { draw: 1, trainerPoints: 1 } }], { recognition: 3, item: 1, trainerPoints: 1 }),
 ];
 
 // The Championship (7a): arrives at the start of Round 10, covers every lane and
