@@ -1,11 +1,12 @@
-// Pokémon Legends v2 — entry point (V1: the core, against the AI).
+// Pokémon Legends v2 — entry point (V1 core + V2 Locations and the Championship, against the AI).
 // ?seed=123 replays the same shuffle and coin flip; ?autoplay lets the AI play
 // both sides (for watching and testing).
 import { createGame, applyAction } from './engine/game.js';
 import { chooseAction } from './ai/opponent.js';
 import { renderMatch } from './ui/board.js';
+import { toastsFor, showToasts } from './ui/toasts.js';
 
-export const BUILD = 'V1 — v2 core';
+export const BUILD = 'V2 — Locations and the Championship';
 
 const STAGE = { width: 1920, height: 1080 };
 const stage = document.getElementById('stage');
@@ -21,12 +22,21 @@ fitStage();
 const params = new URLSearchParams(location.search);
 const autoplay = params.has('autoplay');
 const root = document.getElementById('app');
+const toastLayer = document.createElement('div');
+toastLayer.className = 'v2-toasts';
+stage.appendChild(toastLayer);
 const wait = (ms) => new Promise((r) => { setTimeout(r, ms); });
 const PAUSE = autoplay ? 250 : 650;   // a short pause before each AI action, so it can be followed
 
 let state = null;
 let match = 0;   // bumped by New match, so an old match's AI loop stops
-const ui = { summon: null, attacker: null, locked: false };
+const ui = { summon: null, location: null, attacker: null, locked: false };
+
+// Apply an action and show the moments it brings (milestones, completions…).
+function apply(action) {
+  state = applyAction(state, action);
+  showToasts(toastLayer, toastsFor(state, state.events));
+}
 
 function redraw() {
   renderMatch(root, state, ui, { build: BUILD, autoplay, act, newMatch, redraw });
@@ -35,12 +45,13 @@ function redraw() {
 // An action from the screen (or the AI). Errors from the engine are shown, not thrown.
 async function act(action) {
   try {
-    state = applyAction(state, action);
+    apply(action);
   } catch (err) {
     alert(err.message);
     return;
   }
   ui.summon = null;
+  ui.location = null;
   ui.attacker = null;
   redraw();
   await aiTurn(match);
@@ -57,7 +68,7 @@ async function aiTurn(id) {
     if (id !== match) return;
     const action = chooseAction(state, who);
     if (!action) break;
-    state = applyAction(state, action);
+    apply(action);
     redraw();
   }
   if (id !== match) return;
@@ -70,6 +81,7 @@ function newMatch() {
   const seed = (match === 1 && Number(params.get('seed'))) || Date.now();
   state = createGame(seed);
   ui.summon = null;
+  ui.location = null;
   ui.attacker = null;
   ui.locked = false;
   redraw();
