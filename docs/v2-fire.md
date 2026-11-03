@@ -89,9 +89,7 @@ X Attack moves to the **shared Item pool** (found at Locations).
 
 **Have:** growlithe, arcanine, ponyta, rapidash, mankey, primeape, houndour, houndoom, magby, magmar, magmortar, sneasel, weavile, charmander, duskull, dusclops, absol, ember, flame-charge, heat-wave, fire-blast, hypervoice, firebreather, chili, burglar, blaine, flannery, kabu, mt-ember, cinnabar-volcano, stark-mountain, charcoal, black-belt, choice-band, quick-claw.
 
-**Delivered (3 Nov):** charmeleon, charizard, entei, torkoal, centiskorch.
-
-**Still needed (1):** ninetales (Blaine's Partner).
+**Delivered (3 Nov):** charmeleon, charizard, entei, torkoal, centiskorch, ninetales. **The Fire deck's art is complete.**
 
 **Retired from Fire:** Blaziken (it isn't a Legendary; its art stays for a future Fighting deck).
 
