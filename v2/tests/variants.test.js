@@ -3,7 +3,7 @@
 // without them, and Growth and training events name their source.
 // Run with: node v2/tests/variants.test.js
 import assert from 'node:assert/strict';
-import { createGame, applyAction, nurtureSpaces, nurtureCost, champRoundOf, targetOf, legalTargets, PLAYERS } from '../src/engine/game.js';
+import { createGame, applyAction, nurtureSpaces, nurtureCost, champRoundOf, targetOf, legalTargets, summonCost, playable, targetOptions, PLAYERS } from '../src/engine/game.js';
 import { cardDef, DECKS, POOL_ITEMS } from '../src/engine/cards.js';
 import { pokemonAt, seriesDef } from '../src/engine/series.js';
 import { VARIANTS, variantOf, sourceName, runMatchup, deckList } from '../tools/roundrobin.js';
@@ -73,11 +73,56 @@ const passBoth = (s) => applyAction(applyAction(s, { type: 'pass', who: 'player'
   }
 }
 
+// C1 (V7d): no Pokémon costs less than 1; without it, light Pokémon can be free.
+{
+  const oddish = { ...pokemonAt('g-oddish', 1), cap: 6, uid: 'player-c1' };
+  assert.equal(oddish.cost, 0, 'Oddish L1 is free as written');
+  const c1 = battle(1, variantOf(['C1']));
+  const plain = battle(1);
+  assert.deepEqual([summonCost(oddish, false, c1, 'player', 0), summonCost(oddish, false, plain, 'player', 0)], [1, 0]);
+  for (const s of [c1, plain]) { s.players.player.energy = 0; s.players.player.hand = [oddish]; }
+  assert.deepEqual([playable(c1, 'player').length, playable(plain, 'player').length], [0, 1], 'C1: not playable with 0 Energy');
+  assert.throws(() => applyAction(c1, { type: 'summon', who: 'player', uid: 'player-c1', space: 0 }));
+}
+
+// GS (V7d): Grass-deck Pokémon −1 Strength at every Level; other decks unchanged.
+{
+  for (const [series, who, minus] of [['g-bulbasaur', 'player', 1], ['f-growlithe', 'ai', 0]]) {
+    const s = battle(4, variantOf(['GS']));
+    s.turn = who;
+    s.players[who].hand.push({ ...pokemonAt(series, 4), cap: 6, uid: `${who}-gs` });
+    const t = applyAction(s, { type: 'summon', who, uid: `${who}-gs`, space: 0 });
+    assert.equal(t.players[who].row[0].strength, pokemonAt(series, 4).strength - minus, series);
+  }
+}
+
+// SL (V7d): Sleep Powder costs 3; Gloom's On Evolve Sleep reaches only a lower Level.
+{
+  const powderOf = (variant) => createGame(5, { decks: { player: DECKS.grass.list, ai: DECKS.fire.list }, variant })
+    .players.player.drawPile.find((c) => c.id === 'g-sleep-powder').breakpoints.map((b) => b.cost);
+  assert.deepEqual([powderOf(variantOf(['SL'])), powderOf(null)], [[3], [2]]);
+  for (const [variant, slept] of [[variantOf(['SL']), [false, true]], [null, [true, true]]]) {
+    let t = battle(2, variant);
+    place(t, 'player', 0, 'g-oddish', 2);   // Nurtured to Gloom, Level 3
+    place(t, 'ai', 0, 'f-growlithe', 4);    // Level 4: not lower than Gloom's 3
+    t.players.player.growth = 2;
+    t = applyAction(t, { type: 'nurture', who: 'player', space: 0 });
+    if (t.choices.length) t = applyAction(t, { type: 'chooseTarget', who: 'player', targets: [{ who: 'ai', kind: 'pokemon', space: 0 }] });
+    const first = !!t.players.ai.row[0].asleep;
+    let u = battle(2, variant);
+    place(u, 'player', 0, 'g-oddish', 2);
+    place(u, 'ai', 0, 'f-growlithe', 2);    // Level 2: lower
+    u.players.player.growth = 2;
+    u = applyAction(u, { type: 'nurture', who: 'player', space: 0 });
+    assert.deepEqual([first, !!u.players.ai.row[0].asleep], slept, variant ? 'SL: only a lower Level' : 'default: any Level');
+  }
+}
+
 // The flags parse; unknown flags are refused.
 assert.deepEqual(variantOf(['T90', 'N3', 'GX']), { target: 90, nurtureCost: 3, growthBulbasaurOnly: true });
 assert.throws(() => variantOf(['N9']), /No variant N9/);
 assert.equal(variantOf([]), null);
-for (const f of ['N3', 'N1', 'NR', 'GX', 'ER', 'CH9', 'F1', 'LG', 'FG']) assert.ok(VARIANTS[f], `${f} exists`);
+for (const f of ['N3', 'N1', 'NR', 'GX', 'ER', 'CH9', 'F1', 'LG', 'FG', 'C1', 'GS', 'SL']) assert.ok(VARIANTS[f], `${f} exists`);
 assert.ok(SETS.v7b.every((c) => c[0] === 'T90') && SETS.v7b.length === 11, 'V7b: 11 configs, each on top of T90');
 
 // T90 and CH9.

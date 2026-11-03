@@ -40,6 +40,9 @@ import { OBJECTIVES, CHAMPIONSHIP, rewardText } from './locations.js';
 
 export const PLAYERS = ['player', 'ai'];
 // The Recognition target and the Championship's Round (a variant may change them).
+// SL experiment flag (V7d): Sleep Powder costs 3.
+const variantCard = (variant, c) => (variant?.sleepLimit && c.id === 'g-sleep-powder'
+  ? { ...c, breakpoints: c.breakpoints.map((b) => ({ ...b, cost: Math.max(3, b.cost) })) } : c);
 export const targetOf = (s) => s.variant?.target ?? RECOGNITION_TARGET;
 export const champRoundOf = (s) => s.variant?.champRound ?? CHAMPIONSHIP_ROUND;
 export const NAMES = { player: 'You', ai: 'Opponent' };
@@ -60,7 +63,7 @@ export function createGame(seed = Date.now(), { decks = { player: TEST_DECK, ai:
   for (const who of PLAYERS) {
     state.players[who] = {
       name: NAMES[who],
-      drawPile: shuffle(state, buildDeck(who, decks[who])),
+      drawPile: shuffle(state, buildDeck(who, decks[who]).map((c) => variantCard(variant, c))),
       hand: [], discard: [], released: [],
       row: Array(LANES).fill(null),
       energy: 0, roundEnergy: 0, stored: 0, bonusNext: 0, bonus: 0, recognition: 0,
@@ -145,7 +148,9 @@ export function train(s, who, space, n) {
 // FG experiment flag (V7c): the Growlithe → Arcanine line has the Defence Strength-Type.
 const fireGuard = (s, card) => { if (s.variant?.fireGuards && card.series === 'f-growlithe') card.strengthType = 'Defence'; };
 const waterBonus = (s, card) => (s.variant?.waterStrength && card.type === 'Water' ? s.variant.waterStrength : 0)
-  + (s.variant?.fireStrength && card.type === 'Fire' ? s.variant.fireStrength : 0);
+  + (s.variant?.fireStrength && card.type === 'Fire' ? s.variant.fireStrength : 0)
+  // GS experiment flag (V7d): Grass-deck Pokémon −1 Strength at every Level.
+  + (s.variant?.grassStrength && card.deck === 'grass' ? s.variant.grassStrength : 0);
 
 // The Empowered summon's bonus, on the card.
 function applyEmpower(card) {
@@ -161,7 +166,8 @@ function applyEmpower(card) {
 export function summonCost(card, empowered, state, who, space) {
   const extra = empowered && card.empower ? card.empower.cost : 0;
   const less = state && who && space !== undefined && wallaceDiscount(state, who, space) ? 1 : 0;
-  return Math.max(0, card.cost - less) + extra;
+  // C1 experiment flag (V7d): no Pokémon costs less than 1.
+  return Math.max(state?.variant?.minCost ?? 0, card.cost - less) + extra;
 }
 const wallaceDiscount = (state, who, space) => state.players[who].wallaceRound !== state.round && passiveSum(state, who, 'laneDiscount', space) > 0;
 
@@ -217,7 +223,7 @@ export function playable(state, who) {
   const p = state.players[who];
   if (!p.row.includes(null)) return [];
   const discount = Array.from({ length: LANES }, (_, i) => i).some((i) => !p.row[i] && wallaceDiscount(state, who, i)) ? 1 : 0;
-  return p.hand.filter((c) => c.cardType === 'Pokémon' && c.cost - discount <= p.energy);
+  return p.hand.filter((c) => c.cardType === 'Pokémon' && Math.max(state.variant?.minCost ?? 0, c.cost - discount) <= p.energy);
 }
 
 // Whether a Pass now ends the Battle Phase (the second Pass in a row): it gains nothing.
@@ -315,6 +321,7 @@ export function targetOptions(state, who, spec, ctx = {}) {
       if (spec.filter === 'damaged' && card.currentStrength >= card.strength) continue;
       if (spec.filter === 'spent' && (!card.spent || card.asleep)) continue;
       if (spec.filter === 'unseeded' && card.seededBy) continue;
+      if (spec.belowLevel !== undefined && card.level >= spec.belowLevel) continue;
       // Agility: never chosen as a target by a Strategy Card ("every" effects still reach it).
       if (spec.strategy && spec.count !== 'all' && hasKeyword(card, 'Agility')) continue;
       out.push({ who: side, kind: 'pokemon', space });
@@ -1480,7 +1487,11 @@ function fireTrigger(s, who, space, name, ctx = {}, targets) {
   if (!eff || over(s)) return;
   // GX experiment flag (V7b): only the Bulbasaur line makes Growth at Breakfast.
   if (s.variant?.growthBulbasaurOnly && name === 'onBreakfast' && ['g-oddish', 'g-sunkern'].includes(card.series)) return;
-  withCause(`ability:${card.series ?? card.name}`, () => fireTriggerNow(s, who, space, name, ctx, targets, card, eff));
+  // SL experiment flag (V7d): Gloom, Bellossom and Butterfree's On Evolve Sleep only
+  // reaches a Pokémon of a lower Level than themselves.
+  const sl = s.variant?.sleepLimit && name === 'onEvolve' && ['g-oddish', 'g-caterpie'].includes(card.series) && eff.ops.some((o) => o.op === 'sleep');
+  const used = sl ? { ...eff, target: { ...eff.target, belowLevel: card.level } } : eff;
+  withCause(`ability:${card.series ?? card.name}`, () => fireTriggerNow(s, who, space, name, ctx, targets, card, used));
 }
 function fireTriggerNow(s, who, space, name, ctx, targets, card, eff) {
   if (eff.oncePerRound) {

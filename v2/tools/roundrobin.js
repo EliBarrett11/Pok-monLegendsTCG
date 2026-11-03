@@ -19,6 +19,10 @@
 //             LG         lane guards: a guard only restricts attacks in its own lane (so the enemy
 //                        player is guarded only by a matching guard across from the attacker)
 //             FG         Fire guards: Growlithe → Arcanine has Defence; Duskull 2 copies (for 1 Mankey)
+//             C1         no Pokémon costs less than 1 (light weight can't make it free)
+//             GS         Grass-deck Pokémon −1 Strength at every Level
+//             SL         Sleep Powder costs 3; Gloom / Bellossom / Butterfree's On Evolve Sleep
+//                        only reaches a Pokémon of a lower Level than themselves
 //             ER         Erika's Passive is "your Pokémon in her lane gain +1 Strength" (no training)
 // --json      one JSON line with the results (for v2/tools/variants.js)
 //
@@ -37,6 +41,7 @@ import { chooseAction } from '../src/ai/opponent.js';
 export const VARIANTS = {
   T75: { target: 75 }, T90: { target: 90 }, 'L+': { locMult: 1.5 }, CH8: { champRound: 8 },
   W1: { waterStrength: 1 }, W2: { waterLocations: true }, CH9: { champRound: 9 }, F1: { fireStrength: 1 }, LG: { laneGuards: true }, FG: { fireGuards: true },
+  C1: { minCost: 1 }, GS: { grassStrength: -1 }, SL: { sleepLimit: true },
   N3: { nurtureCost: 3 }, N1: { nurtureOnce: true }, NR: { nurtureRoundCap: true }, GX: { growthBulbasaurOnly: true }, ER: { erikaStrength: true },
 };
 export const variantOf = (flags = []) => (flags.length ? Object.assign({}, ...flags.map((f) => {
@@ -56,7 +61,8 @@ export function deckList(name, variant) {
 const SOURCES = ['attack', 'overrun', 'effect', 'location', 'championship', 'other'];
 const blank = () => ({ wins: 0, recognition: Object.fromEntries(SOURCES.map((k) => [k, 0])), burnRemoved: 0, lossRemoved: 0,
   attacks: 0, guarded: 0, defeated: 0, levels: 0, played: 0,
-  growth: {}, nurtures: 0, training: {}, board: {}, guardsMet: 0, guardsAsleep: 0, ownLane: 0, atPlayer: 0 });
+  growth: {}, nurtures: 0, training: {}, board: {}, guardsMet: 0, guardsAsleep: 0, ownLane: 0, atPlayer: 0,
+  free: 0, passes: 0, atSpent: 0, atAsleep: 0, monRounds: 0, suppers: 0 });
 const add = (o, k, n) => { o[k] = (o[k] ?? 0) + n; };
 // A readable source for a Growth or training cause ('ability:g-oddish' → 'Oddish line').
 const LINE_NAMES = { 'g-eevee': 'Leafeon (Eevee line)', 'g-celebi': 'Celebi' };
@@ -92,7 +98,11 @@ export function runMatchup(a, b, n, variant = null, seed0 = 1000) {
         const d = r.deck[deckOf(who)];
         d.attacks += 1;
         if (action.target?.kind === 'player') d.atPlayer += 1;
-        else if (action.target?.space === action.from) d.ownLane += 1;
+        else {
+          if (action.target?.space === action.from) d.ownLane += 1;
+          const t = s.players[who === 'player' ? 'ai' : 'player'].row[action.target.space];
+          if (t?.spent) { d.atSpent += 1; if (t.asleep) d.atAsleep += 1; }
+        }
         const options = legalTargets(s, who, action.from);
         if (!options.some((t) => t.kind === 'player')) {
           d.guarded += 1;
@@ -104,12 +114,15 @@ export function runMatchup(a, b, n, variant = null, seed0 = 1000) {
           }
         }
       }
+      if (action.type === 'pass') r.deck[deckOf(who)].passes += 1;
       const prev = s;
       s = applyAction(s, action);
       // Supper: the board as it stood (the action that ends a Round changes nothing on it).
       if (s.events.some((e) => e.type === 'phaseChanged' && e.phase === 'supper')) {
         for (const w of ['player', 'ai']) {
           const mons = prev.players[w].row.filter(Boolean);
+          r.deck[deckOf(w)].suppers += 1;
+          r.deck[deckOf(w)].monRounds += mons.length;
           if (!mons.length) continue;
           const b = r.deck[deckOf(w)].board;
           const at = (b[prev.round] ??= { level: 0, n: 0 });
@@ -129,6 +142,7 @@ export function runMatchup(a, b, n, variant = null, seed0 = 1000) {
           const d = r.deck[deckOf(e.who)];
           d.levels += e.level;
           d.played += 1;
+          if (e.cost === 0) d.free += 1;
         }
       }
     }
@@ -157,7 +171,11 @@ const bySource = (o, n) => {
 export function extraReport(d, n) {
   const rounds = Object.keys(d.board).map(Number).sort((x, y) => x - y);
   const curve = rounds.map((k) => `R${k} ${(d.board[k].level / d.board[k].n).toFixed(1)}`).join(', ');
-  return `Growth/match ${bySource(d.growth, n)} · Nurtures/match ${per(d.nurtures, n)} · other training (Levels)/match ${bySource(d.training, n)} · `
+  const pct = (a, b) => (b ? Math.round((100 * a) / b) : 0);
+  return `Pokémon in play per Round ${d.suppers ? (d.monRounds / d.suppers).toFixed(1) : '–'} · 0-cost summons/match ${per(d.free, n)} · `
+    + `attacks per Pokémon per Round ${d.monRounds ? (d.attacks / d.monRounds).toFixed(2) : '–'} · passes/match ${per(d.passes, n)} · `
+    + `attacks on a Spent target ${pct(d.atSpent, d.attacks)}% (Asleep ${pct(d.atAsleep, d.atSpent)}% of those) · Pokémon defeated/match ${per(d.defeated, n)} · `
+    + `Growth/match ${bySource(d.growth, n)} · Nurtures/match ${per(d.nurtures, n)} · other training (Levels)/match ${bySource(d.training, n)} · `
     + `attacks on a target in its own lane ${d.attacks ? Math.round((100 * d.ownLane) / d.attacks) : 0}%, on the enemy player ${d.attacks ? Math.round((100 * d.atPlayer) / d.attacks) : 0}% · `
     + `avg board Level at Supper by Round: ${curve || '–'} · its guards Asleep when attacked through: ${d.guardsMet ? Math.round((100 * d.guardsAsleep) / d.guardsMet) : 0}% of ${per(d.guardsMet, n)}/match`;
 }
