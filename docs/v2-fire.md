@@ -1,6 +1,6 @@
-# DRAFT: v2 Fire deck, "Burn" (Aggressive)
+# v2 Fire deck, "Burn" (Aggressive)
 
-**Status: a proposal for Elliott. Don't build from this file.** Once approved, it joins the v2 deck spec, and V6 builds it.
+**Status: approved by Elliott (3 Nov).** V6 builds it. Numbers are first-pass values for the V7 balance pass.
 
 ## Identity in v2
 
@@ -89,13 +89,15 @@ X Attack moves to the **shared Item pool** (found at Locations).
 
 **Have:** growlithe, arcanine, ponyta, rapidash, mankey, primeape, houndour, houndoom, magby, magmar, magmortar, sneasel, weavile, charmander, duskull, dusclops, absol, ember, flame-charge, heat-wave, fire-blast, hypervoice, firebreather, chili, burglar, blaine, flannery, kabu, mt-ember, cinnabar-volcano, stark-mountain, charcoal, black-belt, choice-band, quick-claw.
 
-**Needed (6):** charmeleon, charizard, entei, ninetales (Blaine's Partner), torkoal (Flannery's Partner), centiskorch (Kabu's Partner).
+**Delivered (3 Nov):** charmeleon, charizard, entei, torkoal, centiskorch.
+
+**Still needed (1):** ninetales (Blaine's Partner).
 
 **Retired from Fire:** Blaziken (it isn't a Legendary; its art stays for a future Fighting deck).
 
-## Open questions for Elliott
+## Settled (3 Nov)
 
-1. **Legendary:** Entei (new), or keep Blaziken as Fire's top card (it'd need Torchic and Combusken art for a proper line)?
-2. **Epic line:** Charmander → Charizard, or another three-stage line?
-3. **Partners:** Ninetales, Torkoal and Centiskorch fit each Trainer's team in the games. Happy with those?
-4. **Copies:** 3 Growlithe and 3 Ponyta make Fire very consistent early. Is that the feel you want?
+- **Legendary:** Entei.
+- **Epic line:** Charmander → Charmeleon → Charizard.
+- **Partners:** Ninetales (Blaine), Torkoal (Flannery), Centiskorch (Kabu).
+- **Copies:** 3 Growlithe and 3 Ponyta, for a consistent early game.
