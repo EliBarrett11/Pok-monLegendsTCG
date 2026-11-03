@@ -10,6 +10,12 @@
 //             CH8        the Championship arrives in Round 8 (the limit stays 12)
 //             W1         Water Pokémon +1 Strength at every Level
 //             W2         Water's Locations last 1 Round longer; their milestones give +1 Recognition
+//             CH9        the Championship arrives in Round 9
+//             N3         Nurture costs 3 Growth (Gardenia's lane: 2)
+//             N1         Nurture is once per Round in total (not per Pokémon)
+//             NR         Nurture can't raise a Pokémon above the Round number + 1
+//             GX         only the Bulbasaur line makes Growth at Breakfast (Oddish and Sunkern don't)
+//             ER         Erika's Passive is "your Pokémon in her lane gain +1 Strength" (no training)
 // --json      one JSON line with the results (for v2/tools/variants.js)
 //
 // For each deck in each matchup it reports, per match: Recognition by source (attacks on
@@ -17,13 +23,17 @@
 // milestones and completions, the Championship, other), Recognition it removed from the
 // enemy (by Burn at Supper, and Ember-style losses), how often its attacks were limited by
 // guards, its Pokémon defeated, the average Level of the Pokémon it played, and Rounds.
+// V7b adds: Growth gained by source, Nurtures, other training by source (Levels gained),
+// the average Level of its Pokémon on the board at each Supper against the Round number,
+// and how often its guards were Asleep when an enemy attack had to go through them.
 import { createGame, applyAction, actor, legalTargets } from '../src/engine/game.js';
 import { DECKS, POOL_ITEMS } from '../src/engine/cards.js';
 import { chooseAction } from '../src/ai/opponent.js';
 
 export const VARIANTS = {
   T75: { target: 75 }, T90: { target: 90 }, 'L+': { locMult: 1.5 }, CH8: { champRound: 8 },
-  W1: { waterStrength: 1 }, W2: { waterLocations: true },
+  W1: { waterStrength: 1 }, W2: { waterLocations: true }, CH9: { champRound: 9 },
+  N3: { nurtureCost: 3 }, N1: { nurtureOnce: true }, NR: { nurtureRoundCap: true }, GX: { growthBulbasaurOnly: true }, ER: { erikaStrength: true },
 };
 export const variantOf = (flags = []) => (flags.length ? Object.assign({}, ...flags.map((f) => {
   if (!VARIANTS[f]) throw new Error(`No variant ${f}`);
@@ -32,7 +42,19 @@ export const variantOf = (flags = []) => (flags.length ? Object.assign({}, ...fl
 
 const SOURCES = ['attack', 'overrun', 'effect', 'location', 'championship', 'other'];
 const blank = () => ({ wins: 0, recognition: Object.fromEntries(SOURCES.map((k) => [k, 0])), burnRemoved: 0, lossRemoved: 0,
-  attacks: 0, guarded: 0, defeated: 0, levels: 0, played: 0 });
+  attacks: 0, guarded: 0, defeated: 0, levels: 0, played: 0,
+  growth: {}, nurtures: 0, training: {}, board: {}, guardsMet: 0, guardsAsleep: 0 });
+const add = (o, k, n) => { o[k] = (o[k] ?? 0) + n; };
+// A readable source for a Growth or training cause ('ability:g-oddish' → 'Oddish line').
+const LINE_NAMES = { 'g-eevee': 'Leafeon (Eevee line)', 'g-celebi': 'Celebi' };
+export function sourceName(cause) {
+  if (!cause) return 'other';
+  if (cause === 'nurture' || cause === 'Sun 4') return cause === 'nurture' ? 'Nurture' : 'Sun 4';
+  const [kind, rest] = cause.split(/:(.*)/s);
+  if (kind === 'ability') return LINE_NAMES[rest] ?? `${rest.replace(/^[a-z]-/, '').replace(/^./, (c) => c.toUpperCase())} line`;
+  if (['strategy', 'supporter', 'item', 'trainer'].includes(kind)) return rest;
+  return kind;
+}
 
 // One matchup: n matches, seats alternating. Returns totals per deck (by seat-free name).
 export function runMatchup(a, b, n, variant = null, seed0 = 1000) {
@@ -54,11 +76,35 @@ export function runMatchup(a, b, n, variant = null, seed0 = 1000) {
       if (action.type === 'attack') {
         const d = r.deck[deckOf(who)];
         d.attacks += 1;
-        if (!legalTargets(s, who, action.from).some((t) => t.kind === 'player')) d.guarded += 1;
+        const options = legalTargets(s, who, action.from);
+        if (!options.some((t) => t.kind === 'player')) {
+          d.guarded += 1;
+          const foe = who === 'player' ? 'ai' : 'player';
+          const g = r.deck[deckOf(foe)];
+          for (const t of options) {
+            g.guardsMet += 1;
+            if (s.players[foe].row[t.space]?.asleep) g.guardsAsleep += 1;
+          }
+        }
       }
+      const prev = s;
       s = applyAction(s, action);
+      // Supper: the board as it stood (the action that ends a Round changes nothing on it).
+      if (s.events.some((e) => e.type === 'phaseChanged' && e.phase === 'supper')) {
+        for (const w of ['player', 'ai']) {
+          const mons = prev.players[w].row.filter(Boolean);
+          if (!mons.length) continue;
+          const b = r.deck[deckOf(w)].board;
+          const at = (b[prev.round] ??= { level: 0, n: 0 });
+          at.level += mons.reduce((x, c) => x + c.level, 0) / mons.length;
+          at.n += 1;
+        }
+      }
       for (const e of s.events) {
-        if (e.type === 'recognition') r.deck[deckOf(e.who)].recognition[e.source ?? 'other'] += e.amount;
+        if (e.type === 'growth') add(r.deck[deckOf(e.who)].growth, sourceName(e.cause), e.amount);
+        else if (e.type === 'nurtured') r.deck[deckOf(e.who)].nurtures += 1;
+        else if (e.type === 'trained' && e.cause !== 'nurture') add(r.deck[deckOf(e.who)].training, sourceName(e.cause), e.to - e.from);
+        else if (e.type === 'recognition') r.deck[deckOf(e.who)].recognition[e.source ?? 'other'] += e.amount;
         else if (e.type === 'burnRecognition') r.deck[deckOf(e.who === 'player' ? 'ai' : 'player')].burnRemoved += e.amount;
         else if (e.type === 'recognitionLost') r.deck[deckOf(e.who === 'player' ? 'ai' : 'player')].lossRemoved += e.amount;
         else if (e.type === 'defeated') r.deck[deckOf(e.who)].defeated += 1;
@@ -86,6 +132,17 @@ const PAIRS = { all: [['fire', 'water'], ['fire', 'grass'], ['water', 'grass'], 
 export const pairsFor = (mixed) => (mixed ? PAIRS.mixed : PAIRS.all);
 
 const per = (x, n) => (x / n).toFixed(1);
+const bySource = (o, n) => {
+  const list = Object.entries(o).sort((x, y) => y[1] - x[1]);
+  const total = list.reduce((x, [, v]) => x + v, 0);
+  return list.length ? `${per(total, n)} (${list.map(([k, v]) => `${k} ${per(v, n)}`).join(', ')})` : '0';
+};
+export function extraReport(d, n) {
+  const rounds = Object.keys(d.board).map(Number).sort((x, y) => x - y);
+  const curve = rounds.map((k) => `R${k} ${(d.board[k].level / d.board[k].n).toFixed(1)}`).join(', ');
+  return `Growth/match ${bySource(d.growth, n)} · Nurtures/match ${per(d.nurtures, n)} · other training (Levels)/match ${bySource(d.training, n)} · `
+    + `avg board Level at Supper by Round: ${curve || '–'} · its guards Asleep when attacked through: ${d.guardsMet ? Math.round((100 * d.guardsAsleep) / d.guardsMet) : 0}% of ${per(d.guardsMet, n)}/match`;
+}
 export function report(r) {
   const [a, b] = r.pair;
   const name = (k) => (DECKS[k] ? DECKS[k].name : k === 'player' ? 'first seat' : 'second seat');
@@ -94,11 +151,12 @@ export function report(r) {
   const head = a === b
     ? `${DECKS[a].name} mirror: first seat ${r.deck.player.wins}, second ${r.deck.ai.wins}${r.draws ? `, draws ${r.draws}` : ''}`
     : `${DECKS[a].name}–${DECKS[b].name}: ${DECKS[a].name} ${r.deck[a].wins} (${pct(r.deck[a].wins)}), ${DECKS[b].name} ${r.deck[b].wins} (${pct(r.deck[b].wins)})${r.draws ? `, draws ${r.draws}` : ''}`;
-  lines.push(`${head} · avg ${per(r.rounds, r.n)} Rounds · ends: 60 early ${r.ends.early}, in the Championship ${r.ends.championship}, final count ${r.ends.final}`);
+  lines.push(`${head} · avg ${per(r.rounds, r.n)} Rounds · ends: early (target reached before the Championship) ${r.ends.early}, in the Championship ${r.ends.championship}, final count ${r.ends.final}`);
   for (const [k, d] of Object.entries(r.deck)) {
     const rec = d.recognition;
     const total = SOURCES.reduce((x, s) => x + rec[s], 0);
     lines.push(`  ${name(k)}: Recognition/match ${per(total, r.n)} = attacks ${per(rec.attack, r.n)}, Overrun ${per(rec.overrun, r.n)}, Strategy/ability damage ${per(rec.effect, r.n)}, Locations ${per(rec.location, r.n)}, Championship ${per(rec.championship, r.n)}, other ${per(rec.other, r.n)} · removed from the enemy: Burn ${per(d.burnRemoved, r.n)}, Ember-style ${per(d.lossRemoved, r.n)} · attacks ${per(d.attacks, r.n)}/match, ${d.attacks ? Math.round((100 * d.guarded) / d.attacks) : 0}% limited by guards · Pokémon defeated ${per(d.defeated, r.n)}/match · avg Level played ${d.played ? (d.levels / d.played).toFixed(2) : '–'}`);
+    lines.push(`    ${extraReport(d, r.n)}`);
   }
   return lines.join('\n');
 }

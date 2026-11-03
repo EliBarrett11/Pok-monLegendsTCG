@@ -132,7 +132,7 @@ export function train(s, who, space, n) {
   // Evolving (a new stage) cures Sleep and Leech Seed, as in the current game.
   if (next.stage !== card.stage) { next.asleep = false; next.seededBy = null; }
   s.players[who].row[space] = next;
-  emit(s, 'trained', { who, space, from: card.level, to, fromName: card.name, name: next.name, evolved: next.stage !== card.stage });
+  emit(s, 'trained', { who, space, from: card.level, to, fromName: card.name, name: next.name, evolved: next.stage !== card.stage, cause: CAUSE });
   log(s, `${NAMES[who] === 'You' ? 'Your' : "The Opponent's"} ${card.name} trained to Level ${to}${next.name !== card.name ? `: it evolved into ${next.name}` : ''}.`);
   // On Evolve (V6): training into a new stage fires the new stage's On Evolve.
   if (next.stage !== card.stage) fireTrigger(s, who, space, 'onEvolve');
@@ -406,9 +406,11 @@ export const needsAssign = (state, who) => {
 };
 // The sum of a Passive kind over your Trainers (that have it unlocked), optionally at a space.
 export function passiveSum(s, who, kind, space, filter = () => true) {
-  return s.players[who].trainers.filter((t) => tiersUnlocked(t) >= 1 && t.tiers[0].passive.kind === kind
-    && (space === undefined || t.space === space) && filter(t.tiers[0].passive)).reduce((n, t) => n + t.tiers[0].passive.amount, 0);
+  return s.players[who].trainers.map((t) => ({ t, pv: passiveOf(s, t) })).filter(({ t, pv }) => tiersUnlocked(t) >= 1 && pv.kind === kind
+    && (space === undefined || t.space === space) && filter(pv)).reduce((n, { pv }) => n + pv.amount, 0);
 }
+// A Trainer's Passive; the ER experiment flag (V7b) turns Erika's lane training into +1 Strength.
+const passiveOf = (s, t) => (s.variant?.erikaStrength && t.tiers[0].passive.kind === 'laneTrain' ? { kind: 'laneStrength', amount: 1 } : t.tiers[0].passive);
 // Shell N: each instance of damage this Pokémon takes is N less, minimum 1.
 export function shellOf(s, who, space) {
   const card = s.players[who].row[space];
@@ -440,9 +442,13 @@ function syncPassives(s) {
 
 // Nurture (V6, Grass): spend 2 Growth (Gardenia's lane: 1 less) to train 1 one of your
 // Pokémon, once per Pokémon per Round. A Battle Action, 0 Energy.
-export const nurtureCost = (state, who, space) => Math.max(0, 2 - passiveSum(state, who, 'nurtureDiscount', space));
-export const nurtureSpaces = (state, who) => pokemonOf(state, who).filter(({ space, card }) => card.level < trainTop(card)
-  && card.nurturedRound !== state.round && state.players[who].growth >= nurtureCost(state, who, space)).map(({ space }) => space);
+// Experiment flags (V7b, off by default): N3 (cost 3), N1 (once per Round in total),
+// NR (never above the Round number + 1).
+export const nurtureCost = (state, who, space) => Math.max(0, (state.variant?.nurtureCost ?? 2) - passiveSum(state, who, 'nurtureDiscount', space));
+export const nurtureSpaces = (state, who) => (state.variant?.nurtureOnce && state.players[who].nurturedRound === state.round ? []
+  : pokemonOf(state, who).filter(({ space, card }) => card.level < trainTop(card)
+    && card.nurturedRound !== state.round && !(state.variant?.nurtureRoundCap && card.level >= state.round + 1)
+    && state.players[who].growth >= nurtureCost(state, who, space)).map(({ space }) => space));
 
 // The Favour: met if a Released card meets the Supporter's condition.
 export const favourMet = (card, released) => !!card.favour && released.some((c) => FAVOURS[card.favour.condition].test(c));
@@ -488,9 +494,33 @@ export function applyAction(state, action) {
     throw new Error(`${action.who} cannot ${action.type} now`);
   }
   if (action.type === 'flipCoin' && s.phase !== 'initiative') throw new Error('The coin has been flipped');
-  ACTIONS[action.type](s, action);
+  withCause(causeOf(s, action), () => ACTIONS[action.type](s, action));
   syncPassives(s);
   return s;
+}
+
+// What caused a Growth gain or a training (V7b, for the diagnostics only): set for the
+// length of an action, a triggered ability or Erika's Breakfast training; carried on the
+// 'growth' and 'trained' events. Never read by the rules.
+let CAUSE = null;
+function withCause(cause, fn) {
+  const before = CAUSE;
+  CAUSE = cause;
+  try { return fn(); } finally { CAUSE = before; }
+}
+function causeOf(s, a) {
+  const p = s.players[a.who];
+  if (!p) return a.type;
+  const name = (list) => list.find((c) => c.uid === a.uid)?.name;
+  switch (a.type) {
+    case 'playStrategy': return `strategy:${name(p.hand)}`;
+    case 'playSupporter': return `supporter:${name(p.hand)}`;
+    case 'playItem': return `item:${name(p.hand)}`;
+    case 'useItem': return `item:${name(p.bag)}`;
+    case 'useAbility': return `trainer:${name(p.trainers)}`;
+    case 'summon': { const c = p.hand.find((x) => x.uid === a.uid); return `ability:${c?.series ?? c?.name}`; }
+    default: return a.type;
+  }
 }
 
 const ACTIONS = {
@@ -563,9 +593,10 @@ const ACTIONS = {
     const cost = nurtureCost(s, who, space);
     p.growth -= cost;
     p.row[space].nurturedRound = s.round;
+    p.nurturedRound = s.round;
     emit(s, 'nurtured', { who, space, name: p.row[space].name, cost });
     log(s, `${p.name} Nurtured ${p.row[space].name} (${cost} Growth).`);
-    train(s, who, space, 1);
+    withCause('nurture', () => train(s, who, space, 1));
     endTurn(s, who, false);
   },
 
@@ -967,7 +998,7 @@ function startRound(s, round) {
     // Erika's Passive: your Pokémon in her lane train at Breakfast.
     for (const { space } of pokemonOf(s, who)) {
       const n = passiveSum(s, who, 'laneTrain', space);
-      if (n) train(s, who, space, n);
+      if (n) withCause('trainer:Erika', () => train(s, who, space, n));
     }
     p.movedTrainer = false;
   }
@@ -1169,7 +1200,7 @@ function growthAmount(s, who, bp, x) {
 function gainGrowth(s, who, n, why) {
   if (!n) return;
   s.players[who].growth += n;
-  emit(s, 'growth', { who, amount: n, total: s.players[who].growth, why });
+  emit(s, 'growth', { who, amount: n, total: s.players[who].growth, why, cause: why ? 'Sun 4' : CAUSE });
   log(s, `${NAMES[who]}: +${n} Growth${why ? ` (${why})` : ''} (now ${s.players[who].growth}).`);
 }
 
@@ -1435,6 +1466,11 @@ function fireTrigger(s, who, space, name, ctx = {}, targets) {
   const card = s.players[who].row[space];
   const eff = card?.ability?.[name];
   if (!eff || over(s)) return;
+  // GX experiment flag (V7b): only the Bulbasaur line makes Growth at Breakfast.
+  if (s.variant?.growthBulbasaurOnly && name === 'onBreakfast' && ['g-oddish', 'g-sunkern'].includes(card.series)) return;
+  withCause(`ability:${card.series ?? card.name}`, () => fireTriggerNow(s, who, space, name, ctx, targets, card, eff));
+}
+function fireTriggerNow(s, who, space, name, ctx, targets, card, eff) {
   if (eff.oncePerRound) {
     if (card.firedRound?.[name] === s.round) return;
     card.firedRound = { ...(card.firedRound ?? {}), [name]: s.round };
