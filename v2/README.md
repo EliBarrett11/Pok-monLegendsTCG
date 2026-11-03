@@ -145,3 +145,41 @@ To play locally: `python3 -m http.server` at the repository root, then open http
     13. **Choosing targets for abilities that fire on their own** (On Evolve, On Attack, On Breakfast, Pelipper's Retain, Leafeon's train): the engine picks (the strongest enemy, the most-damaged friend, the lowest Level, the most valuable card). On Summon lets the player choose when there's one target. Should On Evolve also ask the player?
     14. **Quick Claw on a Swift Pokémon** does nothing (there's no tier above Swift). Should there be one?
     15. **Aqua Ring's Regenerate 1** is permanent. Right?
+
+- **V7a — rulings, Legendaries, coded icons and a balance experiment.**
+  - **Elliott's rulings on the V6 questions** (the "Q:" marks in `decks.js` are now ruling notes): 1, 5, 7, 8, 9, 10, 11, 12 and 15 keep the V6 reading. **Solar Beam 4** no longer says "can't be guarded". **"In its Location" at Home** is only that Pokémon's own lane (both sides of it). **"A chosen Location"** is a real Location or a single Home lane. **On Evolve targets** are chosen by the player (the AI chooses for itself), like On Summon: when there's more than one option the match waits for a `chooseTarget` action, and the board asks for the target. **Quick Claw on a Swift Pokémon** gives Quick Attack instead.
+  - **Legendaries are single cards:** no series, no Levels, no cap; one fixed cost and fixed stats (Entei cost 6, 9/9; Kyogre cost 7, 10/12; Celebi cost 3, 4/6, with their abilities as written). They show a Legendary mark instead of a Level badge, and the deck builder adds them without a cap. Level 7 and the Legendary series are gone from the engine, the deck builder and the tests (the cost curve stops at Level 6).
+  - **Coded icons:** v2 uses no icon images from `assets/ui/icons` (or any of the current game's icons). Every icon in v2 is a coded SVG in `src/ui/icons.js`: the 11 Types (Ghost and Dragon included), Energy, Attack and Strength types, Speed, Rarity, Weather, statuses, Trainer Points, Growth, Recognition and the Location timer. The current game is unchanged.
+  - **Diagnostics** in `node v2/tools/roundrobin.js [n] [--mixed] [--variant=…]`: for each deck in each matchup, Recognition per match by source (attacks on the enemy player, Overrun, Strategy and ability damage, Locations, the Championship, other), Recognition removed by Burn, the share of attacks limited by guards, Pokémon defeated per match, the average Level played and the ending split. Baseline, 100 matches per matchup:
+    - **Fire–Water 54/46**, 8.0 Rounds. Fire's 47.9 Recognition per match comes from attacks 24, Locations 9, Strategy 8 and Overrun 7. It strips 25.4 a match from Water with Burn, but 36% of its attacks are held back by guards. Water's 59.6 is mostly attacks (43).
+    - **Fire–Grass 22/78**, 7.7 Rounds. Grass makes 57 a match from attacks alone, and only 3% of its attacks are limited by guards.
+    - **Water–Grass 14/86**, 7.0 Rounds. Water loses 10.2 Pokémon a match to Grass's 6.0.
+    - **Mirrors:** Fire 44/56, 10.5 Rounds, 55 of 100 to the final count, because each side burns away about 80 of the other's Recognition. Water 53/47 and Grass 54/46 both end early.
+    - Average Level played is about 3.1–3.5 for every deck.
+  - **The variant experiment** (`node v2/tools/variants.js 100`). These are flags for the tools only; nothing is a game setting. 100 matches per matchup, 50 per seat order, on top of the rulings and Legendaries above. Win rates are for the first-named deck:
+
+    | Variant | Fire v Water (Fire) | Fire v Grass (Fire) | Water v Grass (Water) | Avg Rounds | Ends: early / Championship / final |
+    |---|---|---|---|---|---|
+    | baseline | 54% | 22% | 14% | 7.6 | 92% / 7% / 0% |
+    | T75 | 43% | 17% | 15% | 8.4 | 82% / 16% / 2% |
+    | T90 | 40% | 17% | 16% | 9.1 | 62% / 34% / 4% |
+    | L+ | 57% | 24% | 19% | 7.3 | 95% / 5% / 0% |
+    | CH8 | 53% | 19% | 14% | 7.6 | 52% / 48% / 0% |
+    | W1 | 39% | 22% | 26% | 7.6 | 92% / 8% / 0% |
+    | W2 | 49% | 22% | 22% | 7.5 | 93% / 6% / 1% |
+    | T75+L+ | 45% | 20% | 15% | 8.1 | 85% / 14% / 1% |
+    | T75+W1 | 37% | 17% | 25% | 8.4 | 82% / 15% / 3% |
+    | T75+L++W1 | 31% | 20% | 30% | 8.1 | 87% / 11% / 1% |
+    | T90+L++W1+W2 | 31% | 17% | 23% | 8.5 | 77% / 21% / 3% |
+    | T75+CH8+W1 | 35% | 17% | 24% | 8.3 | 28% / 70% / 2% |
+
+  - **Recommendation:** no set reaches the targets (every matchup at 45–55%, about a third of matches early, 9–12 Rounds), so here is what each lever moved:
+    - **The target (T75, T90)** is the only lever that lengthens matches: T90 gives 9.1 Rounds with 62% early. It slightly helps whichever deck is behind on board.
+    - **CH8** moves endings from "early" into the Championship (92% to 52% early, 28% with T75+W1) but doesn't change length or win rates.
+    - **L+** speeds matches up a little (7.3 Rounds) and helps nobody in particular.
+    - **W1** is the strongest Water lever: Fire–Water goes from 54% to 39% Fire, and Water–Grass from 14% to 26% Water.
+    - **W2** is milder: Fire–Water 49%, Water–Grass 22%.
+    - **What none of them fix is Grass:** 76–83% against Fire and 70–86% against Water in every variant. It's the attack race: Grass's attacks almost never meet a guard against Fire, and it loses fewer Pokémon.
+    - **Smallest nearby set:** **T90 alone** for pace (9.1 Rounds, 62% early). **T90+CH8** wasn't in the list; it's the next one to try for bringing early endings toward a third (CH8 alone halved them). Any matchup fix needs a Grass lever (its attack Recognition or its guards), not a Water or Location one. Fire–Water is already balanced at baseline (54%), so W1 would tip it toward Water.
+    - Nothing is committed: Elliott decides.
+  - **Tests:** `setup.test.js` checks the cost curve stops at Level 6, that no v2 file references `assets/ui/icons`, and that every series Type has a coded icon. `training.test.js` checks Legendaries as single cards. `decks.test.js` checks the three Legendaries' stats and abilities, the On Evolve choice queue (player and AI), own lane at Home (Gyarados, Ivysaur), "a chosen Location" with a Home lane (Chili), Solar Beam with guards, and Quick Claw on a Swift holder (Absol). All v2 tests pass, and so does the current game's suite, unchanged. Checked in the browser: the match board and the deck builder (Legendary rows with the mark, cost and stats) with coded icons only, no errors.
