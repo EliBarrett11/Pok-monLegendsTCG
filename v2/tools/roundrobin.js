@@ -15,6 +15,7 @@
 //             N1         Nurture is once per Round in total (not per Pokémon)
 //             NR         Nurture can't raise a Pokémon above the Round number + 1
 //             GX         only the Bulbasaur line makes Growth at Breakfast (Oddish and Sunkern don't)
+//             F1         Fire Pokémon +1 Strength at every Level
 //             ER         Erika's Passive is "your Pokémon in her lane gain +1 Strength" (no training)
 // --json      one JSON line with the results (for v2/tools/variants.js)
 //
@@ -32,7 +33,7 @@ import { chooseAction } from '../src/ai/opponent.js';
 
 export const VARIANTS = {
   T75: { target: 75 }, T90: { target: 90 }, 'L+': { locMult: 1.5 }, CH8: { champRound: 8 },
-  W1: { waterStrength: 1 }, W2: { waterLocations: true }, CH9: { champRound: 9 },
+  W1: { waterStrength: 1 }, W2: { waterLocations: true }, CH9: { champRound: 9 }, F1: { fireStrength: 1 },
   N3: { nurtureCost: 3 }, N1: { nurtureOnce: true }, NR: { nurtureRoundCap: true }, GX: { growthBulbasaurOnly: true }, ER: { erikaStrength: true },
 };
 export const variantOf = (flags = []) => (flags.length ? Object.assign({}, ...flags.map((f) => {

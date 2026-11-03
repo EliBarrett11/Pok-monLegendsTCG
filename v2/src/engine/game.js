@@ -140,7 +140,9 @@ export function train(s, who, space, n) {
 }
 
 // W1 (variant): Water Pokémon +N Strength at every Level.
-const waterBonus = (s, card) => (s.variant?.waterStrength && card.type === 'Water' ? s.variant.waterStrength : 0);
+// W1 / F1 experiment flags: Water (or Fire) Pokémon +N Strength at every Level.
+const waterBonus = (s, card) => (s.variant?.waterStrength && card.type === 'Water' ? s.variant.waterStrength : 0)
+  + (s.variant?.fireStrength && card.type === 'Fire' ? s.variant.fireStrength : 0);
 
 // The Empowered summon's bonus, on the card.
 function applyEmpower(card) {

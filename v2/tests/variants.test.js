@@ -26,11 +26,20 @@ function place(s, who, space, series, level = 1) {
 const trainer = (s, who, id, space, points = 6) => s.players[who].trainers.push({ ...cardDef(id), uid: `${who}-tr${n++}`, space, points, abilityRound: 0 });
 const passBoth = (s) => applyAction(applyAction(s, { type: 'pass', who: 'player' }), { type: 'pass', who: 'ai' });
 
+// F1: Fire Pokémon +1 Strength (W1's mirror); Water and Grass unchanged.
+{
+  const s = battle(2, variantOf(['F1']));
+  s.turn = 'ai';
+  s.players.ai.hand.push({ ...pokemonAt('f-growlithe', 2), cap: 6, uid: 'ai-f1' });
+  const t = applyAction(s, { type: 'summon', who: 'ai', uid: 'ai-f1', space: 0 });
+  assert.equal(t.players.ai.row[0].strength, pokemonAt('f-growlithe', 2).strength + 1);
+}
+
 // The flags parse; unknown flags are refused.
 assert.deepEqual(variantOf(['T90', 'N3', 'GX']), { target: 90, nurtureCost: 3, growthBulbasaurOnly: true });
 assert.throws(() => variantOf(['N9']), /No variant N9/);
 assert.equal(variantOf([]), null);
-for (const f of ['N3', 'N1', 'NR', 'GX', 'ER', 'CH9']) assert.ok(VARIANTS[f], `${f} exists`);
+for (const f of ['N3', 'N1', 'NR', 'GX', 'ER', 'CH9', 'F1']) assert.ok(VARIANTS[f], `${f} exists`);
 assert.ok(SETS.v7b.every((c) => c[0] === 'T90') && SETS.v7b.length === 11, 'V7b: 11 configs, each on top of T90');
 
 // T90 and CH9.
