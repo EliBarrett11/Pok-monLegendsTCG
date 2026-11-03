@@ -13,7 +13,12 @@
 //            that stage has no art yet (it falls back to the line's base art)
 //   stats    [[attack, strength], …] one per Level, from Level 1
 //   keywords (level) → the keywords at that Level (Infiltrator, Quick Attack)
-//   ability  (level) → { text, onSummon: { target, ops } } or null: its strength per Level
+//   ability  (level) → null, or that Level's ability bundle (V6), any of:
+//            text, keywords [...], type / speed / guard ('Defence' | 'Special Defence' |
+//            'none') overrides, weather { Rain, Sun } tokens it carries, vsBurned N,
+//            sunBonus { at, amount }, and triggers, each { target?, ops, oncePerRound? }:
+//            onSummon, onEvolve, onAttack, onDefend, onKnockout, onDefeated,
+//            onBreakfast, onHeal, rally (game.js fires them)
 //   empower? { cost, attack, strength, keywords, text }: the optional Empowered
 //            summon (pay `cost` more Energy when summoning for the bonus)
 //
@@ -28,7 +33,7 @@ import { costFor, MAX_LEVEL, LEGENDARY_LEVEL } from './rules.js';
 
 const none = () => [];
 
-function line(spec) {
+export function line(spec) {
   const top = spec.legendary ? LEGENDARY_LEVEL : MAX_LEVEL;
   if (spec.stats.length !== top) throw new Error(`${spec.id}: needs stats for Levels 1–${top}`);
   return {
@@ -39,9 +44,9 @@ function line(spec) {
 }
 
 // Stages by evolution pattern.
-const three = (a, b, c) => [{ ...a, from: 1, to: 2 }, { ...b, from: 3, to: 4 }, { ...c, from: 5, to: 6 }];
-const two = (a, b) => [{ ...a, from: 1, to: 3 }, { ...b, from: 4, to: 6 }];
-const single = (a, top = MAX_LEVEL) => [{ ...a, from: 1, to: top }];
+export const three = (a, b, c) => [{ ...a, from: 1, to: 2 }, { ...b, from: 3, to: 4 }, { ...c, from: 5, to: 6 }];
+export const two = (a, b) => [{ ...a, from: 1, to: 3 }, { ...b, from: 4, to: 6 }];
+export const single = (a, top = MAX_LEVEL) => [{ ...a, from: 1, to: top }];
 
 export const SERIES = [
   // --- Asked for in V3 -------------------------------------------------------------------------
@@ -170,12 +175,14 @@ export function pokemonAt(seriesId, level) {
   if (!(level >= 1 && level <= line.maxLevel)) throw new Error(`${line.id} has no Level ${level}`);
   const stage = stageAt(line, level);
   const [attack, strength] = line.stats[level - 1];
+  const ab = line.ability(level) ?? null;
+  const guard = ab?.guard === 'none' ? 'Hitpoints' : ab?.guard ?? line.strengthType;
   return {
     id: slug(stage.name), name: stage.name, cardType: 'Pokémon', series: line.id, level, stage: stageIndex(line, level),
     art: artFor(line, level), cost: costFor(level, line.weight), weight: line.weight, rarity: line.rarity,
-    type: line.type, attack, attackType: line.attackType, strength, strengthType: line.strengthType, speed: line.speed,
-    keywords: [...line.keywords(level)], ability: line.ability(level), empower: line.empower ?? null,
-    retain: !!line.retain, legendary: !!line.legendary,
+    type: ab?.type ?? line.type, attack, attackType: line.attackType, strength, strengthType: guard, speed: ab?.speed ?? line.speed,
+    keywords: [...line.keywords(level), ...(ab?.keywords ?? [])], ability: ab, empower: line.empower ?? null,
+    weather: ab?.weather ?? null, retain: !!line.retain, legendary: !!line.legendary, deck: line.deck ?? null,
   };
 }
 
