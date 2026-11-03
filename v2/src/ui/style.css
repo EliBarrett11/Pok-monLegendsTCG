@@ -323,3 +323,70 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #140a04; }
 .v2-hand .v2-card:has(.v2-ability) .v2-name { bottom: 62px; }
 .v2-hand .v2-card:has(.v2-ability) .v2-keys { bottom: 84px; }
 .v2-linkbtn { padding: 0; border: 0; background: none; cursor: pointer; font: inherit; color: var(--brass-light); text-decoration: underline; }
+
+/* --- V4: card types, statuses, the Bag ------------------------------------------------------------ */
+/* Strategy, Supporter and Item cards: art on top, the effect text below. */
+.v2-act-card .v2-art { bottom: 46%; }
+.v2-act-card::after { background: linear-gradient(transparent 30%, rgba(14, 8, 3, 0.95) 52%); }
+.v2-act-card .v2-name { bottom: auto; top: 46%; font-size: 15px; }
+.v2-act-text { position: absolute; z-index: 1; left: 8px; right: 8px; top: calc(46% + 22px); bottom: 6px; overflow: hidden; font-size: 11px; line-height: 1.2; color: var(--cream); }
+.v2-act-text p { margin: 0 0 2px; }
+.v2-act-text b { color: var(--brass-light); }
+.v2-act-text .favour { color: #d8b8ff; }
+.v2-act-card .v2-level { font-size: 11px; }
+.v2-strategy { border-color: #d86a4a; }
+.v2-supporter { border-color: #a37ae0; }
+.v2-item { border-color: #5ab0e0; }
+.v2-cost.wide { width: auto; padding: 0 7px; border-radius: 13px; left: auto; right: 6px; transform: none; }
+.v2-cost.release { left: auto; right: 6px; transform: none; background: radial-gradient(circle at 35% 30%, #d8b8ff, #6a3ab0); }
+.v2-item .v2-cost { left: auto; right: 6px; transform: none; }
+
+/* Statuses on Pokémon: chips, and a look (Burn smoulders, Asleep dims, Leech Seed tints green). */
+.v2-status { position: absolute; z-index: 2; left: 6px; top: 32px; display: flex; flex-direction: column; gap: 2px; }
+.v2-status i { font-style: normal; font-size: 12px; font-weight: 800; padding: 0 5px; border-radius: 4px; width: fit-content; }
+.v2-status .burn { background: rgba(200, 60, 20, 0.92); color: #fff3d0; }
+.v2-status .seed { background: rgba(40, 110, 40, 0.92); color: #d8ffb8; }
+.v2-card.burning { box-shadow: 0 0 14px 3px rgba(255, 110, 40, 0.65), 0 8px 18px rgba(0, 0, 0, 0.6); animation: v2-smoulder 1.6s ease-in-out infinite; }
+@keyframes v2-smoulder { 50% { box-shadow: 0 0 22px 6px rgba(255, 140, 50, 0.8), 0 8px 18px rgba(0, 0, 0, 0.6); } }
+.v2-card.asleep .v2-art { filter: saturate(0.4) brightness(0.55) hue-rotate(200deg); }
+.v2-card.asleep { animation: v2-sway 3s ease-in-out infinite; }
+@keyframes v2-sway { 50% { transform: rotate(-2deg) translateY(2px); } }
+.v2-spent.asleep { background: rgba(40, 50, 110, 0.9); color: #d8e4ff; }
+.v2-card.seeded { border-color: #6cc04a; }
+.v2-held { position: absolute; z-index: 2; right: 5px; bottom: 30px; width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 2px solid #8fd0ff; box-shadow: 0 0 6px #000; }
+
+/* Burn on a player character, on their Recognition panel. */
+.v2-recognition.burning { border-color: #ff7a3a; box-shadow: 0 0 22px 4px rgba(255, 110, 40, 0.55); }
+.v2-pc-burn { margin: -4px -4px 6px; padding: 3px 6px; border-radius: 7px; background: rgba(200, 60, 20, 0.9); font-weight: 800; font-size: 15px; color: #fff3d0; }
+.v2-pc-burn small { display: block; font-size: 12px; font-weight: 700; }
+
+/* Choosing targets for an effect. */
+.v2-space.effect-target { cursor: pointer; border: 2px solid #c99aff; box-shadow: 0 0 16px 5px rgba(180, 130, 255, 0.55); background-color: rgba(160, 110, 255, 0.14); }
+.v2-space.effect-target .v2-card { box-shadow: 0 0 18px 6px rgba(180, 130, 255, 0.7); }
+.v2-space.chosen, .v2-recognition.chosen { outline: 4px solid #fff0b0; outline-offset: 2px; }
+.v2-recognition.effect-target { cursor: pointer; border-color: #c99aff; box-shadow: 0 0 22px 6px rgba(180, 130, 255, 0.6); }
+
+/* The Bag, in the side panel. */
+.v2-label small { font-family: var(--font-text); font-size: 13px; color: var(--cream-muted); letter-spacing: 0; }
+.v2-bag { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; margin-top: 4px; }
+.v2-bag i { height: 38px; border-radius: 5px; border: 1.5px dashed rgba(240, 205, 150, 0.35); background: rgba(0, 0, 0, 0.25) center / cover; }
+.v2-bag i.item { border: 1.5px solid #5ab0e0; }
+.v2-bag i.usable { cursor: pointer; box-shadow: 0 0 10px 3px rgba(120, 200, 255, 0.7); }
+.v2-note.on { color: var(--cream); margin-top: 2px; }
+.v2-note.on b { color: var(--brass-light); }
+
+/* The cost chooser and the Release payment. */
+.v2-cost-ask { width: 640px !important; }
+.v2-bps { display: flex; flex-direction: column; gap: 8px; }
+.v2-bps button { display: flex; align-items: center; gap: 14px; text-align: left; }
+.v2-bps button b { flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-size: 20px; color: #fff; background: radial-gradient(circle at 35% 30%, #8fd0ff, #2a6fc0); }
+.v2-bps button span { font-family: var(--font-text); font-size: 17px; }
+.v2-release-ask { width: 860px !important; }
+.v2-favour { font-size: 17px !important; color: #d8b8ff; }
+.v2-favour.met { color: #c8ffa8; font-weight: 800; }
+.v2-rels { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 12px; }
+.v2-ask .v2-rel { position: relative; width: 92px; height: 120px; padding: 0; border-radius: 7px; background: #2a1a0c center / cover; border: 2px solid var(--brass-dark); }
+.v2-ask .v2-rel span { position: absolute; left: 0; right: 0; bottom: 0; padding: 2px; font-family: var(--font-text); font-size: 12px; color: var(--cream); background: rgba(10, 5, 2, 0.8); }
+.v2-ask .v2-rel.favour { border-color: #a37ae0; }
+.v2-ask .v2-rel.on { border-color: #fff0b0; box-shadow: 0 0 14px 4px rgba(255, 230, 140, 0.8); transform: translateY(-4px); }
+.v2-bag i { width: auto; min-width: 0; }

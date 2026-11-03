@@ -15,6 +15,8 @@ export function toastsFor(state, events) {
     if (e.type === 'milestone') out.push({ title: `Milestone · ${e.name}`, text: `${who} reached ${e.at}/${e.count}: ${rewardText(e.reward)}`, color: color(e.location) });
     else if (e.type === 'completed') out.push({ title: `${e.name} complete!`, text: `${who}: ${rewardText(e.reward)}`, color: color(e.location), big: e.championship });
     else if (e.type === 'championship') out.push({ title: 'The Championship arrives!', text: 'Every other Location ends. It covers all 9 lanes until the end of Round 12.', color: '#f6d36a', big: true });
+    else if (e.type === 'itemFound') out.push({ title: `${who === 'You' ? 'You found' : 'The Opponent found'} an Item`, text: `${e.name}, into the Bag`, color: '#8fd0ff' });
+    else if (e.type === 'supporter' && e.favour) out.push({ title: `Favour · ${e.name}`, text: `${who === 'You' ? 'Your' : 'Their'} Release met the Favour: the effect improves`, color: '#c99aff' });
     else if (e.type === 'suddenDeath') out.push({ title: 'Sudden death!', text: 'Tied on Recognition and Championship progress: one more Round.', color: '#f6d36a', big: true });
   }
   return out;

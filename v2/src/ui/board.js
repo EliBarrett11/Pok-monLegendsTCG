@@ -14,8 +14,10 @@
 // character), attacks.
 import {
   legalTargets, alertSpaces, playable, placeable, locationStarts, locationAt, weatherTotals, championship,
-  isAlert, passEndsPhase, passSpends, opponentOf, summonCost,
+  isAlert, passEndsPhase, passSpends, opponentOf, summonCost, targetOptions, breakpointsFor, playableStrategies,
+  playableSupporters, playableItems, usableBagItems, itemUsable, bagFull, favourMet, bracket, trainTop,
 } from '../engine/game.js';
+import { costRange, BAG_SIZE, FAVOURS } from '../engine/cardtypes.js';
 import { RECOGNITION_TARGET, LANES, ROUND_LIMIT, CHAMPIONSHIP_ROUND } from '../engine/rules.js';
 import { rewardText, lastsText } from '../engine/locations.js';
 import { seriesDef, stagesText } from '../engine/series.js';
@@ -49,8 +51,45 @@ function pokemonCard(card, opts = {}) {
       <div class="v2-name">${card.name}</div>
       ${notes.length ? `<div class="v2-ability">${notes.map(esc).join('<br>')}</div>` : ''}
       <div class="v2-stats"><span>⚔ ${card.attack}</span><span class="${strength < card.strength ? 'hurt' : ''}">♥ ${strength}</span></div>
-      ${card.spent ? '<span class="v2-spent">Spent</span>' : opts.alert ? '<span class="v2-alert">Alert</span>' : ''}
+      ${card.asleep ? '<span class="v2-spent asleep">Asleep z z</span>' : card.spent ? '<span class="v2-spent">Spent</span>' : opts.alert ? '<span class="v2-alert">Alert</span>' : ''}
+      ${statusChips(card)}
+      ${card.held ? `<img class="v2-held" src="${artUrl(card.held)}" alt="${esc(card.held.name)}" title="Holding ${esc(card.held.name)}: ${esc(card.held.text)}">` : ''}
       ${opts.badge ? `<span class="v2-flourish">${opts.badge}</span>` : ''}
+    </div>`;
+}
+
+const artUrl = (c) => (c.art ? `${ASSETS}/cards/${c.art}.jpg` : `${ASSETS}/ui/frame-item.jpg`);
+
+// Burn, Leech Seed (V4): small chips on the card, and its look (classes on the card).
+function statusChips(card) {
+  return `<span class="v2-status">${card.burn ? `<i class="burn" title="Burn ${card.burn}: ${card.burn} damage at Supper, then 1 less">🔥 ${card.burn}</i>` : ''}${card.seededBy ? '<i class="seed" title="Leech Seed: 1 damage at Supper, healing the seeder">🌱 Seeded</i>' : ''}</span>`;
+}
+
+// A Strategy Card, Supporter or Item (V4): its art, type, name, cost and text.
+function actionCard(card, opts = {}) {
+  const cls = ['v2-card', 'v2-act-card', `v2-${card.cardType.toLowerCase()}`, opts.cls].filter(Boolean).join(' ');
+  let cost = '';
+  let body = '';
+  let label = card.cardType;
+  if (card.cardType === 'Strategy') {
+    cost = `<span class="v2-cost wide">${costRange(card)}</span>`;
+    body = card.breakpoints.map((b) => `<p><b>${b.cost}:</b> ${esc(b.text)}</p>`).join('');
+  } else if (card.cardType === 'Supporter') {
+    cost = `<span class="v2-cost release" title="Release ${card.release} card${card.release === 1 ? '' : 's'} from your hand">⟲${card.release}</span>`;
+    body = `<p>${esc(card.text)}</p><p class="favour"><b>Favour</b> (${esc(FAVOURS[card.favour.condition].text)}): ${esc(card.favour.text)}</p>`;
+  } else {
+    cost = `<span class="v2-cost">${card.cost}</span>`;
+    label = `Item · ${card.kind}`;
+    body = `<p>${esc(card.text)}</p>`;
+  }
+  const tip = `${card.name} · ${label}\n${card.cardType === 'Strategy' ? card.breakpoints.map((b) => `${b.cost}: ${b.text}`).join('\n') : card.text}${card.favour ? `\nRelease ${card.release}. Favour (${FAVOURS[card.favour.condition].text}): ${card.favour.text}` : ''}`;
+  return `
+    <div class="${cls}" ${opts.attrs ?? ''} title="${esc(tip)}">
+      <div class="v2-art" style="background-image: url('${artUrl(card)}')"></div>
+      <span class="v2-level">${label}</span>
+      ${cost}
+      <div class="v2-name">${card.name}</div>
+      <div class="v2-act-text">${body}</div>
     </div>`;
 }
 
@@ -72,12 +111,17 @@ function locationCard(card, opts = {}) {
     </div>`;
 }
 
-function recognitionPanel(state, who, targetable) {
+function recognitionPanel(state, who, targetable, ui) {
   const p = state.players[who];
   const pct = Math.min(100, (100 * p.recognition) / RECOGNITION_TARGET);
   const turn = state.phase === 'battle' && state.turn === who;
+  const options = pendingOptions(state, ui);
+  const effect = options.some((o) => o.who === who && o.kind === 'player');
+  const chosen = (ui.pending?.chosen ?? []).some((o) => o.who === who && o.kind === 'player');
+  const less = bracket(state, 'Rain', 4) ? 1 : 0;
   return `
-    <section class="v2-panel v2-recognition ${who === 'ai' ? 'top' : 'bottom'}${targetable ? ' target' : ''}${turn ? ' turn' : ''}" data-player="${who}">
+    <section class="v2-panel v2-recognition ${who === 'ai' ? 'top' : 'bottom'}${targetable ? ' target' : ''}${effect ? ' effect-target' : ''}${chosen ? ' chosen' : ''}${turn ? ' turn' : ''}${p.burn ? ' burning' : ''}" data-player="${who}">
+      ${p.burn ? `<div class="v2-pc-burn" title="Burn on the player character: at Supper it removes that much Recognition (never below 0), then 1 less">🔥 Burn ${p.burn}<small>−${Math.max(0, p.burn - less)} Recognition at Supper</small></div>` : ''}
       <div class="v2-avatar"></div>
       <h3>${who === 'ai' ? 'Opponent' : 'You'}</h3>
       <div class="v2-label">Recognition</div>
@@ -85,6 +129,7 @@ function recognitionPanel(state, who, targetable) {
       <div class="v2-of">of ${RECOGNITION_TARGET} to win</div>
       <div class="v2-bar"><i style="width: ${pct}%"></i></div>
       ${targetable ? '<div class="v2-target-tag">Attack the Opponent</div>' : ''}
+      ${effect ? `<div class="v2-target-tag">${chosen ? 'Chosen' : 'Choose'}</div>` : ''}
     </section>`;
 }
 
@@ -97,11 +142,13 @@ function row(state, who, ui, targets) {
     const target = !mine && targets.some((t) => t.kind === 'pokemon' && t.space === space);
     const attacker = mine && ui.attacker === space;
     const loc = locationAt(state, space);
-    const cls = ['v2-space', loc && 'in-loc', summonHere && 'target', target && 'attack-target', attacker && 'selected'].filter(Boolean).join(' ');
+    const effect = pendingOptions(state, ui).some((o) => o.who === who && o.kind === 'pokemon' && o.space === space);
+    const chosen = (ui.pending?.chosen ?? []).some((o) => o.who === who && o.kind === 'pokemon' && o.space === space);
+    const cls = ['v2-space', loc && 'in-loc', summonHere && !ui.pending && 'target', target && 'attack-target', attacker && 'selected', effect && 'effect-target', chosen && 'chosen'].filter(Boolean).join(' ');
     const alert = card && isAlert(state, card) && state.phase === 'battle';
     const canAct = mine && alert && state.turn === 'player' && !ui.locked;
     const trained = card && state.events.find((e) => e.type === 'trained' && e.who === who && e.space === space);
-    const cardCls = [canAct && 'selectable', trained && 'levelup'].filter(Boolean).join(' ');
+    const cardCls = [canAct && !ui.pending && 'selectable', trained && 'levelup', card?.asleep && 'asleep', card?.burn && 'burning', card?.seededBy && 'seeded'].filter(Boolean).join(' ');
     const face = card ? pokemonCard(card, { alert, cls: cardCls, badge: trained ? `Level ${trained.to}${trained.name !== trained.fromName ? ` · ${trained.name}!` : ''}` : '' }) : '';
     return `<div class="${cls}" data-who="${who}" data-space="${space}"${loc ? ` style="--loc: ${loc.color}"` : ''}>${face}</div>`;
   }).join('');
@@ -120,13 +167,16 @@ function sidePanel(state, ui, ctx) {
     hint = resultLine(state);
     button = '<button data-action="new">New match</button>';
   } else if (myTurn) {
-    hint = ui.summon ? 'Click an empty space in your row to summon it, or the card again to cancel.'
+    hint = ui.pending ? pendingHint(state, ui)
+      : ui.summon ? 'Click an empty space in your row to summon it, or the card again to cancel.'
       : ui.location ? 'Click a glowing lane in the middle of the board: the Location covers it and the lanes to its right, on both sides.'
       : ui.attacker !== null ? 'Click a glowing target: an enemy Pokémon, or the Opponent (their Recognition panel).'
-        : 'Your turn: summon a Pokémon, place a Location, attack with an Alert Pokémon, or Pass.';
+        : 'Your turn: summon a Pokémon, place a Location, play a card, use an Item from your Bag, attack with an Alert Pokémon, or Pass.';
     const ends = passEndsPhase(state);
     const spends = passSpends(state, 'player').length;
-    button = `<button data-action="pass" class="pass">Pass<small>${ends ? 'ends the Battle Phase' : `+1 Energy${spends ? ` · ${spends} become${spends === 1 ? 's' : ''} Spent` : ''}`}</small></button>`;
+    button = ui.pending
+      ? `${ui.pending.spec.count !== 1 ? `<button data-action="targets-done"${ui.pending.chosen.length ? '' : ' disabled'}>Confirm<small>${ui.pending.chosen.length} chosen</small></button>` : ''}<button data-action="targets-cancel" class="v2-ask-cancel">Cancel</button>`
+      : `<button data-action="pass" class="pass">Pass<small>${ends ? 'ends the Battle Phase' : `+1 Energy${spends ? ` · ${spends} become${spends === 1 ? 's' : ''} Spent` : ''}`}</small></button>`;
   } else hint = ctx.autoplay ? 'Autoplay: the AI plays both sides.' : 'The Opponent is thinking…';
   const recent = state.log.slice(-4).map((l) => `<p>${esc(l)}</p>`).join('');
   return `
@@ -137,6 +187,7 @@ function sidePanel(state, ui, ctx) {
       <section class="v2-panel"><div class="v2-label">Energy</div>
         <b class="v2-big">${me.energy} <small>/ ${me.roundEnergy}${me.stored ? ` · +${me.stored} stored` : ''}${me.bonus ? ` · +${me.bonus} milestone` : ''}</small></b>
         ${me.bonusNext ? `<p class="v2-note">+${me.bonusNext} next Round</p>` : ''}</section>
+      ${bagPanel(state, ui)}
       <section class="v2-panel"><div class="v2-label">Weather</div>${weatherPanel(state)}</section>
       <section class="v2-panel v2-act"><p class="v2-hint">${hint}</p>${button}</section>
       <section class="v2-panel v2-log">${recent}</section>
@@ -156,22 +207,64 @@ function champPanel(state) {
 function weatherPanel(state) {
   const totals = weatherTotals(state);
   const icons = ['Rain', 'Sun'].map((kind) => `<span class="v2-wx big"><img src="${ASSETS}/ui/icons/weather-${slug(kind)}.webp" alt="${kind}">${totals[kind] ?? 0}<small>${kind}</small></span>`).join('');
-  return `<div class="v2-wx-row">${icons}</div><p class="v2-note">From the Locations in play (no effects yet).</p>`;
+  const on = WEATHER_BRACKETS.filter((b) => bracket(state, b.kind, b.at)).map((b) => `<p class="v2-note on"><b>${b.kind} ${b.at}:</b> ${b.text}</p>`).join('');
+  return `<div class="v2-wx-row">${icons}</div>${on || '<p class="v2-note">No bracket reached (2, 4, 6, 8).</p>'}`;
+}
+
+// The Weather brackets in play (docs/decks.md 2.12, without Growth and Evolve until V6).
+const WEATHER_BRACKETS = [
+  { kind: 'Sun', at: 2, text: 'each Burn applied +1' },
+  { kind: 'Sun', at: 8, text: 'Drought: no healing' },
+  { kind: 'Rain', at: 2, text: 'each heal +1' },
+  { kind: 'Rain', at: 4, text: 'Burn 1 less at Supper' },
+  { kind: 'Rain', at: 6, text: 'Leech Seed drains 2' },
+  { kind: 'Rain', at: 8, text: 'Downpour: Burn washed away at Supper' },
+];
+
+// The Bag (V4): 6 spaces, in the side panel as in the mockup. On your turn, an Item
+// you can use now glows; click it to use it (a Battle Action, cost 0).
+function bagPanel(state, ui) {
+  const me = state.players.player;
+  const mine = state.phase === 'battle' && state.turn === 'player' && !ui.locked && !ui.pending;
+  const usable = new Set(mine ? usableBagItems(state, 'player').map((c) => c.uid) : []);
+  const slots = Array.from({ length: BAG_SIZE }, (_, i) => {
+    const c = me.bag[i];
+    if (!c) return '<i></i>';
+    return `<i class="item${usable.has(c.uid) ? ' usable' : ''}" data-bag="${c.uid}" style="background-image: url('${artUrl(c)}')" title="${esc(`${c.name} (${c.kind}): ${c.text}`)}"></i>`;
+  }).join('');
+  return `<section class="v2-panel"><div class="v2-label">Bag <small>${me.bag.length}/${BAG_SIZE}</small></div><div class="v2-bag">${slots}</div>
+    <p class="v2-note">Items found at Locations${state.players.ai.bag.length ? ` · Opponent's Bag: ${state.players.ai.bag.length}` : ''}</p></section>`;
+}
+
+// --- Choosing targets (V4): a Strategy breakpoint, Supporter, Item or On summon ability -----
+
+function pendingOptions(state, ui) {
+  const pend = ui?.pending;
+  if (!pend) return [];
+  return [...targetOptions(state, 'player', pend.spec), ...(pend.extra ?? [])];
+}
+function pendingHint(state, ui) {
+  const { spec, label } = ui.pending;
+  const what = spec.side === 'enemy' ? (spec.kinds.includes('player') ? 'an enemy Pokémon or the Opponent (their Recognition panel)' : 'an enemy Pokémon')
+    : spec.kinds.includes('player') ? 'one of your Pokémon or yourself (your Recognition panel)' : 'one of your Pokémon';
+  return `${label}: click ${spec.count === 1 ? what : `up to ${spec.count} targets: ${what}`}${spec.count !== 1 ? ', then Confirm' : ''}.`;
 }
 
 function hand(state, ui) {
   const cards = state.players.player.hand;
   const mine = state.phase === 'battle' && state.turn === 'player' && !ui.locked;
-  const can = new Set(mine ? [...playable(state, 'player'), ...placeable(state, 'player')].map((c) => c.uid) : []);
+  const can = new Set(mine && !ui.pending ? [...playable(state, 'player'), ...placeable(state, 'player'), ...playableStrategies(state, 'player'),
+    ...playableSupporters(state, 'player'), ...playableItems(state, 'player')].map((c) => c.uid) : []);
   const n = cards.length;
   return `<div class="v2-hand">${cards.map((c, i) => {
     const picked = ui.summon === c.uid || ui.location === c.uid;
     const angle = (i - (n - 1) / 2) * 4;
     const lift = Math.abs(i - (n - 1) / 2) * 6 - (picked ? 34 : 0);
     const cls = [can.has(c.uid) ? 'playable' : 'unaffordable', picked && 'picked'].filter(Boolean).join(' ');
-    const attrs = `data-uid="${c.uid}" data-kind="${c.cardType === 'Location' ? 'location' : 'pokemon'}"`;
+    const attrs = `data-uid="${c.uid}" data-kind="${c.cardType.toLowerCase().replace('é', 'e')}"`;
     const up = state.events.find((e) => e.type === 'levelUp' && e.uid === c.uid);
     const face = c.cardType === 'Location' ? locationCard(c, { cls, attrs })
+      : ['Strategy', 'Supporter', 'Item'].includes(c.cardType) ? actionCard(c, { cls, attrs })
       : pokemonCard(c, { cls: [cls, up && 'levelup'].filter(Boolean).join(' '), showCost: true, inHand: true, attrs, badge: up ? `Evolved: ${up.to}!` : '' });
     return `<div class="v2-hand-slot" style="transform: translateY(${lift}px) rotate(${angle}deg)">${face}</div>`;
   }).join('')}</div>`;
@@ -259,6 +352,53 @@ function empowerBox(state, ui) {
   </div></div>`;
 }
 
+// The cost chooser (Strategy Cards): each breakpoint, what it does, which you can pay.
+function costBox(state, ui) {
+  const a = ui.ask;
+  const card = a?.kind === 'cost' && state.players.player.hand.find((c) => c.uid === a.uid);
+  if (!card) return '';
+  const ok = new Set(breakpointsFor(state, 'player', card).map((b) => b.cost));
+  return `<div class="v2-ask" role="dialog" aria-label="Choose the cost"><div class="v2-panel v2-cost-ask">
+    <p><b>${card.name}</b>: choose how much Energy to pay (you have ${state.players.player.energy}).</p>
+    <div class="v2-bps">${card.breakpoints.map((b) => `<button data-pay="${b.cost}"${ok.has(b.cost) ? '' : ' disabled'}><b>${b.cost}</b><span>${esc(b.text)}</span></button>`).join('')}</div>
+    <button data-action="ask-cancel" class="v2-ask-cancel">Cancel</button>
+  </div></div>`;
+}
+
+// The Release payment (Supporters): pick exactly N other cards from your hand; the
+// Favour shows whether it's met.
+function releaseBox(state, ui) {
+  const a = ui.ask;
+  const card = a?.kind === 'release' && state.players.player.hand.find((c) => c.uid === a.uid);
+  if (!card) return '';
+  const others = state.players.player.hand.filter((c) => c !== card);
+  const picked = others.filter((c) => a.chosen.includes(c.uid));
+  const met = favourMet(card, picked);
+  const tiles = others.map((c) => `<button class="v2-rel${a.chosen.includes(c.uid) ? ' on' : ''}${FAVOURS[card.favour.condition].test(c) ? ' favour' : ''}" data-rel="${c.uid}" style="background-image: url('${c.cardType === 'Pokémon' ? `${ASSETS}/cards/${c.art}.jpg` : c.cardType === 'Location' ? `${ASSETS}/cards/${c.id}.jpg` : artUrl(c)}')"><span>${esc(c.name)}${c.level ? ` L${c.level}` : ''}</span></button>`).join('');
+  return `<div class="v2-ask" role="dialog" aria-label="Release cards"><div class="v2-panel v2-release-ask">
+    <p><b>${card.name}</b>: Release ${card.release} card${card.release === 1 ? '' : 's'} from your hand (gone for the match). ${esc(card.text)}.</p>
+    <p class="v2-favour${met ? ' met' : ''}">Favour: Release ${esc(FAVOURS[card.favour.condition].text)} → ${esc(card.favour.text)} ${met ? '✓ met' : ''}</p>
+    <div class="v2-rels">${tiles}</div>
+    <div class="v2-ask-buttons"><button data-action="release-done"${picked.length === card.release ? '' : ' disabled'}>Release ${picked.length}/${card.release} and play</button></div>
+    <button data-action="ask-cancel" class="v2-ask-cancel">Cancel</button>
+  </div></div>`;
+}
+
+// An Item from hand: use it now, or put it into the Bag.
+function itemBox(state, ui) {
+  const a = ui.ask;
+  const card = a?.kind === 'item' && state.players.player.hand.find((c) => c.uid === a.uid);
+  if (!card) return '';
+  return `<div class="v2-ask" role="dialog" aria-label="Play an Item"><div class="v2-panel">
+    <p><b>${card.name}</b> (${card.kind}, ${card.cost} Energy): ${esc(card.text)}</p>
+    <div class="v2-ask-buttons">
+      <button data-action="item-use"${itemUsable(state, 'player', card) ? '' : ' disabled'}>Use now<small>${card.cost} Energy</small></button>
+      <button data-action="item-bag"${bagFull(state, 'player') ? ' disabled' : ''}>Put in the Bag<small>${card.cost} Energy · use it later for 0</small></button>
+    </div>
+    <button data-action="ask-cancel" class="v2-ask-cancel">Cancel</button>
+  </div></div>`;
+}
+
 function gameOver(state) {
   if (state.phase !== 'gameOver') return '';
   const title = state.winner === 'player' ? 'Victory' : state.winner === 'ai' ? 'Defeat' : 'Draw';
@@ -275,8 +415,8 @@ export function renderMatch(root, state, ui, ctx) {
     <div class="v2-table">
       <header class="v2-title"><h1>Pokémon Legends v2</h1><p>${ctx.build} · <a href="../">the current game</a> · <button class="v2-linkbtn" data-action="deck">${ctx.customDeck ? "Your deck" : "Deck builder"}</button></p></header>
       ${backs(state.players.ai.hand.length)}
-      ${recognitionPanel(state, 'ai', playerTarget)}
-      ${recognitionPanel(state, 'player', false)}
+      ${recognitionPanel(state, 'ai', playerTarget, ui)}
+      ${recognitionPanel(state, 'player', false, ui)}
       <section class="v2-board">
         <div class="v2-mat"></div>
         ${strip(state)}
@@ -288,6 +428,9 @@ export function renderMatch(root, state, ui, ctx) {
       ${hand(state, ui)}
       <div class="v2-piles"><span>Draw ${state.players.player.drawPile.length}</span><span>Discard ${state.players.player.discard.length}</span><span>Released ${state.players.player.released.length}</span></div>
       ${empowerBox(state, ui)}
+      ${costBox(state, ui)}
+      ${releaseBox(state, ui)}
+      ${itemBox(state, ui)}
       ${gameOver(state)}
     </div>`;
   wire(root, state, ui, ctx);
@@ -300,8 +443,31 @@ function wire(root, state, ui, ctx) {
   on('[data-action="new"]', () => ctx.newMatch());
   on('[data-action="deck"]', () => ctx.openDeck());
   if (!(state.phase === 'battle' && state.turn === 'player') || ui.locked) return;
+  const hand = state.players.player.hand;
+  // Start an action that may need targets: none (or 'all') acts at once; else choose.
+  const begin = (action, spec, label, extra = []) => {
+    ui.ask = null;
+    const options = spec && spec.count !== 'all' ? [...targetOptions(state, 'player', spec), ...extra] : [];
+    if (!options.length) return ctx.act(action);
+    ui.pending = { action, spec, label, chosen: [], extra };
+    ctx.redraw();
+  };
+  // A summon with an On summon ability (Chansey): choose its target, the new Pokémon included.
+  const summonWith = (action) => {
+    const card = hand.find((c) => c.uid === action.uid);
+    const spec = card?.ability?.onSummon?.target;
+    const self = card && card.level < trainTop(card) ? [{ who: 'player', kind: 'pokemon', space: action.space }] : [];
+    if (!spec) return ctx.act(action);
+    ui.empowerAsk = null;
+    begin(action, spec, `${card.name}: ${card.ability.text}`, self);
+  };
   on('.v2-hand .v2-card.playable', (el) => {
     ui.attacker = null;
+    const kind = el.dataset.kind;
+    const card = hand.find((c) => c.uid === el.dataset.uid);
+    if (kind === 'strategy') { ui.summon = null; ui.location = null; ui.ask = { kind: 'cost', uid: card.uid }; return ctx.redraw(); }
+    if (kind === 'supporter') { ui.summon = null; ui.location = null; ui.ask = { kind: 'release', uid: card.uid, chosen: [] }; return ctx.redraw(); }
+    if (kind === 'item') { ui.summon = null; ui.location = null; ui.ask = { kind: 'item', uid: card.uid }; return ctx.redraw(); }
     const key = el.dataset.kind === 'location' ? 'location' : 'summon';
     const other = key === 'location' ? 'summon' : 'location';
     ui[other] = null;
@@ -321,10 +487,54 @@ function wire(root, state, ui, ctx) {
     const card = state.players.player.hand.find((c) => c.uid === ui.summon);
     // A Pokémon with an Empowered summon asks first.
     if (card?.empower) { ui.empowerAsk = { uid: card.uid, space }; ctx.redraw(); return; }
-    ctx.act({ type: 'summon', who: 'player', uid: ui.summon, space });
+    summonWith({ type: 'summon', who: 'player', uid: ui.summon, space });
   });
-  on('[data-action="summon-plain"]', () => ctx.act({ type: 'summon', who: 'player', uid: ui.empowerAsk.uid, space: ui.empowerAsk.space }));
-  on('[data-action="summon-empowered"]', () => ctx.act({ type: 'summon', who: 'player', uid: ui.empowerAsk.uid, space: ui.empowerAsk.space, empowered: true }));
+  on('[data-action="summon-plain"]', () => summonWith({ type: 'summon', who: 'player', uid: ui.empowerAsk.uid, space: ui.empowerAsk.space }));
+  on('[data-action="summon-empowered"]', () => summonWith({ type: 'summon', who: 'player', uid: ui.empowerAsk.uid, space: ui.empowerAsk.space, empowered: true }));
+  // Strategy Cards: the chosen breakpoint, then its targets.
+  on('[data-pay]', (el) => {
+    const card = hand.find((c) => c.uid === ui.ask.uid);
+    const bp = card.breakpoints.find((b) => b.cost === Number(el.dataset.pay));
+    begin({ type: 'playStrategy', who: 'player', uid: card.uid, pay: bp.cost }, bp.target, `${card.name} (${bp.cost}): ${bp.text}`);
+  });
+  // Supporters: pick the cards to Release, then targets.
+  on('[data-rel]', (el) => {
+    const card = hand.find((c) => c.uid === ui.ask.uid);
+    const list = ui.ask.chosen;
+    if (list.includes(el.dataset.rel)) ui.ask.chosen = list.filter((u) => u !== el.dataset.rel);
+    else if (list.length < card.release) list.push(el.dataset.rel);
+    ctx.redraw();
+  });
+  on('[data-action="release-done"]', () => {
+    const card = hand.find((c) => c.uid === ui.ask.uid);
+    begin({ type: 'playSupporter', who: 'player', uid: card.uid, release: [...ui.ask.chosen] }, card.target, `${card.name}: ${card.text}`);
+  });
+  // Items from hand: use now (then targets) or into the Bag; from the Bag: use.
+  on('[data-action="item-use"]', () => {
+    const card = hand.find((c) => c.uid === ui.ask.uid);
+    begin({ type: 'playItem', who: 'player', uid: card.uid, mode: 'use' }, card.target, `${card.name}: ${card.text}`);
+  });
+  on('[data-action="item-bag"]', () => ctx.act({ type: 'playItem', who: 'player', uid: ui.ask.uid, mode: 'bag' }));
+  on('.v2-bag .item.usable', (el) => {
+    const card = state.players.player.bag.find((c) => c.uid === el.dataset.bag);
+    ui.summon = null; ui.location = null; ui.attacker = null;
+    begin({ type: 'useItem', who: 'player', uid: card.uid }, card.target, `${card.name}: ${card.text}`);
+  });
+  on('[data-action="ask-cancel"]', () => { ui.ask = null; ctx.redraw(); });
+  // Choosing targets: one target acts at once; for more, toggle, then Confirm.
+  const pickTarget = (ref) => {
+    const pend = ui.pending;
+    if (pend.spec.count === 1) return ctx.act({ ...pend.action, targets: [ref] });
+    const key = (t) => `${t.who}:${t.kind}:${t.space ?? ''}`;
+    if (pend.chosen.some((t) => key(t) === key(ref))) pend.chosen = pend.chosen.filter((t) => key(t) !== key(ref));
+    else if (pend.chosen.length < pend.spec.count) pend.chosen.push(ref);
+    ctx.redraw();
+  };
+  on('.v2-space.effect-target', (el) => pickTarget({ who: el.dataset.who, kind: 'pokemon', space: Number(el.dataset.space) }));
+  on('.v2-recognition.effect-target', (el) => pickTarget({ who: el.dataset.player, kind: 'player' }));
+  on('[data-action="targets-done"]', () => ctx.act({ ...ui.pending.action, targets: ui.pending.chosen }));
+  on('[data-action="targets-cancel"]', () => { ui.pending = null; ctx.redraw(); });
+  if (ui.pending) return;
   on('[data-action="summon-cancel"]', () => { ui.empowerAsk = null; ctx.redraw(); });
   on('.v2-row.player .v2-card.selectable', (el) => {
     const space = Number(el.closest('.v2-space').dataset.space);

@@ -8,7 +8,7 @@ import { toastsFor, showToasts } from './ui/toasts.js';
 import { openDeckBuilder } from './ui/deckbuilder.js';
 import { TEST_DECK, deckProblems } from './engine/cards.js';
 
-export const BUILD = 'V3 — Training';
+export const BUILD = 'V4 — card types';
 
 const STAGE = { width: 1920, height: 1080 };
 const stage = document.getElementById('stage');
@@ -32,7 +32,7 @@ const PAUSE = autoplay ? 250 : 650;   // a short pause before each AI action, so
 
 let state = null;
 let match = 0;   // bumped by New match, so an old match's AI loop stops
-const ui = { summon: null, location: null, attacker: null, empowerAsk: null, locked: false };
+const ui = { summon: null, location: null, attacker: null, empowerAsk: null, ask: null, pending: null, locked: false };
 
 // Your deck: one built in the deck builder (kept in this browser), or the premade
 // test deck. The Opponent always plays the premade deck.
@@ -77,6 +77,8 @@ async function act(action) {
   ui.location = null;
   ui.attacker = null;
   ui.empowerAsk = null;
+  ui.ask = null;
+  ui.pending = null;
   redraw();
   await aiTurn(match);
 }
@@ -108,6 +110,8 @@ function newMatch() {
   ui.location = null;
   ui.attacker = null;
   ui.empowerAsk = null;
+  ui.ask = null;
+  ui.pending = null;
   ui.locked = false;
   redraw();
   if (autoplay) aiTurn(match);

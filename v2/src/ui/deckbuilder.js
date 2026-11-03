@@ -2,7 +2,8 @@
 // series and setting each card's cap (the highest Level it trains to), with its cost
 // at the cap and the copy limits by rarity (each card in a series uses 1 copy slot).
 // Locations are added by count. The deck is checked with the engine's deckProblems.
-import { SERIES, TEST_DECK, deckProblems, copiesOf, copyLimit } from '../engine/cards.js';
+import { SERIES, TEST_DECK, deckProblems, copiesOf, copyLimit, ALL_OTHER_CARDS } from '../engine/cards.js';
+import { costRange } from '../engine/cardtypes.js';
 import { pokemonAt, stagesText } from '../engine/series.js';
 import { TEST_LOCATIONS, lastsText } from '../engine/locations.js';
 import { DECK_SIZE, LEGENDARY_PER_DECK } from '../engine/rules.js';
@@ -47,15 +48,31 @@ export function openDeckBuilder(host, ctx) {
       </div></div>`;
   }
 
+  // Strategy Cards, Supporters and Items (V4), by count.
+  function cardRow(card) {
+    const n = copiesOf(deck)[card.id] ?? 0;
+    const limit = copyLimit(card.id);
+    const what = card.cardType === 'Strategy' ? `Strategy · cost ${costRange(card)} · ${card.breakpoints.map((b) => `${b.cost}: ${b.text}`).join(' · ')}`
+      : card.cardType === 'Supporter' ? `Supporter · Release ${card.release} · ${card.text}`
+        : `Item (${card.kind}) · cost ${card.cost} · ${card.text}`;
+    const art = card.art ? `${ASSETS}/cards/${card.art}.jpg` : `${ASSETS}/ui/frame-item.jpg`;
+    return `<div class="v2-brow">
+      <div class="v2-bart" style="background-image: url('${art}')"></div>
+      <div class="v2-binfo"><b>${esc(card.name)}</b><small title="${esc(what)}">${card.rarity} · ${esc(what)}</small>
+        <div class="v2-chips"><button data-card-minus="${card.id}"${n ? '' : ' disabled'}>−</button><span class="v2-count">${n}/${limit}</span><button data-card-plus="${card.id}"${n >= limit ? ' disabled' : ''}>+</button></div>
+      </div></div>`;
+  }
+
   function draw() {
     const problems = deckProblems(deck);
     const pokemon = deck.filter((e) => e.series).length;
+    const locations = deck.filter((e) => e.location).length;
     el.innerHTML = `<div class="v2-panel v2-builder-panel">
       <header><h2>Deck builder</h2>
         <p>Each card is a series and a cap: in a match its Level is the Round number, up to the cap. Copy limits by rarity: Common 3, Rare 2, Legendary 1 (one Legendary per deck).</p>
-        <div class="v2-btotal ${deck.length === DECK_SIZE ? 'ok' : ''}">${deck.length} / ${DECK_SIZE} cards · ${pokemon} Pokémon · ${deck.length - pokemon} Locations</div>
+        <div class="v2-btotal ${deck.length === DECK_SIZE ? 'ok' : ''}">${deck.length} / ${DECK_SIZE} cards · ${pokemon} Pokémon · ${locations} Locations · ${deck.length - pokemon - locations} Strategy, Supporter and Item cards</div>
       </header>
-      <div class="v2-blist">${SERIES.map(seriesRow).join('')}${TEST_LOCATIONS.map(locationRow).join('')}</div>
+      <div class="v2-blist">${SERIES.map(seriesRow).join('')}${TEST_LOCATIONS.map(locationRow).join('')}${ALL_OTHER_CARDS.map(cardRow).join('')}</div>
       <footer>
         <div class="v2-bproblems">${problems.length ? problems.map((p) => `<p>${esc(p)}</p>`).join('') : '<p class="ok">This deck is ready.</p>'}</div>
         <button data-b="premade">Premade deck</button>
@@ -77,6 +94,8 @@ export function openDeckBuilder(host, ctx) {
     });
     on('[data-loc-plus]', 'click', (x) => { deck.push({ location: x.dataset.locPlus }); draw(); });
     on('[data-loc-minus]', 'click', (x) => { deck.splice(deck.findIndex((e) => e.location === x.dataset.locMinus), 1); draw(); });
+    on('[data-card-plus]', 'click', (x) => { deck.push({ card: x.dataset.cardPlus }); draw(); });
+    on('[data-card-minus]', 'click', (x) => { deck.splice(deck.findIndex((e) => e.card === x.dataset.cardMinus), 1); draw(); });
     on('[data-b="premade"]', 'click', () => { deck = TEST_DECK.map((e) => ({ ...e })); draw(); });
     on('[data-b="close"]', 'click', close);
     on('[data-b="use"]', 'click', () => { ctx.onUse(deck); close(); });
