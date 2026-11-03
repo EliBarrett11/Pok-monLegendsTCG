@@ -35,6 +35,7 @@ import {
 } from './rules.js';
 import { TEST_DECK, cardAt, SPEEDS } from './cards.js';
 import { pokemonAt } from './series.js';
+import { ITEMS, BAG_SIZE, FAVOURS } from './cardtypes.js';
 import { OBJECTIVES, CHAMPIONSHIP, rewardText } from './locations.js';
 
 export const PLAYERS = ['player', 'ai'];
@@ -47,6 +48,7 @@ export function createGame(seed = Date.now(), { decks = { player: TEST_DECK, ai:
   const state = {
     seed, rng: seed >>> 0, round: 0, phase: 'initiative', turn: null, initiative: null, passesInARow: 0,
     winner: null, result: null, suddenDeath: false, locations: [], nextLocation: 0, players: {}, log: [], events: [],
+    itemPool: [], nextItem: 0,
   };
   for (const who of PLAYERS) {
     state.players[who] = {
@@ -55,8 +57,11 @@ export function createGame(seed = Date.now(), { decks = { player: TEST_DECK, ai:
       hand: [], discard: [], released: [],
       row: Array(LANES).fill(null),
       energy: 0, roundEnergy: 0, stored: 0, bonusNext: 0, bonus: 0, recognition: 0,
+      bag: [], burn: 0,
     };
   }
+  // The shared Item pool (V4): one copy of each test Item, shuffled.
+  state.itemPool = shuffle(state, ITEMS.map((c) => ({ ...c, uid: `pool-${state.nextItem++}` })));
   log(state, 'Flip a coin to decide who has initiative in Round 1.');
   return state;
 }
@@ -104,9 +109,15 @@ export function train(s, who, space, n) {
   const to = Math.min(card.level + n, trainTop(card));
   if (to <= card.level) return false;
   const damage = card.strength - card.currentStrength;
-  const next = { ...atLevel(card, to), spent: card.spent, arrivedRound: card.arrivedRound, empowered: card.empowered };
+  const next = {
+    ...atLevel(card, to), spent: card.spent, arrivedRound: card.arrivedRound, empowered: card.empowered,
+    burn: card.burn, asleep: card.asleep, seededBy: card.seededBy,
+  };
   if (card.empowered) applyEmpower(next);
+  if (card.held) applyHeld(next, card.held);
   next.currentStrength = Math.max(1, next.strength - damage);
+  // Evolving (a new stage) cures Sleep and Leech Seed, as in the current game.
+  if (next.stage !== card.stage) { next.asleep = false; next.seededBy = null; }
   s.players[who].row[space] = next;
   emit(s, 'trained', { who, space, from: card.level, to, fromName: card.name, name: next.name });
   log(s, `${NAMES[who] === 'You' ? 'Your' : "The Opponent's"} ${card.name} trained to Level ${to}${next.name !== card.name ? `: it evolved into ${next.name}` : ''}.`);
@@ -121,16 +132,6 @@ function applyEmpower(card) {
   card.keywords = [...new Set([...card.keywords, ...(e.keywords ?? [])])];
 }
 
-// Effect ops (series.js). { op: 'train', amount, target: 'lowestOther' }: your other
-// Pokémon with the lowest Level that can still train (the leftmost on a tie).
-function runOps(s, who, space, ops = []) {
-  for (const op of ops) {
-    if (op.op !== 'train') throw new Error(`Unknown effect op: ${op.op}`);
-    const pick = pokemonOf(s, who).filter((p) => p.space !== space && p.card.level < trainTop(p.card))
-      .sort((a, b) => a.card.level - b.card.level || a.space - b.space)[0];
-    if (pick) train(s, who, pick.space, op.amount);
-  }
-}
 
 // What a summon costs: the card's cost, plus the Empowered extra if chosen.
 export const summonCost = (card, empowered) => card.cost + (empowered && card.empower ? card.empower.cost : 0);
@@ -223,6 +224,66 @@ export const pokemonIn = (state, who, loc) => loc.lanes.filter((lane) => state.p
 
 export const championship = (state) => state.locations.find((l) => l.championship) ?? null;
 
+// --- Effects, statuses and Weather (V4) ------------------------------------------------------------
+//
+// Target refs: { who, kind: 'pokemon', space } (a Pokémon in `who`'s row) or
+// { who, kind: 'player' } (that player character). Specs and ops: cardtypes.js.
+
+// Weather brackets (docs/decks.md 2.12, without Growth and Evolve until V6): a
+// bracket is on while the combined count is at or above it.
+export const bracket = (state, kind, n) => (weatherTotals(state)[kind] ?? 0) >= n;
+
+export function targetOptions(state, who, spec) {
+  if (!spec) return [];
+  const side = spec.side === 'enemy' ? opponentOf(who) : who;
+  const out = [];
+  if (spec.kinds.includes('pokemon')) {
+    for (const { space, card } of pokemonOf(state, side)) {
+      if (spec.filter === 'canTrain' && card.level >= trainTop(card)) continue;
+      if (spec.filter === 'damaged' && card.currentStrength >= card.strength) continue;
+      out.push({ who: side, kind: 'pokemon', space });
+    }
+  }
+  if (spec.kinds.includes('player')) out.push({ who: side, kind: 'player' });
+  return out;
+}
+const refKey = (t) => `${t.who}:${t.kind}:${t.space ?? ''}`;
+// Whether a card with this target spec has something to work on.
+export const canTarget = (state, who, spec) => !spec || targetOptions(state, who, spec).length > 0;
+
+// The targets an effect works on: every option for 'all'; otherwise the chosen
+// ones (1 up to the count, all different, all legal).
+function chooseTargets(s, who, spec, targets) {
+  if (!spec) return [];
+  const options = targetOptions(s, who, spec);
+  if (spec.count === 'all') return options;
+  if (!options.length) throw new Error('There is no legal target');
+  const list = targets ?? [];
+  if (list.length < 1 || list.length > spec.count) throw new Error(spec.count === 1 ? 'Choose a target' : `Choose 1 to ${spec.count} targets`);
+  if (new Set(list.map(refKey)).size !== list.length) throw new Error('Choose different targets');
+  return list.map((t) => {
+    const found = options.find((o) => refKey(o) === refKey(t));
+    if (!found) throw new Error('That is not a legal target');
+    return found;
+  });
+}
+
+// Strategy Cards: the breakpoints this player can pay now (affordable, with a target).
+export const breakpointsFor = (state, who, card) => (card.breakpoints ?? [])
+  .filter((b) => b.cost <= state.players[who].energy && canTarget(state, who, b.target));
+export const playableStrategies = (state, who) => state.players[who].hand.filter((c) => c.cardType === 'Strategy' && breakpointsFor(state, who, c).length);
+// Supporters: enough other cards in hand to Release, and a target.
+export const supporterPlayable = (state, who, card) => state.players[who].hand.length - 1 >= card.release && canTarget(state, who, card.target);
+export const playableSupporters = (state, who) => state.players[who].hand.filter((c) => c.cardType === 'Supporter' && supporterPlayable(state, who, c));
+// Items: usable now (a target), and from hand affordable (used now, or into the Bag if it has room).
+export const itemUsable = (state, who, item) => canTarget(state, who, item.target);
+export const bagFull = (state, who) => state.players[who].bag.length >= BAG_SIZE;
+export const playableItems = (state, who) => state.players[who].hand.filter((c) => c.cardType === 'Item' && c.cost <= state.players[who].energy
+  && (itemUsable(state, who, c) || !bagFull(state, who)));
+export const usableBagItems = (state, who) => state.players[who].bag.filter((c) => itemUsable(state, who, c));
+// The Favour: met if a Released card meets the Supporter's condition.
+export const favourMet = (card, released) => !!card.favour && released.some((c) => FAVOURS[card.favour.condition].test(c));
+
 export function legalActions(state, who) {
   if (state.phase === 'initiative') return ['flipCoin'];
   if (state.phase !== 'battle' || state.turn !== who) return [];
@@ -230,6 +291,10 @@ export function legalActions(state, who) {
     'pass',
     ...(playable(state, who).length ? ['summon'] : []),
     ...(placeable(state, who).length ? ['playLocation'] : []),
+    ...(playableStrategies(state, who).length ? ['playStrategy'] : []),
+    ...(playableSupporters(state, who).length ? ['playSupporter'] : []),
+    ...(playableItems(state, who).length ? ['playItem'] : []),
+    ...(usableBagItems(state, who).length ? ['useItem'] : []),
     ...(alertSpaces(state, who).some((s) => legalTargets(state, who, s).length) ? ['attack'] : []),
   ];
 }
@@ -260,7 +325,7 @@ const ACTIONS = {
   // It arrives Spent (Quick Attack: Active).
   // Empowered (only on Pokémon that have it): pay the extra Energy for its bonus.
   // It stays at the Level it is played at (frozen).
-  summon(s, { who, uid, space, empowered = false }) {
+  summon(s, { who, uid, space, empowered = false, targets }) {
     const p = s.players[who];
     const card = p.hand.find((c) => c.uid === uid);
     if (!card || card.cardType !== 'Pokémon') throw new Error('Choose a Pokémon from your hand');
@@ -277,7 +342,11 @@ const ACTIONS = {
     p.row[space] = played;
     emit(s, 'summoned', { who, uid, name: card.name, space, cost, level: card.level, stage: card.stage, series: card.series, empowered: !!empowered });
     log(s, `${p.name} summoned ${card.name} (Level ${card.level}) into space ${space + 1} (${cost} Energy${empowered ? `, Empowered: ${card.empower.text}` : ''}).`);
-    if (card.ability?.onSummon) runOps(s, who, space, card.ability.onSummon);
+    // An On summon ability (Chansey's train): its player chooses the target.
+    // With no possible target, nothing happens.
+    const onSummon = card.ability?.onSummon;
+    if (onSummon && canTarget(s, who, onSummon.target)) runEffect(s, who, onSummon.target, onSummon.ops, targets);
+    if (over(s)) return;
     progressAt(s, who, 'summon', space);
     endTurn(s, who, false);
   },
@@ -293,6 +362,81 @@ const ACTIONS = {
     const loc = enterLocation(s, card, who, Array.from({ length: card.lanes }, (_, i) => start + i));
     emit(s, 'locationPlaced', { who, uid: loc.uid, name: card.name, lanes: loc.lanes });
     log(s, `${p.name} placed ${card.name} over lane${loc.lanes.length > 1 ? 's' : ''} ${loc.lanes.map((l) => l + 1).join('–')} (${card.rounds} Rounds): ${card.objective.text}.`);
+    endTurn(s, who, false);
+  },
+
+  // Play a Strategy Card, paying one of its breakpoint amounts (pay): that
+  // breakpoint's effect, on the chosen targets. It goes to the discard pile.
+  playStrategy(s, { who, uid, pay, targets }) {
+    const p = s.players[who];
+    const card = p.hand.find((c) => c.uid === uid);
+    if (!card || card.cardType !== 'Strategy') throw new Error('Choose a Strategy Card from your hand');
+    const bp = card.breakpoints.find((b) => b.cost === pay);
+    if (!bp) throw new Error(`${card.name} can only be paid ${card.breakpoints.map((b) => b.cost).join(', ')}`);
+    if (pay > p.energy) throw new Error(`Not enough Energy for ${card.name} at ${pay}`);
+    chooseTargets(s, who, bp.target, targets);   // checked before paying
+    p.energy -= pay;
+    p.hand = p.hand.filter((c) => c !== card);
+    p.discard.push(card);
+    emit(s, 'strategy', { who, uid, name: card.name, pay, level: card.breakpoints.indexOf(bp), levels: card.breakpoints.length, text: bp.text });
+    log(s, `${p.name} played ${card.name} for ${pay} Energy: ${bp.text}.`);
+    runEffect(s, who, bp.target, bp.ops, targets);
+    endTurn(s, who, false);
+  },
+
+  // Play a Supporter: Release the chosen cards from hand (exactly its Release cost),
+  // then the effect (improved if a Released card meets the Favour), then the
+  // Supporter itself is Released. No once-per-Round limit.
+  playSupporter(s, { who, uid, release = [], targets }) {
+    const p = s.players[who];
+    const card = p.hand.find((c) => c.uid === uid);
+    if (!card || card.cardType !== 'Supporter') throw new Error('Choose a Supporter from your hand');
+    if (release.length !== card.release || new Set(release).size !== release.length) throw new Error(`${card.name}: Release exactly ${card.release} card${card.release === 1 ? '' : 's'}`);
+    const paid = release.map((r) => p.hand.find((c) => c.uid === r && c !== card));
+    if (paid.some((c) => !c)) throw new Error('Release cards from your hand (not the Supporter itself)');
+    const favour = favourMet(card, paid);
+    const ops = favour ? card.favour.ops : card.ops;
+    chooseTargets(s, who, card.target, targets);
+    p.hand = p.hand.filter((c) => c !== card && !paid.includes(c));
+    p.released.push(...paid.map(plainCard));
+    emit(s, 'supporter', { who, uid, name: card.name, released: paid.map((c) => c.name), favour });
+    log(s, `${p.name} played ${card.name}, Releasing ${paid.map((c) => c.name).join(' and ')}${favour ? ` (Favour: ${FAVOURS[card.favour.condition].text}: ${card.favour.text})` : ''}.`);
+    runEffect(s, who, card.target, ops, targets);
+    p.released.push(card);
+    emit(s, 'released', { who, uid, name: card.name });
+    endTurn(s, who, false);
+  },
+
+  // Play an Item from hand, paying its Energy cost: use it now (mode 'use') or put
+  // it into the Bag (mode 'bag').
+  playItem(s, { who, uid, mode = 'use', targets }) {
+    const p = s.players[who];
+    const card = p.hand.find((c) => c.uid === uid);
+    if (!card || card.cardType !== 'Item') throw new Error('Choose an Item from your hand');
+    if (card.cost > p.energy) throw new Error(`Not enough Energy for ${card.name}`);
+    if (mode === 'bag' && bagFull(s, who)) throw new Error('Your Bag is full');
+    if (mode === 'use') chooseTargets(s, who, card.target, targets);
+    p.energy -= card.cost;
+    p.hand = p.hand.filter((c) => c !== card);
+    if (mode === 'bag') {
+      p.bag.push(card);
+      emit(s, 'bagged', { who, uid, name: card.name });
+      log(s, `${p.name} put ${card.name} into the Bag (${card.cost} Energy).`);
+    } else {
+      log(s, `${p.name} played ${card.name} (${card.cost} Energy).`);
+      useItemCard(s, who, card, targets);
+    }
+    endTurn(s, who, false);
+  },
+
+  // Use an Item from the Bag (cost 0).
+  useItem(s, { who, uid, targets }) {
+    const p = s.players[who];
+    const card = p.bag.find((c) => c.uid === uid);
+    if (!card) throw new Error('Choose an Item in your Bag');
+    chooseTargets(s, who, card.target, targets);
+    p.bag = p.bag.filter((c) => c !== card);
+    useItemCard(s, who, card, targets);
     endTurn(s, who, false);
   },
 
@@ -320,6 +464,7 @@ const ACTIONS = {
     const defender = s.players[foe].row[target.space];
     const trades = isAlert(s, defender);   // decided before anyone becomes Spent
     defender.currentStrength -= attacker.attack;
+    defender.asleep = false;   // damage wakes a sleeping Pokémon (it stays Spent)
     if (trades) attacker.currentStrength -= defender.attack;
     attacker.spent = true;
     if (trades) defender.spent = true;
@@ -354,8 +499,8 @@ function defeat(s, who, space, by, byLane) {
   const card = s.players[who].row[space];
   if (!card || card.currentStrength > 0) return;
   s.players[who].row[space] = null;
-  const { currentStrength, spent, arrivedRound, ...plain } = card;
-  s.players[who].released.push(plain);
+  if (card.held) returnToPool(s, card.held);
+  s.players[who].released.push(plainCard(card));
   emit(s, 'defeated', { who, space, name: card.name });
   log(s, `${NAMES[who] === 'You' ? 'Your' : "The Opponent's"} ${card.name} was defeated.`);
   if (by) progressAt(s, by, 'defeat', byLane);
@@ -431,6 +576,7 @@ function reward(s, who, r = {}) {
   const p = s.players[who];
   if (r.energy) p.bonusNext += r.energy;
   if (r.draw) draw(s, who, r.draw);
+  for (let i = 0; i < (r.item ?? 0); i++) findItem(s, who);
   if (r.recognition) {
     p.recognition += r.recognition;
     emit(s, 'recognition', { who, amount: r.recognition, total: p.recognition, reward: true });
@@ -477,7 +623,8 @@ function startRound(s, round) {
   if (round === CHAMPIONSHIP_ROUND && !championship(s)) arriveChampionship(s);
   for (const who of PLAYERS) {
     const p = s.players[who];
-    for (const card of p.row) if (card) card.spent = false;
+    // An Asleep Pokémon stays Spent this Breakfast, then wakes.
+    for (const card of p.row) if (card) { card.spent = !!card.asleep; card.asleep = false; }
     followRound(s, who);
     draw(s, who, HAND_SIZE);
     p.roundEnergy = baseEnergyFor(round);
@@ -485,6 +632,11 @@ function startRound(s, round) {
     p.bonusNext = 0;
     p.energy = p.roundEnergy + p.stored + p.bonus;
     log(s, `${p.name}: ${p.roundEnergy} Energy${p.stored ? ` + ${p.stored} stored` : ''}${p.bonus ? ` + ${p.bonus} from milestones` : ''}.`);
+    // Regenerate N (a Held Item's keyword): heals N at Breakfast.
+    for (const { space, card } of pokemonOf(s, who)) {
+      const n = regenerateOf(card);
+      if (n) healPokemon(s, who, space, n);
+    }
   }
   s.phase = 'battle';
   s.turn = s.initiative;
@@ -512,6 +664,7 @@ function draw(s, who, n) {
 function supper(s) {
   emit(s, 'phaseChanged', { phase: 'supper', round: s.round });
   log(s, `Round ${s.round} · Supper.`);
+  statusesAtSupper(s);
   for (const who of PLAYERS) {
     const p = s.players[who];
     p.discard.push(...p.hand.filter((c) => !c.retain));
@@ -560,6 +713,202 @@ function finalScore(s) {
   emit(s, 'suddenDeath', {});
   log(s, `Round ${ROUND_LIMIT} is over, tied on Recognition and Championship progress: one sudden-death Round!`);
   return false;
+}
+
+// --- Effects at work (V4) ------------------------------------------------------------------------
+
+const NO_TARGET = new Set(['draw', 'energy', 'energyNext', 'recognition', 'findItem']);
+const owner = (who) => (NAMES[who] === 'You' ? 'Your' : "The Opponent's");
+
+// Run an effect: each op on each target (or on its player when it has none).
+function runEffect(s, who, spec, ops = [], targets) {
+  const chosen = chooseTargets(s, who, spec, targets);
+  for (const op of ops) {
+    if (over(s)) return;
+    if (NO_TARGET.has(op.op)) { selfOp(s, who, op); continue; }
+    for (const t of chosen) targetOp(s, who, op, t);
+  }
+}
+
+function selfOp(s, who, op) {
+  const p = s.players[who];
+  if (op.op === 'draw') { draw(s, who, op.amount); log(s, `${p.name} drew ${op.amount}.`); }
+  else if (op.op === 'energy') { p.energy += op.amount; log(s, `${p.name}: +${op.amount} Energy.`); }
+  else if (op.op === 'energyNext') p.bonusNext += op.amount;
+  else if (op.op === 'recognition') {
+    p.recognition += op.amount;
+    emit(s, 'recognition', { who, amount: op.amount, total: p.recognition, effect: true });
+    log(s, `${p.name}: +${op.amount} Recognition (now ${p.recognition}).`);
+    if (p.recognition >= RECOGNITION_TARGET) win(s, who);
+  } else if (op.op === 'findItem') findItem(s, who);
+  else throw new Error(`Unknown effect op: ${op.op}`);
+}
+
+function targetOp(s, who, op, t) {
+  const p = s.players[t.who];
+  const card = t.kind === 'pokemon' ? p.row[t.space] : null;
+  if (t.kind === 'pokemon' && !card) return;   // gone (defeated by an earlier op)
+  switch (op.op) {
+    case 'damage': if (card) effectDamage(s, t.who, t.space, op.amount); break;
+    case 'burn': applyBurn(s, t, op.amount, who); break;
+    case 'heal': if (card) healPokemon(s, t.who, t.space, op.amount); break;
+    case 'douse': (card ?? p).burn = 0; break;
+    case 'cure':
+      (card ?? p).burn = 0;
+      if (card) { card.asleep = false; card.seededBy = null; }
+      emit(s, 'cured', { who: t.who, kind: t.kind, space: t.space });
+      break;
+    case 'sleep':
+      if (card && !card.asleep) {
+        card.spent = true;
+        card.asleep = true;
+        emit(s, 'asleep', { who: t.who, space: t.space, name: card.name });
+        log(s, `${owner(t.who)} ${card.name} fell Asleep.`);
+      }
+      break;
+    case 'leechSeed':
+      if (card && !card.seededBy) {
+        card.seededBy = who;
+        emit(s, 'seeded', { who: t.who, space: t.space, by: who, name: card.name });
+        log(s, `${owner(t.who)} ${card.name} was Leech Seeded.`);
+      }
+      break;
+    case 'train': if (card) train(s, t.who, t.space, op.amount); break;
+    default: throw new Error(`Unknown effect op: ${op.op}`);
+  }
+}
+
+// Burn X adds X Burn counters (Sun 2: +1 each time Burn is applied). On a player
+// character it removes Recognition at Supper (V4).
+function applyBurn(s, t, amount, by) {
+  const n = amount + (bracket(s, 'Sun', 2) ? 1 : 0);
+  const target = t.kind === 'pokemon' ? s.players[t.who].row[t.space] : s.players[t.who];
+  target.burn = (target.burn ?? 0) + n;
+  emit(s, 'burned', { who: t.who, kind: t.kind, space: t.space, amount: n, total: target.burn, by });
+  log(s, `${t.kind === 'player' ? (t.who === 'player' ? 'You' : 'The Opponent') : `${owner(t.who)} ${target.name}`} ${t.kind === 'player' && t.who === 'player' ? 'are' : 'is'} Burned ${n} (Burn ${target.burn}).`);
+}
+
+// Effect damage (Strategy Cards, Burn, Leech Seed): it wakes a sleeping Pokémon and
+// can defeat it. It has no attacking Pokémon, so it counts for no Location objective.
+function effectDamage(s, who, space, amount) {
+  const card = s.players[who].row[space];
+  if (!card || amount <= 0) return;
+  card.currentStrength -= amount;
+  card.asleep = false;
+  emit(s, 'effectDamage', { who, space, amount, name: card.name });
+  log(s, `${owner(who)} ${card.name} took ${amount} damage.`);
+  defeat(s, who, space);
+}
+
+// Heal: Rain 2 heals 1 more; Drought (Sun 8) stops all healing. Never above its Strength.
+function healPokemon(s, who, space, amount) {
+  const card = s.players[who].row[space];
+  if (!card || bracket(s, 'Sun', 8)) return 0;
+  const n = Math.min(card.strength - card.currentStrength, amount + (bracket(s, 'Rain', 2) ? 1 : 0));
+  if (n <= 0) return 0;
+  card.currentStrength += n;
+  emit(s, 'healed', { who, space, amount: n, name: card.name });
+  return n;
+}
+
+const regenerateOf = (card) => card.keywords.reduce((n, k) => n + (Number(/^Regenerate (\d+)$/.exec(k)?.[1]) || 0), 0);
+
+// At Supper, before hands are discarded: Downpour (Rain 8) removes all Burn; then
+// Burn (Pokémon take damage; a player character loses that much Recognition, never
+// below 0; Rain 4: 1 less), each Burn then losing 1; then Leech Seed (1 damage, or 2
+// at Rain 6, healing the seeder's most-damaged Pokémon as much).
+function statusesAtSupper(s) {
+  const burnable = PLAYERS.flatMap((who) => [s.players[who], ...pokemonOf(s, who).map(({ card }) => card)]);
+  if (bracket(s, 'Rain', 8) && burnable.some((c) => c.burn)) {
+    for (const c of burnable) c.burn = 0;
+    log(s, 'Downpour: all Burn is washed away.');
+  }
+  const less = bracket(s, 'Rain', 4) ? 1 : 0;
+  for (const who of PLAYERS) {
+    const p = s.players[who];
+    if (p.burn) {
+      const loss = Math.min(p.recognition, Math.max(0, p.burn - less));
+      p.recognition -= loss;
+      p.burn -= 1;
+      emit(s, 'burnRecognition', { who, amount: loss, total: p.recognition, burn: p.burn });
+      log(s, `Burn: ${who === 'player' ? 'you lose' : 'the Opponent loses'} ${loss} Recognition (now ${p.recognition}).`);
+    }
+    for (const { space, card } of pokemonOf(s, who)) {
+      if (!card.burn) continue;
+      const dmg = Math.max(0, card.burn - less);
+      card.burn -= 1;
+      effectDamage(s, who, space, dmg);
+    }
+  }
+  const drain = bracket(s, 'Rain', 6) ? 2 : 1;
+  for (const who of PLAYERS) {
+    for (const { space, card } of pokemonOf(s, who)) {
+      if (!card.seededBy) continue;
+      const seeder = card.seededBy;
+      effectDamage(s, who, space, drain);
+      const hurt = pokemonOf(s, seeder).filter(({ card: c }) => c.currentStrength < c.strength)
+        .sort((a, b) => (b.card.strength - b.card.currentStrength) - (a.card.strength - a.card.currentStrength) || a.space - b.space)[0];
+      if (hurt) healPokemon(s, seeder, hurt.space, drain);
+    }
+  }
+}
+
+// --- Items (V4) ---------------------------------------------------------------------------------
+
+// Find an Item: the next one from the shared pool into your Bag (if it has room).
+function findItem(s, who) {
+  const p = s.players[who];
+  if (!s.itemPool.length) { log(s, 'The Item pool is empty: nothing found.'); return; }
+  if (p.bag.length >= BAG_SIZE) { log(s, `${p.name}: the Bag is full, so the Item stays where it is.`); return; }
+  const card = s.itemPool.shift();
+  p.bag.push(card);
+  emit(s, 'itemFound', { who, uid: card.uid, name: card.name });
+  log(s, `${p.name} found ${card.name} (into the Bag).`);
+}
+
+// A used or lost Item goes back into the shared pool (shuffled in).
+function returnToPool(s, card) {
+  s.itemPool.push({ ...card });
+  s.itemPool = shuffle(s, s.itemPool);
+}
+
+// Use an Item: a Held Item attaches to the chosen friendly Pokémon (one each; an
+// old one goes to the pool); a Consumed Item resolves, then goes to the pool.
+function useItemCard(s, who, card, targets) {
+  emit(s, 'itemUsed', { who, uid: card.uid, name: card.name, kind: card.kind });
+  if (card.kind === 'Held') {
+    const [t] = chooseTargets(s, who, card.target, targets);
+    const holder = s.players[t.who].row[t.space];
+    if (holder.held) { removeHeld(holder); returnToPool(s, holder.held); }
+    holder.held = { ...card };
+    applyHeld(holder, card, true);
+    log(s, `${owner(t.who)} ${holder.name} now holds ${card.name} (${card.text.replace(/^Held: /, '')}).`);
+    return;
+  }
+  log(s, `${NAMES[who]} used ${card.name}: ${card.text}`);
+  runEffect(s, who, card.target, card.ops, targets);
+  returnToPool(s, card);
+}
+
+function applyHeld(card, item, fresh = false) {
+  const h = item.held ?? {};
+  card.attack += h.attack ?? 0;
+  card.strength += h.strength ?? 0;
+  if (fresh) card.currentStrength += h.strength ?? 0;
+  card.keywords = [...new Set([...card.keywords, ...(h.keywords ?? [])])];
+}
+function removeHeld(card) {
+  const h = card.held.held ?? {};
+  card.attack -= h.attack ?? 0;
+  card.strength -= h.strength ?? 0;
+  card.currentStrength = Math.max(1, Math.min(card.currentStrength, card.strength));
+  card.keywords = card.keywords.filter((k) => !(h.keywords ?? []).includes(k));
+}
+
+// A card leaving play keeps none of its play-only state.
+function plainCard(card) {
+  const { currentStrength, spent, arrivedRound, burn, asleep, seededBy, held, ...plain } = card;
+  return plain;
 }
 
 function emit(s, type, data = {}) {

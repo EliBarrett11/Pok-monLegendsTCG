@@ -141,18 +141,18 @@ function playLoc(s, who, id, start) {
   assert.equal(s.players.player.bonusNext, 0);
 }
 {
-  // Attack objective (Eterna Forest: 5 attacks from it; at 2: draw 1; at 4: +1 Recognition).
+  // Attack objective (Eterna Forest: 5 attacks from it; at 2: find an Item; at 4: +1 Recognition).
   let s = battle();
   s = playLoc(s, 'player', 'eterna-forest', 0);
   place(s, 'player', 1, 'arcanine@5');
   place(s, 'player', 6, 'growlithe');
-  const hand = s.players.player.hand.length;
+  const bag = s.players.player.bag.length;
   const attack = (from) => { s.turn = 'player'; s.players.player.row[from].spent = false; s = act(s, { type: 'attack', who: 'player', from, target: { kind: 'player' } }); };
   attack(1);
   attack(6);   // outside: no progress
   assert.equal(locationAt(s, 0).progress.player, 1);
   attack(1);
-  assert.equal(s.players.player.hand.length, hand + 1, 'milestone at 2: draw 1');
+  assert.equal(s.players.player.bag.length, bag + 1, 'milestone at 2: find an Item (into the Bag)');
 }
 {
   // Damage to the enemy player counts only by your Pokémon in the Location (Elliott's

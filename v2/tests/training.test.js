@@ -52,7 +52,7 @@ const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass
   assert.deepEqual([1, 4].map((l) => artFor(seriesDef('growlithe'), l)), ['growlithe', 'arcanine'], 'its own art when it exists');
   assert.equal(artFor(seriesDef('bulbasaur'), 6), 'venusaur');
   // Ability strength per Level (Chansey's train).
-  assert.deepEqual([1, 3, 4, 6].map((l) => pokemonAt('chansey', l).ability.onSummon[0].amount), [1, 1, 2, 2]);
+  assert.deepEqual([1, 3, 4, 6].map((l) => pokemonAt('chansey', l).ability.onSummon.ops[0].amount), [1, 1, 2, 2]);
 }
 
 // --- Cost: the curve and weight classes --------------------------------------------------------------
@@ -162,19 +162,32 @@ const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass
   assert.deepEqual([c.name, c.attack, c.strength, c.keywords], ['Arcanine', 7, 8, ['Quick Attack']]);
 }
 {
-  // The test card: Chansey trains your other Pokémon with the lowest Level when summoned.
+  // The test card: Chansey trains one of your Pokémon when summoned. Elliott's V3
+  // ruling: the player chooses (any of their Pokémon that can still train).
   let s = battle(2);
   place(s, 'player', 0, 'horsea', 2, 6);
   place(s, 'player', 1, 'oddish', 1, 6);
   place(s, 'player', 2, 'goldeen', 1, 1);   // capped at 1: can't train
-  const uid = give(s, 'player', 'chansey', 6);   // Level 2: train 1
-  s = act(s, { type: 'summon', who: 'player', uid, space: 4 });
-  assert.deepEqual([s.players.player.row[1].level, s.players.player.row[0].level, s.players.player.row[2].level], [2, 2, 1], 'Oddish (L1) trains; the capped Goldeen is skipped');
+  const ref = (space) => [{ who: 'player', kind: 'pokemon', space }];
+  let uid = give(s, 'player', 'chansey', 6);   // Level 2: train 1
+  assert.throws(() => act(s, { type: 'summon', who: 'player', uid, space: 4 }), /Choose a target/, 'a target must be chosen');
+  assert.throws(() => act(s, { type: 'summon', who: 'player', uid, space: 4, targets: ref(2) }), /not a legal target/, 'not one at its cap');
+  s = act(s, { type: 'summon', who: 'player', uid, space: 4, targets: ref(0) });
+  assert.deepEqual([s.players.player.row[0].level, s.players.player.row[0].name, s.players.player.row[1].level], [3, 'Seadra', 1], 'the chosen Horsea trains (not the lowest)');
+  // It can train itself.
+  s.turn = 'player';
+  s = act(s, { type: 'summon', who: 'player', uid: give(s, 'player', 'chansey', 6), space: 5, targets: ref(5) });
+  assert.equal(s.players.player.row[5].level, 3);
   // Level 4+: train 2 (Oddish L1 → Gloom L3).
   s = battle(4);
   place(s, 'player', 0, 'oddish', 1, 6);
-  s = act(s, { type: 'summon', who: 'player', uid: give(s, 'player', 'chansey', 6), space: 1 });
+  s = act(s, { type: 'summon', who: 'player', uid: give(s, 'player', 'chansey', 6), space: 1, targets: ref(0) });
   assert.deepEqual([s.players.player.row[0].level, s.players.player.row[0].name], [3, 'Gloom']);
+  // Nothing to train: nothing happens.
+  s = battle(6);
+  uid = give(s, 'player', 'chansey', 6);
+  s = act(s, { type: 'summon', who: 'player', uid, space: 0 });
+  assert.equal(s.players.player.row[0].level, 6);
 }
 
 // --- Copy slots and the deck builder's validity check -------------------------------------------------
@@ -183,11 +196,11 @@ const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass
   assert.deepEqual(deckProblems(TEST_DECK), [], 'the premade deck is valid');
   assert.deepEqual(COPY_LIMITS, { Common: 3, Rare: 2, Epic: 1, Legendary: 1 });
   // Each card in a series uses 1 copy slot of its rarity, whatever its cap.
-  assert.equal(copiesOf(TEST_DECK).horsea, 3);
+  assert.equal(copiesOf(TEST_DECK).growlithe, 3);
   assert.deepEqual([copyLimit('horsea'), copyLimit('chansey'), copyLimit('kyogre'), copyLimit('cerulean-cape')], [3, 2, 1, 3]);
   const swap = (deck, i, entry) => deck.map((e, j) => (j === i ? entry : e));
   const firstChinchou = TEST_DECK.findIndex((e) => e.series === 'chinchou');
-  assert.deepEqual(deckProblems(swap(TEST_DECK, firstChinchou, { series: 'horsea', cap: 1 })), ['Horsea/Seadra/Kingdra (Common): 4 cards, but its rarity allows 3']);
+  assert.deepEqual(deckProblems(swap(TEST_DECK, firstChinchou, { series: 'growlithe', cap: 1 })), ['Growlithe/Arcanine (Common): 4 cards, but its rarity allows 3']);
   assert.match(deckProblems(swap(TEST_DECK, firstChinchou, { series: 'kyogre', cap: 3 })).join(), /Kyogre \(Legendary\): 2 cards.*At most 1 Legendary/);
   assert.match(deckProblems(swap(TEST_DECK, firstChinchou, { series: 'chinchou', cap: 7 })).join(), /cap must be a Level from 1 to 6/);
   assert.match(deckProblems(swap(TEST_DECK, firstChinchou, { series: 'chinchou', cap: 0 })).join(), /cap must be/);

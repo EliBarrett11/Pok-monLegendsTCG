@@ -1,21 +1,28 @@
 import { TEST_LOCATIONS } from './locations.js';
+import { ALL_OTHER_CARDS, otherCard } from './cardtypes.js';
 import { SERIES, seriesDef, pokemonAt } from './series.js';
 import { DECK_SIZE, COPY_LIMITS, LEGENDARY_PER_DECK, MAX_LEVEL, levelFor } from './rules.js';
 
 // V3: a deck is a list of cards. A Pokémon card is a series plus a chosen cap (the
-// highest Level it trains to): { series, cap }. A Location card is { location: id }.
+// highest Level it trains to): { series, cap }. A Location card is { location: id };
+// a Strategy, Supporter or Item card is { card: id } (V4).
 // In a match a Pokémon card's Level = the Round number, up to its cap (series.js has
 // each Level's stats); once played it stays at that Level.
 
-// The premade test deck both players use by default: 40 cards (7a): 34 Pokémon in
-// 14 series, each with its own caps, and 6 test Locations.
+// The premade test deck both players use by default: 40 cards (7a): 22 Pokémon in
+// 13 series, each with its own caps, 5 Locations, 7 Strategy Cards, 3 Supporters
+// and 3 Items (V4).
 const caps = (series, ...list) => list.map((cap) => ({ series, cap }));
+const cards = (...ids) => ids.map((card) => ({ card }));
 export const TEST_DECK = [
-  ...caps('horsea', 2, 4, 6), ...caps('growlithe', 3, 6, 6), ...caps('oddish', 2, 4, 6), ...caps('chansey', 3, 6),
-  ...caps('kyogre', 7), ...caps('charmander', 3, 5, 6), ...caps('bulbasaur', 2, 4, 6), ...caps('goldeen', 3, 4, 6),
-  ...caps('ponyta', 3, 5, 6), ...caps('chinchou', 3, 6), ...caps('wooper', 3, 5, 6), ...caps('sudowoodo', 4, 6),
-  ...caps('sneasel', 3, 6), ...caps('magmar', 5),
-  ...['cerulean-cape', 'cerulean-cape', 'eterna-forest', 'mt-ember', 'route-119', 'stark-mountain'].map((location) => ({ location })),
+  ...caps('horsea', 3, 6), ...caps('growlithe', 3, 6, 6), ...caps('oddish', 2, 6), ...caps('chansey', 6),
+  ...caps('kyogre', 7), ...caps('charmander', 3, 6), ...caps('bulbasaur', 4, 6), ...caps('goldeen', 3, 6),
+  ...caps('ponyta', 3, 6), ...caps('chinchou', 6), ...caps('wooper', 3, 6), ...caps('sudowoodo', 6),
+  ...caps('sneasel', 6),
+  ...['cerulean-cape', 'eterna-forest', 'mt-ember', 'route-119', 'stark-mountain'].map((location) => ({ location })),
+  ...cards('ember', 'ember', 'thunderbolt', 'recover', 'quickdraw', 'sleep-powder', 'leech-seed'),
+  ...cards('professor-oak', 'ash', 'pokemon-breeder'),
+  ...cards('oran-berry', 'choice-band', 'full-heal'),
 ];
 
 export const SPEEDS = ['Slow', 'Steady', 'Swift'];
@@ -23,6 +30,11 @@ export const SPEEDS = ['Slow', 'Steady', 'Swift'];
 // A card as it is at a Round (before it is played): a Pokémon at Level = Round up to its cap.
 export function cardAt(entry, round = 1) {
   if (entry.location) return locationCard(entry.location);
+  if (entry.card) {
+    const c = otherCard(entry.card);
+    if (!c) throw new Error(`Unknown card: ${entry.card}`);
+    return c;
+  }
   return { ...pokemonAt(entry.series, levelFor(round, entry.cap)), cap: entry.cap };
 }
 const locationCard = (id) => {
@@ -36,6 +48,7 @@ const locationCard = (id) => {
 export function cardDef(id, level) {
   const loc = TEST_LOCATIONS.find((l) => l.id === id);
   if (loc) return loc;
+  if (otherCard(id)) return otherCard(id);
   const line = SERIES.find((l) => l.id === id) ?? SERIES.find((l) => l.stages.some((st) => slugOf(st.name) === id));
   if (!line) throw new Error(`Unknown card: ${id}`);
   const stage = line.stages.find((st) => slugOf(st.name) === id) ?? line.stages[0];
@@ -48,7 +61,7 @@ const slugOf = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 export function copiesOf(deck) {
   const out = {};
   for (const e of deck) {
-    const key = e.location ?? e.series;
+    const key = e.location ?? e.card ?? e.series;
     out[key] = (out[key] ?? 0) + 1;
   }
   return out;
@@ -56,7 +69,7 @@ export function copiesOf(deck) {
 
 export const copyLimit = (key) => {
   const line = SERIES.find((l) => l.id === key);
-  const rarity = line ? line.rarity : (TEST_LOCATIONS.find((l) => l.id === key)?.rarity ?? 'Common');
+  const rarity = line ? line.rarity : (TEST_LOCATIONS.find((l) => l.id === key) ?? otherCard(key))?.rarity ?? 'Common';
   return COPY_LIMITS[rarity];
 };
 
@@ -70,13 +83,17 @@ export function deckProblems(deck) {
       if (!TEST_LOCATIONS.some((l) => l.id === e.location)) problems.push(`Unknown Location: ${e.location}`);
       continue;
     }
+    if (e.card) {
+      if (!otherCard(e.card)) problems.push(`Unknown card: ${e.card}`);
+      continue;
+    }
     const line = SERIES.find((l) => l.id === e.series);
     if (!line) { problems.push(`Unknown series: ${e.series}`); continue; }
     const top = line.legendary ? line.maxLevel : MAX_LEVEL;
     if (!(Number.isInteger(e.cap) && e.cap >= 1 && e.cap <= top)) problems.push(`${line.stages[0].name}: the cap must be a Level from 1 to ${top} (not ${e.cap})`);
   }
   for (const [key, n] of Object.entries(copiesOf(deck))) {
-    const known = SERIES.some((l) => l.id === key) || TEST_LOCATIONS.some((l) => l.id === key);
+    const known = SERIES.some((l) => l.id === key) || TEST_LOCATIONS.some((l) => l.id === key) || !!otherCard(key);
     if (known && n > copyLimit(key)) problems.push(`${nameOf(key)}: ${n} cards, but its rarity allows ${copyLimit(key)}`);
   }
   const legendaries = deck.filter((e) => SERIES.find((l) => l.id === e.series)?.legendary).length;
@@ -86,7 +103,9 @@ export function deckProblems(deck) {
 
 const nameOf = (key) => {
   const line = SERIES.find((l) => l.id === key);
-  return line ? `${line.stages.map((st) => st.name).join('/')} (${line.rarity})` : TEST_LOCATIONS.find((l) => l.id === key)?.name ?? key;
+  if (line) return `${line.stages.map((st) => st.name).join('/')} (${line.rarity})`;
+  const other = TEST_LOCATIONS.find((l) => l.id === key) ?? otherCard(key);
+  return other ? `${other.name} (${other.rarity})` : key;
 };
 
-export { SERIES, seriesDef };
+export { SERIES, seriesDef, ALL_OTHER_CARDS };

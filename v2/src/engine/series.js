@@ -13,12 +13,12 @@
 //            that stage has no art yet (it falls back to the line's base art)
 //   stats    [[attack, strength], …] one per Level, from Level 1
 //   keywords (level) → the keywords at that Level (Infiltrator, Quick Attack)
-//   ability  (level) → { text, onSummon: [effect ops] } or null: its strength per Level
+//   ability  (level) → { text, onSummon: { target, ops } } or null: its strength per Level
 //   empower? { cost, attack, strength, keywords, text }: the optional Empowered
 //            summon (pay `cost` more Energy when summoning for the bonus)
 //
-// Effect ops (V3): { op: 'train', amount, target: 'lowestOther' }: raise a played
-// Pokémon's Level by `amount`, up to its cap (see game.js train()).
+// Effect ops: { op: 'train', amount }: raise a played Pokémon's Level by `amount`, up
+// to its cap (see game.js train()); targets as in cardtypes.js (the player chooses).
 //
 // Test series (V3): the Horsea, Growlithe and Oddish lines, Chansey and Kyogre (asked
 // for), plus the other V1/V2 test Pokémon turned into lines to fill the test deck.
@@ -66,9 +66,13 @@ export const SERIES = [
     stages: single({ name: 'Chansey', art: 'chansey' }),
     stats: [[1, 5], [1, 6], [2, 7], [2, 8], [3, 9], [3, 10]],
     // The test card for "train N": its strength grows with its Level.
+    // Elliott's V3 ruling: you choose the target (any of your Pokémon that can still train).
     ability: (level) => {
       const amount = level >= 4 ? 2 : 1;
-      return { text: `On summon: train ${amount} your lowest-Level Pokémon`, onSummon: [{ op: 'train', amount, target: 'lowestOther' }] };
+      return {
+        text: `On summon: train ${amount} one of your Pokémon`,
+        onSummon: { target: { side: 'friendly', kinds: ['pokemon'], count: 1, filter: 'canTrain' }, ops: [{ op: 'train', amount }] },
+      };
     },
   }),
   line({
