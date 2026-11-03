@@ -147,7 +147,26 @@ v2 should look like the concept mockups `docs/design/v2-board-concept.jpg` and `
   - a fanned hand below the board.
 - **Pokémon:** full-art cards with **minimal stats**: a Level badge, a small Type icon, the name, and plain ⚔ Attack / ♥ Strength numbers. Elliott prefers this to the current card icons.
 
-## 8. Build approach (proposal)
+## 8. Build roadmap (Claude Code prompts)
+
+v1 stays live at the root and is tagged `v1.0`. v2 is built in `v2/` (its own engine; it reuses art, effects and networking) and is playable against the AI from V1 onward. Each step ends playable, tested and pushed, with a README log entry.
+
+| Step | Contents | Needs first |
+|---|---|---|
+| V0 | Setup: tag v1.0; `v2/` scaffold (index, engine, tests, shared assets); v2 build log | — |
+| V1 | **Core:** facing 1×9 rows, summoning, attacks anywhere with the guard rules, the player character as a target, Recognition (gain from damage), Base Energy + Pass + Stored Energy; no Exert, PokéDollars or XP. Basic AI. Approved look. Test cards. | — |
+| V2 | **Locations as shared lanes:** 1–3 lanes, placed over Pokémon, per-player progress, milestones and rewards, Round timers, Weather. **The Championship** (Round 10, every lane), the Round-12 limit, the 60 target, the tiebreaker and sudden death. | — |
+| V3 | **Training:** series L1–6 (L7 Legendary), Level = Round up to the cap, the cost curve and weight classes, evolving by Level, frozen when played, Empowered summon, Growth training on the board. A deck builder with caps. | — |
+| V4 | **Card types:** Strategy breakpoints (cost chooser), Release-only Supporters with Favour, Items (the Bag from Location rewards, plus Item deck cards), Burn removing Recognition. | — |
+| V5 | **Trainers:** the card type attached above or below a space, the move action, Trainer Points (milestones, Favours), the Breakfast assign step, three tiers, Partner Pokémon. | — |
+| — | **Design gate:** Elliott and Claude design the v2 Fire, Water and Grass decks, the neutrals, generic Locations, the Trainer roster and the Item pool. Art list. | V1–V5 |
+| V6 | **The three v2 decks** in data, with AI deck plans. | design gate |
+| V7 | **Balance:** the v2 round-robin; tune the target and Round limit (about ⅓ early wins). | V6 |
+| V8 | **Presentation:** port all VFX; Location, milestone and Championship moments; the Growth tree; Training level-ups. | V6 |
+| V9 | **Multiplayer and hot-seat** for v2 (reuses `net/`; viewFor for v2's hidden information). | V6 |
+| V10 | **Launch:** v2 moves to the root, v1 to `classic/`. | V7–V9 |
+
+## 8b. Build approach (original note) (proposal)
 
 v2 replaces the board, the win condition, two card types and the resource system, so it's a new ruleset rather than a patch.
 
