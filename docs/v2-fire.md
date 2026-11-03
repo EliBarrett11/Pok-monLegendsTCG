@@ -32,7 +32,7 @@ Stats are **Attack/Strength** at each Level, L1 → L6, on the same scale as the
 | **Charmander** (L1–2) → **Charmeleon** (L3–4) → **Charizard** (L5–6) | 1 | Epic | Fire · Special · Steady → Swift at L5 | heavy | 6 | 3/3 · 3/4 · 4/5 · 5/5 · 7/7 · 8/8 | Scorch 1. Charizard: Scorch 2, Infiltrator, and **On Summon:** Burn 1 to every enemy Pokémon. **Empower +3:** the enemy player also gains Burn 2 |
 | **Duskull** (L1–3) → **Dusclops** (L4–6) *(neutral)* | 1 | Rare | Ghost · Special · Slow · **Special Defence guard** | heavy | 4 | 1/5 · 1/6 · 2/7 · 2/8 · 3/9 · 3/10 | **On Defend:** Burn 1 to the attacker (Dusclops: Burn 2) |
 | **Absol** *(neutral, single stage)* | 1 | Rare | Dark · Physical · Swift | standard | 4 | 3/3 · 4/3 · 4/4 · 5/4 · 6/5 · 6/6 | +2 damage with its attack against a **burned** target |
-| **Entei** *(Legendary, L7)* | 1 | Legendary | Fire · Physical · Swift | heavy | 7 | L1–6: 3/4 … 8/8 · **L7: 10/10** | Infiltrator, Overrun, Scorch 2. **On Summon:** the enemy player gains Burn 3 |
+| **Entei** *(Legendary: single card)* | 1 | Legendary | Fire · Physical · Swift | — | — | **Cost 6 · 9/9** | Infiltrator, Overrun, Scorch 2. **On Summon:** the enemy player gains Burn 3 |
 
 ## Strategy Cards (8)
 

@@ -48,7 +48,7 @@
 ## 4. Pokémon Training series
 
 - Each Pokémon is a **series of cards, Level 1 to 6**: **2 Levels per evolution stage** (e.g. Horsea L1–2, Seadra L3–4, Kingdra L5–6), so a final stage can appear as early as Round 5. Levels improve base stats, **evolve the species** at the set Levels and strengthen its ability, and also raise its cost (more slowly than the Level; see 6.1).
-- **Level 7 is for Legendaries only** and can't be trained into.
+- **Legendaries are the exception (Elliott, 3 Nov):** no series and no Levels. A Legendary is a single card with one fixed cost and fixed stats, designed for when it should arrive: a heavy hitter like Kyogre late, a supporter like Celebi earlier. It never appears as a weaker early form. (This replaces the earlier "Level 7 for Legendaries".)
 - **Deckbuilding:** you choose each card's **training cap**, the Level it will train up to. Each card in a series uses 1 copy slot of its rarity.
 - **In a match, a card's Level = the Round number, up to its cap.** A Level-6 Kingdra drawn in Round 1 is a Level-1 Horsea. The Level doesn't reset when the card is drawn or discarded.
 - **Once played, a Pokémon stays at the Level it was played** (the moment the player committed to it). It trains on the board only through specific effects.
@@ -82,7 +82,7 @@
 
 Costs grow more slowly than Levels, so a trained Pokémon doesn't take the whole turn. Species can adjust it by ±1.
 
-| Level | 1 | 2 | 3 | 4 | 5 | 6 | 7 (Legendary) |
+| Level | 1 | 2 | 3 | 4 | 5 | 6 | Legendary (no Level) |
 |---|---|---|---|---|---|---|---|
 | Cost | 1 | 1 | 2 | 3 | 3 | 4 | 5 |
 
@@ -106,7 +106,7 @@ Costs grow more slowly than Levels, so a trained Pokémon doesn't take the whole
 **Proposals awaiting Elliott:**
 1. **Big drops (6+ Energy):**
    - **Weight classes:** each species shifts the cost curve, light −1, standard 0, heavy +1/+2. A heavy line costs 2/2/3/4/4/5 or 3/3/4/5/5/6.
-   - **Legendaries:** Level 7 costs 6–7.
+   - **Legendaries:** a fixed cost per card (see section 4).
    - **Optional Empowered summon on selected Pokémon:** pay extra Energy when summoning to unlock a bonus (e.g. +2 for +2/+2 and Quick Attack). These are the same breakpoints as scalable Strategy cards, applied to Pokémon. Any Round can then have a big drop by choice.
 2. **The end of the match: both a target and a Round limit.**
    - Reaching the Recognition target wins immediately.
@@ -133,6 +133,10 @@ Costs grow more slowly than Levels, so a trained Pokémon doesn't take the whole
   - **Tiebreaker:** the most Championship progress; if still tied, one sudden-death Round.
 - **Why these numbers:** today's decks deal about 7 damage a Round to the opposing player. With Location rewards on top, 60 should be reachable before the Championship only by a clearly dominant player. Aim for about a third of matches won early, two thirds decided in the Championship. Level-6 Pokémon appear from Round 6, so the last third of the match is when the strongest forms clash.
 - **Deck size: 40** for the first build. It keeps consistency, and today's balance numbers stay comparable. Revisit after playtesting; the balance tool should report reshuffles per match.
+
+## 7c. Icons in v2 (Elliott, 3 Nov)
+
+v2 uses **no icon images from the current game**. Every icon (Type, Energy, attack and Strength, Speed, Rarity, Weather, statuses and so on) is a **coded icon** (SVG or CSS) for now, so every Type, including Ghost and Dragon, has one. The current game keeps its own icons, unchanged.
 
 ## 7b. Look (approved by Elliott, 3 Nov)
 

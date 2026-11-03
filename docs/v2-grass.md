@@ -38,7 +38,7 @@ Stats are **Attack/Strength** at each Level, L1 → L6.
 | **Caterpie** (L1–2) → **Metapod** (L3–4) → **Butterfree** (L5–6) *(neutral)* | 1 | Common | Bug · Special · Slow → Swift · **Defence guard** (Metapod only) | light | 6 | 1/4 · 1/5 · 1/7 · 1/8 · 5/6 · 6/7 | Metapod: Shell 1. Butterfree: Agility; **On Evolve:** put an enemy Pokémon to Sleep |
 | **Geodude** (L1–2) → **Graveler** (L3–4) → **Golem** (L5–6) *(neutral)* | 1 | Rare | Rock · Physical · Slow · **Defence guard** | heavy | 6 | 3/6 · 3/7 · 4/8 · 5/9 · 7/11 · 8/12 | **On Defend:** 1 damage to the attacker (Golem: 2) |
 | **Bonsly** (L1–3) → **Sudowoodo** (L4–6) *(neutral)* | 1 | Rare | Rock · Physical · Slow · **Defence guard** | standard | 4 | 1/6 · 2/6 · 2/7 · 3/9 · 4/9 · 4/10 | Shell 1 from Sudowoodo |
-| **Celebi** *(Legendary, L7)* | 1 | Legendary | Grass · Special · Swift | heavy | 7 | L1–6: 2/5 … 6/8 · **L7: 7/9** | **On Summon:** gain 3 Growth. L7: **On Summon:** also train 2 every friendly Pokémon |
+| **Celebi** *(Legendary: single card)* | 1 | Legendary | Grass · Special · Swift | — | — | **Cost 3 · 4/6** | **On Summon:** gain 3 Growth, and train 1 every friendly Pokémon (the early supporter) |
 
 ## Strategy Cards (8)
 
