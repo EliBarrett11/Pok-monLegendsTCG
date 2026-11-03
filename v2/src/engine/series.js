@@ -183,6 +183,7 @@ export function pokemonAt(seriesId, level) {
     type: ab?.type ?? line.type, attack, attackType: line.attackType, strength, strengthType: guard, speed: ab?.speed ?? line.speed,
     keywords: [...line.keywords(level), ...(ab?.keywords ?? [])], ability: ab, empower: line.empower ?? null,
     weather: ab?.weather ?? null, retain: !!line.retain, legendary: !!line.legendary, deck: line.deck ?? null,
+    stageKind: line.stageKind,
   };
 }
 

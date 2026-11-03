@@ -42,6 +42,7 @@ import {
   passSpends, opponentOf, pokemonOf, pokemonIn, summonCost, targetOptions, breakpointsFor, playableStrategies,
   playableSupporters, playableItems, usableBagItems, itemUsable, bagFull, trainTop,
   playableTrainers, trainerSpaces, canMoveTrainer, usableAbilities, freeSpaces, tiersUnlocked, needsAssign,
+  nurtureSpaces, championship,
 } from '../engine/game.js';
 import { FAVOURS } from '../engine/cardtypes.js';
 import { LANES, CHAMPIONSHIP_ROUND } from '../engine/rules.js';
@@ -78,10 +79,12 @@ export function moves(state, who) {
       }
     }
   }
+  // Nurture (V6): train 1 one of its Pokémon for Growth.
+  if (legal.includes('nurture')) for (const space of nurtureSpaces(state, who)) out.push({ type: 'nurture', who, space });
   if (legal.includes('useAbility')) {
     for (const t of usableAbilities(state, who)) {
       const ab = t.tiers[1].ability;
-      for (const targets of targetSets(state, who, ab.target, (x) => ({ type: 'useAbility', who, uid: t.uid, targets: x }))) {
+      for (const targets of targetSets(state, who, ab.target, (x) => ({ type: 'useAbility', who, uid: t.uid, targets: x }), { space: t.space, lane: t.space })) {
         out.push({ type: 'useAbility', who, uid: t.uid, ...(targets ? { targets } : {}) });
       }
     }
@@ -118,7 +121,12 @@ export function moves(state, who) {
   if (legal.includes('playSupporter')) {
     for (const card of playableSupporters(state, who)) {
       for (const release of releaseSets(state, who, card)) {
-        for (const targets of targetSets(state, who, card.target, (t) => ({ type: 'playSupporter', who, uid: card.uid, release, targets: t }))) {
+        // The Favour may bring its own target (Mallow, Nurse Joy, Brock).
+        const paid = release.map((u) => state.players[who].hand.find((c) => c.uid === u));
+        const met = card.favour && paid.some((c) => FAVOURS[card.favour.condition].test(c));
+        const spec = met && 'target' in card.favour ? card.favour.target : card.target;
+        if (spec && spec.count !== 'all' && !spec.optional && !targetOptions(state, who, spec).length) continue;
+        for (const targets of targetSets(state, who, spec, (t) => ({ type: 'playSupporter', who, uid: card.uid, release, targets: t }))) {
           out.push({ type: 'playSupporter', who, uid: card.uid, release, ...(targets ? { targets } : {}) });
         }
       }
@@ -194,9 +202,10 @@ function bestTrainerSpace(state, who, t) {
 
 // The target choices worth trying: none (no spec, or 'all'); each single target;
 // for 2, also the best two singles together (by what each does alone).
-function targetSets(state, who, spec, moveFor) {
-  if (!spec || spec.count === 'all') return [null];
-  const options = targetOptions(state, who, spec);
+function targetSets(state, who, spec, moveFor, ctx) {
+  if (!spec || spec.count === 'all' || spec.special) return [null];
+  const options = targetOptions(state, who, spec, ctx);
+  if (!options.length) return spec.optional ? [null] : [];
   const singles = options.map((t) => [t]);
   if (spec.count === 1 || options.length < 2) return singles;
   const scored = singles.map((t) => {
@@ -208,9 +217,10 @@ function targetSets(state, who, spec, moveFor) {
 // An On summon ability's targets: your Pokémon that can still train, the new one included.
 function summonTargets(state, who, card, space) {
   const spec = card.ability?.onSummon?.target;
-  if (!spec) return [null];
-  const options = targetOptions(state, who, spec);
-  if (card.level < Math.min(card.cap ?? 6, 6)) options.push({ who, kind: 'pokemon', space });
+  if (!spec || spec.count === 'all' || spec.special) return [null];
+  const options = targetOptions(state, who, spec, { space });
+  // The new Pokémon itself, for a train target (Chansey may train itself).
+  if (spec.side === 'friendly' && spec.filter === 'canTrain' && card.level < Math.min(card.cap ?? 6, 6)) options.push({ who, kind: 'pokemon', space });
   return options.length ? options.map((t) => [t]) : [null];
 }
 
@@ -241,10 +251,27 @@ export function evaluate(state, who) {
     + (card.asleep ? card.attack + 2 : 0) + (card.seededBy ? 3 : 0), 0) + (state.players[side].burn ?? 0) * 2.5;
   if (state.winner === who) return 1e6;
   if (state.winner === foe) return -1e6;
-  return 3 * (me.recognition - them.recognition) + boardWorth(state, who) - boardWorth(state, foe)
+  const w = PLAN_WEIGHTS[me.plan] ?? PLAN_WEIGHTS.default;
+  return w.recognition * me.recognition - 3 * them.recognition + w.board * boardWorth(state, who) - boardWorth(state, foe)
     + 2 * me.hand.length + 3 * me.bag.length + 1.2 * me.energy + 1.5 * me.bonusNext
-    + statusWorth(foe) - statusWorth(who);
+    + statusWorth(foe) + w.enemyBurn * (them.burn ?? 0) - statusWorth(who) + w.growth * (me.growth ?? 0)
+    + (w.lateBoard && state.round >= CHAMPIONSHIP_ROUND - 2 ? w.lateBoard * pokemonOf(state, who).length : 0);
 }
+
+// The deck plans (V6): what each deck's AI values more than the default.
+//   Fire: races Recognition and Burns the enemy player (Burn on the player strips
+//         their Recognition every Supper).
+//   Water: holds the board and Locations, building toward the Championship (a board
+//         still standing late is worth more; Location progress counts for more).
+//   Grass: builds Growth, Nurtures (training is board worth) and keeps Growth for a
+//         big Solar Beam.
+const PLAN_WEIGHTS = {
+  default: { recognition: 3, board: 1, enemyBurn: 0, growth: 0.8, lateBoard: 0, progress: 1, locationBonus: 0 },
+  fire: { recognition: 4, board: 0.9, enemyBurn: 2.5, growth: 0.5, lateBoard: 0, progress: 1, locationBonus: 0 },
+  water: { recognition: 3, board: 1.3, enemyBurn: 0, growth: 0.5, lateBoard: 3, progress: 1.6, locationBonus: 6 },
+  grass: { recognition: 3, board: 1.1, enemyBurn: 0, growth: 2, lateBoard: 0, progress: 1, locationBonus: 0 },
+};
+const planOf = (state, who) => PLAN_WEIGHTS[state.players[who].plan] ?? PLAN_WEIGHTS.default;
 
 // What a reward is worth, in points of score.
 const rewardWorth = (r = {}) => 3 * (r.recognition ?? 0) + 6 * (r.energy ?? 0) + 5 * (r.draw ?? 0) + 6 * (r.item ?? 0);
@@ -324,7 +351,7 @@ function locationScore(state, who, move) {
   let score = 20 + 0.4 * (rewardWorth(card.completion) + card.milestones.reduce((n, m) => n + rewardWorth(m.reward), 0));
   if (OBJECTIVES[card.objective.kind].inLocation) score += 4 * own - 3 * foe;
   if (endsAt >= CHAMPIONSHIP_ROUND) score -= 3 * (endsAt - CHAMPIONSHIP_ROUND + 1);
-  return score;
+  return score + planOf(state, who).locationBonus;
 }
 
 export function scoreMove(state, who, move) {
@@ -334,7 +361,7 @@ export function scoreMove(state, who, move) {
   if (after.winner === who) return 1000;
   // Objective progress and reward Recognition this move brings (on top of its own worth).
   const gained = after.players[who].recognition - state.players[who].recognition;
-  const objective = progressWorth(after, who) - progressWorth(state, who);
+  const objective = (progressWorth(after, who) - progressWorth(state, who)) * planOf(state, who).progress;
   return baseScore(state, after, who, move, gained) + objective;
 }
 
@@ -349,8 +376,14 @@ function baseScore(state, after, who, move, gained) {
     const t = state.players[who].trainers.find((x) => x.uid === move.uid);
     return 3 * (trainerSpaceValue(state, who, t, move.space) - trainerSpaceValue(state, who, t, t.space)) - 2;
   }
-  if (move.type === 'useAbility') return 6 + evaluate(after, who) - evaluate(state, who);
-  if (['playStrategy', 'playSupporter', 'playItem', 'useItem'].includes(move.type)) return 6 + evaluate(after, who) - evaluate(state, who);
+  if (move.type === 'useAbility' || move.type === 'nurture') return 6 + evaluate(after, who) - evaluate(state, who);
+  if (['playStrategy', 'playSupporter', 'playItem', 'useItem'].includes(move.type)) {
+    let score = 6 + evaluate(after, who) - evaluate(state, who);
+    // Grass keeps its Growth for a big Solar Beam (5+), unless it's late or it wins.
+    const spent = state.players[who].growth - after.players[who].growth;
+    if (move.type === 'playStrategy' && state.players[who].plan === 'grass' && spent > 0 && spent < 5 && state.round < CHAMPIONSHIP_ROUND - 1) score -= 8;
+    return score;
+  }
   if (move.type === 'summon') {
     const card = state.players[who].hand.find((c) => c.uid === move.uid);
     const extra = move.empowered ? card.empower.cost : 0;

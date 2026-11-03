@@ -72,6 +72,17 @@ export const FAVOURS = {
   location: { text: 'a Location', test: (c) => c.cardType === 'Location' },
   bigPokemon: { text: 'a Pokémon of Level 4 or more', test: (c) => c.cardType === 'Pokémon' && c.level >= 4 },
   grass: { text: 'a Grass Pokémon', test: (c) => c.cardType === 'Pokémon' && c.type === 'Grass' },
+  // V6
+  fire: { text: 'a Fire Pokémon', test: (c) => c.cardType === 'Pokémon' && c.type === 'Fire' },
+  water: { text: 'a Water Pokémon', test: (c) => c.cardType === 'Pokémon' && c.type === 'Water' },
+  normal: { text: 'a Normal Pokémon', test: (c) => c.cardType === 'Pokémon' && c.type === 'Normal' },
+  rock: { text: 'a Rock Pokémon', test: (c) => c.cardType === 'Pokémon' && c.type === 'Rock' },
+  swift: { text: 'a Swift Pokémon', test: (c) => c.cardType === 'Pokémon' && c.speed === 'Swift' },
+  pokemon: { text: 'a Pokémon card', test: (c) => c.cardType === 'Pokémon' },
+  item: { text: 'an Item card', test: (c) => c.cardType === 'Item' },
+  strategy: { text: 'a Strategy Card', test: (c) => c.cardType === 'Strategy' },
+  // "a Pokémon from an evolution line": its series has more than one stage.
+  evolutionLine: { text: 'a Pokémon from an evolution line', test: (c) => c.cardType === 'Pokémon' && c.stage !== undefined && /-stage$/.test(c.stageKind ?? '') },
 };
 
 function supporter(id, name, rarity, release, text, effect, favour) {

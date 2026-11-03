@@ -1,5 +1,8 @@
 import { TEST_LOCATIONS } from './locations.js';
 import { ALL_OTHER_CARDS, otherCard } from './cardtypes.js';
+import {
+  DECK_SERIES, DECK_STRATEGIES, DECK_SUPPORTERS, DECK_TRAINERS, DECK_ITEMS, POOL_ITEMS, DECK_LOCATIONS, DECKS,
+} from './decks.js';
 import { SERIES, seriesDef, pokemonAt } from './series.js';
 import { DECK_SIZE, COPY_LIMITS, LEGENDARY_PER_DECK, MAX_LEVEL, levelFor } from './rules.js';
 
@@ -27,6 +30,13 @@ export const TEST_DECK = [
 
 export const SPEEDS = ['Slow', 'Steady', 'Swift'];
 
+// V6: the real decks' cards join the registries beside the test cards (their ids are
+// prefixed, so they never meet). ALL_LOCATIONS holds the test and real Locations.
+SERIES.push(...DECK_SERIES);
+ALL_OTHER_CARDS.push(...DECK_STRATEGIES, ...DECK_SUPPORTERS, ...DECK_TRAINERS, ...DECK_ITEMS, ...POOL_ITEMS);
+export const ALL_LOCATIONS = [...TEST_LOCATIONS, ...DECK_LOCATIONS];
+export { DECKS, POOL_ITEMS };
+
 // A card as it is at a Round (before it is played): a Pokémon at Level = Round up to its cap.
 export function cardAt(entry, round = 1) {
   if (entry.location) return locationCard(entry.location);
@@ -38,7 +48,7 @@ export function cardAt(entry, round = 1) {
   return { ...pokemonAt(entry.series, levelFor(round, entry.cap)), cap: entry.cap };
 }
 const locationCard = (id) => {
-  const loc = TEST_LOCATIONS.find((l) => l.id === id);
+  const loc = ALL_LOCATIONS.find((l) => l.id === id);
   if (!loc) throw new Error(`Unknown Location: ${id}`);
   return loc;
 };
@@ -46,7 +56,7 @@ const locationCard = (id) => {
 // For tests and tools: a card by series, species or Location id. A species gives its
 // line at that stage's first Level (or `level`); the cap defaults to the line's top.
 export function cardDef(id, level) {
-  const loc = TEST_LOCATIONS.find((l) => l.id === id);
+  const loc = ALL_LOCATIONS.find((l) => l.id === id);
   if (loc) return loc;
   if (otherCard(id)) return otherCard(id);
   const line = SERIES.find((l) => l.id === id) ?? SERIES.find((l) => l.stages.some((st) => slugOf(st.name) === id));
@@ -69,7 +79,7 @@ export function copiesOf(deck) {
 
 export const copyLimit = (key) => {
   const line = SERIES.find((l) => l.id === key);
-  const rarity = line ? line.rarity : (TEST_LOCATIONS.find((l) => l.id === key) ?? otherCard(key))?.rarity ?? 'Common';
+  const rarity = line ? line.rarity : (ALL_LOCATIONS.find((l) => l.id === key) ?? otherCard(key))?.rarity ?? 'Common';
   return COPY_LIMITS[rarity];
 };
 
@@ -80,7 +90,7 @@ export function deckProblems(deck) {
   if (deck.length !== DECK_SIZE) problems.push(`A deck has ${DECK_SIZE} cards (this one has ${deck.length})`);
   for (const e of deck) {
     if (e.location) {
-      if (!TEST_LOCATIONS.some((l) => l.id === e.location)) problems.push(`Unknown Location: ${e.location}`);
+      if (!ALL_LOCATIONS.some((l) => l.id === e.location)) problems.push(`Unknown Location: ${e.location}`);
       continue;
     }
     if (e.card) {
@@ -94,7 +104,7 @@ export function deckProblems(deck) {
     if (!(Number.isInteger(e.cap) && e.cap >= 1 && e.cap <= top)) problems.push(`${line.stages[0].name}: the cap must be a Level from 1 to ${top} (not ${e.cap})`);
   }
   for (const [key, n] of Object.entries(copiesOf(deck))) {
-    const known = SERIES.some((l) => l.id === key) || TEST_LOCATIONS.some((l) => l.id === key) || !!otherCard(key);
+    const known = SERIES.some((l) => l.id === key) || ALL_LOCATIONS.some((l) => l.id === key) || !!otherCard(key);
     if (known && n > copyLimit(key)) problems.push(`${nameOf(key)}: ${n} cards, but its rarity allows ${copyLimit(key)}`);
   }
   const legendaries = deck.filter((e) => SERIES.find((l) => l.id === e.series)?.legendary).length;
@@ -105,7 +115,7 @@ export function deckProblems(deck) {
 const nameOf = (key) => {
   const line = SERIES.find((l) => l.id === key);
   if (line) return `${line.stages.map((st) => st.name).join('/')} (${line.rarity})`;
-  const other = TEST_LOCATIONS.find((l) => l.id === key) ?? otherCard(key);
+  const other = ALL_LOCATIONS.find((l) => l.id === key) ?? otherCard(key);
   return other ? `${other.name} (${other.rarity})` : key;
 };
 

@@ -308,7 +308,9 @@ export const canTarget = (state, who, spec, ctx) => !spec || targetOptions(state
 function chooseTargets(s, who, spec, targets, ctx) {
   if (!spec) return [];
   const options = targetOptions(s, who, spec, ctx);
-  if (spec.count === 'all') return options;
+  if (spec.count === 'all' || spec.special) return options;
+  // An optional part ("also train 1 a friendly Pokémon") with nothing to work on is skipped.
+  if (!options.length && spec.optional) return [];
   if (!options.length) throw new Error('There is no legal target');
   const list = targets ?? [];
   if (list.length < 1 || list.length > spec.count) throw new Error(spec.count === 1 ? 'Choose a target' : `Choose 1 to ${spec.count} targets`);
@@ -343,13 +345,26 @@ export function autoTargets(s, who, spec, ops = [], ctx = {}) {
 
 // Strategy Cards: the breakpoints this player can pay now (affordable, with a target).
 export const breakpointsFor = (state, who, card) => (card.breakpoints ?? [])
-  .filter((b) => b.cost <= state.players[who].energy && canTarget(state, who, b.target) && !(b.needsGrowth && state.players[who].growth < 1));
+  .filter((b) => b.cost <= state.players[who].energy && canTarget(state, who, b.target) && !(b.needsGrowth && state.players[who].growth < 1)
+    && opsPossible(state, who, b.ops));
+// A card with nothing to pick can't be played (V6: Dive or Revive with no Pokémon in the
+// Discard Pile, Burglar with an empty enemy Bag, Swimmer with nothing to free-summon,
+// Escape Rope with no empty space). Search can always be played (the Draw Pile is hidden).
+export function opsPossible(state, who, ops = []) {
+  return ops.every((o) => {
+    if (['returnFromDiscard', 'freeSummon'].includes(o.op)) return pickOptions(state, who, o).length > 0;
+    if (o.op === 'stealItem') return pickOptions(state, who, o).length > 0 && state.players[who].bag.length < BAG_SIZE;
+    if (o.op === 'moveTo') return state.players[who].row.includes(null);
+    return true;
+  });
+}
 export const playableStrategies = (state, who) => state.players[who].hand.filter((c) => c.cardType === 'Strategy' && breakpointsFor(state, who, c).length);
 // Supporters: enough other cards in hand to Release, and a target.
-export const supporterPlayable = (state, who, card) => state.players[who].hand.length - 1 >= card.release && (canTarget(state, who, card.target) || canTarget(state, who, card.favour?.target ?? card.target));
+export const supporterPlayable = (state, who, card) => state.players[who].hand.length - 1 >= card.release && (canTarget(state, who, card.target) || canTarget(state, who, card.favour?.target ?? card.target))
+  && opsPossible(state, who, card.ops);
 export const playableSupporters = (state, who) => state.players[who].hand.filter((c) => c.cardType === 'Supporter' && supporterPlayable(state, who, c));
 // Items: usable now (a target), and from hand affordable (used now, or into the Bag if it has room).
-export const itemUsable = (state, who, item) => canTarget(state, who, item.target);
+export const itemUsable = (state, who, item) => canTarget(state, who, item.target) && opsPossible(state, who, item.ops);
 export const bagFull = (state, who) => state.players[who].bag.length >= BAG_SIZE;
 export const playableItems = (state, who) => state.players[who].hand.filter((c) => c.cardType === 'Item' && c.cost <= state.players[who].energy
   && (itemUsable(state, who, c) || !bagFull(state, who)));
@@ -397,7 +412,8 @@ function syncPassives(s) {
   for (const who of PLAYERS) {
     for (const { space, card } of pokemonOf(s, who)) {
       const typed = (pv) => !pv.type || pv.type === card.type;
-      const wantA = passiveSum(s, who, 'laneAttack', space, typed);
+      // Misty (V6): her +1/+1 adds Attack as well as Strength.
+      const wantA = passiveSum(s, who, 'laneAttack', space, typed) + passiveSum(s, who, 'laneStrength', space, (pv) => typed(pv) && pv.alsoAttack);
       card.attack += wantA - (card.passiveAttack ?? 0);
       card.passiveAttack = wantA;
       const want = passiveSum(s, who, 'laneStrength', space, typed);
@@ -803,7 +819,7 @@ const over = (s) => s.phase === 'gameOver';
 function enterLocation(s, card, owner, lanes) {
   const loc = {
     uid: `loc-${s.nextLocation++}`, id: card.id, name: card.name, owner, card, lanes,
-    roundsLeft: card.rounds, weather: { ...card.weather }, color: card.color, image: card.image ?? `assets/cards/${card.id}.jpg`,
+    roundsLeft: card.rounds, weather: { ...card.weather }, color: card.color, image: card.image ?? `assets/cards/${card.art ?? card.id}.jpg`,
     objective: card.objective, milestones: card.milestones, completion: card.completion,
     championship: !!card.championship, placedRound: s.round,
     progress: { player: 0, ai: 0 }, reached: { player: [], ai: [] }, completed: { player: false, ai: false },
@@ -1098,6 +1114,7 @@ function runEffect(s, who, spec, ops = [], targets, ctx = {}) {
     if (op.to) {
       list = expand(s, op.to, targetOptions(s, who, op.to, ctx));
       if (op.to.others) list = list.filter((t) => !chosen.some((c) => refKey(c) === refKey(t)));
+      if (op.to.notTarget && ctx.target) list = list.filter((t) => refKey(t) !== refKey(ctx.target));
     }
     for (const t of list) targetOp(s, who, op, t, ctx);
   }
