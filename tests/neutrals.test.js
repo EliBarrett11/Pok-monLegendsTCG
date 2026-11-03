@@ -243,14 +243,18 @@ const supporter = (s, id, pay, target) => {
 }
 
 // --- Grass: Brock — friendly Pokémon in a chosen Zone: +2 Strength and Shell 1 until your next Breakfast ---------
-//     Gift (a Rock Pokémon): every Zone.
+//     Gift (a Rock Pokémon): every Zone. N1 tune (Elliott): it also Douses every friendly Trainer.
 
 {
   let s = match({ player: 'grass', ai: 'fire' });
   place(s, 'player', 0, 0, 'bulbasaur');
   place(s, 'player', 0, 1, 'oddish');
   place(s, 'player', 1, 0, 'sunkern');
+  for (const zone of [0, 2]) trainerAt(s, 'player', zone).status = { burn: { count: 3, by: 'ai' } };
+  trainerAt(s, 'ai', 1).status = { burn: { count: 2, by: 'player' } };
   s = supporter(s, 'brock', ['oddish'], { kind: 'zone', owner: 'player', zone: 0 });   // released: not a Rock Pokémon
+  assert.deepEqual([0, 1, 2].map((z) => burnOf(trainerAt(s, 'player', z))), [0, 0, 0], 'every friendly Trainer Doused, whatever the Zone');
+  assert.equal(burnOf(trainerAt(s, 'ai', 1)), 2, 'not the enemy\'s');
   const b = () => at(s, 'player', 0, 0);
   assert.deepEqual([maxStrengthOf(b()), b().currentStrength, keywordAmount(b(), 'Shell')], [6 + 2, 6 + 2, 1]);
   assert.deepEqual([maxStrengthOf(at(s, 'player', 0, 1)), keywordAmount(at(s, 'player', 0, 1), 'Shell')], [5 + 2, 1]);
@@ -277,7 +281,9 @@ const supporter = (s, id, pay, target) => {
   s = match({ player: 'grass', ai: 'fire' });
   place(s, 'player', 0, 0, 'bulbasaur');
   place(s, 'player', 2, 1, 'sunkern');
+  trainerAt(s, 'player', 1).status = { burn: { count: 1, by: 'ai' } };
   s = supporter(s, 'brock', ['geodude']);
+  assert.equal(burnOf(trainerAt(s, 'player', 1)), 0, 'the Gift Douses too');
   assert.deepEqual([maxStrengthOf(at(s, 'player', 0, 0)), maxStrengthOf(at(s, 'player', 2, 1))], [8, 9], 'Gift: every Zone');
   assert.ok(keywordAmount(at(s, 'player', 2, 1), 'Shell') === 1);
 }

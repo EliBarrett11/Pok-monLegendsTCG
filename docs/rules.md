@@ -628,7 +628,7 @@ Three decks, as approved in `docs/decks.md` (the source of truth for them). The 
 | Mallow | 1 | Common | Discard 1 | Gain 2 Growth. | a Grass Pokémon | Gain 3 Growth and heal a friendly Pokémon 2. |
 | Pokémon Breeder | 1 | Rare | Release 1 | Search your Draw Pile for a Pokémon that evolves from one in your arena; it gains Retain. | an evolution card | Search for two instead. |
 | Professor Oak | 1 | Rare | Discard 2 | Draw 3 cards. | a Pokémon card | Draw 4 instead. |
-| Brock (neutral) | 1 | Rare | Release 1 | Friendly Pokémon in a chosen Zone gain +2 Strength and Shell 1 until your next Breakfast. | a Rock Pokémon | Every Zone instead. |
+| Brock (neutral) | 1 | Rare | Release 1 | Friendly Pokémon in a chosen Zone gain +2 Strength and Shell 1 until your next Breakfast. Douse every friendly Trainer. | a Rock Pokémon | Every Zone instead (and the Douse). |
 
 | Location | × | Rarity | Weather | Quest | XP | Effect on completion |
 |---|---|---|---|---|---|---|
@@ -667,13 +667,14 @@ Three decks, as approved in `docs/decks.md` (the source of truth for them). The 
 
 Each deck has a few unique **neutral cards** (marked "(neutral)" in its tables above): off-Type Pokémon and Type-free Strategy Cards, Supporters and Items that fill gaps in its kit. Each replaced one copy of a duplicate, so the decks keep 40 cards and the standard split. Black Belt and Rocky Helmet joined the PokéMart, which now holds 13 Items.
 
-How they work (the build's reading; the open questions below list what Elliott hasn't ruled on yet):
+How they work (settled by Elliott after N1):
 - **On Defend at the attacker** (Dusclops: Burn 1; Geodude: 1 damage): like every On Defend, it fires after the attack if this Pokémon is still in play, at the Pokémon that attacked it, if that Pokémon is still in play.
 - **Absol:** +2 damage when it attacks (a Command) a target with any Burn. Not when it hits back in a trade, and its Attack Value stays 5 (as Sunflora's Sun bonus).
-- **Rocky Helmet:** gives its holder Retaliate 2 (section 1.3).
+- **Rocky Helmet:** gives its holder Retaliate 2 (section 1.3): it triggers even if the holder is defeated by the attack, and not when the holder is the attacker and takes damage hitting back in a trade.
 - **Tracey:** look at the top 4 cards of your Draw Pile and choose 2 (Gift: 3) to put into your hand; the rest go to the bottom of the Draw Pile in the same order. The opponent sees how many were taken, not which. With fewer than 4 cards in the Draw Pile, you look at those (it isn't refilled from the Discard Pile); with none, nothing happens.
-- **Brock: "until your next Breakfast":** the +2 Strength and Shell 1 last through the opponent's turns and Supper, and end as your next Breakfast Phase starts (before anything else at Breakfast). Only the Pokémon in that Zone when Brock is played gain them. Losing the +2 follows the Passive rule (maximum drops, current Strength only if above it), and it never defeats a Pokémon (it stays at 1). Gift: every friendly Pokémon in the arena.
+- **Brock: "until your next Breakfast":** the +2 Strength and Shell 1 last through the opponent's turns and Supper, and end as your next Breakfast Phase starts (before anything else at Breakfast). Only the Pokémon in that Zone when Brock is played gain them. Losing the +2 follows the Passive rule (maximum drops, current Strength only if above it), and it never defeats a Pokémon (it stays at 1). Gift: every friendly Pokémon in the arena. **N1 tune (Elliott):** Brock also Douses every friendly Trainer, Gift or not.
 - **Rock Slide** chooses an enemy Zone that has at least one enemy Pokémon; it hits every enemy Pokémon there.
+- **Names:** Shinx, Absol, Dragonite, Black Belt, Tracey and Brock were names of placeholder cards in early builds (Brock was a Trainer); those were retired, and the names now belong to these neutral cards.
 
 ## Open questions
 
@@ -687,8 +688,6 @@ How they work (the build's reading; the open questions below list what Elliott h
 - **Timed Weather order:** if two Weather types have timed effects at the same moment, the build resolves them in Weather order (Rain, then Sun). Is that right?
 - **Trainer vs Pokémon order:** when a Trainer's Passive and a Pokémon in the same zone trigger at the same moment, which goes first? (The build puts the Trainer after the Pokémon in its zone.)
 - **On Supper:** no card uses it yet; the hook is built and tested.
-- **N1 balance:** with the neutrals, Grass beats Fire only 38.3% of the time (400 matches). The tune that brings it back is Brock also Dousing every friendly Trainer (51.5%, Grass–Water unchanged at 46.8%); it waits for Elliott (README build log, N1).
-- **N1 neutrals (the build's readings, section 9.5):** Rocky Helmet triggers even if the holder is defeated, and not when the holder takes damage hitting back in a trade (is that right?). Tracey with fewer than 4 cards in the Draw Pile looks at those, without refilling from the Discard Pile, and the rest go to the bottom in the order they were. Brock's buff only reaches the Pokémon in the Zone when it's played. Absol's +2 is for its own attack only, like Sunflora's.
 
 ## Placeholders in the current build
 

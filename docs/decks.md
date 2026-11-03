@@ -394,7 +394,7 @@ Basic curve: cost 1 ×8, 2 ×1, 3 ×1, 4 ×1 (11 Basics). Evolutions: Evolve 2 �
 | mallow | Mallow | 1 | Common | Discard 1 | Gain 2 Growth. | a Grass Pokémon | Gain 3 Growth and heal a friendly Pokémon 2. |
 | pokemon-breeder | Pokémon Breeder | 1 | Rare | Release 1 | Search your Draw Pile for a Pokémon that evolves from one in your arena; it gains Retain. | an evolution card | Search for two instead. |
 | professor-oak | Professor Oak | 1 | Rare | Discard 2 | Draw 3 cards. | a Pokémon card | Draw 4 instead. |
-| brock | Brock (neutral) | 1 | Rare | Release 1 | Friendly Pokémon in a chosen Zone gain +2 Strength and Shell 1 until your next Breakfast. | a Rock Pokémon | Every Zone instead. |
+| brock | Brock (neutral) | 1 | Rare | Release 1 | Friendly Pokémon in a chosen Zone gain +2 Strength and Shell 1 until your next Breakfast. Douse every friendly Trainer. | a Rock Pokémon | Every Zone instead (and the Douse). |
 
 ### Locations (4)
 
@@ -420,7 +420,7 @@ Basic curve: cost 1 ×8, 2 ×1, 3 ×1, 4 ×1 (11 Basics). Evolutions: Evolve 2 �
 | Metapod | Bug Pokémon, a Defence guard | A cheap Round-1 guard against Fire's Physical attackers. | 1 Sewaddle | metapod |
 | Geodude | Rock Pokémon, a Defence guard | A second early guard that chips at aggro. | 1 Bulbasaur | geodude |
 | Rock Slide | Strategy | Damage and a partial board clear; Grass had neither. | 1 Leech Seed | rock-slide |
-| Brock | Supporter | A defensive turn to survive the early rush; builds on Sudowoodo and Geodude. | 1 Mallow | brock |
+| Brock | Supporter | A defensive turn to survive the early rush; builds on Sudowoodo and Geodude. Dousing every friendly Trainer was added in the N1 tune (Elliott), against Fire's Burn. | 1 Mallow | brock |
 
 ### Trainers (total Strength 52)
 

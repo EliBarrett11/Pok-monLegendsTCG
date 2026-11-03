@@ -218,6 +218,7 @@ const ENEMY_ANY = { mode: 'targeted', side: 'opponent', kinds: ['pokemon', 'trai
 const CHOSEN = { mode: 'chosen' };           // the same card the first effect targeted, if still in play
 const SELF = { mode: 'self' };               // the Pokémon whose ability this is
 const ATTACKER = { mode: 'event', role: 'attacker' };   // On Defend: the Pokémon that attacked it
+const FRIENDLY_TRAINERS = { mode: 'area', side: 'friendly', kinds: ['trainer'] };
 const ENEMY_TRAINERS = { mode: 'area', side: 'opponent', kinds: ['trainer'] };
 // =============================================================================
 // 🔥 FIRE DECK — "Burn" (Aggressive). docs/decks.md section 3.
@@ -565,9 +566,11 @@ export const GRASS_SUPPORTERS = [
     }),
   // "Until your next Breakfast": it outlasts the opponent's turns and Supper (effects.js, until: 'breakfast').
   supporter('brock', 'Brock', 'Rare', { discard: 0, release: 1 },
-    'Friendly Pokémon in a chosen Zone gain +2 Strength and Shell 1 until your next Breakfast.', [
+    'Friendly Pokémon in a chosen Zone gain +2 Strength and Shell 1 until your next Breakfast. Douse every friendly Trainer.', [
       { op: 'buff', attack: 0, strength: 2, until: 'breakfast', target: { mode: 'targeted', pick: 'zone', side: 'friendly' } },
       { op: 'grant', keyword: 'Shell', amount: 1, until: 'breakfast', target: { mode: 'area', side: 'friendly', zone: 'target' } },
+      // N1 tune (Elliott): it also Douses every friendly Trainer.
+      { op: 'douse', target: FRIENDLY_TRAINERS },
     ], {
       challengeText: 'a Rock Pokémon',
       challenge: { cardType: 'Pokémon', pokemonType: 'Rock' },
@@ -575,6 +578,7 @@ export const GRASS_SUPPORTERS = [
       effects: [
         { op: 'buff', attack: 0, strength: 2, until: 'breakfast', target: { mode: 'area', side: 'friendly' } },
         { op: 'grant', keyword: 'Shell', amount: 1, until: 'breakfast', target: { mode: 'area', side: 'friendly' } },
+        { op: 'douse', target: FRIENDLY_TRAINERS },
       ],
     }),
   supporter('professor-oak', 'Professor Oak', 'Rare', { discard: 2, release: 0 }, 'Draw 3 cards.', [{ op: 'draw', amount: 3 }], {
