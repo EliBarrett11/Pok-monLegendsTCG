@@ -23,6 +23,8 @@
 //             GS         Grass-deck Pokémon −1 Strength at every Level
 //             SL         Sleep Powder costs 3; Gloom / Bellossom / Butterfree's On Evolve Sleep
 //                        only reaches a Pokémon of a lower Level than themselves
+//             F½ (or FH) Fire Pokémon +1 Strength at Levels 3–6 only
+//             WA         Water Pokémon +1 Attack at every Level
 //             ER         Erika's Passive is "your Pokémon in her lane gain +1 Strength" (no training)
 // --json      one JSON line with the results (for v2/tools/variants.js)
 //
@@ -41,7 +43,7 @@ import { chooseAction } from '../src/ai/opponent.js';
 export const VARIANTS = {
   T75: { target: 75 }, T90: { target: 90 }, 'L+': { locMult: 1.5 }, CH8: { champRound: 8 },
   W1: { waterStrength: 1 }, W2: { waterLocations: true }, CH9: { champRound: 9 }, F1: { fireStrength: 1 }, LG: { laneGuards: true }, FG: { fireGuards: true },
-  C1: { minCost: 1 }, GS: { grassStrength: -1 }, SL: { sleepLimit: true },
+  C1: { minCost: 1 }, 'F½': { fireHalf: true }, FH: { fireHalf: true }, WA: { waterAttack: true }, GS: { grassStrength: -1 }, SL: { sleepLimit: true },
   N3: { nurtureCost: 3 }, N1: { nurtureOnce: true }, NR: { nurtureRoundCap: true }, GX: { growthBulbasaurOnly: true }, ER: { erikaStrength: true },
 };
 export const variantOf = (flags = []) => (flags.length ? Object.assign({}, ...flags.map((f) => {

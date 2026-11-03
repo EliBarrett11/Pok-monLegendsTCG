@@ -127,6 +127,7 @@ export function train(s, who, space, n) {
   };
   if (card.empowered) applyEmpower(next);
   next.strength += waterBonus(s, next);
+  next.attack += waterAttack(s, next);
   fireGuard(s, next);
   if (card.held) applyHeld(next, card.held);
   // Permanent gains (Rally, Rage, On Heal) and "this Round" / "until Breakfast" buffs stay.
@@ -150,7 +151,11 @@ const fireGuard = (s, card) => { if (s.variant?.fireGuards && card.series === 'f
 const waterBonus = (s, card) => (s.variant?.waterStrength && card.type === 'Water' ? s.variant.waterStrength : 0)
   + (s.variant?.fireStrength && card.type === 'Fire' ? s.variant.fireStrength : 0)
   // GS experiment flag (V7d): Grass-deck Pokémon −1 Strength at every Level.
-  + (s.variant?.grassStrength && card.deck === 'grass' ? s.variant.grassStrength : 0);
+  + (s.variant?.grassStrength && card.deck === 'grass' ? s.variant.grassStrength : 0)
+  // F½ experiment flag (V7e): Fire Pokémon +1 Strength at Levels 3–6 only.
+  + (s.variant?.fireHalf && card.type === 'Fire' && card.level >= 3 ? 1 : 0);
+// WA experiment flag (V7e): Water Pokémon +1 Attack at every Level.
+const waterAttack = (s, card) => (s.variant?.waterAttack && card.type === 'Water' ? 1 : 0);
 
 // The Empowered summon's bonus, on the card.
 function applyEmpower(card) {
@@ -1525,6 +1530,7 @@ function placeSummoned(s, who, card, space, { targets, picks, active = false, co
   const played = { ...card, arrivedRound: s.round, buffs: [] };
   if (played.empowered) applyEmpower(played);
   played.strength += waterBonus(s, played);
+  played.attack += waterAttack(s, played);
   fireGuard(s, played);
   played.currentStrength = played.strength;
   played.spent = !(active || hasKeyword(played, 'Quick Attack'));

@@ -1,7 +1,7 @@
 // V7a balance experiment: runs the round-robin for each variant (flags only, never the
 // game's settings) in parallel child processes and prints one table.
 //
-//   node v2/tools/variants.js [matches per matchup, default 100] [--jobs=4] [--set=v7a|v7b|v7c|v7d]
+//   node v2/tools/variants.js [matches per matchup, default 100] [--jobs=4] [--set=v7a|v7b|v7c|v7d|v7e]
 //        [--configs="T90;T90,N3;T90,NR,GX"] [--json > results.json]
 //
 // Each config plays the three mixed matchups (seats alternate, so half each way round).
@@ -24,6 +24,10 @@ SETS.v7b = [[], ['N3'], ['N1'], ['NR'], ['GX'], ['ER'], ['N3', 'GX'], ['N1', 'GX
 SETS.v7c = [[], ['LG'], ['LG', 'F1'], ['LG', 'N1', 'GX'], ['FG'], ['FG', 'F1'], ['FG', 'N1', 'GX'], ['LG', 'FG'], ['LG', 'FG', 'N1', 'GX'], ['LG', 'FG', 'F1', 'W1', 'N1', 'GX']].map((f) => ['T90', 'CH9', ...f]);
 // V7d: the attack-volume levers, each on top of T90 + CH9 + LG.
 SETS.v7d = [[], ['C1'], ['GS'], ['SL'], ['C1', 'GS'], ['C1', 'SL'], ['C1', 'GS', 'SL'], ['C1', 'F1'], ['C1', 'GS', 'F1'], ['C1', 'GS', 'F1', 'W1'], ['C1', 'GS', 'SL', 'F1', 'W1']].map((f) => ['T90', 'CH9', 'LG', ...f]);
+// V7e: the grid. Grass (GS | GS+N1+GX) × Fire (none | F½ | F1) × Water (none | W1 | WA | W1+WA),
+// each on top of T90 + CH9 + LG: 24 configs.
+SETS.v7e = [['GS'], ['GS', 'N1', 'GX']].flatMap((g) => [[], ['F½'], ['F1']].flatMap((f) => [[], ['W1'], ['WA'], ['W1', 'WA']]
+  .map((w) => ['T90', 'CH9', 'LG', ...g, ...f, ...w])));
 
 const RR = fileURLToPath(new URL('./roundrobin.js', import.meta.url));
 const run = (flags, n) => new Promise((resolve, reject) => {
