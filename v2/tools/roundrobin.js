@@ -51,6 +51,8 @@ const LINE_NAMES = { 'g-eevee': 'Leafeon (Eevee line)', 'g-celebi': 'Celebi' };
 export function sourceName(cause) {
   if (!cause) return 'other';
   if (cause === 'nurture' || cause === 'Sun 4') return cause === 'nurture' ? 'Nurture' : 'Sun 4';
+  if (cause === 'attack') return 'On Attack';
+  if (cause === 'chooseTarget') return 'On Evolve (chosen target)';
   const [kind, rest] = cause.split(/:(.*)/s);
   if (kind === 'ability') return LINE_NAMES[rest] ?? `${rest.replace(/^[a-z]-/, '').replace(/^./, (c) => c.toUpperCase())} line`;
   if (['strategy', 'supporter', 'item', 'trainer'].includes(kind)) return rest;

@@ -183,3 +183,79 @@ To play locally: `python3 -m http.server` at the repository root, then open http
     - **Smallest nearby set:** **T90 alone** for pace (9.1 Rounds, 62% early). **T90+CH8** wasn't in the list; it's the next one to try for bringing early endings toward a third (CH8 alone halved them). Any matchup fix needs a Grass lever (its attack Recognition or its guards), not a Water or Location one. Fire–Water is already balanced at baseline (54%), so W1 would tip it toward Water.
     - Nothing is committed: Elliott decides.
   - **Tests:** `setup.test.js` checks the cost curve stops at Level 6, that no v2 file references `assets/ui/icons`, and that every series Type has a coded icon. `training.test.js` checks Legendaries as single cards. `decks.test.js` checks the three Legendaries' stats and abilities, the On Evolve choice queue (player and AI), own lane at Home (Gyarados, Ivysaur), "a chosen Location" with a Home lane (Chili), Solar Beam with guards, and Quick Claw on a Swift holder (Absol). All v2 tests pass, and so does the current game's suite, unchanged. Checked in the browser: the match board and the deck builder (Legendary rows with the mark, cost and stats) with coded icons only, no errors.
+
+- **V7b — Grass and pacing experiment.** These are flags for the tools only. Nothing changes in the game until Elliott decides.
+  - **New diagnostics** (`node v2/tools/roundrobin.js`), per deck:
+    - Growth gained per match, by source;
+    - Nurtures per match;
+    - other training per match by source, counted in Levels gained (Erika, Rare Candy, Pokémon Breeder, Leafeon, Celebi, Mallow);
+    - the average Level of its Pokémon on the board at each Supper, by Round;
+    - how often its guards were Asleep when an enemy attack had to go through them.
+    - The engine tags each Growth gain and each training with what caused it (a `cause` on the `growth` and `trained` events, for the tools only; the rules never read it).
+  - **New flags:**
+    - **N3:** Nurture costs 3 (Gardenia's lane: 2).
+    - **N1:** Nurture is once per Round in total.
+    - **NR:** Nurture can't raise a Pokémon above the Round number + 1.
+    - **GX:** only the Bulbasaur line makes Growth at Breakfast.
+    - **ER:** Erika gives +1 Strength in her lane instead of training.
+    - **CH9:** the Championship arrives in Round 9.
+    - **F1:** Fire Pokémon +1 Strength at every Level, W1's mirror. It wasn't requested; I added it to find a Fire–Water lever.
+    - `node v2/tools/variants.js 100 --set=v7b` runs the Grass set. `--configs="T90,N3,GX;…"` runs any list. `--json > file.json` and `--show=file.json` save and print the full diagnostics.
+  - **Results:** every config is on top of T90, with 100 matches per matchup (50 per seat order). Win rates are for the first-named deck:
+
+    | Variant | Fire v Water (Fire) | Fire v Grass (Fire) | Water v Grass (Water) | Avg Rounds | Ends: early / Championship / final |
+    |---|---|---|---|---|---|
+    | T90 | 40% | 17% | 16% | 9.1 | 62% / 34% / 4% |
+    | T90+N3 | 43% | 18% | 21% | 9.2 | 61% / 33% / 6% |
+    | T90+N1 | 40% | 20% | 21% | 9.3 | 60% / 34% / 6% |
+    | T90+NR | 40% | 23% | 17% | 9.2 | 61% / 34% / 5% |
+    | T90+GX | 40% | 19% | 19% | 9.3 | 58% / 38% / 5% |
+    | T90+ER | 40% | 18% | 15% | 9.1 | 62% / 33% / 5% |
+    | T90+N3+GX | 43% | 21% | 21% | 9.4 | 55% / 38% / 6% |
+    | T90+N1+GX | 40% | 25% | 20% | 9.3 | 59% / 36% / 5% |
+    | T90+NR+GX | 40% | 19% | 16% | 9.2 | 58% / 37% / 4% |
+    | T90+NR+N3 | 43% | 16% | 20% | 9.3 | 59% / 35% / 6% |
+    | T90+NR+GX+ER | 40% | 19% | 17% | 9.2 | 59% / 37% / 4% |
+    | T90+CH8 | 36% | 17% | 16% | 9.0 | 15% / 82% / 3% |
+    | T90+CH9 | 38% | 15% | 16% | 9.0 | 41% / 55% / 4% |
+    | T90+N3+GX+CH8 | 38% | 16% | 22% | 9.2 | 9% / 87% / 4% |
+    | T90+N3+GX+CH9 | 39% | 14% | 21% | 9.3 | 30% / 65% / 5% |
+    | T90+N1+GX+CH8 | 36% | 24% | 20% | 9.2 | 8% / 89% / 3% |
+    | T90+N1+GX+CH9 | 38% | 22% | 21% | 9.2 | 31% / 66% / 3% |
+    | T90+F1 | 47% | 31% | 16% | 9.1 | 62% / 33% / 5% |
+    | T90+F1+CH9 | 47% | 27% | 16% | 9.0 | 38% / 57% / 5% |
+    | T90+N1+GX+F1+CH9 | 47% | 41% | 21% | 9.3 | 29% / 66% / 4% |
+    | T90+N3+GX+F1+CH9 | 50% | 44% | 21% | 9.3 | 25% / 71% / 4% |
+    | T90+N3+GX+F1+W1+CH9 | 35% | 44% | 35% | 9.4 | 26% / 70% / 5% |
+    | T90+N1+GX+F1+W1+CH9 | 36% | 41% | 42% | 9.3 | 26% / 70% / 4% |
+    | T90+F1+W1+CH9 | 36% | 27% | 25% | 9.1 | 36% / 59% / 4% |
+    | T90+N3+GX+W1+CH9 | 22% | 14% | 35% | 9.2 | 33% / 62% / 5% |
+
+  - **What the diagnostics show** (T90 alone):
+    - **Grass's board runs about a Level ahead from Round 2.** Board Level at Supper:
+      - Grass: 2.2 / 3.2 / 4.1 / 5.0 in Rounds 2–5 against Fire, and 5.7 from Round 7.
+      - Fire: 1.7 / 2.5 / 3.3 / 4.0 in Rounds 2–5.
+      - Water: 1.6 / 2.2 / 2.7 / 3.5 in Rounds 2–5.
+    - **Grass's Growth:** about 45 a match against Fire and 38 against Water. The largest sources are the Bulbasaur line (12–15), Synthesis (6–10) and the Oddish line (5).
+    - **Grass's training:** 10–11 Nurtures a match, plus 5–7 Levels from other training (Celebi 2.5–4, Pokémon Breeder 2.2).
+    - **The bigger cause is guards.** Fire's Pokémon have Hitpoints Strength (16 of 17) and no Defence guards, so only 3% of Grass's attacks and 4% of Water's meet a guard. Meanwhile 34% of Fire's attacks are limited by Grass's Defence guards. Grass's 85 attack Recognition a match against Fire comes from that.
+    - **Asleep guards are rare:** 5–7% of the guards an attack had to go through (Water's and Fire's guards, put to Sleep by Grass). Sleep isn't a factor.
+  - **What each lever moved:**
+    - **Each Grass lever on its own** moves Grass's matchups only 2–6 points. Grass still wins 77–84%.
+    - **N1+GX** halves Nurtures (9.8 → 5.4 a match) and slows the board by about half a Level from Round 3. Fire then wins 25% against Grass.
+    - **N3+GX** gives 21% in both of Grass's matchups.
+    - **NR and ER do almost nothing:** Grass rarely Nurtures past Round + 1, and Erika trained only about 0.3 Levels a match.
+    - **CH9** gives about a third early (30–41%) without changing win rates. **CH8** pushes almost everything into the Championship (8–15% early). Average Rounds stays about 9.0–9.4 with either.
+    - **F1** restores Fire–Water (40% → 47%) and helps Fire against Grass (17% → 31%).
+    - **With F1, the Grass levers finally move Fire–Grass:** 41–44% with N1+GX or N3+GX, plus CH9.
+    - **Water–Grass stays near 21% until W1 is added.** T90+N1+GX+F1+W1+CH9 gives 42%, but W1 pulls Fire–Water back to 36%.
+  - **Recommendation:**
+    - **No set reaches all three targets.** The closest is **T90 + N1 + GX + F1 + W1 + CH9**: Fire–Water 36%, Fire–Grass 41%, Water–Grass 42%, 9.3 Rounds and 26% early (16–38% by matchup).
+    - **The smallest set that meets two of the three targets** (pace and endings) **and restores Fire–Water** is **T90 + F1 + CH9**: 47% / 27% / 16%, 9.0 Rounds, 38% early. It leaves Grass far too strong.
+    - **Next to try:** Fire +2 with W1 (F1 moved Fire–Water by +7 and W1 by −14), or a guard lever for Fire. Fire's lack of Defence and Special Defence guards is the root of both Fire–Water and Fire–Grass.
+  - **Fire–Water under T90 (40%):** **F1** (Fire Pokémon +1 Strength) restores it to 47%. That's the small lever.
+  - **Tests:** `v2/tests/variants.test.js`:
+    - each flag does only what it says, and nothing changes without it: N3 (and Gardenia's lane), N1 (and again the next Round), NR, GX, ER, F1, T90 and CH9;
+    - the cause tags: Bulbasaur and Oddish Growth, Erika training, Nurture;
+    - a seeded run fills every new diagnostic.
+    - All v2 tests pass. The game in the browser is unchanged.

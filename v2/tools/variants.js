@@ -2,13 +2,13 @@
 // game's settings) in parallel child processes and prints one table.
 //
 //   node v2/tools/variants.js [matches per matchup, default 100] [--jobs=4] [--set=v7a|v7b|v7b-pacing]
-//        [--configs="T90;T90,N3;T90,NR,GX"] [--out=results.json]
+//        [--configs="T90;T90,N3;T90,NR,GX"] [--json > results.json]
 //
 // Each config plays the three mixed matchups (seats alternate, so half each way round).
-// --out saves every config's full results; `node v2/tools/variants.js --show=results.json`
+// --json prints every config's full results as JSON (instead of the table); `node v2/tools/variants.js --show=results.json`
 // prints the round-robin report (with all diagnostics) for each saved config.
 import { spawn } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { report } from './roundrobin.js';
 
@@ -67,8 +67,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
   };
   await Promise.all(Array.from({ length: jobs }, worker));
-  const file = args.find((x) => x.startsWith('--out='))?.slice(6);
-  if (file) writeFileSync(file, JSON.stringify(out));
+  if (args.includes('--json')) {
+    console.log(JSON.stringify(out));
+    process.exit(0);
+  }
   console.log('| Variant | Fire v Water (Fire) | Fire v Grass (Fire) | Water v Grass (Water) | Avg Rounds | Ends: early / Championship / final |');
   console.log('|---|---|---|---|---|---|');
   for (let i = 0; i < configs.length; i++) console.log(row(configs[i], out[i].results));
