@@ -393,6 +393,27 @@ No build step: plain HTML, CSS and JavaScript modules. Working rules for each se
   - Checked in the browser: Rock Throw, Sleep Powder, Synthesis on a burned Trainer, Celebi's entrance, a Breakfast Evolve reveal in hot-seat (Sunkern into Sunflora) and the Growth tree in its margin spot with all nine spaces full.
   - `?hotseat&autoplay` (with `&stopAt=breakfastEvolve`, `&decks=grass,grass`) plays both seats of a hot-seat match until that step, then passes the screen as usual (for testing).
 
+- **N1 — neutral cards** — 13 unique neutral cards (approved by Elliott; `docs/decks.md` "Neutral cards" in each deck, `docs/rules.md` 9.5; the draft is deleted), each replacing one copy of a duplicate:
+  - **Fire:** Dusclops (Ghost, a Special Defence guard; On Defend: Burn 1 to the attacker), Absol (+2 damage with its attack to a burned target), Hyper Voice (2 damage to each enemy Pokémon), Black Belt (+1 Attack and Overrun). Out: 1 Growlithe, 1 Magmar, 1 Ember, 1 X Attack.
+  - **Water:** Dragonite (Infiltrator, Shell 1), Shinx (Quick Attack), Thunderbolt (4 damage to an enemy Pokémon or Trainer), Rocky Helmet (the holder Retaliates 2), Tracey (look at the top 4: 2 into your hand, Gift 3; the rest to the bottom). Out: 1 Quagsire, 1 Lapras, 1 Bubble Beam, 1 Mystic Water, 1 Nurse Joy.
+  - **Grass:** Metapod (a Defence guard, Shell 1), Geodude (a Defence guard; On Defend: 1 damage to the attacker), Rock Slide (2 damage to each enemy Pokémon in a chosen Zone), Brock (a chosen Zone's friendly Pokémon +2 Strength and Shell 1 until your next Breakfast; Gift, a Rock Pokémon: every Zone). Out: 1 Bulbasaur, 1 Sewaddle, 1 Leech Seed, 1 Mallow.
+  - Black Belt and Rocky Helmet joined the PokéMart (13 Items). Thunderbolt and Rock Slide use the placeholder look until their art arrives.
+  - **General mechanics** (reusable): On Defend aimed at the attacker; an attack bonus against a target with a status; the new keyword **Retaliate X**; looking at the top of the Draw Pile (secret from the opponent); buffs and keywords that last **until your next Breakfast**.
+  - **Fixed on the way:** a chosen Zone now belongs to the side whose cards are there (Rock Slide picks an enemy Zone; before, every Zone choice was labelled as the caster's), and clicking a Zone plays a Strategy Card, not only a Supporter.
+  - **Visuals:** new Electric Physical (Shinx), Dragon Physical (Dragonite) and Ghost Special (Dusclops) attacks with counters; Hyper Voice (sound rings sweep the enemy side), Rock Slide (falling rocks; only the chosen Zone is struck) and Thunderbolt (a bolt) animations. Ghost and Dragon use the drawn Type medallion until their icons exist.
+  - **AI:** Tracey is scored like the other draw cards; damage its attacker takes back (Retaliate, Geodude) counts against an attack. Everything else (Absol picking burned targets, Brock, Hyper Voice, Rock Slide's Zone) comes from its usual try-the-move scoring.
+  - **Tests:** `tests/neutrals.test.js` (every card, the swaps, the mechanics, the AI picks); deck, Item, Infiltrator, Pokémon and effects tests updated. Checked in the browser: the cards on the board and in hand, Rock Slide's enemy-Zone choice, and three full autoplay matches without errors.
+  - **Balance, 400 matches per matchup (200 per seat order):**
+
+  | Matchup | Win rate | "You" seat / AI seat | Rounds |
+  |---|---|---|---|
+  | Fire v Water | Fire 49.3% | 49.5% / 49.0% | 5.6 |
+  | Grass v Fire | **Grass 38.3%** (was 47.0%) | 36.0% / 40.5% | 5.7 |
+  | Grass v Water | Grass 46.8% (was 47.8%) | 47.0% / 46.5% | 9.3 |
+
+  Neutral cards (played in % of matches · won with / without), against Fire / Water: **Grass** Metapod 69% · 37/41 / 97% · 46/83; Brock 65% · 41/34 / 92% · 47/50; Geodude 34% / 83%; Rock Slide 7% / 31%. **Water** Shinx 85% / 98% (vs Grass), Tracey 75% / 97%, Dragonite 15% · 69/48 / 69% · 59/41, Thunderbolt 19% / 55%, Rocky Helmet 13% / 51% (it Retaliates about 0.2 damage a match). **Fire** Black Belt 39% / 28%, Dusclops 9% / 12%, Absol 7% / 10%, Hyper Voice 6% / 9% (vs Water / vs Grass).
+  - **Grass–Fire is outside 45–55%.** Tunes to the new neutrals only (in a scratchpad copy of the tool, not committed), Grass v Fire: Geodude cost 1: 39.0%; Rock Slide cost 2: 37.0%; Geodude cost 1 + Metapod 1/7: 38.8%; Brock +3 Strength: 36.8%; **Brock also Douses the chosen Zone's friendly Trainer: 46.3%; Brock Douses every friendly Trainer: 51.5%** (51.0 / 52.0 by seat; Grass v Water unchanged at 46.8%, Fire–Water untouched). Proposed for Elliott: Brock Douses every friendly Trainer. Nothing changed without his OK.
+
 Add `?seed=123` to the URL to replay the same shuffle and coin flip. Add `?hotseat` for two players on one screen, or `?join=CODE` to join a friend's room.
 
 ## Balance report

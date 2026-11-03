@@ -9,7 +9,10 @@ import { captionFor } from '../src/ui/present.js';
 // Setup with both sides keeping their hands, ending at Round 1 Battle.
 function toRound1Battle(seed) {
   let s = createGame(seed);
-  for (const who of PLAYERS) s = applyAction(s, chooseAction(s, who));
+  // (Seeded: an unseeded Trainer placement sometimes put Wallace, whose Zone's first summon costs 1 less, in Zone 1.)
+  let n = seed;
+  const rng = () => { n = (n * 9301 + 49297) % 233280; return n / 233280; };
+  for (const who of PLAYERS) s = applyAction(s, chooseAction(s, who, { rng }));
   s = applyAction(s, { type: 'flipCoin' });
   for (const who of PLAYERS) s = applyAction(s, { type: 'mulligan', who, cardUids: [] });
   return s;

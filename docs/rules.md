@@ -687,6 +687,7 @@ How they work (the build's reading; the open questions below list what Elliott h
 - **Timed Weather order:** if two Weather types have timed effects at the same moment, the build resolves them in Weather order (Rain, then Sun). Is that right?
 - **Trainer vs Pokémon order:** when a Trainer's Passive and a Pokémon in the same zone trigger at the same moment, which goes first? (The build puts the Trainer after the Pokémon in its zone.)
 - **On Supper:** no card uses it yet; the hook is built and tested.
+- **N1 balance:** with the neutrals, Grass beats Fire only 38.3% of the time (400 matches). The tune that brings it back is Brock also Dousing every friendly Trainer (51.5%, Grass–Water unchanged at 46.8%); it waits for Elliott (README build log, N1).
 - **N1 neutrals (the build's readings, section 9.5):** Rocky Helmet triggers even if the holder is defeated, and not when the holder takes damage hitting back in a trade (is that right?). Tracey with fewer than 4 cards in the Draw Pile looks at those, without refilling from the Discard Pile, and the rest go to the bottom in the order they were. Brock's buff only reaches the Pokémon in the Zone when it's played. Absol's +2 is for its own attack only, like Sunflora's.
 
 ## Placeholders in the current build
