@@ -20,7 +20,7 @@ const has = (list, zone, space) => list.some((t) => t.kind === 'pokemon' && t.zo
 // --- Card data ----------------------------------------------------------------
 
 assert.ok(INNATE_POWERS.Infiltrator, 'it has rule text for the cards and the inspect view');
-assert.deepEqual(POKEMON_CARDS.filter((c) => hasKeyword(c, 'Infiltrator')).map((c) => c.id), ['ponyta', 'mankey', 'sneasel', 'arcanine']);
+assert.deepEqual(POKEMON_CARDS.filter((c) => hasKeyword(c, 'Infiltrator')).map((c) => c.id), ['ponyta', 'mankey', 'sneasel', 'arcanine', 'dragonite']);
 
 // --- Targeting ------------------------------------------------------------------
 

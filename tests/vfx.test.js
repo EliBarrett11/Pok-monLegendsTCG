@@ -23,7 +23,7 @@ import { cardDefinition } from '../src/engine/cards.js';
 // --- Every Pokémon in both decks resolves to an attack animation ----------------------------
 
 const allDeckPokemon = Object.values(DECKS).flatMap((d) => Object.keys(d.list)).map(cardDefinition).filter((c) => c.cardType === 'Pokémon');
-assert.equal(allDeckPokemon.length, 31);
+assert.equal(allDeckPokemon.length, 37);
 const deckPokemon = allDeckPokemon;
 for (const c of allDeckPokemon) {
   const id = attackAnimation(c);
@@ -42,15 +42,19 @@ const expected = {
   'water-special': ['horsea', 'wartortle', 'lapras', 'pelipper', 'vaporeon', 'kyogre'],
   'electric-special': ['chinchou'],
   'fighting-physical': ['mankey'],
-  'dark-physical': ['sneasel'],
+  'dark-physical': ['sneasel', 'absol'],
   'normal-physical': ['chansey'],
   // Grass G4: Razor Leaf, String Shot and a bite, Rock Throw.
   'grass-special': ['bulbasaur', 'ivysaur', 'venusaur', 'oddish', 'gloom', 'bellossom', 'sunkern', 'sunflora', 'celebi'],
-  'bug-physical': ['sewaddle'],
-  'rock-physical': ['sudowoodo'],
+  'bug-physical': ['sewaddle', 'metapod'],
+  'rock-physical': ['sudowoodo', 'geodude'],
+  // N1 neutrals: Spark, a Dragon dive, Shadow Ball.
+  'electric-physical': ['shinx'],
+  'dragon-physical': ['dragonite'],
+  'ghost-special': ['dusclops'],
 };
 for (const [anim, ids] of Object.entries(expected)) for (const id of ids) assert.equal(byId(id), anim, id);
-assert.equal(Object.values(expected).flat().length, 31, 'all 31 Pokémon listed');
+assert.equal(Object.values(expected).flat().length, 37, 'all 37 Pokémon listed');
 for (const c of deckPokemon) {
   assert.ok(!FALLBACKS.includes(attackAnimation(c)), `${c.name}: a specific animation, not the fallback`);
   assert.ok(!counterAnimation(c).startsWith('generic'), `${c.name}: its own counter`);
@@ -167,13 +171,13 @@ const instant = (id) => (FULL[id] ?? TIMELINES[id]).beats.filter((b) => b.end ==
 // --- Strategy Cards (Step 22, docs/vfx.md section 4) ----------------------------------------
 
 const deckStrategies = Object.values(DECKS).flatMap((d) => Object.keys(d.list)).map(cardDefinition).filter((c) => c.cardType === 'Strategy');
-assert.equal(deckStrategies.length, 12, 'Fire, Water and Grass: 12 Strategy Cards');
+assert.equal(deckStrategies.length, 15, 'Fire, Water and Grass: 15 Strategy Cards (3 of them N1 neutrals)');
 for (const c of deckStrategies) {
   const id = strategyAnimation(c);
   assert.notEqual(id, STRATEGY_FALLBACK, `${c.name}: its own animation, not the fallback`);
   assert.equal(id, `strategy-${c.id}`, `${c.name}: its own timeline`);
   assert.ok(TIMELINES[id], `${c.name}: ${id} exists`);
-  assert.ok(['Fire', 'Water', 'Grass'].some((type) => strategyTint(c)[0] === tintOf(type)[0]), `${c.name}: flares in its Type's colour`);
+  assert.ok(['Fire', 'Water', 'Grass', 'Normal', 'Electric', 'Rock'].some((type) => strategyTint(c)[0] === tintOf(type)[0]), `${c.name}: flares in its Type's colour`);
   // Every one opens the same way: flare, its name, then it dissolves into the effect.
   const def = composeStrategy(id);
   for (const cue of ['flare', 'banner', 'dissolve']) assert.ok(def.beats.some((b) => b.cue === cue), `${c.name}: the opening's ${cue}`);
@@ -182,7 +186,7 @@ for (const c of deckStrategies) {
   const ms = timelineDuration(def, MAX_SCALE) + 300;
   assert.ok(ms >= 1800 && ms <= 2600, `${c.name}: ${ms} ms in total`);
 }
-assert.equal(Object.keys(STRATEGIES).length, 12);
+assert.equal(Object.keys(STRATEGIES).length, 15);
 assert.equal(strategyAnimation({ id: 'some-new-card' }), STRATEGY_FALLBACK, 'a card without its own animation yet gets the generic one');
 // What each one is made of (docs/vfx.md section 4).
 const uses = (id, pred) => TIMELINES[id].beats.some(pred);

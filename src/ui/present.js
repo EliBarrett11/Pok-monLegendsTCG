@@ -370,7 +370,7 @@ async function strategyVfx(root, prev, next, main, t) {
     ...[...damage, ...burns].filter((x) => x.target.owner === foe).map((x) => ({ x, side: 'enemy' })),
     ...heals.filter((x) => x.target.owner === main.who).map((x) => ({ x, side: 'friend' })),
   ].map((h) => ({ ...h, el: shown(h.x.target.uid) })).filter((h) => h.el);
-  const sweeps = id === 'strategy-heat-wave' || id === 'strategy-surf';
+  const sweeps = ['strategy-heat-wave', 'strategy-surf', 'strategy-hyper-voice', 'strategy-rock-slide'].includes(id);
   const hitTarget = (x) => (x.type === 'damage' ? hitNumbers(shown(x.target.uid), take(x), t, { trainer: x.target.kind === 'trainer' })
     : x.type === 'heal' ? healBeat(take(x), t)
       : (take(x), floatNumber(rectOf(shown(x.target.uid)), `Burn +${x.amount}`, 'burn', t(1100))));
@@ -1799,6 +1799,8 @@ export function captionFor(state, actor) {
     ...all('searched').map((e) => `${subject(e.who)} ${verb(e.who, 'search', 'searches')} for ${e.cards.map((c) => c.name).join(', ')}${e.retain ? ' (Retain)' : ''}`),
     ...all('returned').map((e) => e.cards.length ? `${subject(e.who)} ${verb(e.who, 'return')} ${e.cards.map((c) => c.name).join(', ')} to hand${e.retain ? ' (Retain)' : ''}` : `${subject(e.who)} ${verb(e.who, 'return')} nothing`),
     ...all('searchNone').map((e) => `${subject(e.who)} ${verb(e.who, 'search', 'searches')}: nothing found`),
+    // Tracey: how many taken from the top (which, only for the player who took them).
+    ...all('lookedTop').map((e) => `${subject(e.who)} ${verb(e.who, 'take')} ${e.cards.map((c) => c.name).filter(Boolean).join(', ') || plural(e.cards.length, 'card')} from the top ${e.looked}; ${e.bottom} to the bottom`),
     ...all('returnNone').map((e) => `${subject(e.who)} ${verb(e.who, 'find')} nothing to return`),
     ...all('retainGranted').map((e) => `${e.who === 'player' ? e.name : 'A card in their hand'} gains Retain`),
     ...all('retained').map((e) => `${subject(e.who)} ${verb(e.who, 'keep')} ${e.count} card${e.count === 1 ? '' : 's'} (Retain)`),

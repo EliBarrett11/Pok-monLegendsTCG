@@ -19,7 +19,8 @@ The game will eventually have **6 archetypes × 3 specializations = 18 deck type
 - **40 cards** per deck, plus **3 Trainers** outside the deck.
 - **Rarity tiers (4):** Common, Rare, Epic, Legendary. **Copy limits** per card: Common 3, Rare 2, Epic 1, Legendary 1 — and **at most one Legendary card in a deck**.
 - **Standard split:** 18 Pokémon, 8 Strategy, 4 Supporter, 4 Location, 6 Item.
-- **Mostly-type:** about 14–15 Pokémon of the deck's type, plus 3–4 allies of other types.
+- **Mostly-type:** about 12–15 Pokémon of the deck's type, plus allies of other types.
+- **Neutral cards (N1, approved by Elliott):** each deck also has a few unique **neutral cards**: off-Type Pokémon and Type-free Strategy Cards, Supporters and Items that fill gaps in its kit (an area clear, a guard of the right defensive type, cards that build on its plan). Each replaced one copy of a duplicate, so the 40 cards and the split stay the same. They are designed to work in any deck, and will start the later deck library. Each deck lists its own under **Neutral cards**.
 - **Pokémon stat budget (design guideline):** Attack + Strength ≈ 2 × Cost + 6. Adjust: Swift −2, Slow +2, Defence or Special Defence Strength-Type −1, each ability or Innate −1 to −3 by strength, Legendary +1.
 
 ---
@@ -195,29 +196,32 @@ How Weather builds up is unchanged: tokens on cards, the combined count from bot
 
 **Plan:** fast pressure from Round 1; Burn keeps damaging Trainers every Supper; Overrun pushes damage onto Trainers. **Trade-off:** fragile Pokémon and lower Trainer Strength; it fades in long matches.
 
-### Pokémon (18: 14 Fire, 4 allies)
+### Pokémon (18: 12 Fire, 6 others)
 
 | id | Name | × | Cost | Type | Attack | Strength | Speed | Rarity | Abilities |
 |---|---|---|---|---|---|---|---|---|---|
-| growlithe | Growlithe | 3 | 1 | Fire | 2 Physical | 5 Hitpoints | Swift | Common | Scorch 1 |
+| growlithe | Growlithe | 2 | 1 | Fire | 2 Physical | 5 Hitpoints | Swift | Common | Scorch 1 |
 | charmander | Charmander | 2 | 1 | Fire | 3 Special | 6 Hitpoints | Steady | Common | On Summon: Burn 1 to an enemy Pokémon or Trainer in this Pokémon's Zone. |
 | ponyta | Ponyta | 3 | 2 | Fire | 3 Physical | 5 Hitpoints | Swift | Common | Quick Attack, Infiltrator |
 | mankey | Mankey | 2 | 2 | Fighting | 4 Physical | 5 Hitpoints | Swift | Common | Overrun, Infiltrator |
-| magmar | Magmar | 2 | 3 | Fire | 4 Special | 7 Hitpoints | Steady | Common | Scorch 2 |
+| magmar | Magmar | 1 | 3 | Fire | 4 Special | 7 Hitpoints | Steady | Common | Scorch 2 |
 | sneasel | Sneasel | 2 | 3 | Dark | 4 Physical | 4 Hitpoints | Swift | Common | Infiltrator. On Knockout: this Pokémon becomes Active (once per Round). |
 | arcanine | Arcanine | 2 | 4 | Fire | 5 Physical | 6 Hitpoints | Swift | Rare | Overrun, Scorch 1, Infiltrator |
 | houndoom | Houndoom | 1 | 5 | Fire | 5 Special | 7 Hitpoints | Swift | Epic | On Summon: Burn 2 to each enemy Trainer. |
 | blaziken | Blaziken | 1 | 5 | Fire | 7 Physical | 8 Hitpoints | Steady | Legendary | Overrun, Scorch 2 |
+| dusclops | Dusclops (neutral) | 1 | 3 | Ghost | 2 Special | 8 Special Defence | Slow | Rare | On Defend: Burn 1 to the attacker. |
+| absol | Absol (neutral) | 1 | 3 | Dark | 5 Physical | 5 Hitpoints | Swift | Rare | Deals +2 damage with its attack to a burned target. |
 
-Curve: cost 1 ×5, 2 ×5, 3 ×4, 4 ×2, 5 ×2.
+Curve: cost 1 ×4, 2 ×5, 3 ×5, 4 ×2, 5 ×2.
 
 ### Strategy (8)
 
 | id | Name | × | Cost | Rarity | Effect |
 |---|---|---|---|---|---|
-| ember | Ember | 3 | 1 | Common | Burn 2 to an enemy Pokémon or Trainer. (Targeted) |
+| ember | Ember | 2 | 1 | Common | Burn 2 to an enemy Pokémon or Trainer. (Targeted) |
 | flame-charge | Flame Charge | 2 | 2 | Common | A friendly Pokémon gains +2 Attack this Round. If it's a Fire Pokémon, it also gains Scorch 1 this Round. (Targeted) |
 | heat-wave | Heat Wave | 2 | 4 | Rare | Burn 1 to every enemy Pokémon and every enemy Trainer. (Area) |
+| hyper-voice | Hyper Voice (neutral) | 1 | 4 | Rare | Deal 2 damage to each enemy Pokémon. (Area) |
 | fire-blast | Fire Blast | 1 | 5 | Epic | Deal 4 damage to an enemy Pokémon or Trainer, then Burn 2 to it if it's still in play. (Targeted) |
 
 ### Supporters (4)
@@ -241,9 +245,19 @@ Curve: cost 1 ×5, 2 ×5, 3 ×4, 4 ×2, 5 ×2.
 | id | Name | × | Rarity | Item-Type | PokéDollars | Effect |
 |---|---|---|---|---|---|---|
 | charcoal | Charcoal | 2 | Common | Held | 2 | Holder gains +1 Attack. If it's a Fire Pokémon, it also gains Scorch 1. |
-| x-attack | X Attack | 2 | Common | Consumed | 2 | A friendly Pokémon in the arena gains +2 Attack this Round. Retain. |
+| x-attack | X Attack | 1 | Common | Consumed | 2 | A friendly Pokémon in the arena gains +2 Attack this Round. Retain. |
 | quick-claw | Quick Claw | 1 | Rare | Held | 3 | Holder's Speed-Tier is one higher (Slow → Steady → Swift). |
 | choice-band | Choice Band | 1 | Rare | Held | 4 | Holder gains +3 Attack and −2 Strength (can't reduce Strength below 1). |
+| black-belt | Black Belt (neutral) | 1 | Rare | Held | 3 | Holder gains +1 Attack and Overrun. |
+
+### Neutral cards (N1)
+
+| Card | Kind | Gap it fills | Replaced | Art |
+|---|---|---|---|---|
+| Dusclops | Ghost Pokémon, a Special Defence guard | A guard against Water's and Grass's Special attackers; it punishes them with Burn. | 1 Growlithe | dusclops |
+| Absol | Dark Pokémon | Builds on Burn: it finishes burned Pokémon. | 1 Magmar | absol |
+| Hyper Voice | Strategy | A board clear. | 1 Ember | hypervoice (id `hyper-voice`) |
+| Black Belt | Item (Held) | Pushes damage through onto Trainers. | 1 X Attack | black-belt |
 
 ### Trainers (total Strength 43)
 
@@ -259,39 +273,43 @@ Curve: cost 1 ×5, 2 ×5, 3 ×4, 4 ×2, 5 ×2.
 
 **Plan:** sturdy Pokémon that heal, return from the Discard Pile and grow stronger together in a Zone; wins longer matches. **Trade-off:** slow starts and low burst damage.
 
-### Pokémon (18: 15 Water, 3 allies)
+### Pokémon (18: 13 Water, 5 others)
 
 | id | Name | × | Cost | Type | Attack | Strength | Speed | Rarity | Abilities / Weather |
 |---|---|---|---|---|---|---|---|---|---|
 | horsea | Horsea | 2 | 1 | Water | 3 Special | 4 Hitpoints | Steady | Common | Rally: this Pokémon gains +1/+1. |
 | goldeen | Goldeen | 2 | 2 | Water | 4 Physical | 5 Hitpoints | Steady | Common | On Summon: heal a friendly Pokémon 2. |
 | chinchou | Chinchou | 2 | 2 | Electric | 3 Special | 5 Special Defence | Steady | Common | Regenerate 1 |
-| quagsire | Quagsire | 3 | 3 | Water | 4 Physical | 7 Defence | Slow | Common | Regenerate 2 |
+| quagsire | Quagsire | 2 | 3 | Water | 4 Physical | 7 Defence | Slow | Common | Regenerate 2 |
 | wartortle | Wartortle | 2 | 3 | Water | 4 Special | 5 Defence | Steady | Common | Shell 1 |
-| lapras | Lapras | 2 | 4 | Water | 5 Special | 7 Hitpoints | Steady | Rare | On Summon: heal all friendly Pokémon in this Pokémon's Zone 2. |
+| lapras | Lapras | 1 | 4 | Water | 5 Special | 7 Hitpoints | Steady | Rare | On Summon: heal all friendly Pokémon in this Pokémon's Zone 2. |
 | pelipper | Pelipper | 1 | 4 | Water | 5 Special | 5 Hitpoints | Swift | Rare | Weather Tokens: 2 Rain. On Summon: a card in your hand gains Retain. |
 | chansey | Chansey | 1 | 4 | Normal | 1 Physical | 12 Hitpoints | Slow | Rare | On Breakfast: heal each friendly Pokémon in this Pokémon's Zone 2. |
 | gyarados | Gyarados | 1 | 5 | Water | 7 Physical | 6 Hitpoints | Steady | Epic | On Summon: deal 2 damage to each enemy Pokémon in this Pokémon's Zone. |
 | vaporeon | Vaporeon | 1 | 5 | Water | 5 Special | 7 Special Defence | Steady | Epic | Regenerate 2. On Heal: this Pokémon gains +1 Attack. |
 | kyogre | Kyogre | 1 | 6 | Water | 7 Special | 11 Hitpoints | Slow | Legendary | Weather Tokens: 2 Rain. On Summon: heal every friendly Pokémon and Trainer 2. |
+| dragonite | Dragonite (neutral) | 1 | 6 | Dragon | 7 Physical | 8 Hitpoints | Steady | Epic | Infiltrator, Shell 1 |
+| shinx | Shinx (neutral) | 1 | 1 | Electric | 3 Physical | 4 Hitpoints | Swift | Common | Quick Attack |
 
-Curve: cost 1 ×2, 2 ×4, 3 ×5, 4 ×4, 5 ×2, 6 ×1.
+Curve: cost 1 ×3, 2 ×4, 3 ×4, 4 ×3, 5 ×2, 6 ×2.
 
 ### Strategy (8)
 
 | id | Name | × | Cost | Rarity | Effect |
 |---|---|---|---|---|---|
 | aqua-ring | Aqua Ring | 3 | 2 | Common | Heal a friendly Pokémon 3 and Douse it. Retain. (Targeted) |
-| bubble-beam | Bubble Beam | 2 | 3 | Common | Deal 2 damage to an enemy Pokémon, or 3 if Rain is 2 or more. (Targeted) |
+| bubble-beam | Bubble Beam | 1 | 3 | Common | Deal 2 damage to an enemy Pokémon, or 3 if Rain is 2 or more. (Targeted) |
 | dive | Dive | 2 | 2 | Common | Return a Pokémon from your Discard Pile to your hand. It gains Retain. |
 | surf | Surf | 1 | 5 | Rare | Deal 2 damage to each enemy Pokémon, and heal each friendly Pokémon 1. (Area) |
+| thunderbolt | Thunderbolt (neutral) | 1 | 4 | Rare | Deal 4 damage to an enemy Pokémon or Trainer. (Targeted) |
 
 ### Supporters (4)
 
 | id | Name | × | Rarity | Card-Cost | Effect | Gift Challenge | Gift Bonus |
 |---|---|---|---|---|---|---|---|
-| nurse-joy | Nurse Joy | 2 | Common | Discard 1 | Heal a friendly Trainer 3 and Douse it. | a Normal Pokémon | Heal 5 instead. |
+| nurse-joy | Nurse Joy | 1 | Common | Discard 1 | Heal a friendly Trainer 3 and Douse it. | a Normal Pokémon | Heal 5 instead. |
 | swimmer | Swimmer | 1 | Rare | Discard 2 | Free summon a Pokémon costing 2 or less from your hand. | a Water Pokémon | It arrives Active. |
+| tracey | Tracey (neutral) | 1 | Rare | Discard 1 | Look at the top 4 cards of your Draw Pile: put 2 into your hand, the rest on the bottom. | a Pokémon card | Put 3 into your hand instead. |
 | fisherman | Fisherman | 1 | Rare | Release 1 | Search your Draw Pile for a Water Pokémon; it gains Retain. | a Strategy card | Search for two instead. |
 
 ### Locations (4)
@@ -306,9 +324,20 @@ Curve: cost 1 ×2, 2 ×4, 3 ×5, 4 ×4, 5 ×2, 6 ×1.
 
 | id | Name | × | Rarity | Item-Type | PokéDollars | Effect |
 |---|---|---|---|---|---|---|
-| mystic-water | Mystic Water | 2 | Common | Held | 2 | Holder gains +1 Attack. If it's a Water Pokémon, it also gains +1 Strength. |
+| mystic-water | Mystic Water | 1 | Common | Held | 2 | Holder gains +1 Attack. If it's a Water Pokémon, it also gains +1 Strength. |
 | leftovers | Leftovers | 2 | Common | Held | 3 | Holder gains Regenerate 1. |
 | full-heal | Full Heal | 2 | Common | Consumed | 1 | Cure a friendly Pokémon or Trainer of all statuses and heal it 2. Retain. |
+| rocky-helmet | Rocky Helmet (neutral) | 1 | Rare | Held | 3 | When the holder takes damage from an attack, deal 2 damage to the attacker. |
+
+### Neutral cards (N1)
+
+| Card | Kind | Gap it fills | Replaced | Art |
+|---|---|---|---|---|
+| Dragonite | Dragon Pokémon | Reach and a finisher: it flies over guards to hit Trainers. | 1 Quagsire | dragonite |
+| Shinx | Electric Pokémon | An early answer to Water's slow start. | 1 Lapras | shinx |
+| Thunderbolt | Strategy | Burst, which Water lacked. | 1 Bubble Beam | new art to come: thunderbolt (placeholder look until then) |
+| Rocky Helmet | Item (Held) | A defence that punishes Fire's Infiltrators, which ignore guards. | 1 Mystic Water | rocky-helmet |
+| Tracey | Supporter | Card selection, which builds on Water's value plan. | 1 Nurse Joy | tracey |
 
 ### Trainers (total Strength 48)
 
@@ -324,15 +353,15 @@ Curve: cost 1 ×2, 2 ×4, 3 ×5, 4 ×4, 5 ×2, 6 ×1.
 
 **Plan:** plant cheap engine Pokémon and Locations that produce **Growth** every Round, spend Growth to **evolve** them into large final stages, and finish with **Solar Beam**, which turns stored Growth into a big hit on a Trainer. Sleep and Leech Seed buy time while the engine runs. **Trade-off:** a weak start (Rounds 1–3) and engine pieces that must survive on the board; vulnerable to fast pressure and to losing its Basics before they evolve.
 
-**G3 balance (approved by Elliott):** the numbers below include the G3 changes: Basics +1/+1, Bulbasaur Special Defence and Sunkern Defence (Venusaur stays Hitpoints, the G3 trim), "On Breakfast: gain 1 Growth" on Oddish, Sunkern and Sewaddle, Rain-making Locations, Synthesis and Oran Berry healing and Dousing Trainers, Synthesis ×2 and Leech Seed ×2, Trainers +2. With the Sun 6 and Breakfast Evolve rules (2.8, 2.12).
+**G3 balance (approved by Elliott):** the numbers below include the G3 changes: Basics +1/+1, Bulbasaur Special Defence and Sunkern Defence (Venusaur stays Hitpoints, the G3 trim), "On Breakfast: gain 1 Growth" on Oddish, Sunkern and Sewaddle, Rain-making Locations, Synthesis and Oran Berry healing and Dousing Trainers, Synthesis ×2 and Leech Seed ×2 (Leech Seed 1 since N1), Trainers +2. With the Sun 6 and Breakfast Evolve rules (2.8, 2.12).
 
 Stat guideline: Basics use the normal budget (Attack + Strength ≈ 2 × Cost + 6, adjusted). Evolutions use the budget of their **total** cost (Basic cost + Evolve costs) **+1 per stage**, for the setup risk. All numbers are a first pass, to be tuned with the balance tool.
 
-### Pokémon (18: 15 Grass, 3 allies)
+### Pokémon (18: 14 Grass, 4 others)
 
 | id | Name | × | Stage | Cost | Type | Attack | Strength | Speed | Rarity | Abilities / Weather |
 |---|---|---|---|---|---|---|---|---|---|---|
-| bulbasaur | Bulbasaur | 3 | Basic | 1 | Grass | 2 Special | 6 Special Defence | Steady | Common | On Breakfast: gain 1 Growth. |
+| bulbasaur | Bulbasaur | 2 | Basic | 1 | Grass | 2 Special | 6 Special Defence | Steady | Common | On Breakfast: gain 1 Growth. |
 | ivysaur | Ivysaur | 2 | Stage 1 (Bulbasaur) | Evolve 2 | Grass | 3 Special | 7 Hitpoints | Steady | Common | On Breakfast: gain 1 Growth. On Evolve: Leech Seed an enemy Pokémon in this Pokémon's Zone. |
 | venusaur | Venusaur | 1 | Stage 2 (Ivysaur) | Evolve 3 | Grass | 5 Special | 12 Hitpoints | Slow | Epic | Shell 1. On Breakfast: gain 2 Growth. |
 | oddish | Oddish | 2 | Basic | 1 | Grass | 3 Special | 5 Hitpoints | Steady | Common | On Breakfast: gain 1 Growth. On Attack: gain 1 Growth. |
@@ -341,27 +370,31 @@ Stat guideline: Basics use the normal budget (Attack + Strength ≈ 2 × Cost + 
 | sunkern | Sunkern | 2 | Basic | 1 | Grass | 3 Special | 7 Defence | Slow | Common | On Breakfast: gain 1 Growth. Weather Tokens: 1 Sun. |
 | sunflora | Sunflora | 1 | Stage 1 (Sunkern) | Evolve 2 | Grass | 5 Special | 8 Hitpoints | Slow | Rare | Weather Tokens: 2 Sun. Deals +2 damage with its attack while Sun is 4 or more. |
 | celebi | Celebi | 1 | Basic | 4 | Grass | 3 Special | 7 Hitpoints | Swift | Legendary | On Summon: gain 3 Growth. Your Pokémon can Evolve the Round they're summoned. |
-| sewaddle | Sewaddle | 2 | Basic | 1 | Bug | 3 Physical | 6 Hitpoints | Steady | Common | On Breakfast: gain 1 Growth. On Defeated: gain 2 Growth. |
+| sewaddle | Sewaddle | 1 | Basic | 1 | Bug | 3 Physical | 6 Hitpoints | Steady | Common | On Breakfast: gain 1 Growth. On Defeated: gain 2 Growth. |
 | sudowoodo | Sudowoodo | 1 | Basic | 3 | Rock | 3 Physical | 9 Defence | Slow | Rare | (none: a sturdy guard) |
+| metapod | Metapod (neutral) | 1 | Basic | 1 | Bug | 1 Physical | 6 Defence | Slow | Common | Shell 1 (Harden) |
+| geodude | Geodude (neutral) | 1 | Basic | 2 | Rock | 3 Physical | 6 Defence | Slow | Common | On Defend: deal 1 damage to the attacker. |
 
-Basic curve: cost 1 ×9, 3 ×1, 4 ×1 (11 Basics). Evolutions: Evolve 2 ×6, Evolve 3 ×1.
+Basic curve: cost 1 ×8, 2 ×1, 3 ×1, 4 ×1 (11 Basics). Evolutions: Evolve 2 ×6, Evolve 3 ×1.
 
 ### Strategy (8)
 
 | id | Name | × | Cost | Rarity | Effect |
 |---|---|---|---|---|---|
-| leech-seed | Leech Seed | 2 | 1 | Common | Leech Seed an enemy Pokémon. (Targeted) |
+| leech-seed | Leech Seed | 1 | 1 | Common | Leech Seed an enemy Pokémon. (Targeted) |
 | sleep-powder | Sleep Powder | 2 | 2 | Common | Put an enemy Pokémon to Sleep. (Targeted) |
 | synthesis | Synthesis | 2 | 1 | Common | Gain 2 Growth, or 3 if Sun is 2 or more. Heal a friendly Pokémon or Trainer 2 and Douse it. |
+| rock-slide | Rock Slide (neutral) | 1 | 3 | Rare | Deal 2 damage to each enemy Pokémon in a chosen Zone. (Area) |
 | solar-beam | Solar Beam | 2 | 3 | Rare | Spend up to 8 Growth: deal that much damage to an enemy Pokémon or Trainer. Retain. (Targeted) |
 
 ### Supporters (4)
 
 | id | Name | × | Rarity | Card-Cost | Effect | Gift Challenge | Gift Bonus |
 |---|---|---|---|---|---|---|---|
-| mallow | Mallow | 2 | Common | Discard 1 | Gain 2 Growth. | a Grass Pokémon | Gain 3 Growth and heal a friendly Pokémon 2. |
+| mallow | Mallow | 1 | Common | Discard 1 | Gain 2 Growth. | a Grass Pokémon | Gain 3 Growth and heal a friendly Pokémon 2. |
 | pokemon-breeder | Pokémon Breeder | 1 | Rare | Release 1 | Search your Draw Pile for a Pokémon that evolves from one in your arena; it gains Retain. | an evolution card | Search for two instead. |
 | professor-oak | Professor Oak | 1 | Rare | Discard 2 | Draw 3 cards. | a Pokémon card | Draw 4 instead. |
+| brock | Brock (neutral) | 1 | Rare | Release 1 | Friendly Pokémon in a chosen Zone gain +2 Strength and Shell 1 until your next Breakfast. | a Rock Pokémon | Every Zone instead. |
 
 ### Locations (4)
 
@@ -379,6 +412,15 @@ Basic curve: cost 1 ×9, 3 ×1, 4 ×1 (11 Basics). Evolutions: Evolve 2 ×6, Evo
 | oran-berry | Oran Berry | 2 | Common | Consumed | 1 | Heal a friendly Pokémon or Trainer 3 and Douse it. If it's a Grass Pokémon, also gain 1 Growth. Retain. |
 | rare-candy | Rare Candy | 1 | Rare | Consumed | 3 | This Round, a friendly Basic Pokémon may Evolve straight into its Stage 2 (paying only the Stage 2's Evolve cost), even if it was summoned this Round. |
 | big-root | Big Root | 1 | Rare | Held | 3 | Healing the holder receives is increased by 1. Leech Seeds you apply heal the holder first. |
+
+### Neutral cards (N1)
+
+| Card | Kind | Gap it fills | Replaced | Art |
+|---|---|---|---|---|
+| Metapod | Bug Pokémon, a Defence guard | A cheap Round-1 guard against Fire's Physical attackers. | 1 Sewaddle | metapod |
+| Geodude | Rock Pokémon, a Defence guard | A second early guard that chips at aggro. | 1 Bulbasaur | geodude |
+| Rock Slide | Strategy | Damage and a partial board clear; Grass had neither. | 1 Leech Seed | new art to come: rock-slide (placeholder look until then) |
+| Brock | Supporter | A defensive turn to survive the early rush; builds on Sudowoodo and Geodude. | 1 Mallow | brock |
 
 ### Trainers (total Strength 52)
 

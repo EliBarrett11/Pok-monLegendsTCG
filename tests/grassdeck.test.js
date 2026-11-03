@@ -14,7 +14,7 @@ import { weatherCounts } from '../src/engine/board.js';
 import { chooseAction } from '../src/ai/opponent.js';
 import { ITEM_CARDS, WEATHER } from '../src/engine/cardData.js';
 import {
-  battle, give, act, play, place, nextRound, at, trainerAt, pref, tref, choose, logged,
+  battle, give, act, play, place, nextRound, at, trainerAt, pref, tref, choose, logged, def,
 } from './fixtures.js';
 
 // A Grass match one Round in, hands emptied, plenty of Energy; Trainers in deck
@@ -275,6 +275,8 @@ const supporter = (s, id, pay, target) => {
   s = nextRound(s);
   s.players.player.hand = [];
   place(s, 'player', 1, 0, 'oddish');
+  // (Two matching cards in the Draw Pile, whatever the shuffle left there.)
+  s.players.player.drawPile.push({ ...def('gloom'), uid: 'breeder-gloom' }, { ...def('ivysaur'), uid: 'breeder-ivysaur' });
   s = supporter(s, 'pokemon-breeder', ['gloom']);   // released: an evolution card
   assert.equal(s.pending.max, 2, 'Gift: two');
 }
@@ -333,7 +335,7 @@ const locate = (s, id, zone) => act(s, 'player', { type: 'playLocation', uid: gi
 
 // --- Items ----------------------------------------------------------------------------------------------
 
-assert.equal(ITEM_CARDS.length, 11, 'the PokéMart holds 11 Items');
+assert.equal(ITEM_CARDS.length, 13, 'the PokéMart holds 13 Items (with the N1 Black Belt and Rocky Helmet)');
 // Miracle Seed: +1 Attack; a Grass holder also gains Regenerate 1.
 {
   let s = grass();
@@ -511,7 +513,7 @@ function toBreakfastEvolve(s) {
   assert.equal(theirs.players.player.zones[1].pokemon[0].name, 'Bulbasaur');
   assert.ok(theirs.players.player.hand.find((c) => c.uid === ivy).hidden, 'the card stays hidden in hand');
   assert.deepEqual(theirs.events.map((e) => e.type), ['evolveLocked']);
-  assert.ok(!JSON.stringify(theirs).includes('Ivysaur'), 'nothing names it');
+  assert.ok(!JSON.stringify([theirs.players.player, theirs.events, theirs.log]).includes('Ivysaur'), 'nothing names it');
   s = applyAction(s, { type: 'breakfastEvolve', who: 'ai', evolves: [{ uid: gloom, zone: 1, space: 0, growth: 2 }] });
   // (Each On Evolve may ask for a target as it resolves.)
   const seen = viewFor(s, 'ai').events;
@@ -577,6 +579,7 @@ function playOut(seed, decks) {
     const who = PLAYERS.find((w) => legalActions(s, w).length) ?? 'player';
     const action = chooseAction(s, who, { rng }) ?? { type: 'flipCoin' };
     if (action.type === 'evolve') evolves += 1;
+    if (action.type === 'breakfastEvolve') evolves += action.evolves.length;   // (most Evolves now happen at Breakfast)
     s = applyAction(s, action);
   }
   return { s, evolves };

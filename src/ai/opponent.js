@@ -392,6 +392,13 @@ function scoreMove(state, who, move) {
   }
 
   if (move.type === 'command') {
+    // Damage its attacker takes beyond a trade's hit back (Rocky Helmet's Retaliate,
+    // Geodude's On Defend) counts against the attack; Burn on it already does (burnScore).
+    const mine = state.players[who].zones[move.from.zone].pokemon[move.from.space];
+    const mineAfter = after.players[who].zones[move.from.zone].pokemon[move.from.space];
+    const hitBack = after.events.find((e) => e.type === 'attack')?.back ?? 0;
+    const lost = mine.currentStrength - (mineAfter?.uid === mine.uid ? Math.max(0, mineAfter.currentStrength) : 0);
+    score -= 2 * plan.keep * Math.max(0, lost - hitBack);
     if (move.target.kind === 'trainer') {
       const before = state.players[foe].zones[move.target.zone].trainer.strength;
       return score + plan.strike * (40 + (15 - before)) + plan.trainers * (before - after.players[foe].zones[move.target.zone].trainer.strength);
@@ -491,7 +498,8 @@ function supporterScore(state, who, move, card) {
   const cost = 2 * move.discard.length + 4 * move.release.length;
   const gift = giftMet(card, paid);
   // Searching and drawing: scored without trying them (no peeking at its own Draw Pile).
-  if ([...card.effects, ...(card.gift?.effects ?? [])].some((e) => e.op === 'search' || e.op === 'draw')) return 14 + (gift ? 5 : 0) - cost;
+  // (Tracey's look at the top of the Draw Pile too.)
+  if ([...card.effects, ...(card.gift?.effects ?? [])].some((e) => ['search', 'draw', 'lookTop'].includes(e.op))) return 14 + (gift ? 5 : 0) - cost;
   const after = applyAction({ ...state, log: [] }, move);
   const danger = move.target?.kind === 'trainer' && state.players[who].zones[move.target.zone].trainer.strength <= 6 ? 15 : 0;
   return 6 + evaluate(state, after, who) + danger - cost;

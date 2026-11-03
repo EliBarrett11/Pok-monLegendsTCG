@@ -26,23 +26,25 @@ assert.equal(new Set(ALL.map((c) => c.id)).size, ALL.length, 'every id is unique
 // --- The decklists, exactly as docs/decks.md -------------------------------------
 
 assert.deepEqual(DECKS.fire.list, {
-  growlithe: 3, charmander: 2, ponyta: 3, mankey: 2, magmar: 2, sneasel: 2, arcanine: 2, houndoom: 1, blaziken: 1,
-  ember: 3, 'flame-charge': 2, 'heat-wave': 2, 'fire-blast': 1,
+  growlithe: 2, charmander: 2, ponyta: 3, mankey: 2, magmar: 1, sneasel: 2, arcanine: 2, houndoom: 1, blaziken: 1, dusclops: 1, absol: 1,
+  ember: 2, 'flame-charge': 2, 'heat-wave': 2, 'fire-blast': 1, 'hyper-voice': 1,
   firebreather: 2, chili: 1, burglar: 1,
   'mt-ember': 2, 'cinnabar-volcano': 1, 'stark-mountain': 1,
-  charcoal: 2, 'x-attack': 2, 'quick-claw': 1, 'choice-band': 1,
+  charcoal: 2, 'x-attack': 1, 'quick-claw': 1, 'choice-band': 1, 'black-belt': 1,
 });
 assert.deepEqual(DECKS.water.list, {
-  horsea: 2, goldeen: 2, chinchou: 2, quagsire: 3, wartortle: 2, lapras: 2, pelipper: 1, chansey: 1, gyarados: 1, vaporeon: 1, kyogre: 1,
-  'aqua-ring': 3, 'bubble-beam': 2, dive: 2, surf: 1,
-  'nurse-joy': 2, swimmer: 1, fisherman: 1,
+  horsea: 2, goldeen: 2, chinchou: 2, quagsire: 2, wartortle: 2, lapras: 1, pelipper: 1, chansey: 1, gyarados: 1, vaporeon: 1, kyogre: 1,
+  dragonite: 1, shinx: 1,
+  'aqua-ring': 3, 'bubble-beam': 1, dive: 2, surf: 1, thunderbolt: 1,
+  'nurse-joy': 1, swimmer: 1, fisherman: 1, tracey: 1,
   'cerulean-cape': 2, 'lake-of-rage': 1, 'route-119': 1,
-  'mystic-water': 2, leftovers: 2, 'full-heal': 2,
+  'mystic-water': 1, leftovers: 2, 'full-heal': 2, 'rocky-helmet': 1,
 });
 assert.deepEqual(DECKS.grass.list, {
-  bulbasaur: 3, ivysaur: 2, venusaur: 1, oddish: 2, gloom: 2, bellossom: 1, sunkern: 2, sunflora: 1, celebi: 1, sewaddle: 2, sudowoodo: 1,
-  'leech-seed': 2, 'sleep-powder': 2, synthesis: 2, 'solar-beam': 2,
-  mallow: 2, 'pokemon-breeder': 1, 'professor-oak': 1,
+  bulbasaur: 2, ivysaur: 2, venusaur: 1, oddish: 2, gloom: 2, bellossom: 1, sunkern: 2, sunflora: 1, celebi: 1, sewaddle: 1, sudowoodo: 1,
+  metapod: 1, geodude: 1,
+  'leech-seed': 1, 'sleep-powder': 2, synthesis: 2, 'solar-beam': 2, 'rock-slide': 1,
+  mallow: 1, 'pokemon-breeder': 1, 'professor-oak': 1, brock: 1,
   'floaroma-meadow': 2, 'eterna-forest': 1, 'petalburg-woods': 1,
   'miracle-seed': 2, 'oran-berry': 2, 'rare-candy': 1, 'big-root': 1,
 });
@@ -67,20 +69,20 @@ for (const [id, deck] of Object.entries(DECKS)) {
   assert.equal(cards.filter((c) => c.rarity === 'Legendary').length, 1, `${id}: one Legendary`);
   assert.equal(new Set(cards.map((c) => c.uid)).size, 40, 'each copy has its own uid');
 }
-// Mostly-type: Fire 14 Fire + 4 allies; Water 15 Water + 3 allies.
+// Mostly-type (with the N1 neutrals): Fire 12 Fire + 6 others; Water 13 Water + 5 others.
 const typeCount = (id, type) => buildDeck('p', id).filter((c) => c.cardType === 'Pokémon' && c.pokemonType === type).length;
-assert.equal(typeCount('fire', 'Fire'), 14);
-assert.equal(typeCount('water', 'Water'), 15);
-// Grass: 15 Grass + 3 allies (2 Sewaddle, Bug; 1 Sudowoodo, Rock). Evolve 2 ×6, Evolve 3 ×1. Basics as the
-// table in docs/decks.md lists them: cost 1 ×9, 3 ×1, 4 ×1 (its summary line says "cost 1 ×11": a question for Elliott).
-assert.equal(typeCount('grass', 'Grass'), 15);
+assert.equal(typeCount('fire', 'Fire'), 12);
+assert.equal(typeCount('water', 'Water'), 13);
+// Grass: 14 Grass + 4 others (Sewaddle and Metapod, Bug; Sudowoodo and Geodude, Rock). Evolve 2 ×6, Evolve 3 ×1.
+// Basics: cost 1 ×8, 2 ×1, 3 ×1, 4 ×1.
+assert.equal(typeCount('grass', 'Grass'), 14);
 {
   const mons = buildDeck('p', 'grass').filter((c) => c.cardType === 'Pokémon');
   const curve = (list, key) => list.reduce((m, c) => ({ ...m, [c[key]]: (m[c[key]] ?? 0) + 1 }), {});
-  assert.deepEqual(curve(mons.filter((c) => c.stage === 'Basic'), 'energyCost'), { 1: 9, 3: 1, 4: 1 });
+  assert.deepEqual(curve(mons.filter((c) => c.stage === 'Basic'), 'energyCost'), { 1: 8, 2: 1, 3: 1, 4: 1 });
   assert.deepEqual(curve(mons.filter((c) => c.stage !== 'Basic'), 'evolveCost'), { 2: 6, 3: 1 });
   assert.equal(mons.filter((c) => c.pokemonType === 'Bug').length, 2);
-  assert.equal(mons.filter((c) => c.pokemonType === 'Rock').length, 1);
+  assert.equal(mons.filter((c) => c.pokemonType === 'Rock').length, 2);
 }
 
 // --- Printed data -----------------------------------------------------------------
@@ -96,6 +98,8 @@ const POKEMON = {
   arcanine: [4, 'Fire', 5, 'Physical', 6, 'Hitpoints', 'Swift', 'Rare', 'Overrun, Scorch 1, Infiltrator', null, null],
   houndoom: [5, 'Fire', 5, 'Special', 7, 'Hitpoints', 'Swift', 'Epic', null, 'On Summon', null],
   blaziken: [5, 'Fire', 7, 'Physical', 8, 'Hitpoints', 'Steady', 'Legendary', 'Overrun, Scorch 2', null, null],
+  dusclops: [3, 'Ghost', 2, 'Special', 8, 'Special Defence', 'Slow', 'Rare', null, 'On Defend', null],
+  absol: [3, 'Dark', 5, 'Physical', 5, 'Hitpoints', 'Swift', 'Rare', null, null, null],
   horsea: [1, 'Water', 3, 'Special', 4, 'Hitpoints', 'Steady', 'Common', null, 'Rally', null],
   goldeen: [2, 'Water', 4, 'Physical', 5, 'Hitpoints', 'Steady', 'Common', null, 'On Summon', null],
   chinchou: [2, 'Electric', 3, 'Special', 5, 'Special Defence', 'Steady', 'Common', 'Regenerate 1', null, null],
@@ -107,6 +111,8 @@ const POKEMON = {
   gyarados: [5, 'Water', 7, 'Physical', 6, 'Hitpoints', 'Steady', 'Epic', null, 'On Summon', null],
   vaporeon: [5, 'Water', 5, 'Special', 7, 'Special Defence', 'Steady', 'Epic', 'Regenerate 2', 'On Heal', null],
   kyogre: [6, 'Water', 7, 'Special', 11, 'Hitpoints', 'Slow', 'Legendary', null, 'On Summon', { Rain: 2 }],
+  dragonite: [6, 'Dragon', 7, 'Physical', 8, 'Hitpoints', 'Steady', 'Epic', 'Infiltrator, Shell 1', null, null],
+  shinx: [1, 'Electric', 3, 'Physical', 4, 'Hitpoints', 'Swift', 'Common', 'Quick Attack', null, null],
   // Grass: evolution cards have no Energy Cost (their stage line is below); several abilities show no single trigger word.
   bulbasaur: [1, 'Grass', 2, 'Special', 6, 'Special Defence', 'Steady', 'Common', null, 'On Breakfast', null],
   ivysaur: [null, 'Grass', 3, 'Special', 7, 'Hitpoints', 'Steady', 'Common', null, null, null],
@@ -119,6 +125,8 @@ const POKEMON = {
   celebi: [4, 'Grass', 3, 'Special', 7, 'Hitpoints', 'Swift', 'Legendary', null, null, null],
   sewaddle: [1, 'Bug', 3, 'Physical', 6, 'Hitpoints', 'Steady', 'Common', null, null, null],
   sudowoodo: [3, 'Rock', 3, 'Physical', 9, 'Defence', 'Slow', 'Rare', null, null, null],
+  metapod: [1, 'Bug', 1, 'Physical', 6, 'Defence', 'Slow', 'Common', 'Shell 1', null, null],
+  geodude: [2, 'Rock', 3, 'Physical', 6, 'Defence', 'Slow', 'Common', null, 'On Defend', null],
 };
 // id: [stage, evolves from, Evolve cost]
 const STAGES = {
@@ -144,9 +152,9 @@ for (const c of POKEMON_CARDS) {
 
 // id: [cost, rarity, Retain?]
 const STRATEGY = {
-  ember: [1, 'Common', false], 'flame-charge': [2, 'Common', false], 'heat-wave': [4, 'Rare', false], 'fire-blast': [5, 'Epic', false],
-  'aqua-ring': [2, 'Common', true], 'bubble-beam': [3, 'Common', false], dive: [2, 'Common', false], surf: [5, 'Rare', false],
-  'leech-seed': [1, 'Common', false], 'sleep-powder': [2, 'Common', false], synthesis: [1, 'Common', false], 'solar-beam': [3, 'Rare', true],
+  ember: [1, 'Common', false], 'flame-charge': [2, 'Common', false], 'heat-wave': [4, 'Rare', false], 'hyper-voice': [4, 'Rare', false], 'fire-blast': [5, 'Epic', false],
+  'aqua-ring': [2, 'Common', true], 'bubble-beam': [3, 'Common', false], dive: [2, 'Common', false], surf: [5, 'Rare', false], thunderbolt: [4, 'Rare', false],
+  'leech-seed': [1, 'Common', false], 'sleep-powder': [2, 'Common', false], synthesis: [1, 'Common', false], 'rock-slide': [3, 'Rare', false], 'solar-beam': [3, 'Rare', true],
 };
 assert.deepEqual(STRATEGY_CARDS.map((c) => c.id), Object.keys(STRATEGY));
 for (const c of STRATEGY_CARDS) assert.deepEqual([c.energyCost, c.rarity, Boolean(c.retain)], STRATEGY[c.id], c.name);
@@ -154,8 +162,10 @@ for (const c of STRATEGY_CARDS) assert.deepEqual([c.energyCost, c.rarity, Boolea
 // id: [rarity, discard, release, gift challenge]
 const SUPPORTERS = {
   firebreather: ['Common', 1, 0, 'a Fire Pokémon'], chili: ['Rare', 0, 1, 'a Swift Pokémon'], burglar: ['Rare', 2, 0, 'an Item card'],
-  'nurse-joy': ['Common', 1, 0, 'a Normal Pokémon'], swimmer: ['Rare', 2, 0, 'a Water Pokémon'], fisherman: ['Rare', 0, 1, 'a Strategy card'],
-  mallow: ['Common', 1, 0, 'a Grass Pokémon'], 'pokemon-breeder': ['Rare', 0, 1, 'an evolution card'], 'professor-oak': ['Rare', 2, 0, 'a Pokémon card'],
+  'nurse-joy': ['Common', 1, 0, 'a Normal Pokémon'], swimmer: ['Rare', 2, 0, 'a Water Pokémon'], tracey: ['Rare', 1, 0, 'a Pokémon card'],
+  fisherman: ['Rare', 0, 1, 'a Strategy card'],
+  mallow: ['Common', 1, 0, 'a Grass Pokémon'], 'pokemon-breeder': ['Rare', 0, 1, 'an evolution card'], brock: ['Rare', 0, 1, 'a Rock Pokémon'],
+  'professor-oak': ['Rare', 2, 0, 'a Pokémon card'],
 };
 assert.deepEqual(SUPPORTER_CARDS.map((c) => c.id), Object.keys(SUPPORTERS));
 for (const c of SUPPORTER_CARDS) {
@@ -175,7 +185,8 @@ for (const c of LOCATION_CARDS) assert.deepEqual([c.rarity, c.weatherTokens, c.q
 // id: [Item-Type, PokéDollars, rarity, Retain?]
 const ITEMS = {
   charcoal: ['Held', 2, 'Common', false], 'x-attack': ['Consumed', 2, 'Common', true], 'quick-claw': ['Held', 3, 'Rare', false],
-  'choice-band': ['Held', 4, 'Rare', false], 'mystic-water': ['Held', 2, 'Common', false], leftovers: ['Held', 3, 'Common', false],
+  'choice-band': ['Held', 4, 'Rare', false], 'black-belt': ['Held', 3, 'Rare', false],
+  'mystic-water': ['Held', 2, 'Common', false], leftovers: ['Held', 3, 'Common', false], 'rocky-helmet': ['Held', 3, 'Rare', false],
   'full-heal': ['Consumed', 1, 'Common', true],
   'miracle-seed': ['Held', 2, 'Common', false], 'oran-berry': ['Consumed', 1, 'Common', true], 'rare-candy': ['Consumed', 3, 'Rare', false],
   'big-root': ['Held', 3, 'Rare', false],
@@ -198,11 +209,12 @@ assert.deepEqual(buildTrainers('ai', 'water').map((t) => [t.uid, t.maxStrength])
   [['ai-trainer-misty', 16], ['ai-trainer-crasher-wake', 17], ['ai-trainer-wallace', 15]]);
 
 // The PokéMart: one copy of every Item in the game.
-assert.deepEqual(buildMartStock().map((i) => i.id), ['charcoal', 'x-attack', 'quick-claw', 'choice-band', 'mystic-water', 'leftovers', 'full-heal',
+assert.deepEqual(buildMartStock().map((i) => i.id), ['charcoal', 'x-attack', 'quick-claw', 'choice-band', 'black-belt', 'mystic-water', 'leftovers', 'rocky-helmet', 'full-heal',
   'miracle-seed', 'oran-berry', 'rare-candy', 'big-root']);
 
-// The retired placeholder cards and Trainers are gone.
-for (const id of ['shinx', 'pidgey', 'absol', 'dragonite', 'quickdraw', 'hypervoice', 'potion', 'black-belt', 'tracey']) {
+// The retired placeholder cards and Trainers are gone. (Shinx, Absol, Dragonite, Black Belt and Tracey
+// came back as real N1 neutral cards; Hyper Voice too, as 'hyper-voice'; Brock is now a Supporter, not a Trainer.)
+for (const id of ['pidgey', 'quickdraw', 'hypervoice', 'potion']) {
   assert.throws(() => cardDefinition(id), /Unknown card/, id);
 }
 assert.ok(!TRAINER_CARDS.some((t) => ['ash', 'brock'].includes(t.id)));
@@ -247,13 +259,13 @@ const swap = (deck, out, inn, n = 1) => {
   d[inn] = (d[inn] ?? 0) + n;
   return d;
 };
-assert.deepEqual(deckProblems(swap('fire', 'mankey', 'growlithe')), ['Growlithe: 4 copies, but a Common card allows 3']);
+assert.deepEqual(deckProblems(swap('fire', 'mankey', 'ponyta')), ['Ponyta: 4 copies, but a Common card allows 3']);
 assert.deepEqual(deckProblems(swap('fire', 'magmar', 'arcanine')), ['Arcanine: 3 copies, but a Rare card allows 2']);
 assert.deepEqual(deckProblems(swap('fire', 'magmar', 'houndoom')), ['Houndoom: 2 copies, but an Epic card allows 1']);
 assert.deepEqual(deckProblems(swap('fire', 'magmar', 'kyogre')), ['2 Legendary cards, but a deck allows 1']);
 assert.deepEqual(deckProblems(swap('fire', 'charcoal', 'chili')), ['Supporter cards: 5, but a deck has 4', 'Item cards: 5, but a deck has 6']);
 assert.deepEqual(deckProblems({ ...DECKS.water.list, surf: 0 }), ['Deck must have 40 cards (has 39)', 'Strategy cards: 7, but a deck has 8']);
-assert.throws(() => buildDeck('player', swap('water', 'horsea', 'quagsire')), /Invalid deck: Quagsire: 4 copies/);
+assert.throws(() => buildDeck('player', swap('water', 'surf', 'aqua-ring')), /Invalid deck: Aqua Ring: 4 copies/);
 // At load: a broken deck stops the game with its name and every problem.
 assert.throws(() => checkDecks({ broken: { ...DECKS.fire, list: swap('fire', 'charcoal', 'chili') } }),
   /Invalid Fire deck: Supporter cards: 5, but a deck has 4; Item cards: 5, but a deck has 6/);

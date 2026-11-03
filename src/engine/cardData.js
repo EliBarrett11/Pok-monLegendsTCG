@@ -59,6 +59,7 @@ export const INNATE_POWERS = {
   Overrun: "When this Pokémon's attack defeats an enemy Pokémon, the damage left over is dealt to the enemy Trainer in that Zone (lost if that Trainer has been removed).",
   Regenerate: 'At each Breakfast, this Pokémon heals X.',
   Shell: 'Every instance of damage this Pokémon takes is reduced by X, to a minimum of 1. Includes Burn.',
+  Retaliate: 'When this Pokémon takes damage from an attack (as its target), deal X damage to the attacker, even if this Pokémon is defeated.',
   Infiltrator: 'This Pokémon\'s attacks ignore the Defence and Special Defence targeting restrictions: it may attack any enemy Pokémon or any enemy Trainer still in play. An Alert target still hits back.',
 };
 
@@ -216,6 +217,7 @@ export const WEATHER_TYPES = Object.keys(WEATHER);
 const ENEMY_ANY = { mode: 'targeted', side: 'opponent', kinds: ['pokemon', 'trainer'] };
 const CHOSEN = { mode: 'chosen' };           // the same card the first effect targeted, if still in play
 const SELF = { mode: 'self' };               // the Pokémon whose ability this is
+const ATTACKER = { mode: 'event', role: 'attacker' };   // On Defend: the Pokémon that attacked it
 const ENEMY_TRAINERS = { mode: 'area', side: 'opponent', kinds: ['trainer'] };
 // =============================================================================
 // 🔥 FIRE DECK — "Burn" (Aggressive). docs/decks.md section 3.
@@ -238,6 +240,14 @@ export const FIRE_POKEMON = [
   pokemon('Houndoom', 5, 'Fire', 'Special', 5, 'Hitpoints', 7, 'Swift', 'Epic',
     ability('On Summon', 'Burn 2 to each enemy Trainer.', [{ op: 'burn', amount: 2, target: ENEMY_TRAINERS }])),
   pokemon('Blaziken', 5, 'Fire', 'Physical', 7, 'Hitpoints', 8, 'Steady', 'Legendary', { innatePower: 'Overrun, Scorch 2' }),
+  // Neutral cards (N1, docs/decks.md "Neutral cards"): off-Type, for any deck.
+  pokemon('Dusclops', 3, 'Ghost', 'Special', 2, 'Special Defence', 8, 'Slow', 'Rare',
+    ability('On Defend', 'Burn 1 to the attacker.', [{ op: 'burn', amount: 1, target: ATTACKER }])),
+  pokemon('Absol', 3, 'Dark', 'Physical', 5, 'Hitpoints', 5, 'Swift', 'Rare', {
+    effectText: 'Deals +2 damage with its attack to a burned target.',
+    // Only when it attacks (a Command), not when it hits back in a trade (as Sunflora): see attackPower in game.js.
+    attackIf: { targetStatus: 'burn', amount: 2 },
+  }),
 ];
 
 export const FIRE_STRATEGY = [
@@ -251,6 +261,9 @@ export const FIRE_STRATEGY = [
   strategy('heat-wave', 'Heat Wave', 4, 'Rare', 'Burn 1 to every enemy Pokémon and every enemy Trainer.', [
     { op: 'burn', amount: 1, target: { mode: 'area', side: 'opponent', kinds: ['pokemon', 'trainer'] } },
   ]),
+  strategy('hyper-voice', 'Hyper Voice', 4, 'Rare', 'Deal 2 damage to each enemy Pokémon.', [
+    { op: 'damage', amount: 2, target: { mode: 'area', side: 'opponent' } },
+  ], { image: 'assets/cards/hypervoice.jpg' }),
   strategy('fire-blast', 'Fire Blast', 5, 'Epic', "Deal 4 damage to an enemy Pokémon or Trainer, then Burn 2 to it if it's still in play.", [
     { op: 'damage', amount: 4, target: ENEMY_ANY },
     { op: 'burn', amount: 2, target: CHOSEN },
@@ -314,6 +327,7 @@ export const FIRE_ITEMS = [
   }),
   heldItem('quick-claw', 'Quick Claw', 3, 'Rare', "Holder's Speed-Tier is one higher (Slow → Steady → Swift).", { speedUp: 1 }),
   heldItem('choice-band', 'Choice Band', 4, 'Rare', "Holder gains +3 Attack and −2 Strength (can't reduce Strength below 1).", { attack: 3, strength: -2 }),
+  heldItem('black-belt', 'Black Belt', 3, 'Rare', 'Holder gains +1 Attack and Overrun.', { attack: 1, keywords: [{ key: 'Overrun' }] }),
 ];
 
 // =============================================================================
@@ -356,6 +370,8 @@ export const WATER_POKEMON = [
       { op: 'heal', amount: 2, target: { mode: 'area', side: 'friendly', kinds: ['pokemon', 'trainer'], damaged: true } },
     ]),
   }),
+  pokemon('Dragonite', 6, 'Dragon', 'Physical', 7, 'Hitpoints', 8, 'Steady', 'Epic', { innatePower: 'Infiltrator, Shell 1' }),
+  pokemon('Shinx', 1, 'Electric', 'Physical', 3, 'Hitpoints', 4, 'Swift', 'Common', { innatePower: 'Quick Attack' }),
 ];
 
 export const WATER_STRATEGY = [
@@ -372,6 +388,8 @@ export const WATER_STRATEGY = [
   strategy('surf', 'Surf', 5, 'Rare', 'Deal 2 damage to each enemy Pokémon, and heal each friendly Pokémon 1.', [
     { op: 'damage', amount: 2, target: { mode: 'area', side: 'opponent' } },
     { op: 'heal', amount: 1, target: { mode: 'area', side: 'friendly', damaged: true } },
+  ]),  strategy('thunderbolt', 'Thunderbolt', 4, 'Rare', 'Deal 4 damage to an enemy Pokémon or Trainer.', [
+    { op: 'damage', amount: 4, target: ENEMY_ANY },
   ]),
 ];
 
@@ -396,6 +414,15 @@ export const WATER_SUPPORTERS = [
     bonusText: 'It arrives Active.',
     effects: [{ op: 'freeSummon', filter: { energyCost: { max: 2 } }, active: true }],
   }),
+  supporter('tracey', 'Tracey', 'Rare', { discard: 1, release: 0 },
+    'Look at the top 4 cards of your Draw Pile: put 2 into your hand and the rest on the bottom.', [
+      { op: 'lookTop', count: 4, take: 2 },
+    ], {
+      challengeText: 'a Pokémon card',
+      challenge: { cardType: 'Pokémon' },
+      bonusText: 'Put 3 into your hand instead.',
+      effects: [{ op: 'lookTop', count: 4, take: 3 }],
+    }),
   supporter('fisherman', 'Fisherman', 'Rare', { discard: 0, release: 1 }, 'Search your Draw Pile for a Water Pokémon; it gains Retain.', [
     { op: 'search', filter: { cardType: 'Pokémon', ...WATER }, retain: true },
   ], {
@@ -428,6 +455,8 @@ export const WATER_ITEMS = [
   heldItem('mystic-water', 'Mystic Water', 2, 'Common', "Holder gains +1 Attack. If it's a Water Pokémon, it also gains +1 Strength.",
     { attack: 1, also: { ...WATER, strength: 1 } }),
   heldItem('leftovers', 'Leftovers', 3, 'Common', 'Holder gains Regenerate 1.', { keywords: [{ key: 'Regenerate', amount: 1 }] }),
+  heldItem('rocky-helmet', 'Rocky Helmet', 3, 'Rare', 'When the holder takes damage from an attack, deal 2 damage to the attacker.',
+    { keywords: [{ key: 'Retaliate', amount: 2 }] }),
   item('full-heal', 'Full Heal', 'Consumed', 1, 'Common', 'Cure a friendly Pokémon or Trainer of all statuses and heal it 2. Retain.', {
     retain: true,
     effects: [
@@ -488,6 +517,9 @@ export const GRASS_POKEMON = [
     ability('On Defeated', 'Gain 2 Growth.', growth(2)),
   )),
   pokemon('Sudowoodo', 3, 'Rock', 'Physical', 3, 'Defence', 9, 'Slow', 'Rare'),
+  pokemon('Metapod', 1, 'Bug', 'Physical', 1, 'Defence', 6, 'Slow', 'Common', { innatePower: 'Shell 1' }),
+  pokemon('Geodude', 2, 'Rock', 'Physical', 3, 'Defence', 6, 'Slow', 'Common',
+    ability('On Defend', 'Deal 1 damage to the attacker.', [{ op: 'damage', amount: 1, target: ATTACKER }])),
 ];
 
 export const GRASS_STRATEGY = [
@@ -502,6 +534,9 @@ export const GRASS_STRATEGY = [
     // (With nothing friendly to heal it can still be played, for the Growth alone: Elliott, G2 answers.)
     { op: 'heal', amount: 2, target: { mode: 'targeted', side: 'friendly', kinds: ['pokemon', 'trainer'], optional: true } },
     { op: 'douse', target: { mode: 'chosen' } },
+  ]),
+  strategy('rock-slide', 'Rock Slide', 3, 'Rare', 'Deal 2 damage to each enemy Pokémon in a chosen Zone.', [
+    { op: 'damage', amount: 2, target: { mode: 'targeted', pick: 'zone', side: 'opponent' } },
   ]),
   // "Spend up to 8 Growth": the player chooses how much as they play it (the action's growth; all of it, up to 8, by default).
   strategy('solar-beam', 'Solar Beam', 3, 'Rare', 'Spend up to 8 Growth: deal that much damage to an enemy Pokémon or Trainer. Retain.', [
@@ -527,6 +562,20 @@ export const GRASS_SUPPORTERS = [
       challenge: EVOLUTION_CARD,
       bonusText: 'Search for two instead.',
       effects: [{ op: 'search', filter: { cardType: 'Pokémon' }, evolvesFromArena: true, count: 2, retain: true }],
+    }),
+  // "Until your next Breakfast": it outlasts the opponent's turns and Supper (effects.js, until: 'breakfast').
+  supporter('brock', 'Brock', 'Rare', { discard: 0, release: 1 },
+    'Friendly Pokémon in a chosen Zone gain +2 Strength and Shell 1 until your next Breakfast.', [
+      { op: 'buff', attack: 0, strength: 2, until: 'breakfast', target: { mode: 'targeted', pick: 'zone', side: 'friendly' } },
+      { op: 'grant', keyword: 'Shell', amount: 1, until: 'breakfast', target: { mode: 'area', side: 'friendly', zone: 'target' } },
+    ], {
+      challengeText: 'a Rock Pokémon',
+      challenge: { cardType: 'Pokémon', pokemonType: 'Rock' },
+      bonusText: 'Every Zone instead.',
+      effects: [
+        { op: 'buff', attack: 0, strength: 2, until: 'breakfast', target: { mode: 'area', side: 'friendly' } },
+        { op: 'grant', keyword: 'Shell', amount: 1, until: 'breakfast', target: { mode: 'area', side: 'friendly' } },
+      ],
     }),
   supporter('professor-oak', 'Professor Oak', 'Rare', { discard: 2, release: 0 }, 'Draw 3 cards.', [{ op: 'draw', amount: 3 }], {
     challengeText: 'a Pokémon card',
@@ -670,11 +719,11 @@ export const DECKS = {
     showcase: ['blaziken', 'houndoom'],
     trainers: ['blaine', 'flannery', 'kabu'],
     list: {
-      growlithe: 3, charmander: 2, ponyta: 3, mankey: 2, magmar: 2, sneasel: 2, arcanine: 2, houndoom: 1, blaziken: 1,
-      ember: 3, 'flame-charge': 2, 'heat-wave': 2, 'fire-blast': 1,
+      growlithe: 2, charmander: 2, ponyta: 3, mankey: 2, magmar: 1, sneasel: 2, arcanine: 2, houndoom: 1, blaziken: 1, dusclops: 1, absol: 1,
+      ember: 2, 'flame-charge': 2, 'heat-wave': 2, 'fire-blast': 1, 'hyper-voice': 1,
       firebreather: 2, chili: 1, burglar: 1,
       'mt-ember': 2, 'cinnabar-volcano': 1, 'stark-mountain': 1,
-      charcoal: 2, 'x-attack': 2, 'quick-claw': 1, 'choice-band': 1,
+      charcoal: 2, 'x-attack': 1, 'quick-claw': 1, 'choice-band': 1, 'black-belt': 1,
     },
   },
   water: {
@@ -688,11 +737,12 @@ export const DECKS = {
     showcase: ['kyogre', 'lapras'],
     trainers: ['misty', 'crasher-wake', 'wallace'],
     list: {
-      horsea: 2, goldeen: 2, chinchou: 2, quagsire: 3, wartortle: 2, lapras: 2, pelipper: 1, chansey: 1, gyarados: 1, vaporeon: 1, kyogre: 1,
-      'aqua-ring': 3, 'bubble-beam': 2, dive: 2, surf: 1,
-      'nurse-joy': 2, swimmer: 1, fisherman: 1,
+      horsea: 2, goldeen: 2, chinchou: 2, quagsire: 2, wartortle: 2, lapras: 1, pelipper: 1, chansey: 1, gyarados: 1, vaporeon: 1, kyogre: 1,
+      dragonite: 1, shinx: 1,
+      'aqua-ring': 3, 'bubble-beam': 1, dive: 2, surf: 1, thunderbolt: 1,
+      'nurse-joy': 1, swimmer: 1, fisherman: 1, tracey: 1,
       'cerulean-cape': 2, 'lake-of-rage': 1, 'route-119': 1,
-      'mystic-water': 2, leftovers: 2, 'full-heal': 2,
+      'mystic-water': 1, leftovers: 2, 'full-heal': 2, 'rocky-helmet': 1,
     },
   },
   grass: {
@@ -706,9 +756,10 @@ export const DECKS = {
     showcase: ['venusaur', 'celebi'],
     trainers: ['erika', 'gardenia', 'ramos'],
     list: {
-      bulbasaur: 3, ivysaur: 2, venusaur: 1, oddish: 2, gloom: 2, bellossom: 1, sunkern: 2, sunflora: 1, celebi: 1, sewaddle: 2, sudowoodo: 1,
-      'leech-seed': 2, 'sleep-powder': 2, synthesis: 2, 'solar-beam': 2,
-      mallow: 2, 'pokemon-breeder': 1, 'professor-oak': 1,
+      bulbasaur: 2, ivysaur: 2, venusaur: 1, oddish: 2, gloom: 2, bellossom: 1, sunkern: 2, sunflora: 1, celebi: 1, sewaddle: 1, sudowoodo: 1,
+      metapod: 1, geodude: 1,
+      'leech-seed': 1, 'sleep-powder': 2, synthesis: 2, 'solar-beam': 2, 'rock-slide': 1,
+      mallow: 1, 'pokemon-breeder': 1, 'professor-oak': 1, brock: 1,
       'floaroma-meadow': 2, 'eterna-forest': 1, 'petalburg-woods': 1,
       'miracle-seed': 2, 'oran-berry': 2, 'rare-candy': 1, 'big-root': 1,
     },

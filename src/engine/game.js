@@ -386,9 +386,15 @@ export function attackBlock(state, who, from, ref) {
 
 // What a Pokémon deals when it attacks (a Command): its Attack, plus a bonus
 // only its own attacks get (Sunflora: +2 while Sun is 4 or more; not when it hits back).
-export function attackPower(state, card) {
-  const bonus = card.attackIf && (weatherCounts(state)[card.attackIf.weather] ?? 0) >= card.attackIf.min ? card.attackIf.amount : 0;
-  return attackOf(card) + bonus;
+// card.attackIf: { weather, min, amount } (Sunflora: while Sun is 4 or more) or
+// { targetStatus, amount } (Absol: against a target with that status, e.g. a burned one).
+// Only its own attack (a Command), never its hit back in a trade.
+export function attackPower(state, card, target = null) {
+  const cond = card.attackIf;
+  const met = !cond ? false
+    : cond.targetStatus ? (target?.status?.[cond.targetStatus]?.count ?? 0) > 0
+      : (weatherCounts(state)[cond.weather] ?? 0) >= cond.min;
+  return attackOf(card) + (met ? cond.amount : 0);
 }
 
 function canCommand(state, who) {
@@ -700,6 +706,13 @@ const STEPS = {
       emit(state, 'scorch', { who: attacker.owner, attacker: info(state, attacker), target: info(state, job.scorch.target), amount: job.scorch.amount });
       burnCard(state, job.scorch.target, job.scorch.amount, attacker.owner, attacker);
     }
+    if (job.retaliate && still(attacker)) {
+      const { amount, from, name } = job.retaliate;
+      emit(state, 'retaliate', { who: from.owner, from: { ...from, name }, target: info(state, attacker), amount });
+      const [before, after] = damage(state, attacker, amount, { by: from.owner, hitBy: { kind: 'item' } });
+      log(state, `Retaliate: ${name} deals ${before - after} damage back to ${describeRef(state, attacker)}. Strength ${before} → ${after}.`);
+      settle(state);   // (it may defeat the attacker)
+    }
     const events = [];
     if (still(attacker)) events.push({ type: 'attack', ref: attacker, card: cardAt(state, attacker), target });
     if (target.kind === 'pokemon' && still(target)) events.push({ type: 'defend', ref: target, card: cardAt(state, target), attacker });
@@ -749,11 +762,12 @@ const STEPS = {
   expireRound(state) {
     const ended = [];
     for (const { ref, card } of arenaPokemon(state)) {
-      const buffs = card.roundBuffs ?? [];
-      const grants = (card.granted ?? []).filter((k) => k.thisRound);
+      const buffs = (card.roundBuffs ?? []).filter((b) => !b.until);
+      const grants = (card.granted ?? []).filter((k) => k.thisRound && !k.until);
       if (!buffs.length && !grants.length) continue;
-      delete card.roundBuffs;
-      card.granted = (card.granted ?? []).filter((k) => !k.thisRound);
+      card.roundBuffs = (card.roundBuffs ?? []).filter((b) => b.until);
+      if (!card.roundBuffs.length) delete card.roundBuffs;
+      card.granted = (card.granted ?? []).filter((k) => !k.thisRound || k.until);
       card.currentStrength = Math.min(card.currentStrength, maxStrengthOf(card));
       emit(state, 'buffLost', { target: info(state, ref), source: 'this Round' });
       ended.push(card.name);
@@ -909,7 +923,7 @@ const HANDLERS = {
     questEvent(state, who, { type: 'attack', card: attacker, zone: from.zone });
     const scorch = keywordAmount(attacker, 'Scorch');
     const name = `${whose(state, who)} ${attacker.name}`;
-    const power = attackPower(state, attacker);
+    const power = attackPower(state, attacker, cardAt(state, targetRef));
     const hitsBack = target.kind === 'pokemon' && isAlert(state, cardAt(state, targetRef));
     const over = guardsBypassed(state, who, from, target);
     emit(state, 'attack', {
@@ -944,6 +958,9 @@ const HANDLERS = {
       log(state, `${name} attacked ${what} for ${dealt}${dealt !== power ? ` (Shell: ${power} → ${dealt})` : ''}`
         + (trades ? `; ${defender.name} was Alert and hit back for ${atkBefore - atkAfter}${atkBefore - atkAfter !== back ? ` (Shell: ${back} → ${atkBefore - atkAfter})` : ''}.` : '.'));
       if (dealt > 0 && scorch) after.scorch = { amount: scorch, target: targetRef };
+      // Retaliate (Rocky Helmet): the target took damage from this attack: X back at the attacker.
+      const retaliate = keywordAmount(defender, 'Retaliate');
+      if (dealt > 0 && retaliate) after.retaliate = { amount: retaliate, from: { ...targetRef }, name: defender.name };
       // Overrun: damage beyond the defender's remaining Strength goes on to its Trainer.
       if (hpAfter < 0 && hasKeyword(attacker, 'Overrun')) after.overrun = { amount: -hpAfter, zone: target.zone, owner: foe };
       // On Knockout: the attacker's hit, or the defender's hit back in a trade, defeated the other.
@@ -1264,6 +1281,7 @@ function startBreakfast(state) {
   state.phase = 'breakfast';
   emit(state, 'phaseChanged', { phase: 'breakfast', round: state.round });
   log(state, 'Breakfast Phase.');
+  expireUntil(state, 'breakfast');   // Brock: "until your next Breakfast"
   // +1 PokéDollar for each player, every Breakfast (Round 1 included).
   for (const who of PLAYERS) earnDollars(state, who, BREAKFAST_DOLLARS, 'at Breakfast');
   restockMart(state);
@@ -1303,6 +1321,25 @@ function endBreakfast(state) {
 function finishBreakfast(state) {
   log(state, 'Breakfast Phase ends.');
   startBattle(state);
+}
+
+// Buffs and keywords that last "until your next Breakfast" (until: 'breakfast')
+// end as the Breakfast Phase starts. Losing Strength follows the Passive rule
+// (maximum drops, current only if above it; it never defeats).
+function expireUntil(state, when) {
+  const ended = [];
+  for (const { ref, card } of arenaPokemon(state)) {
+    const buffs = (card.roundBuffs ?? []).filter((b) => b.until === when);
+    const grants = (card.granted ?? []).filter((k) => k.until === when);
+    if (!buffs.length && !grants.length) continue;
+    card.roundBuffs = (card.roundBuffs ?? []).filter((b) => b.until !== when);
+    if (!card.roundBuffs.length) delete card.roundBuffs;
+    card.granted = (card.granted ?? []).filter((k) => k.until !== when);
+    card.currentStrength = Math.max(1, Math.min(card.currentStrength, maxStrengthOf(card)));
+    emit(state, 'buffLost', { target: info(state, ref), source: 'until Breakfast' });
+    ended.push(card.name);
+  }
+  if (ended.length) log(state, `"Until your next Breakfast" effects end: ${ended.join(', ')}.`);
 }
 
 // --- Breakfast Evolve (rules 4.2): after the XP step ---

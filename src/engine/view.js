@@ -79,6 +79,7 @@ export function redactEvents(events = [], seat, names) {
         break;
       // Searched from the Draw Pile into the opponent's hand: how many, not which.
       case 'searched':
+      case 'lookedTop':   // (Tracey: which cards they took, not what they were)
         if (theirs) e.cards = e.cards.map(({ uid }) => ({ uid }));
         break;
       // XP on the opponent's Pokémon in hand: how much of each, not on which.

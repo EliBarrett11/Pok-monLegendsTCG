@@ -62,13 +62,14 @@ Card definitions live in `src/engine/cardData.js`; the cards themselves are list
 Keyword abilities on Pokémon that always apply. A Pokémon can have more than one (e.g. "Overrun, Scorch 2"). X is the keyword's number.
 
 - **Quick Attack:** this Pokémon is summoned Active instead of Spent, so it can be Alert and Commanded the Round it arrives (by the normal Alert rules).
-- **Infiltrator:** This Pokémon's attacks ignore the Defence and Special Defence targeting restrictions: it may attack any enemy Pokémon or any enemy Trainer still in play. Trading damage works as normal (an Alert target still hits back). Fire's fast raiders (Ponyta, Mankey, Sneasel, Arcanine) have it.
+- **Infiltrator:** This Pokémon's attacks ignore the Defence and Special Defence targeting restrictions: it may attack any enemy Pokémon or any enemy Trainer still in play. Trading damage works as normal (an Alert target still hits back). Fire's fast raiders (Ponyta, Mankey, Sneasel, Arcanine) and Water's Dragonite have it.
 - **Agility:** this Pokémon can't be chosen as a target by Strategy Cards. Area effects (e.g. Surf) still affect it. Trainer Powers and attacks can still target it.
 - **Scorch X:** when this Pokémon's attack (a Command) deals damage, apply Burn X to the target, if it is still in play. Works on Trainers too. Only its own attack: hitting back in a trade doesn't Scorch, and Scorch never burns the Trainer that Overrun damage reaches. An attack that deals no damage (Attack 0) doesn't Scorch.
 - **Overrun:** when this Pokémon's attack defeats an enemy Pokémon, the damage left over is dealt to the Trainer in that Zone on the defender's side. Leftover = damage actually dealt (after the defender's Shell) − the defender's remaining Strength. Example: Attack 6 into Shell 1 with 3 Strength left → 5 dealt → 2 to the Trainer. Lost if that Trainer has been removed. Only its own attack (not hitting back in a trade); it still happens if the attacker is also defeated in the trade. Overrun damage counts as damage from this Pokémon (it triggers On Trainer Strike).
 - **Regenerate X:** at each Breakfast, with the On Breakfast abilities (after the Breakfast Weather), this Pokémon heals X, before its own On Breakfast ability. At full Strength nothing happens.
+- **Retaliate X:** when this Pokémon takes damage from an attack (as the attack's target), deal X damage to the attacker, even if this Pokémon is defeated by it. Not when it is the attacker and takes damage hitting back in a trade. It comes from Rocky Helmet (N1). The damage comes from the item: Shell reduces it, and it doesn't trigger On Knockout.
 - **Shell X:** every instance of damage this Pokémon takes is reduced by X, to a minimum of 1: attacks, effects, Weather and Burn. No damage stays no damage (Attack 0 deals 0).
-- **Having one twice:** numbered keywords add up (Scorch 1 + Scorch 1 = Scorch 2; Shell and Regenerate the same). Keywords without a number (Overrun, Quick Attack, Agility, Infiltrator) don't stack: having one twice is the same as having it once. Effects can grant keywords, permanently or "this Round".
+- **Having one twice:** numbered keywords add up (Scorch 1 + Scorch 1 = Scorch 2; Shell, Regenerate and Retaliate the same). Keywords without a number (Overrun, Quick Attack, Agility, Infiltrator) don't stack: having one twice is the same as having it once. Effects can grant keywords, permanently or "this Round".
 
 ### 1.4 Supporter Cards
 
@@ -494,21 +495,24 @@ Three decks, as approved in `docs/decks.md` (the source of truth for them). The 
 
 | Pokémon | × | Cost | Type | Attack | Strength | Speed | Rarity | Abilities |
 |---|---|---|---|---|---|---|---|---|
-| Growlithe | 3 | 1 | Fire | 2 Physical | 5 Hitpoints | Swift | Common | Scorch 1 |
+| Growlithe | 2 | 1 | Fire | 2 Physical | 5 Hitpoints | Swift | Common | Scorch 1 |
 | Charmander | 2 | 1 | Fire | 3 Special | 6 Hitpoints | Steady | Common | On Summon: Burn 1 to an enemy Pokémon or Trainer in this Pokémon's Zone. |
 | Ponyta | 3 | 2 | Fire | 3 Physical | 5 Hitpoints | Swift | Common | Quick Attack, Infiltrator |
 | Mankey | 2 | 2 | Fighting | 4 Physical | 5 Hitpoints | Swift | Common | Overrun, Infiltrator |
-| Magmar | 2 | 3 | Fire | 4 Special | 7 Hitpoints | Steady | Common | Scorch 2 |
+| Magmar | 1 | 3 | Fire | 4 Special | 7 Hitpoints | Steady | Common | Scorch 2 |
 | Sneasel | 2 | 3 | Dark | 4 Physical | 4 Hitpoints | Swift | Common | Infiltrator. On Knockout: this Pokémon becomes Active (once per Round). |
 | Arcanine | 2 | 4 | Fire | 5 Physical | 6 Hitpoints | Swift | Rare | Overrun, Scorch 1, Infiltrator |
 | Houndoom | 1 | 5 | Fire | 5 Special | 7 Hitpoints | Swift | Epic | On Summon: Burn 2 to each enemy Trainer. |
 | Blaziken | 1 | 5 | Fire | 7 Physical | 8 Hitpoints | Steady | Legendary | Overrun, Scorch 2 |
+| Dusclops (neutral) | 1 | 3 | Ghost | 2 Special | 8 Special Defence | Slow | Rare | On Defend: Burn 1 to the attacker. |
+| Absol (neutral) | 1 | 3 | Dark | 5 Physical | 5 Hitpoints | Swift | Rare | Deals +2 damage with its attack to a burned target. |
 
 | Strategy | × | Cost | Rarity | Effect |
 |---|---|---|---|---|
-| Ember | 3 | 1 | Common | Burn 2 to an enemy Pokémon or Trainer. (Targeted) |
+| Ember | 2 | 1 | Common | Burn 2 to an enemy Pokémon or Trainer. (Targeted) |
 | Flame Charge | 2 | 2 | Common | A friendly Pokémon gains +2 Attack this Round. If it's a Fire Pokémon, it also gains Scorch 1 this Round. (Targeted) |
 | Heat Wave | 2 | 4 | Rare | Burn 1 to every enemy Pokémon and every enemy Trainer. (Area) |
+| Hyper Voice (neutral) | 1 | 4 | Rare | Deal 2 damage to each enemy Pokémon. (Area) |
 | Fire Blast | 1 | 5 | Epic | Deal 4 damage to an enemy Pokémon or Trainer, then Burn 2 to it if it's still in play. (Targeted) |
 
 | Supporter | × | Rarity | Card-Cost | Effect | Gift Challenge | Gift Bonus |
@@ -526,9 +530,10 @@ Three decks, as approved in `docs/decks.md` (the source of truth for them). The 
 | Item | × | Rarity | Item-Type | PokéDollars | Effect |
 |---|---|---|---|---|---|
 | Charcoal | 2 | Common | Held | 2 | Holder gains +1 Attack. If it's a Fire Pokémon, it also gains Scorch 1. |
-| X Attack | 2 | Common | Consumed | 2 | A friendly Pokémon in the arena gains +2 Attack this Round. Retain. |
+| X Attack | 1 | Common | Consumed | 2 | A friendly Pokémon in the arena gains +2 Attack this Round. Retain. |
 | Quick Claw | 1 | Rare | Held | 3 | Holder's Speed-Tier is one higher (Slow → Steady → Swift). |
 | Choice Band | 1 | Rare | Held | 4 | Holder gains +3 Attack and −2 Strength (can't reduce Strength below 1). |
+| Black Belt (neutral) | 1 | Rare | Held | 3 | Holder gains +1 Attack and Overrun. |
 
 | Trainer | Strength | Power | Passive |
 |---|---|---|---|
@@ -545,26 +550,30 @@ Three decks, as approved in `docs/decks.md` (the source of truth for them). The 
 | Horsea | 2 | 1 | Water | 3 Special | 4 Hitpoints | Steady | Common | Rally: this Pokémon gains +1/+1. |
 | Goldeen | 2 | 2 | Water | 4 Physical | 5 Hitpoints | Steady | Common | On Summon: heal a friendly Pokémon 2. |
 | Chinchou | 2 | 2 | Electric | 3 Special | 5 Special Defence | Steady | Common | Regenerate 1 |
-| Quagsire | 3 | 3 | Water | 4 Physical | 7 Defence | Slow | Common | Regenerate 2 |
+| Quagsire | 2 | 3 | Water | 4 Physical | 7 Defence | Slow | Common | Regenerate 2 |
 | Wartortle | 2 | 3 | Water | 4 Special | 5 Defence | Steady | Common | Shell 1 |
-| Lapras | 2 | 4 | Water | 5 Special | 7 Hitpoints | Steady | Rare | On Summon: heal all friendly Pokémon in this Pokémon's Zone 2. |
+| Lapras | 1 | 4 | Water | 5 Special | 7 Hitpoints | Steady | Rare | On Summon: heal all friendly Pokémon in this Pokémon's Zone 2. |
 | Pelipper | 1 | 4 | Water | 5 Special | 5 Hitpoints | Swift | Rare | Weather Tokens: 2 Rain. On Summon: a card in your hand gains Retain. |
 | Chansey | 1 | 4 | Normal | 1 Physical | 12 Hitpoints | Slow | Rare | On Breakfast: heal each friendly Pokémon in this Pokémon's Zone 2. |
 | Gyarados | 1 | 5 | Water | 7 Physical | 6 Hitpoints | Steady | Epic | On Summon: deal 2 damage to each enemy Pokémon in this Pokémon's Zone. |
 | Vaporeon | 1 | 5 | Water | 5 Special | 7 Special Defence | Steady | Epic | Regenerate 2. On Heal: this Pokémon gains +1 Attack. |
 | Kyogre | 1 | 6 | Water | 7 Special | 11 Hitpoints | Slow | Legendary | Weather Tokens: 2 Rain. On Summon: heal every friendly Pokémon and Trainer 2. |
+| Dragonite (neutral) | 1 | 6 | Dragon | 7 Physical | 8 Hitpoints | Steady | Epic | Infiltrator, Shell 1 |
+| Shinx (neutral) | 1 | 1 | Electric | 3 Physical | 4 Hitpoints | Swift | Common | Quick Attack |
 
 | Strategy | × | Cost | Rarity | Effect |
 |---|---|---|---|---|
 | Aqua Ring | 3 | 2 | Common | Heal a friendly Pokémon 3 and Douse it. Retain. (Targeted) |
-| Bubble Beam | 2 | 3 | Common | Deal 2 damage to an enemy Pokémon, or 3 if Rain is 2 or more. (Targeted) |
+| Bubble Beam | 1 | 3 | Common | Deal 2 damage to an enemy Pokémon, or 3 if Rain is 2 or more. (Targeted) |
 | Dive | 2 | 2 | Common | Return a Pokémon from your Discard Pile to your hand. It gains Retain. |
 | Surf | 1 | 5 | Rare | Deal 2 damage to each enemy Pokémon, and heal each friendly Pokémon 1. (Area) |
+| Thunderbolt (neutral) | 1 | 4 | Rare | Deal 4 damage to an enemy Pokémon or Trainer. (Targeted) |
 
 | Supporter | × | Rarity | Card-Cost | Effect | Gift Challenge | Gift Bonus |
 |---|---|---|---|---|---|---|
-| Nurse Joy | 2 | Common | Discard 1 | Heal a friendly Trainer 3 and Douse it. | a Normal Pokémon | Heal 5 instead. |
+| Nurse Joy | 1 | Common | Discard 1 | Heal a friendly Trainer 3 and Douse it. | a Normal Pokémon | Heal 5 instead. |
 | Swimmer | 1 | Rare | Discard 2 | Free summon a Pokémon costing 2 or less from your hand. | a Water Pokémon | It arrives Active. |
+| Tracey (neutral) | 1 | Rare | Discard 1 | Look at the top 4 cards of your Draw Pile: put 2 into your hand, the rest on the bottom. | a Pokémon card | Put 3 into your hand instead. |
 | Fisherman | 1 | Rare | Release 1 | Search your Draw Pile for a Water Pokémon; it gains Retain. | a Strategy card | Search for two instead. |
 
 | Location | × | Rarity | Weather | Quest | XP | Effect on completion |
@@ -575,9 +584,10 @@ Three decks, as approved in `docs/decks.md` (the source of truth for them). The 
 
 | Item | × | Rarity | Item-Type | PokéDollars | Effect |
 |---|---|---|---|---|---|
-| Mystic Water | 2 | Common | Held | 2 | Holder gains +1 Attack. If it's a Water Pokémon, it also gains +1 Strength. |
+| Mystic Water | 1 | Common | Held | 2 | Holder gains +1 Attack. If it's a Water Pokémon, it also gains +1 Strength. |
 | Leftovers | 2 | Common | Held | 3 | Holder gains Regenerate 1. |
 | Full Heal | 2 | Common | Consumed | 1 | Cure a friendly Pokémon or Trainer of all statuses and heal it 2. Retain. |
+| Rocky Helmet (neutral) | 1 | Rare | Held | 3 | When the holder takes damage from an attack, deal 2 damage to the attacker. |
 
 | Trainer | Strength | Power | Passive |
 |---|---|---|---|
@@ -591,7 +601,7 @@ Three decks, as approved in `docs/decks.md` (the source of truth for them). The 
 
 | Pokémon | × | Stage | Cost | Type | Attack | Strength | Speed | Rarity | Abilities / Weather |
 |---|---|---|---|---|---|---|---|---|---|
-| Bulbasaur | 3 | Basic | 1 | Grass | 2 Special | 6 Special Defence | Steady | Common | On Breakfast: gain 1 Growth. |
+| Bulbasaur | 2 | Basic | 1 | Grass | 2 Special | 6 Special Defence | Steady | Common | On Breakfast: gain 1 Growth. |
 | Ivysaur | 2 | Stage 1 (Bulbasaur) | Evolve 2 | Grass | 3 Special | 7 Hitpoints | Steady | Common | On Breakfast: gain 1 Growth. On Evolve: Leech Seed an enemy Pokémon in this Pokémon's Zone. |
 | Venusaur | 1 | Stage 2 (Ivysaur) | Evolve 3 | Grass | 5 Special | 12 Hitpoints | Slow | Epic | Shell 1. On Breakfast: gain 2 Growth. |
 | Oddish | 2 | Basic | 1 | Grass | 3 Special | 5 Hitpoints | Steady | Common | On Breakfast: gain 1 Growth. On Attack: gain 1 Growth. |
@@ -600,21 +610,25 @@ Three decks, as approved in `docs/decks.md` (the source of truth for them). The 
 | Sunkern | 2 | Basic | 1 | Grass | 3 Special | 7 Defence | Slow | Common | On Breakfast: gain 1 Growth. Weather Tokens: 1 Sun. |
 | Sunflora | 1 | Stage 1 (Sunkern) | Evolve 2 | Grass | 5 Special | 8 Hitpoints | Slow | Rare | Weather Tokens: 2 Sun. Deals +2 damage with its attack while Sun is 4 or more. |
 | Celebi | 1 | Basic | 4 | Grass | 3 Special | 7 Hitpoints | Swift | Legendary | On Summon: gain 3 Growth. Your Pokémon can Evolve the Round they're summoned. |
-| Sewaddle | 2 | Basic | 1 | Bug | 3 Physical | 6 Hitpoints | Steady | Common | On Breakfast: gain 1 Growth. On Defeated: gain 2 Growth. |
+| Sewaddle | 1 | Basic | 1 | Bug | 3 Physical | 6 Hitpoints | Steady | Common | On Breakfast: gain 1 Growth. On Defeated: gain 2 Growth. |
 | Sudowoodo | 1 | Basic | 3 | Rock | 3 Physical | 9 Defence | Slow | Rare | (none: a sturdy guard) |
+| Metapod (neutral) | 1 | Basic | 1 | Bug | 1 Physical | 6 Defence | Slow | Common | Shell 1 |
+| Geodude (neutral) | 1 | Basic | 2 | Rock | 3 Physical | 6 Defence | Slow | Common | On Defend: deal 1 damage to the attacker. |
 
 | Strategy | × | Cost | Rarity | Effect |
 |---|---|---|---|---|
-| Leech Seed | 2 | 1 | Common | Leech Seed an enemy Pokémon. (Targeted) |
+| Leech Seed | 1 | 1 | Common | Leech Seed an enemy Pokémon. (Targeted) |
 | Sleep Powder | 2 | 2 | Common | Put an enemy Pokémon to Sleep. (Targeted) |
 | Synthesis | 2 | 1 | Common | Gain 2 Growth, or 3 if Sun is 2 or more. Heal a friendly Pokémon or Trainer 2 and Douse it. |
+| Rock Slide (neutral) | 1 | 3 | Rare | Deal 2 damage to each enemy Pokémon in a chosen Zone. (Area) |
 | Solar Beam | 2 | 3 | Rare | Spend up to 8 Growth: deal that much damage to an enemy Pokémon or Trainer. Retain. (Targeted) |
 
 | Supporter | × | Rarity | Card-Cost | Effect | Gift Challenge | Gift Bonus |
 |---|---|---|---|---|---|---|
-| Mallow | 2 | Common | Discard 1 | Gain 2 Growth. | a Grass Pokémon | Gain 3 Growth and heal a friendly Pokémon 2. |
+| Mallow | 1 | Common | Discard 1 | Gain 2 Growth. | a Grass Pokémon | Gain 3 Growth and heal a friendly Pokémon 2. |
 | Pokémon Breeder | 1 | Rare | Release 1 | Search your Draw Pile for a Pokémon that evolves from one in your arena; it gains Retain. | an evolution card | Search for two instead. |
 | Professor Oak | 1 | Rare | Discard 2 | Draw 3 cards. | a Pokémon card | Draw 4 instead. |
+| Brock (neutral) | 1 | Rare | Release 1 | Friendly Pokémon in a chosen Zone gain +2 Strength and Shell 1 until your next Breakfast. | a Rock Pokémon | Every Zone instead. |
 
 | Location | × | Rarity | Weather | Quest | XP | Effect on completion |
 |---|---|---|---|---|---|---|
@@ -646,8 +660,20 @@ Three decks, as approved in `docs/decks.md` (the source of truth for them). The 
 - **Big Root:** a seed you applied heals the Big Root holder instead of your most-damaged Pokémon, if the holder is damaged (otherwise the most-damaged one as usual).
 - **Ramos:** "drain 1 more" is 1 more damage and 1 more healing, on top of Rain 6.
 - **Gardenia** lowers the Evolve cost of a Pokémon in her Zone while she's in play; the screen and the AI show the lower cost.
-- **Grass balance (settled by Elliott, G3):** the cards above are the G3 balance: Sun 6 makes each player's first Evolve each Round 1 cheaper (it used to block Sleep), the Breakfast Evolve step (section 4.1.2), Basics +1/+1, Bulbasaur Special Defence and Sunkern Defence (Venusaur Hitpoints: the G3 trim, Elliott's decision), Trainers +2, Oddish, Sunkern and Sewaddle "On Breakfast: gain 1 Growth", Rain-making Locations, Synthesis and Oran Berry healing and Dousing Trainers, and Synthesis ×2 / Leech Seed ×2. Final numbers (400 AI-vs-AI matches each, 200 per seat order): Fire–Water 47.5% Fire, Grass–Fire 47.0% Grass, Grass–Water 47.8% Grass. How it was chosen is in the README build log (Grass G3a–G3d, G3, G3 trim).
+- **Grass balance (settled by Elliott, G3):** the cards above are the G3 balance: Sun 6 makes each player's first Evolve each Round 1 cheaper (it used to block Sleep), the Breakfast Evolve step (section 4.1.2), Basics +1/+1, Bulbasaur Special Defence and Sunkern Defence (Venusaur Hitpoints: the G3 trim, Elliott's decision), Trainers +2, Oddish, Sunkern and Sewaddle "On Breakfast: gain 1 Growth", Rain-making Locations, Synthesis and Oran Berry healing and Dousing Trainers, and Synthesis ×2 / Leech Seed ×2 (Leech Seed 1 since the N1 neutrals). Final numbers (400 AI-vs-AI matches each, 200 per seat order): Fire–Water 47.5% Fire, Grass–Fire 47.0% Grass, Grass–Water 47.8% Grass. How it was chosen is in the README build log (Grass G3a–G3d, G3, G3 trim).
 - **Sewaddle's** Growth goes to its owner. **Petalburg Woods'** seeds belong to its owner.
+
+### 9.5 Neutral cards (N1, approved by Elliott)
+
+Each deck has a few unique **neutral cards** (marked "(neutral)" in its tables above): off-Type Pokémon and Type-free Strategy Cards, Supporters and Items that fill gaps in its kit. Each replaced one copy of a duplicate, so the decks keep 40 cards and the standard split. Black Belt and Rocky Helmet joined the PokéMart, which now holds 13 Items. Thunderbolt and Rock Slide use the placeholder look until their art arrives.
+
+How they work (the build's reading; the open questions below list what Elliott hasn't ruled on yet):
+- **On Defend at the attacker** (Dusclops: Burn 1; Geodude: 1 damage): like every On Defend, it fires after the attack if this Pokémon is still in play, at the Pokémon that attacked it, if that Pokémon is still in play.
+- **Absol:** +2 damage when it attacks (a Command) a target with any Burn. Not when it hits back in a trade, and its Attack Value stays 5 (as Sunflora's Sun bonus).
+- **Rocky Helmet:** gives its holder Retaliate 2 (section 1.3).
+- **Tracey:** look at the top 4 cards of your Draw Pile and choose 2 (Gift: 3) to put into your hand; the rest go to the bottom of the Draw Pile in the same order. The opponent sees how many were taken, not which. With fewer than 4 cards in the Draw Pile, you look at those (it isn't refilled from the Discard Pile); with none, nothing happens.
+- **Brock: "until your next Breakfast":** the +2 Strength and Shell 1 last through the opponent's turns and Supper, and end as your next Breakfast Phase starts (before anything else at Breakfast). Only the Pokémon in that Zone when Brock is played gain them. Losing the +2 follows the Passive rule (maximum drops, current Strength only if above it), and it never defeats a Pokémon (it stays at 1). Gift: every friendly Pokémon in the arena.
+- **Rock Slide** chooses an enemy Zone that has at least one enemy Pokémon; it hits every enemy Pokémon there.
 
 ## Open questions
 
@@ -661,6 +687,7 @@ Three decks, as approved in `docs/decks.md` (the source of truth for them). The 
 - **Timed Weather order:** if two Weather types have timed effects at the same moment, the build resolves them in Weather order (Rain, then Sun). Is that right?
 - **Trainer vs Pokémon order:** when a Trainer's Passive and a Pokémon in the same zone trigger at the same moment, which goes first? (The build puts the Trainer after the Pokémon in its zone.)
 - **On Supper:** no card uses it yet; the hook is built and tested.
+- **N1 neutrals (the build's readings, section 9.5):** Rocky Helmet triggers even if the holder is defeated, and not when the holder takes damage hitting back in a trade (is that right?). Tracey with fewer than 4 cards in the Draw Pile looks at those, without refilling from the Discard Pile, and the rest go to the bottom in the order they were. Brock's buff only reaches the Pokémon in the Zone when it's played. Absol's +2 is for its own attack only, like Sunflora's.
 
 ## Placeholders in the current build
 

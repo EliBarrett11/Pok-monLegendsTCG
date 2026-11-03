@@ -14,8 +14,9 @@
 //   Regenerate X   heals X at Breakfast (with On Breakfast abilities)
 //   Shell X        every instance of damage it takes is reduced by X, to a minimum of 1
 //   Infiltrator    its attacks ignore the Defence / Special Defence targeting restrictions
+//   Retaliate X    when it takes damage from an attack, X damage to the attacker (Rocky Helmet)
 
-export const NUMBERED = ['Scorch', 'Regenerate', 'Shell'];
+export const NUMBERED = ['Scorch', 'Regenerate', 'Shell', 'Retaliate'];
 
 // "Overrun, Scorch 2" → [{ key: 'Overrun' }, { key: 'Scorch', amount: 2 }]
 export function parseKeywords(text) {

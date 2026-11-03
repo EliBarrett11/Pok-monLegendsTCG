@@ -560,8 +560,10 @@ function pickerBox(state) {
   return `
     <div class="pile-view picker">
       <div class="pile-view-box">
-        <header><h3>${PICK_TITLES[pend.from]} <span>${pend.label}</span></h3>
-          <p>${pend.text ?? ''} ${need}${pend.retain && !/Retain/.test(pend.text ?? '') ? '; it gains Retain' : ''}. Only matching cards are shown${pend.from === 'draw' ? '; the Draw Pile is shuffled afterwards' : ''}.</p></header>
+        <header><h3>${pend.op === 'lookTop' ? `The top ${pend.look} of your Draw Pile` : PICK_TITLES[pend.from]} <span>${pend.label}</span></h3>
+          <p>${pend.text ?? ''} ${need}${pend.retain && !/Retain/.test(pend.text ?? '') ? '; it gains Retain' : ''}. ${pend.op === 'lookTop'
+    ? 'They go into your hand; the others go to the bottom of your Draw Pile.'
+    : `Only matching cards are shown${pend.from === 'draw' ? '; the Draw Pile is shuffled afterwards' : ''}.`}</p></header>
         <div class="pile-view-cards">${faces}</div>
         <footer class="pick-foot">
           ${pend.min === 0 ? `<button data-action="pick-none" class="secondary">${pend.from === 'hand' ? 'Don\'t summon' : 'Take none'}</button>` : ''}
@@ -2047,6 +2049,7 @@ function wire(root, state, actions) {
   on('.zone.zone-target', (el) => {
     const ref = { kind: 'zone', owner: el.dataset.owner, zone: Number(el.dataset.zone) };
     if (state.pending?.kind === 'target') dispatch({ type: 'resolveChoice', who: 'player', target: ref });
+    else if (ui.strategy) playStrategyAt(ref);   // Rock Slide: an enemy Zone
     else playSupporter(ref);
   });
 

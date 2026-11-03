@@ -12,8 +12,8 @@ import { weatherCounts } from '../src/engine/game.js';
 
 // --- Card format ------------------------------------------------------------
 
-assert.equal(POKEMON_CARDS.length, 31);
-assert.equal(new Set(POKEMON_CARDS.map((c) => c.id)).size, 31, 'unique ids');
+assert.equal(POKEMON_CARDS.length, 37);
+assert.equal(new Set(POKEMON_CARDS.map((c) => c.id)).size, 37, 'unique ids');
 for (const c of POKEMON_CARDS) {
   assert.equal(c.cardType, 'Pokémon');
   assert.ok(typeof c.name === 'string' && c.name);

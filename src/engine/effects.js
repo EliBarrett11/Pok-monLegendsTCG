@@ -28,7 +28,11 @@
 //   applyStatus with status 'sleep' or 'leechSeed' (Pokémon only, no amount needed)
 //   grant        { keyword, amount?, thisRound?, target }  the card gains an Innate keyword
 //   gainDollars  { amount }                        gain PokéDollars
-//   buff and grant with thisRound: true expire at Supper (after Burn and On Supper)
+//   buff and grant with thisRound: true expire at Supper (after Burn and On Supper);
+//   with until: 'breakfast' they last until the next Breakfast instead (Brock)
+//   lookTop      { count, take }                   look at the top `count` cards of your Draw Pile:
+//                                                  `take` of them into your hand, the rest to the bottom
+//                                                  (fewer in the pile: those; it isn't refilled) (Tracey)
 //   onlyIf       a card condition: the effect only applies to targets matching it
 //                ("If it's a Fire Pokémon, it also gains Scorch 1")
 //   amountIf     { weather, min, amount }: this amount instead while that Weather's
@@ -154,8 +158,10 @@ export function candidates(state, ctx, selector, op = {}) {
   }
   if (selector.pick === 'zone') {
     // The Zones that have at least one card the effect would apply to.
+    // (Owned by the side whose cards are there: an enemy Zone for Rock Slide, a friendly one for Chili.)
     const cards = candidates(state, ctx, { ...selector, pick: undefined, mode: 'area' }, op);
-    return [...new Set(cards.map((r) => r.zone))].sort().map((zone) => ({ kind: 'zone', owner: ctx.who, zone }));
+    const zones = [...new Set(cards.map((r) => `${r.owner}:${r.zone}`))].sort();
+    return zones.map((key) => { const [owner, zone] = key.split(':'); return { kind: 'zone', owner, zone: Number(zone) }; });
   }
   const kinds = selector.kinds ?? ['pokemon'];
   const sides = sidesFor(ctx, selector.side ?? 'any');
@@ -402,10 +408,11 @@ const OPS = {
   grant(state, ctx, e, refs) {
     for (const ref of refs) {
       const card = cardAt(state, ref);
-      const entry = { key: e.keyword, ...(e.amount ? { amount: e.amount } : {}), ...(e.thisRound ? { thisRound: true } : {}) };
+      const lasting = e.thisRound || e.until;
+      const entry = { key: e.keyword, ...(e.amount ? { amount: e.amount } : {}), ...(lasting ? { thisRound: true } : {}), ...(e.until ? { until: e.until } : {}) };
       (card.granted ??= []).push(entry);
-      emit(state, 'keywordGranted', { target: info(state, ref), keyword: e.keyword, amount: e.amount, thisRound: Boolean(e.thisRound), source: ctx.label });
-      log(state, `${ctx.label}: ${describeRef(state, ref)} gains ${e.keyword}${e.amount ? ` ${e.amount}` : ''}${e.thisRound ? ' this Round' : ''}.`);
+      emit(state, 'keywordGranted', { target: info(state, ref), keyword: e.keyword, amount: e.amount, thisRound: Boolean(lasting), source: ctx.label });
+      log(state, `${ctx.label}: ${describeRef(state, ref)} gains ${e.keyword}${e.amount ? ` ${e.amount}` : ''}${lastingText(e)}.`);
     }
   },
 
@@ -414,18 +421,47 @@ const OPS = {
       const card = cardAt(state, ref);
       const attack = e.attack ?? 0;
       const strength = e.strength ?? 0;
-      if (e.thisRound && ref.kind === 'pokemon') {
-        (card.roundBuffs ??= []).push({ attack, strength, source: ctx.label });
+      if ((e.thisRound || e.until) && ref.kind === 'pokemon') {
+        (card.roundBuffs ??= []).push({ attack, strength, source: ctx.label, ...(e.until ? { until: e.until } : {}) });
       } else {
         card.attackBonus = (card.attackBonus ?? 0) + attack;
         card.strengthBonus = (card.strengthBonus ?? 0) + strength;
       }
       card.currentStrength += strength;
-      emit(state, 'buff', { target: info(state, ref), attack, strength, source: ctx.label, thisRound: Boolean(e.thisRound) });
+      emit(state, 'buff', { target: info(state, ref), attack, strength, source: ctx.label, thisRound: Boolean(e.thisRound || e.until) });
       const what = e.strengthType && !attack ? `${signed(strength)} ${e.strengthType}`
         : !strength ? `${signed(attack)} Attack` : `${signed(attack)}/${signed(strength)}`;
-      log(state, `${ctx.label}: ${describeRef(state, ref)} gains ${what}${e.thisRound ? ' this Round' : ''}.`);
+      log(state, `${ctx.label}: ${describeRef(state, ref)} gains ${what}${lastingText(e)}.`);
     }
+  },
+
+  // Look at the top cards of your Draw Pile, take some into your hand (the
+  // player picks), the rest go to the bottom in the same order. Secret from the opponent.
+  lookTop(state, ctx, e, refs, job) {
+    const p = state.players[ctx.who];
+    const top = p.drawPile.slice(0, e.count);
+    if (!top.length) {
+      emit(state, 'searchNone', { who: ctx.who, source: ctx.label });
+      log(state, `${ctx.label}: the Draw Pile is empty, so nothing happens.`);
+      return null;
+    }
+    const take = Math.min(e.take, top.length);
+    if (!job.choice) {
+      state.pending = {
+        who: ctx.who, kind: 'pick', from: 'draw', op: 'lookTop', options: top.map((c) => c.uid),
+        min: take, max: take, label: ctx.label, text: ctx.text, look: top.length,
+      };
+      return 'pause';
+    }
+    const uids = job.choice.uids ?? [];
+    if (uids.length !== take || uids.some((uid) => !top.some((c) => c.uid === uid))) throw new Error(`Choose ${take} of the top ${top.length} cards`);
+    const picked = top.filter((c) => uids.includes(c.uid));
+    const rest = top.filter((c) => !uids.includes(c.uid));
+    p.drawPile = [...p.drawPile.slice(top.length), ...rest];
+    for (const c of picked) p.hand.push(enterHand(c));
+    emit(state, 'lookedTop', { who: ctx.who, source: ctx.label, looked: top.length, cards: picked.map((c) => ({ uid: c.uid, name: c.name })), bottom: rest.length });
+    log(state, `${ctx.label}: ${p.name} looked at the top ${top.length} card${top.length === 1 ? '' : 's'} of ${yourOf(ctx.who)} Draw Pile, took ${secretOf(ctx.who, picked.map((c) => c.name).join(', '), `${picked.length}`)} into ${yourOf(ctx.who)} hand and put ${rest.length} on the bottom.`);
+    return null;
   },
 
   // Attaches the Item being used as a Held Item. A Strength bonus raises current
@@ -560,6 +596,11 @@ function amountOf(state, e) {
   const cond = e.amountIf;
   if (cond && (weatherCounts(state)[cond.weather] ?? 0) >= cond.min) return cond.amount;
   return e.amount;
+}
+
+// " this Round" or " until your next Breakfast", for the log.
+function lastingText(e) {
+  return e.until === 'breakfast' ? ' until its owner\'s next Breakfast' : e.thisRound ? ' this Round' : '';
 }
 
 // Cards in a pile matching a filter (any printed field).

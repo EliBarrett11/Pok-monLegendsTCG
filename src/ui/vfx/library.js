@@ -83,6 +83,10 @@ export const ATTACKS = {
   'Grass Special': 'grass-special',
   'Bug Physical': 'bug-physical',
   'Rock Physical': 'rock-physical',
+  // N1: the neutral cards' three new combinations (Shinx, Dragonite, Dusclops).
+  'Electric Physical': 'electric-physical',
+  'Dragon Physical': 'dragon-physical',
+  'Ghost Special': 'ghost-special',
 };
 export const FALLBACKS = ['generic-physical', 'generic-special'];
 export function attackAnimation(card) {
@@ -95,6 +99,7 @@ export const COUNTERS = {
   'electric-special': 'electric-counter', 'fighting-physical': 'fighting-counter',
   'dark-physical': 'dark-counter', 'normal-physical': 'normal-counter',
   'grass-special': 'grass-counter', 'bug-physical': 'bug-counter', 'rock-physical': 'rock-counter',
+  'electric-physical': 'electric-counter', 'dragon-physical': 'dragon-counter', 'ghost-special': 'ghost-counter',
 };
 export const counterAnimation = (card) => COUNTERS[attackAnimation(card)] ?? 'generic-counter';
 
@@ -117,6 +122,10 @@ export const STRATEGIES = {
   'sleep-powder': 'strategy-sleep-powder',
   synthesis: 'strategy-synthesis',
   'solar-beam': 'strategy-solar-beam',
+  // N1 neutrals.
+  'hyper-voice': 'strategy-hyper-voice',
+  thunderbolt: 'strategy-thunderbolt',
+  'rock-slide': 'strategy-rock-slide',
 };
 export const STRATEGY_FALLBACK = 'strategy-generic';
 // The Type colour each card flares in.
@@ -124,6 +133,8 @@ export const STRATEGY_TYPES = {
   ember: 'Fire', 'flame-charge': 'Fire', 'heat-wave': 'Fire', 'fire-blast': 'Fire',
   'aqua-ring': 'Water', 'bubble-beam': 'Water', dive: 'Water', surf: 'Water',
   'leech-seed': 'Grass', 'sleep-powder': 'Grass', synthesis: 'Grass', 'solar-beam': 'Grass',
+  // N1: the neutral Strategy Cards flare in their own Type's colour.
+  'hyper-voice': 'Normal', thunderbolt: 'Electric', 'rock-slide': 'Rock',
 };
 export const strategyTint = (card) => tintOf(STRATEGY_TYPES[card?.id] ?? 'Normal');
 export const strategyAnimation = (card) => STRATEGIES[card?.id] ?? STRATEGY_FALLBACK;
@@ -159,6 +170,9 @@ export function composeStrategy(id) {
 export const SWEEPS = {
   heatWall: { line: ['heatFlames', 'heatEmbers'], distort: 'heat', skew: 260, hit: { enemy: ['scorchCatch', 'heatIgnite'], friend: [] } },
   surfWave: { line: ['surfSpray', 'surfFoam'], sprite: 'wave', tiles: 4, skew: 320, hit: { enemy: ['splashCrown', 'sprayDroplets'], friend: ['healGlints'] } },
+  // N1: Hyper Voice's rings of sound; Rock Slide's falling rocks (only the chosen Zone's cards take a hit).
+  soundWave: { line: ['soundRings'], distort: 'heat', skew: 200, hit: { enemy: ['impactStar', 'strikeRing'], friend: [] } },
+  rockFall: { line: ['rockRain', 'rockTrailDust'], skew: 240, hit: { enemy: ['rockShards', 'rockDust'], friend: [] } },
 };
 
 // --- Summons, defeats, healing, Trainers, Supporters (docs/vfx.md section 6) ----------------
@@ -336,6 +350,12 @@ export const EMITTERS = {
   fistSparks: { tex: 'streak', blend: 'add', count: 14, at: 'centre', dir: 'radial', speed: R(380, 820), gravity: 700, drag: 1, life: R(200, 380), size: [R(0.45, 0.8), 0.2], alpha: [1, 0], tint: ['#ffb070', '#ffffff'], alignVelocity: true },
   // Dark Physical: Feint Attack (melts into shadow, slashes from behind)
   shadowMelt: { tex: 'shadow', blend: 'alpha', rate: 24, at: 'card', area: 0.8, dir: 'up', speed: R(40, 120), life: R(400, 650), size: [R(0.12, 0.17), R(0.24, 0.32)], alpha: [0.85, 0], fadeIn: 60, rot: R(0, 6.28), spin: R(-1, 1) },
+  // N1 Strategy Cards: Hyper Voice's sound rings, Rock Slide's falling rocks.
+  soundRings: { tex: 'shockwave', blend: 'add', rate: 26, at: 'card', area: 0.6, dir: 'none', life: R(380, 560), size: [0.2, 0.9], alpha: [0.75, 0], squash: 0.5, tint: ['#fff3d0', '#ffffff'] },
+  rockRain: { tex: 'rocks', blend: 'alpha', rate: 34, at: 'card', area: 0.9, offsetY: -0.6, dir: 'down', speed: R(380, 700), gravity: 900, life: R(400, 650), size: [R(0.35, 0.6), 0.3], alpha: [1, 0.4], spin: R(-8, 8) },
+  // N1: Dusclops's shadow ball and the Ghost hit.
+  shadowOrbTrail: { tex: 'shadow', blend: 'alpha', rate: 40, at: 'card', area: 0.2, dir: 'back', speed: R(30, 90), life: R(300, 500), size: [R(0.1, 0.14), R(0.2, 0.28)], alpha: [0.75, 0], rot: R(0, 6.28), spin: R(-1, 1) },
+  ghostWisps: { tex: 'glow', blend: 'add', count: 14, at: 'centre', dir: 'radial', speed: R(120, 360), drag: 1.6, life: R(450, 750), size: [R(0.25, 0.4), 0.05], alpha: [0.9, 0], tint: ['#9a7aff', '#d8c8ff'] },
   shadowPuff: { tex: 'shadow', blend: 'alpha', count: 6, at: 'card', area: 0.5, dir: 'radial', speed: R(40, 140), drag: 1.5, life: R(450, 700), size: [R(0.16, 0.22), R(0.34, 0.46)], alpha: [0.8, 0], rot: R(0, 6.28), spin: R(-1.2, 1.2) },
   slashMarks: { tex: 'slash', blend: 'add', count: 1, at: 'centre', life: 440, size: [0.32, 0.88], alpha: [1, 0], rot: R(-0.2, 0.2) },
   slashSparks: { tex: 'streak', blend: 'add', count: 18, at: 'centre', dir: 'radial', speed: R(300, 800), drag: 1.2, life: R(200, 380), size: [R(0.4, 0.8), 0.15], alpha: [1, 0], tint: ['#c070ff', '#ffffff'], alignVelocity: true },
@@ -691,6 +711,60 @@ export const TIMELINES = {
       { at: 640, end: 1200, track: 'target', motion: 'recoil' },
     ],
   },
+  // N1 — Electric Physical (Shinx): Spark. It crackles, dashes in trailing light
+  // and hits with a burst of sparks; the target crackles.
+  'electric-physical': {
+    budget: 'attack', duration: 1150, approach: [220, 400],
+    style: { flash: 'electric', overrunTrail: 'overrunStreaks', overrunBurst: 'boltSparks', overrunTint: ['#ffe14a', '#ffffff'] },
+    beats: [
+      { at: 0, end: 220, track: 'attacker', motion: 'windup' },
+      { at: 0, end: 220, emit: 'chargeSparks', on: 'attacker' },
+      { at: 220, end: 400, track: 'attacker', motion: 'dash' },
+      { at: 220, end: 400, ribbon: 'tintTrail', on: 'attacker' },
+      { at: 400, cue: 'impact', hitstop: 70, shake: 11, flash: 'electric', bloom: 1, distort: 'shockwave' },
+      { at: 400, emit: 'impactStar', on: 'impact', tint: ['#fff3a0', '#ffffff'] },
+      { at: 400, emit: 'boltSparks', on: 'impact' },
+      { at: 400, end: 850, emit: 'crackleArcs', on: 'target' },
+      { at: 400, end: 1000, track: 'target', motion: 'shocked' },
+      { at: 400, end: 760, track: 'attacker', motion: 'return' },
+    ],
+  },
+  // N1 — Dragon Physical (Dragonite): it rises, then dives in on a violet streak
+  // and lands a heavy blow with a shockwave ring.
+  'dragon-physical': {
+    budget: 'attack', duration: 1250, approach: [380, 620],
+    style: { flash: 'type', overrunTrail: 'overrunStreaks', overrunBurst: 'genericSparks' },
+    beats: [
+      { at: 0, end: 380, track: 'attacker', motion: 'heave' },
+      { at: 0, end: 380, emit: 'chargeOrb', on: 'attacker', tint: ['#6a4aff', '#c8b8ff'] },
+      { at: 380, end: 620, track: 'attacker', motion: 'slam' },
+      { at: 380, end: 620, ribbon: 'tintTrail', on: 'attacker' },
+      { at: 620, cue: 'impact', hitstop: 110, shake: 18, flash: 'type', bloom: 1.1, distort: 'shockwave' },
+      { at: 620, emit: 'impactStar', on: 'impact', tint: ['#c8b8ff', '#ffffff'] },
+      { at: 620, emit: 'genericSparks', on: 'impact' },
+      { at: 620, emit: 'slamRing', on: 'impact', tint: '#b8a8ff' },
+      { at: 620, end: 980, track: 'attacker', motion: 'return' },
+      { at: 620, end: 1200, track: 'target', motion: 'recoil' },
+    ],
+  },
+  // N1 — Ghost Special (Dusclops): Shadow Ball. A dark orb gathers, floats across
+  // trailing shadow, and bursts into violet wisps.
+  'ghost-special': {
+    budget: 'attack', duration: 1200, approach: [320, 640],
+    style: { flash: 'dark', overrunTrail: 'overrunShadow', overrunBurst: 'ghostWisps' },
+    beats: [
+      { at: 0, end: 320, track: 'attacker', motion: 'charge' },
+      { at: 0, end: 320, emit: 'shadowMelt', on: 'attacker' },
+      { at: 0, end: 320, emit: 'chargeOrb', on: 'attacker', tint: ['#7a5aff', '#d8c8ff'] },
+      { at: 320, end: 640, projectile: 'orb', on: 'path' },
+      { at: 320, end: 640, emit: 'shadowOrbTrail', on: 'projectile' },
+      { at: 640, cue: 'impact', hitstop: 80, shake: 12, flash: 'dark', bloom: 1, distort: 'shockwave' },
+      { at: 640, emit: 'shadowPuff', on: 'impact' },
+      { at: 640, emit: 'ghostWisps', on: 'impact' },
+      { at: 640, end: 1150, track: 'target', motion: 'recoil' },
+      { at: 320, end: 600, track: 'attacker', motion: 'settle' },
+    ],
+  },
   // Burn from a Pokémon's ability (Charmander's and Houndoom's On Summon):
   // embers cast from it swirl into the target and become its Burn.
   'ember-cast': {
@@ -1011,6 +1085,26 @@ export const TIMELINES = {
       { at: 160, end: 400, track: 'self', motion: 'settle' },
     ],
   },
+  'dragon-counter': {
+    budget: 'counter', duration: 540,
+    beats: [
+      { at: 0, end: 160, track: 'self', motion: 'flinchForward' },
+      { at: 60, cue: 'counterHit', shake: 7, flash: 'type', bloom: 0.6 },
+      { at: 60, emit: 'impactStar', on: 'counterImpact', tint: ['#c8b8ff', '#ffffff'] },
+      { at: 60, emit: 'strikeRing', on: 'counterImpact', tint: '#b8a8ff' },
+      { at: 160, end: 400, track: 'self', motion: 'settle' },
+    ],
+  },
+  'ghost-counter': {
+    budget: 'counter', duration: 540,
+    beats: [
+      { at: 0, end: 160, track: 'self', motion: 'flinchForward' },
+      { at: 60, cue: 'counterHit', shake: 5, flash: 'dark', bloom: 0.6 },
+      { at: 60, emit: 'shadowPuff', on: 'counterImpact', countScale: 0.6 },
+      { at: 60, emit: 'ghostWisps', on: 'counterImpact', countScale: 0.6 },
+      { at: 160, end: 400, track: 'self', motion: 'settle' },
+    ],
+  },
   'normal-counter': {
     budget: 'counter', duration: 560,
     beats: [
@@ -1125,6 +1219,36 @@ export const TIMELINES = {
     beats: [
       { at: 0, end: 1150, sweep: 'surfWave', on: 'board' },
       { at: 1150, cue: 'waveDone', shake: 6 },
+    ],
+  },
+  // N1 — Hyper Voice: rings of sound roll across the enemy side, jolting every enemy Pokémon.
+  'strategy-hyper-voice': {
+    budget: 'strategy', duration: 1150,
+    beats: [
+      { at: 0, end: 1000, sweep: 'soundWave', on: 'enemySide' },
+      { at: 1000, cue: 'waveDone', shake: 8, bloom: 0.5 },
+    ],
+  },
+  // N1 — Thunderbolt: a bolt from the card to its target, a white flicker, and it crackles.
+  'strategy-thunderbolt': {
+    budget: 'strategy', duration: 1100,
+    beats: [
+      { at: 0, end: 300, emit: 'chargeSparks', on: 'card' },
+      { at: 300, cue: 'bolt', flicker: true },
+      { at: 300, end: 480, beam: 'lightningBolt', on: 'attacker' },
+      { at: 340, cue: 'impact', hitstop: 90, shake: 14, flash: 'electric', bloom: 1.3, distort: 'shockwave' },
+      { at: 340, emit: 'impactStar', on: 'target', tint: ['#fff3a0', '#ffffff'] },
+      { at: 340, emit: 'boltSparks', on: 'target' },
+      { at: 340, end: 900, emit: 'crackleArcs', on: 'target' },
+      { at: 340, end: 1000, track: 'target', motion: 'shocked' },
+    ],
+  },
+  // N1 — Rock Slide: rocks rain down across the enemy side; the chosen Zone's Pokémon are struck.
+  'strategy-rock-slide': {
+    budget: 'strategy', duration: 1150,
+    beats: [
+      { at: 0, end: 1000, sweep: 'rockFall', on: 'enemySide' },
+      { at: 1000, cue: 'waveDone', shake: 10 },
     ],
   },
   // A Strategy Card with no animation of its own yet: the opening, then a burst on the target.

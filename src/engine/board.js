@@ -404,7 +404,7 @@ export function leaveArena(card) {
   delete card.status;
   delete card.roundBuffs;
   delete card.lastHit;
-  if (card.granted) card.granted = card.granted.filter((k) => !k.thisRound);
+  if (card.granted) card.granted = card.granted.filter((k) => !k.thisRound && !k.until);
 }
 
 // --- PokéDollars, Held Items and the PokéMart ----------------------------------

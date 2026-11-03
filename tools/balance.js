@@ -202,7 +202,12 @@ const blank = () => ({
   atkGuard: 0, atkOther: 0, atkTrainer: 0, alertChecks: 0, alertBlocked: 0, guardHealed: 0,
   growthGained: 0, growthSpent: 0, evolves: 0, evolvesBreakfast: 0, beams: 0,
   dmgInfiltrator: 0, burnCards: 0, burnScorch: 0, rain4Saved: 0, rain8Removed: 0, douseRemoved: 0, beamDamage: 0, firstEvolve: 0, evolvedIn: 0, lostUnevolved: 0,
+  neutral: {}, retaliate: 0, onDefend: 0,
 });
+// The N1 neutral cards (docs/decks.md "Neutral cards"): how often each is played and how its
+// player did in those matches. Items count wherever they came from (the PokéMart sells them to both).
+const NEUTRALS = new Set(['Dusclops', 'Absol', 'Hyper Voice', 'Black Belt', 'Dragonite', 'Shinx', 'Thunderbolt', 'Rocky Helmet', 'Tracey',
+  'Metapod', 'Geodude', 'Rock Slide', 'Brock']);
 // Defence and Special Defence Pokémon guard their Trainers (rules 4.2.1).
 const GUARD = ['Defence', 'Special Defence'];
 
@@ -230,6 +235,7 @@ function runMatchup(SEAT1, SEAT2) {
       // Where each Trainer's Burn counters came from (Scorch: applied during an attack;
       // cards: any other card or effect), to share Burn damage at Supper between them.
       const burnFrom = {};
+      const used = { player: {}, ai: {} };   // neutral cards played this match, by name
       while (s.phase !== 'gameOver' && s.round < STALL_ROUND) {
         const who = PLAYERS.find((w) => legalActions(s, w).length) ?? 'player';
         const action = chooseAction(s, who, { rng }) ?? { type: 'flipCoin' };
@@ -293,6 +299,9 @@ function runMatchup(SEAT1, SEAT2) {
             for (const t of e.targets) if (t.count > 0) byDeck[keyOf(decks, t.owner)].rain4Saved += 1;
           }
           if (e.type === 'overrun') overrun = true;
+          if ((e.type === 'cardPlayed' || e.type === 'itemUsed') && NEUTRALS.has(e.name)) used[e.who][e.name] = (used[e.who][e.name] ?? 0) + 1;
+          if (e.type === 'retaliate') byDeck[keyOf(decks, e.who)].retaliate += Math.max(0, e.amount);
+          if (e.type === 'abilityTriggered' && e.word === 'On Defend' && ['Dusclops', 'Geodude'].includes(e.source?.name)) byDeck[keyOf(decks, e.who)].onDefend += 1;
           if (e.type === 'growthGained') byDeck[keyOf(decks, e.who)].growthGained += e.amount;
           if (e.type === 'growthSpent') byDeck[keyOf(decks, e.who)].growthSpent += e.amount;
           if (e.type === 'evolvePaid') byDeck[keyOf(decks, e.who)].growthSpent += e.growth;
@@ -337,6 +346,12 @@ function runMatchup(SEAT1, SEAT2) {
       for (const w of PLAYERS) {
         const d = byDeck[keyOf(decks, w)];
         d.matches += 1;
+        for (const [name, n] of Object.entries(used[w])) {
+          const x = (d.neutral[name] ??= { matches: 0, plays: 0, wins: 0 });
+          x.matches += 1;
+          x.plays += n;
+          if (s.phase === 'gameOver' && s.winner === w) x.wins += 1;
+        }
         d.rounds += s.round;
         if (ranDry[w]) d.ranDry += 1;
         if (firstEvolve[w] !== null) { d.evolvedIn += 1; d.firstEvolve += firstEvolve[w]; }
@@ -395,6 +410,15 @@ for (const [SEAT1, SEAT2] of MATCHUPS) {
       console.log(`         ${avg(d.evolves, d.matches)} Evolves per match; first Evolve in Round ${avg(d.firstEvolve, d.evolvedIn)} on average (in ${pct(d.evolvedIn, d.matches)} of matches); `
         + `lost before evolving anything in ${pct(d.lostUnevolved, d.losses)} of its losses`);
       console.log(`         Solar Beam: played ${avg(d.beams, d.matches)} per match, ${avg(d.beamDamage, d.matches)} damage per match (${avg(d.beamDamage, d.beams)} per Solar Beam)`);
+    }
+    // Neutral cards it played: in how many matches, how often, and its win rate with and without.
+    const neutrals = Object.entries(d.neutral).sort((a, b) => b[1].matches - a[1].matches);
+    if (neutrals.length) {
+      console.log(`         neutral cards (played in % of matches · per match · won with / without):`);
+      for (const [name, x] of neutrals) {
+        console.log(`           ${name}: ${pct(x.matches, d.matches)} · ${avg(x.plays, d.matches)} · ${pct(x.wins, x.matches)} / ${pct(d.wins - x.wins, d.matches - x.matches)}`);
+      }
+      if (d.retaliate || d.onDefend) console.log(`         Rocky Helmet dealt ${avg(d.retaliate, d.matches)} damage back per match; Dusclops/Geodude On Defend fired ${avg(d.onDefend, d.matches)} per match`);
     }
   }
   ORDERS.forEach((decks, i) => {
