@@ -40,7 +40,7 @@ Fire has no guards at all, so it gets a **Special Defence** guard. Grass needs m
 |---|---|---|---|---|---|---|
 | **Dragonite** | 1 | Dragon Pokémon | Cost 6 · 7 Physical · 8 Hitpoints · Steady · Epic. Infiltrator, Shell 1. | Reach and a finisher: it flies over guards to hit Trainers. | 1 Quagsire | ✅ dragonite |
 | **Shinx** | 1 | Electric Pokémon | Cost 1 · 3 Physical · 4 Hitpoints · Swift · Common. Quick Attack. | An early answer to Water's slow start. | 1 Lapras | ✅ shinx |
-| **Thunderbolt** | 1 | Strategy | Cost 4 · Rare. Deal 4 damage to an enemy Pokémon or Trainer. (Targeted) | Burst, which Water lacks. | 1 Bubble Beam | ❌ new art: thunderbolt |
+| **Thunderbolt** | 1 | Strategy | Cost 4 · Rare. Deal 4 damage to an enemy Pokémon or Trainer. (Targeted) | Burst, which Water lacks. | 1 Bubble Beam | ✅ thunderbolt |
 | **Rocky Helmet** | 1 | Item (Held) | $3 · Rare. When the holder takes damage from an attack, deal 2 damage to the attacker. | A defence that punishes Fire's Infiltrators, which ignore guards. | 1 Mystic Water | ✅ rocky-helmet |
 | **Tracey** | 1 | Supporter | Rare · Discard 1. Look at the top 4 cards of your Draw Pile: put 2 into your hand, the rest on the bottom. **Gift:** a Pokémon card → put 3 into your hand. | Card selection, which builds on Water's value plan. | 1 Nurse Joy | ✅ tracey |
 
@@ -50,7 +50,7 @@ Fire has no guards at all, so it gets a **Special Defence** guard. Grass needs m
 |---|---|---|---|---|---|---|
 | **Metapod** | 1 | Bug Pokémon | Cost 1 · 1 Physical · 6 **Defence** · Slow · Common. Shell 1 (Harden). | A cheap Round-1 guard against Fire's Physical attackers. | 1 Sewaddle | ✅ metapod |
 | **Geodude** | 1 | Rock Pokémon | Cost 2 · 3 Physical · 6 **Defence** · Slow · Common. **On Defend:** deal 1 damage to the attacker. | A second early guard that chips at aggro. | 1 Bulbasaur (see note) | ✅ geodude |
-| **Rock Slide** | 1 | Strategy | Cost 3 · Rare. Deal 2 damage to each enemy Pokémon in a chosen Zone. (Area) | Damage and a partial board clear; Grass had neither. | 1 Leech Seed | ❌ new art: rock-slide |
+| **Rock Slide** | 1 | Strategy | Cost 3 · Rare. Deal 2 damage to each enemy Pokémon in a chosen Zone. (Area) | Damage and a partial board clear; Grass had neither. | 1 Leech Seed | ✅ rock-slide |
 | **Brock** | 1 | Supporter | Rare · Release 1. Friendly Pokémon in a chosen Zone gain +2 Strength and Shell 1 until your next Breakfast. **Gift:** a Rock Pokémon → every Zone instead. | A defensive turn to survive the early rush; builds on Sudowoodo and Geodude. | 1 Mallow | ✅ brock |
 
 *Note:* Geodude replaces **1 Bulbasaur** (3 → 2) to keep 18 Pokémon. If the engine needs all three Bulbasaur, it could replace a Sunkern instead.
@@ -59,7 +59,7 @@ Fire has no guards at all, so it gets a **Special Defence** guard. Grass needs m
 
 ## Summary
 
-- **13 new neutral cards** (Fire 4, Water 5, Grass 4). Only **2 need new art:** Thunderbolt and Rock Slide.
+- **13 new neutral cards** (Fire 4, Water 5, Grass 4). **All 13 have new art** (delivered by Elliott, 3 Nov), replacing the older placeholder art.
 - **What each deck gains:**
   - **Fire:** a Special Defence guard, a board clear, Burn payoff, Overrun.
   - **Water:** reach, a cheap early body, burst damage, punishment for Infiltrators, card selection.
