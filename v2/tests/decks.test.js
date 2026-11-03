@@ -59,7 +59,7 @@ const settle = (s) => { const t = structuredClone(s); t.turn = 'player'; return 
   assert.deepEqual([copies('water', 'w-squirtle'), copies('water', 'w-cerulean-cape'), copies('water', 'w-aqua-ring')], [3, 2, 2]);
   assert.deepEqual([copies('grass', 'g-bulbasaur'), copies('grass', 'g-oddish'), copies('grass', 'g-sunkern'), copies('grass', 'g-sewaddle'), copies('grass', 'g-solar-beam')], [3, 3, 3, 3, 2]);
   // Suggested caps are the deck defaults.
-  assert.deepEqual(['f-ponyta', 'f-sneasel', 'f-entei', 'w-wooper', 'g-bonsly'].map((id) => DECKS[id[0] === 'f' ? 'fire' : id[0] === 'w' ? 'water' : 'grass'].list.find((e) => e.series === id).cap), [4, 5, 7, 4, 4]);
+  assert.deepEqual(['f-ponyta', 'f-sneasel', 'f-entei', 'w-wooper', 'g-bonsly'].map((id) => DECKS[id[0] === 'f' ? 'fire' : id[0] === 'w' ? 'water' : 'grass'].list.find((e) => e.series === id).cap), [4, 5, undefined, 4, 4], 'a Legendary has no cap');
 }
 
 // --- Stages, stats, weights and abilities by Level (a sample) ---------------------------------------------
@@ -75,7 +75,11 @@ const settle = (s) => { const t = structuredClone(s); t.turn = 'player'; return 
   assert.deepEqual([pokemonAt('w-eevee', 3).type, pokemonAt('w-eevee', 4).type, pokemonAt('w-eevee', 4).strengthType], ['Normal', 'Water', 'Special Defence'], 'Vaporeon: Water, Special Defence guard');
   assert.deepEqual([pokemonAt('g-bulbasaur', 1).strengthType, pokemonAt('g-bulbasaur', 3).strengthType], ['Special Defence', 'Hitpoints'], 'guard on Bulbasaur only');
   assert.deepEqual([pokemonAt('g-sewaddle', 3).strengthType, pokemonAt('g-sewaddle', 5).speed], ['Defence', 'Swift'], 'Swadloon guards; Leavanny is Swift');
-  assert.deepEqual([pokemonAt('f-entei', 7).attack, pokemonAt('f-entei', 7).strength, pokemonAt('f-entei', 7).cost], [10, 10, 7], 'Entei L7 10/10, heavy Legendary costs 7');
+  // Legendaries (V7a): single cards with a fixed cost and stats, no Levels, never trained.
+  const legend = (id) => { const c = pokemonAt(id, 1); return [c.cost, c.attack, c.strength, seriesDef(id).maxLevel]; };
+  assert.deepEqual([legend('f-entei'), legend('w-kyogre'), legend('g-celebi')], [[6, 9, 9, 1], [7, 10, 12, 1], [3, 4, 6, 1]]);
+  assert.throws(() => pokemonAt('f-entei', 2), /no Level 2/);
+  assert.deepEqual([1, 6, 11].map((r) => cardAt({ series: 'w-kyogre' }, r).cost), [7, 7, 7], 'the same card in every Round');
   assert.deepEqual([pokemonAt('f-ponyta', 1).cost, pokemonAt('f-magby', 1).cost], [0, 2], 'light −1 (min 0), heavy +1');
   assert.equal(pokemonAt('w-dratini', 1).art, 'dragonite', 'missing art falls back to the line base');
   assert.equal(pokemonAt('g-eevee', 4).art, 'eevee', 'Leafeon shares the Eevee art for now');
@@ -94,13 +98,26 @@ const settle = (s) => { const t = structuredClone(s); t.turn = 'player'; return 
   s.turn = 'player';
   s.players.player.growth = 9;
   assert.deepEqual(nurtureSpaces(s, 'player'), [], 'once per Pokémon per Round');
-  // On Evolve: Ivysaur Leech Seeds an enemy Pokémon in its Location (Home here).
+  // On Evolve: Ivysaur Leech Seeds an enemy Pokémon in its Location (at Home: its own lane).
   s = battle(2, 'grass', 'fire');
   place(s, 'player', 0, 'g-bulbasaur', 2);
+  place(s, 'ai', 0, 'f-growlithe', 3);
   place(s, 'ai', 4, 'f-growlithe', 3);
   s.players.player.growth = 2;
   s = act(s, { type: 'nurture', who: 'player', space: 0 });
-  assert.equal(s.players.ai.row[4].seededBy, 'player', 'On Evolve fired');
+  assert.deepEqual([s.players.ai.row[0].seededBy, s.players.ai.row[4].seededBy ?? null], ['player', null], 'On Evolve fired, in its own lane only');
+  // Elliott's V6 ruling: the player chooses an On Evolve target (with more than one option).
+  s = battle(2, 'grass', 'fire');
+  s = act(s, { type: 'playLocation', who: 'player', uid: give(s, 'player', 'g-eterna-forest'), start: 0 });   // lanes 1–3
+  s.turn = 'player';
+  place(s, 'player', 1, 'g-bulbasaur', 2);
+  place(s, 'ai', 0, 'f-growlithe', 3);
+  place(s, 'ai', 2, 'f-ponyta', 3);
+  s.players.player.growth = 2;
+  s = act(s, { type: 'nurture', who: 'player', space: 1 });
+  assert.deepEqual([s.choices.length, legalActions(s, 'player'), legalActions(s, 'ai')], [1, ['chooseTarget'], []], 'it waits for the player');
+  s = act(s, { type: 'chooseTarget', who: 'player', targets: [mon('ai', 2)] });
+  assert.deepEqual([s.players.ai.row[2].seededBy, s.players.ai.row[0].seededBy ?? null, s.choices.length], ['player', null, 0]);
   // Gardenia: Nurturing in her lane costs 1 less.
   s = battle(2, 'grass', 'fire');
   place(s, 'player', 3, 'g-oddish', 1);
@@ -138,7 +155,7 @@ const settle = (s) => { const t = structuredClone(s); t.turn = 'player'; return 
   assert.deepEqual([t.players.player.recognition, t.players.player.growth], [4, 3], '4 Growth: 4 damage to the enemy player');
   t = act(s, { type: 'playStrategy', who: 'player', uid, pay: 4, targets: [pc('ai')] });
   assert.deepEqual([t.players.player.recognition, t.players.player.growth], [7, 0], 'up to 10: all 7 by default');
-  assert.equal(cardDef('g-solar-beam').breakpoints[1].target.unguarded, true, '4: the target can’t be guarded');
+  assert.ok(!cardDef('g-solar-beam').breakpoints[1].target.unguarded && !/guarded/.test(cardDef('g-solar-beam').breakpoints[1].text), '4: no "can\u2019t be guarded" (Elliott\'s V6 ruling)');
   assert.ok(cardDef('g-solar-beam').retain);
   // Synthesis 1: Douse your player character.
   s = battle(3, 'grass', 'fire');
@@ -248,13 +265,19 @@ const settle = (s) => { const t = structuredClone(s); t.turn = 'player'; return 
   assert.equal(s.players.player.hand.length, 1);
   s = battle(4, 'water', 'fire');
   place(s, 'ai', 2, 'f-growlithe', 4);
+  place(s, 'ai', 7, 'f-growlithe', 4);
   s = act(s, { type: 'summon', who: 'player', uid: give(s, 'player', 'w-magikarp', 4), space: 7 });
-  assert.equal(s.players.ai.row[2].currentStrength, 6 - 2, 'Home is its Location: every Home lane');
+  assert.deepEqual([s.players.ai.row[7].currentStrength, s.players.ai.row[2].currentStrength], [6 - 2, 6], 'at Home, its Location is its own lane (Elliott\'s V6 ruling)');
   // Rally: Horsea +1/+1 when another friendly Pokémon is summoned into its Location.
   s = battle(2, 'water', 'fire');
+  s = act(s, { type: 'playLocation', who: 'player', uid: give(s, 'player', 'w-cerulean-cape'), start: 0 });   // lanes 1–2
+  s.turn = 'player';
   place(s, 'player', 0, 'w-horsea', 1);
-  s = act(s, { type: 'summon', who: 'player', uid: give(s, 'player', 'w-wingull'), space: 3 });
+  s = act(s, { type: 'summon', who: 'player', uid: give(s, 'player', 'w-wingull'), space: 1 });
   assert.deepEqual([s.players.player.row[0].attack, s.players.player.row[0].strength], [3, 5]);
+  s.turn = 'player';
+  s = act(s, { type: 'summon', who: 'player', uid: give(s, 'player', 'w-wingull'), space: 5 });
+  assert.deepEqual([s.players.player.row[0].attack, s.players.player.row[0].strength], [3, 5], 'not from outside its Location');
   // Vaporeon On Heal: +1 Attack; Happiny On Breakfast heals.
   s = battle(4, 'water', 'fire');
   place(s, 'player', 0, 'w-eevee', 4, { currentStrength: 3 });   // Vaporeon 5/7
@@ -264,15 +287,20 @@ const settle = (s) => { const t = structuredClone(s); t.turn = 'player'; return 
   assert.ok(v.currentStrength > 3 && v.attack >= 6, 'healed (Regenerate 2, Chansey) and gained Attack');
   // Bellossom: On Evolve or Summon: each enemy Pokémon in its Location falls Asleep.
   s = battle(5, 'grass', 'fire');
+  s = act(s, { type: 'playLocation', who: 'player', uid: give(s, 'player', 'g-eterna-forest'), start: 0 });   // lanes 1–3
+  s.turn = 'player';
   place(s, 'ai', 0, 'f-growlithe', 1);
+  place(s, 'ai', 2, 'f-ponyta', 1);
   place(s, 'ai', 5, 'f-ponyta', 1);
-  s = act(s, { type: 'summon', who: 'player', uid: give(s, 'player', 'g-oddish', 5), space: 8 });
-  assert.deepEqual([s.players.ai.row[0].asleep, s.players.ai.row[5].asleep], [true, true]);
+  s = act(s, { type: 'summon', who: 'player', uid: give(s, 'player', 'g-oddish', 5), space: 1 });
+  assert.deepEqual([s.players.ai.row[0].asleep, s.players.ai.row[2].asleep, s.players.ai.row[5].asleep ?? false], [true, true, false]);
   // Gloom: On Summon: an enemy Pokémon in its Location falls Asleep (the player's choice).
   s = battle(3, 'grass', 'fire');
+  s = act(s, { type: 'playLocation', who: 'player', uid: give(s, 'player', 'g-eterna-forest'), start: 0 });
+  s.turn = 'player';
   place(s, 'ai', 0, 'f-growlithe', 1);
   place(s, 'ai', 1, 'f-ponyta', 1);
-  s = act(s, { type: 'summon', who: 'player', uid: give(s, 'player', 'g-oddish', 3), space: 8, targets: [mon('ai', 1)] });
+  s = act(s, { type: 'summon', who: 'player', uid: give(s, 'player', 'g-oddish', 3), space: 2, targets: [mon('ai', 1)] });
   assert.deepEqual([s.players.ai.row[0].asleep ?? false, s.players.ai.row[1].asleep], [false, true]);
 }
 
@@ -289,11 +317,13 @@ const settle = (s) => { const t = structuredClone(s); t.turn = 'player'; return 
   place(s, 'ai', 0, 'w-squirtle', 3);
   s = act(s, { type: 'playSupporter', who: 'player', uid: give(s, 'player', 'f-firebreather'), release: [give(s, 'player', 'f-growlithe')] });
   assert.deepEqual([s.players.ai.burn, s.players.ai.row[0].burn], [3, 1], 'Favour (a Fire Pokémon): Burn 3, and 1 to every enemy Pokémon');
+  // Chili on a single Home lane (Elliott's V6 ruling: a real Location or one Home lane).
   s = battle(3);
-  place(s, 'player', 0, 'f-mankey', 1);
+  place(s, 'player', 0, 'f-mankey', 1, { spent: true });
   place(s, 'player', 1, 'f-ponyta', 1, { spent: true });
-  s = act(s, { type: 'playSupporter', who: 'player', uid: give(s, 'player', 'f-chili'), release: [give(s, 'player', 'f-ponyta')], targets: [{ who: 'player', kind: 'location', id: 'home' }] });
-  assert.deepEqual([s.players.player.row[0].attack, s.players.player.row[1].spent, s.players.player.row[0].keywords.filter((k) => k === 'Overrun').length], [5, false, 2], 'Chili Favour (Swift): +2, Overrun, Active');
+  assert.ok(targetOptions(s, 'player', cardDef('f-chili').target).some((t) => t.id === 'home-4'), 'each Home lane can be chosen');
+  s = act(s, { type: 'playSupporter', who: 'player', uid: give(s, 'player', 'f-chili'), release: [give(s, 'player', 'f-ponyta')], targets: [{ who: 'player', kind: 'location', id: 'home-0' }] });
+  assert.deepEqual([s.players.player.row[0].attack, s.players.player.row[0].spent, s.players.player.row[0].keywords.filter((k) => k === 'Overrun').length, s.players.player.row[1].spent], [5, false, 2, true], 'Chili Favour (Swift): +2, Overrun, Active; only that lane');
   s = passBoth(s);
   assert.equal(s.players.player.row[0].attack, 3, '"this Round" ends at Supper');
   s = battle(3);
@@ -376,6 +406,12 @@ const settle = (s) => { const t = structuredClone(s); t.turn = 'player'; return 
   s.players.player.bag = [{ ...cardDef('f-quick-claw'), uid: 'q1' }, { ...cardDef('f-charcoal'), uid: 'c1' }];
   s = act(s, { type: 'useItem', who: 'player', uid: 'q1', targets: [mon('player', 0)] });
   assert.equal(s.players.player.row[0].speedUp, 1);
+  // Quick Claw on a Swift holder gives Quick Attack instead (Elliott's V6 ruling).
+  s.turn = 'player';
+  place(s, 'player', 5, 'f-absol', 1);   // Swift
+  s.players.player.bag.push({ ...cardDef('p-quick-claw'), uid: 'q2' });
+  s = act(s, { type: 'useItem', who: 'player', uid: 'q2', targets: [mon('player', 5)] });
+  assert.deepEqual([s.players.player.row[5].speedUp ?? 0, s.players.player.row[5].keywords.includes('Quick Attack')], [0, true]);
   s.turn = 'player';
   place(s, 'player', 1, 'f-mankey', 1);
   s = act(s, { type: 'useItem', who: 'player', uid: 'c1', targets: [mon('player', 1)] });

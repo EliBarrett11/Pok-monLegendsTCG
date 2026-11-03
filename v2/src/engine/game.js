@@ -39,16 +39,23 @@ import { ITEMS, BAG_SIZE, FAVOURS } from './cardtypes.js';
 import { OBJECTIVES, CHAMPIONSHIP, rewardText } from './locations.js';
 
 export const PLAYERS = ['player', 'ai'];
+// The Recognition target and the Championship's Round (a variant may change them).
+export const targetOf = (s) => s.variant?.target ?? RECOGNITION_TARGET;
+export const champRoundOf = (s) => s.variant?.champRound ?? CHAMPIONSHIP_ROUND;
 export const NAMES = { player: 'You', ai: 'Opponent' };
 export const opponentOf = (who) => (who === 'player' ? 'ai' : 'player');
 
 // --- Setup ---------------------------------------------------------------------------------
 
-export function createGame(seed = Date.now(), { decks = { player: TEST_DECK, ai: TEST_DECK }, itemPool = ITEMS, plans = {} } = {}) {
+// variant (V7a, for the balance experiment; off by default): { target (Recognition to
+// win), locMult (Location Recognition rewards ×, rounded up), champRound (when the
+// Championship arrives), waterStrength (+N Strength for Water Pokémon), waterLocations
+// (Water's Locations last 1 Round longer, and each milestone gives +1 Recognition) }.
+export function createGame(seed = Date.now(), { decks = { player: TEST_DECK, ai: TEST_DECK }, itemPool = ITEMS, plans = {}, variant = null } = {}) {
   const state = {
     seed, rng: seed >>> 0, round: 0, phase: 'initiative', turn: null, initiative: null, passesInARow: 0,
     winner: null, result: null, suddenDeath: false, locations: [], nextLocation: 0, players: {}, log: [], events: [],
-    itemPool: [], nextItem: 0, assign: null,
+    itemPool: [], nextItem: 0, assign: null, choices: [], variant,
   };
   for (const who of PLAYERS) {
     state.players[who] = {
@@ -88,7 +95,7 @@ function followRound(s, who) {
   const p = s.players[who];
   for (const pile of ['hand', 'drawPile', 'discard']) {
     p[pile] = p[pile].map((card) => {
-      if (card.cardType !== 'Pokémon') return card;
+      if (card.cardType !== 'Pokémon' || card.legendary) return card;   // a Legendary has no Levels
       const level = levelFor(s.round, card.cap);
       if (level === card.level) return card;
       const next = atLevel(card, level);
@@ -98,8 +105,7 @@ function followRound(s, who) {
   }
 }
 
-// The highest Level training can reach: the cap, and never Level 7 (Legendaries
-// reach it only by the Round).
+// The highest Level training can reach: the cap (a Legendary is a single card: never).
 export const trainTop = (card) => Math.min(card.cap ?? MAX_LEVEL, MAX_LEVEL);
 
 // Train a played Pokémon by n Levels, up to its cap: the new Level's stats, name and
@@ -117,6 +123,7 @@ export function train(s, who, space, n) {
     nurturedRound: card.nurturedRound, firedRound: card.firedRound, held: card.held, grown: card.grown, buffs: [],
   };
   if (card.empowered) applyEmpower(next);
+  next.strength += waterBonus(s, next);
   if (card.held) applyHeld(next, card.held);
   // Permanent gains (Rally, Rage, On Heal) and "this Round" / "until Breakfast" buffs stay.
   if (card.grown) { next.attack += card.grown.attack ?? 0; next.strength += card.grown.strength ?? 0; }
@@ -131,6 +138,9 @@ export function train(s, who, space, n) {
   if (next.stage !== card.stage) fireTrigger(s, who, space, 'onEvolve');
   return true;
 }
+
+// W1 (variant): Water Pokémon +N Strength at every Level.
+const waterBonus = (s, card) => (s.variant?.waterStrength && card.type === 'Water' ? s.variant.waterStrength : 0);
 
 // The Empowered summon's bonus, on the card.
 function applyEmpower(card) {
@@ -264,9 +274,11 @@ export const bracket = (state, kind, n) => (weatherTotals(state)[kind] ?? 0) >= 
 
 // A Location's lanes, or (for Home) every lane no Location covers: Home is the
 // starting location (1.1), so "its Location" for a Pokémon at Home is all of Home.
+// Elliott's V6 rulings: at Home, "its Location" is only that Pokémon's own lane; "a
+// chosen Location" is a real Location or a single Home lane (id 'home-<lane>').
 export const homeLanes = (state) => Array.from({ length: LANES }, (_, i) => i).filter((i) => !locationAt(state, i));
-export const lanesOf = (state, id) => (id === 'home' ? homeLanes(state) : state.locations.find((l) => l.uid === id)?.lanes ?? []);
-export const locLanesAt = (state, lane) => (locationAt(state, lane)?.lanes ?? homeLanes(state));
+export const lanesOf = (state, id) => (String(id).startsWith('home-') ? [Number(String(id).slice(5))] : state.locations.find((l) => l.uid === id)?.lanes ?? []);
+export const locLanesAt = (state, lane) => (locationAt(state, lane)?.lanes ?? [lane]);
 
 // The options for a target spec (cardtypes.js), for `who`. ctx: { space (the source's
 // space), lane, attacker, target }. Scopes: 'location' (the source's Location), 'lane'.
@@ -279,7 +291,7 @@ export function targetOptions(state, who, spec, ctx = {}) {
   const out = [];
   if (spec.kinds.includes('location')) {
     for (const l of state.locations) out.push({ who: side, kind: 'location', id: l.uid });
-    if (homeLanes(state).length) out.push({ who: side, kind: 'location', id: 'home' });
+    for (const lane of homeLanes(state)) out.push({ who: side, kind: 'location', id: `home-${lane}` });
   }
   if (spec.kinds.includes('pokemon')) {
     const lanes = spec.scope === 'location' ? locLanesAt(state, ctx.space ?? 0) : spec.scope === 'lane' ? [ctx.lane ?? ctx.space] : null;
@@ -436,6 +448,8 @@ export const nurtureSpaces = (state, who) => pokemonOf(state, who).filter(({ spa
 export const favourMet = (card, released) => !!card.favour && released.some((c) => FAVOURS[card.favour.condition].test(c));
 
 export function legalActions(state, who) {
+  // A waiting choice (an On Evolve target) comes before anything else.
+  if (state.choices?.length && state.phase !== 'gameOver') return state.choices[0].who === who ? ['chooseTarget'] : [];
   if (state.phase === 'initiative') return ['flipCoin'];
   if (state.phase === 'assign') return needsAssign(state, who) && !state.assign?.[who] ? ['assignPoints'] : [];
   if (state.phase !== 'battle' || state.turn !== who) return [];
@@ -459,6 +473,7 @@ export function legalActions(state, who) {
 // Who acts next: the coin flip (the player), the assign step (each player that still
 // has to lock in), or the player whose turn it is.
 export function actor(state) {
+  if (state.choices?.length && state.phase !== 'gameOver') return state.choices[0].who;
   if (state.phase === 'initiative') return 'player';
   if (state.phase === 'assign') return PLAYERS.find((w) => legalActions(state, w).length) ?? null;
   return state.turn;
@@ -689,6 +704,16 @@ const ACTIONS = {
     if (PLAYERS.every((w) => s.assign[w] || !needsAssign(s, w))) resolveAssign(s);
   },
 
+  // Choose the target for a waiting On Evolve (not a Battle Action: play goes on).
+  chooseTarget(s, { who, targets }) {
+    const c = s.choices[0];
+    if (!c || c.who !== who) throw new Error('Nothing to choose');
+    const options = targetOptions(s, who, c.spec, c.ctx);
+    s.choices.shift();
+    if (!options.length) return;   // nothing left to work on
+    runEffect(s, who, c.spec, c.ops, targets, c.ctx);
+  },
+
   // Attack with an Alert Pokémon (from: its space). A Pokémon target that is also
   // Alert hits back (a trade); both become Spent. Damage to the enemy player
   // character becomes the attacker's Recognition.
@@ -705,9 +730,9 @@ const ACTIONS = {
       attacker.spent = true;
       p.recognition += amount;
       emit(s, 'attack', { who, from, target: { kind: 'player', who: foe }, amount, attacker: attacker.name });
-      emit(s, 'recognition', { who, amount, total: p.recognition });
+      emit(s, 'recognition', { who, amount, total: p.recognition, source: 'attack' });
       log(s, `${p.name === 'You' ? 'Your' : "The Opponent's"} ${attacker.name} attacked ${who === 'player' ? 'the Opponent' : 'you'} directly for ${amount}: +${amount} Recognition (now ${p.recognition}).`);
-      if (p.recognition >= RECOGNITION_TARGET) return win(s, who);
+      if (p.recognition >= targetOf(s)) return win(s, who);
       // Scorch also burns the enemy player character it hits (V6).
       if (scorch && amount > 0) applyBurn(s, ref, scorch, who, from);
       progressAt(s, who, 'attack', from);
@@ -740,9 +765,9 @@ const ACTIONS = {
     if (defenderDown && hasKw(s, who, from, 'Overrun') && hit - left > 0) {
       const over2 = hit - left;
       p.recognition += over2;
-      emit(s, 'recognition', { who, amount: over2, total: p.recognition, overrun: true });
+      emit(s, 'recognition', { who, amount: over2, total: p.recognition, overrun: true, source: 'overrun' });
       log(s, `Overrun: ${over2} more to ${who === 'player' ? 'the Opponent' : 'you'} (+${over2} Recognition).`);
-      if (p.recognition >= RECOGNITION_TARGET) return win(s, who);
+      if (p.recognition >= targetOf(s)) return win(s, who);
     }
     // Scorch: its own attack burns the target, if it's still in play.
     if (scorch && hit > 0 && !defenderDown) applyBurn(s, ref, scorch, who, from);
@@ -798,7 +823,7 @@ function defeat(s, who, space, by, byLane) {
 // same action don't change it).
 function win(s, who) {
   if (s.phase === 'gameOver') return;
-  endMatch(s, who, 'target', `${NAMES[who]} reached ${RECOGNITION_TARGET} Recognition and ${who === 'player' ? 'win' : 'wins'}!`);
+  endMatch(s, who, 'target', `${NAMES[who]} reached ${targetOf(s)} Recognition and ${who === 'player' ? 'win' : 'wins'}!`);
 }
 
 // result.reason: 'target' (60 Recognition), 'recognition' (the most after Round 12),
@@ -821,9 +846,14 @@ function enterLocation(s, card, owner, lanes) {
     uid: `loc-${s.nextLocation++}`, id: card.id, name: card.name, owner, card, lanes,
     roundsLeft: card.rounds, weather: { ...card.weather }, color: card.color, image: card.image ?? `assets/cards/${card.art ?? card.id}.jpg`,
     objective: card.objective, milestones: card.milestones, completion: card.completion,
-    championship: !!card.championship, placedRound: s.round,
+    championship: !!card.championship, placedRound: s.round, deck: card.deck ?? null,
     progress: { player: 0, ai: 0 }, reached: { player: [], ai: [] }, completed: { player: false, ai: false },
   };
+  // W2 (variant): Water's Locations last 1 Round longer, and each milestone gives +1 Recognition.
+  if (s.variant?.waterLocations && card.deck === 'water') {
+    loc.roundsLeft += 1;
+    loc.milestones = loc.milestones.map((m) => ({ ...m, reward: { ...m.reward, recognition: (m.reward.recognition ?? 0) + 1 } }));
+  }
   s.locations.push(loc);
   return loc;
 }
@@ -869,9 +899,11 @@ function reward(s, who, r = {}, loc = null) {
   for (let i = 0; i < (r.item ?? 0); i++) findItem(s, who);
   if (r.trainerPoints) gainTrainerPoints(s, who, r.trainerPoints, 'a Location');
   if (r.recognition) {
-    p.recognition += r.recognition;
-    emit(s, 'recognition', { who, amount: r.recognition, total: p.recognition, reward: true });
-    if (p.recognition >= RECOGNITION_TARGET) win(s, who);
+    // L+ (variant): Location Recognition rewards ×1.5, rounded up.
+    const amount = s.variant?.locMult ? Math.ceil(r.recognition * s.variant.locMult) : r.recognition;
+    p.recognition += amount;
+    emit(s, 'recognition', { who, amount, total: p.recognition, reward: true, source: loc?.championship ? 'championship' : 'location' });
+    if (p.recognition >= targetOf(s)) win(s, who);
   }
 }
 
@@ -911,7 +943,7 @@ function startRound(s, round) {
   s.round = round;
   emit(s, 'phaseChanged', { phase: 'breakfast', round });
   log(s, `Round ${round}${s.suddenDeath ? ' (sudden death)' : ''} · Breakfast.`);
-  if (round === CHAMPIONSHIP_ROUND && !championship(s)) arriveChampionship(s);
+  if (round === champRoundOf(s) && !championship(s)) arriveChampionship(s);
   for (const who of PLAYERS) {
     const p = s.players[who];
     // "Until your next Breakfast" buffs end (Brock); an Asleep Pokémon stays Spent this Breakfast, then wakes.
@@ -1185,9 +1217,9 @@ function selfOp(s, who, op, ctx = {}) {
     case 'enemyBurn': applyBurn(s, { who: foe, kind: 'player' }, op.amount, who, ctx.space); break;
     case 'recognition':
       p.recognition += op.amount;
-      emit(s, 'recognition', { who, amount: op.amount, total: p.recognition, effect: true });
+      emit(s, 'recognition', { who, amount: op.amount, total: p.recognition, effect: true, source: 'other' });
       log(s, `${p.name}: +${op.amount} Recognition (now ${p.recognition}).`);
-      if (p.recognition >= RECOGNITION_TARGET) win(s, who);
+      if (p.recognition >= targetOf(s)) win(s, who);
       break;
     case 'enemyLosesRecognition': {
       const f = s.players[foe];
@@ -1330,9 +1362,9 @@ function effectDamagePlayer(s, by, target, amount) {
   if (amount <= 0 || by === target) return;
   const p = s.players[by];
   p.recognition += amount;
-  emit(s, 'recognition', { who: by, amount, total: p.recognition, effect: true });
+  emit(s, 'recognition', { who: by, amount, total: p.recognition, effect: true, source: 'effect' });
   log(s, `${p.name === 'You' ? 'You deal' : 'The Opponent deals'} ${amount} to ${target === 'player' ? 'you' : 'the Opponent'}: +${amount} Recognition (now ${p.recognition}).`);
-  if (p.recognition >= RECOGNITION_TARGET) win(s, by);
+  if (p.recognition >= targetOf(s)) win(s, by);
 }
 
 // Burn X adds X Burn counters (Sun 2: +1 each time Burn is applied; Blaine's
@@ -1408,6 +1440,18 @@ function fireTrigger(s, who, space, name, ctx = {}, targets) {
     card.firedRound = { ...(card.firedRound ?? {}), [name]: s.round };
   }
   const full = { ...ctx, space };
+  // On Evolve (Elliott's V6 ruling): its player chooses the target, as for On Summon.
+  // With more than one option the effect waits in s.choices for a chooseTarget action.
+  if (name === 'onEvolve' && !targets && eff.target && eff.target.count !== 'all' && !eff.target.special) {
+    const options = targetOptions(s, who, eff.target, full);
+    if (!options.length) return;
+    if (options.length > 1) {
+      s.choices.push({ who, space, name: card.name, trigger: name, spec: eff.target, ops: eff.ops, ctx: full, text: card.ability.text });
+      emit(s, 'choiceWaiting', { who, name: card.name, trigger: name });
+      return;
+    }
+    targets = options;
+  }
   const chosen = targets ?? autoTargets(s, who, eff.target, eff.ops, full);
   if (chosen === null) return;   // nothing to work on
   emit(s, 'ability', { who, space, name: card.name, trigger: name });
@@ -1421,6 +1465,7 @@ function placeSummoned(s, who, card, space, { targets, picks, active = false, co
   const p = s.players[who];
   const played = { ...card, arrivedRound: s.round, buffs: [] };
   if (played.empowered) applyEmpower(played);
+  played.strength += waterBonus(s, played);
   played.currentStrength = played.strength;
   played.spent = !(active || hasKeyword(played, 'Quick Attack'));
   p.row[space] = played;
@@ -1555,14 +1600,17 @@ function useItemCard(s, who, card, targets, picks) {
 
 // A Held Item's bonus (V6: a typed extra, e.g. Charcoal's Scorch 1 on a Fire Pokémon;
 // Quick Claw's Speed; a Strength loss never takes it below 1).
+// Quick Claw on a Swift holder gives Quick Attack instead (Elliott's V6 ruling).
 const heldParts = (card, item) => {
   const h = item.held ?? {};
   const typed = h.typed && h.typed.type === card.type ? h.typed : {};
+  const swift = h.speedUp && SPEEDS.indexOf(card.speed) >= SPEEDS.length - 1;
   return { attack: (h.attack ?? 0) + (typed.attack ?? 0), strength: (h.strength ?? 0) + (typed.strength ?? 0),
-    keywords: [...(h.keywords ?? []), ...(typed.keywords ?? [])], speedUp: h.speedUp ?? 0 };
+    keywords: [...(h.keywords ?? []), ...(typed.keywords ?? []), ...(swift ? ['Quick Attack'] : [])], speedUp: swift ? 0 : h.speedUp ?? 0 };
 };
 function applyHeld(card, item, fresh = false) {
   const h = heldParts(card, item);
+  card.heldParts = h;
   const before = card.strength;
   card.attack += h.attack;
   card.strength = Math.max(1, card.strength + h.strength);
@@ -1572,7 +1620,7 @@ function applyHeld(card, item, fresh = false) {
   card.speedUp = (card.speedUp ?? 0) + h.speedUp;
 }
 function removeHeld(card) {
-  const h = heldParts(card, card.held);
+  const h = card.heldParts ?? heldParts(card, card.held);
   card.attack -= h.attack;
   card.strength -= card.heldStrength ?? h.strength;
   card.currentStrength = Math.max(1, Math.min(card.currentStrength, card.strength));
@@ -1583,7 +1631,7 @@ function removeHeld(card) {
 // A card leaving play keeps none of its play-only state.
 function plainCard(card) {
   const { currentStrength, spent, arrivedRound, burn, asleep, seededBy, held, shellRound, passiveStrength, passiveAttack, buffs, grown, gained,
-    nurturedRound, firedRound, heldStrength, speedUp, ...plain } = card;
+    nurturedRound, firedRound, heldStrength, speedUp, heldParts: hp, ...plain } = card;
   return plain;
 }
 

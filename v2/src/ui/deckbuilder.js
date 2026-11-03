@@ -7,6 +7,7 @@ import { costRange } from '../engine/cardtypes.js';
 import { pokemonAt, stagesText } from '../engine/series.js';
 import { lastsText } from '../engine/locations.js';
 import { DECK_SIZE, LEGENDARY_PER_DECK } from '../engine/rules.js';
+import { icon, typeIcon, rarityIcon } from './icons.js';
 
 const ASSETS = '../assets';
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
@@ -32,16 +33,17 @@ export function openDeckBuilder(host, ctx) {
     const limit = copyLimit(line.id);
     const legendaryFull = line.legendary && deck.filter((e) => SERIES.find((l) => l.id === e.series)?.legendary).length >= LEGENDARY_PER_DECK;
     const full = cards.length >= limit || legendaryFull;
-    const chips = cards.map(({ e, i }) => {
+    // A Legendary (V7a) is a single card: no cap to choose.
+    const chips = line.legendary ? cards.map(({ i }) => `<span class="v2-chip"><em>Legendary · cost ${pokemonAt(line.id, 1).cost} · ${pokemonAt(line.id, 1).attack}/${pokemonAt(line.id, 1).strength}</em><button data-remove="${i}" title="Remove">×</button></span>`).join('') : cards.map(({ e, i }) => {
       const top = pokemonAt(line.id, e.cap);
       const options = Array.from({ length: line.maxLevel }, (_, k) => k + 1).map((lv) => `<option value="${lv}"${lv === e.cap ? ' selected' : ''}>Cap ${lv}</option>`).join('');
       return `<span class="v2-chip"><select data-i="${i}">${options}</select><em>${top.name} · cost ${top.cost}</em><button data-remove="${i}" title="Remove">×</button></span>`;
     }).join('');
     return `<div class="v2-brow">
       <div class="v2-bart" style="background-image: url('${ASSETS}/cards/${line.art}.jpg')"></div>
-      <div class="v2-binfo"><b>${esc(stagesText(line))}</b>
-        <small>${line.rarity} · ${line.type} · ${line.weight}${line.empower ? ` · Empower ${esc(line.empower.text)}` : ''} · copies ${cards.length}/${limit}</small>
-        <div class="v2-chips">${chips}<button class="v2-add" data-add="${line.id}"${full ? ' disabled' : ''}>+ Add (cap ${line.maxLevel})</button></div>
+      <div class="v2-binfo"><b>${line.legendary ? `${icon('legendary')} ${esc(line.stages[0].name)}` : esc(stagesText(line))}</b>
+        <small>${rarityIcon(line.rarity)}${line.rarity} · ${typeIcon(line.type)}${line.type} · ${line.legendary ? 'a single card' : line.weight}${line.empower ? ` · Empower ${esc(line.empower.text)}` : ''} · copies ${cards.length}/${limit}</small>
+        <div class="v2-chips">${chips}<button class="v2-add" data-add="${line.id}"${full ? ' disabled' : ''}>+ Add${line.legendary ? '' : ` (cap ${line.cap ?? line.maxLevel})`}</button></div>
       </div></div>`;
   }
 
@@ -66,7 +68,7 @@ export function openDeckBuilder(host, ctx) {
     const art = card.art ? `${ASSETS}/cards/${card.art}.jpg` : `${ASSETS}/ui/frame-item.jpg`;
     return `<div class="v2-brow">
       <div class="v2-bart" style="background-image: url('${art}')"></div>
-      <div class="v2-binfo"><b>${esc(card.name)}</b><small title="${esc(what)}">${card.rarity} · ${esc(what)}</small>
+      <div class="v2-binfo"><b>${esc(card.name)}</b><small title="${esc(what)}">${rarityIcon(card.rarity)}${card.rarity} · ${esc(what)}</small>
         <div class="v2-chips"><button data-card-minus="${card.id}"${n ? '' : ' disabled'}>−</button><span class="v2-count">${n}/${limit}</span><button data-card-plus="${card.id}"${n >= limit ? ' disabled' : ''}>+</button></div>
       </div></div>`;
   }
@@ -97,7 +99,7 @@ export function openDeckBuilder(host, ctx) {
     on('[data-remove]', 'click', (x) => { deck.splice(Number(x.dataset.remove), 1); draw(); });
     on('[data-add]', 'click', (x) => {
       const line = SERIES.find((l) => l.id === x.dataset.add);
-      deck.push({ series: line.id, cap: line.maxLevel });
+      deck.push(line.legendary ? { series: line.id } : { series: line.id, cap: line.cap ?? line.maxLevel });
       draw();
     });
     on('[data-loc-plus]', 'click', (x) => { deck.push({ location: x.dataset.locPlus }); draw(); });

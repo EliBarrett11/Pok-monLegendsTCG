@@ -7,13 +7,27 @@ import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, dirname, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  LANES, RECOGNITION_TARGET, ROUND_LIMIT, CHAMPIONSHIP_ROUND, MAX_LEVEL, LEGENDARY_LEVEL, levelFor, costFor, DECK_SIZE,
+  LANES, RECOGNITION_TARGET, ROUND_LIMIT, CHAMPIONSHIP_ROUND, MAX_LEVEL, levelFor, costFor, DECK_SIZE,
 } from '../src/engine/rules.js';
 import { SERIES, artFor } from '../src/engine/series.js';
 import '../src/engine/cards.js';   // registers the V6 decks' series too
+import { TYPE_COLOURS, TYPE_GLYPHS, ICON_NAMES } from '../src/ui/icons.js';
+
 
 const V2 = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOT = resolve(V2, '..');
+
+// --- Icons (V7a, docs/v2-design.md 7c): coded only, never the current game's icon images ---------------
+{
+  const files = [];
+  const walk = (dir) => { for (const f of readdirSync(dir)) { const p = join(dir, f); if (statSync(p).isDirectory()) walk(p); else if (/\.(js|css|html)$/.test(f)) files.push(p); } };
+  walk(join(V2, 'src'));
+  files.push(join(V2, 'index.html'));
+  for (const f of files) assert.ok(!/assets\/ui\/icons|ui\/icons\//.test(readFileSync(f, 'utf8')), `${f}: no icon images`);
+  for (const name of ['energy', 'physical', 'special', 'hitpoints', 'defence', 'specialDefence', 'slow', 'steady', 'swift', 'common', 'rare', 'epic', 'legendary', 'rain', 'sun', 'burn', 'sleep', 'seed', 'star', 'growth', 'recognition']) {
+    assert.ok(ICON_NAMES.includes(name), `a coded ${name} icon`);
+  }
+}
 
 // Every file under v2/ (but not v2/tests).
 function files(dir) {
@@ -60,8 +74,8 @@ for (const line of SERIES) {
     const art = artFor(line, level);
     assert.ok(art ? existsSync(join(ROOT, 'assets/cards', `${art}.jpg`)) : line.partnerOnly && existsSync(join(ROOT, 'assets/ui/frame-pokemon.jpg')), `${line.id} L${level}: art`);
   }
-  // Ghost and Dragon have no icon yet: the card shows a short label (board.js TYPE_ICONS).
-  assert.ok(['Ghost', 'Dragon'].includes(line.type) || existsSync(join(ROOT, 'assets/ui/icons', `type-${line.type.toLowerCase()}.webp`)), `${line.id}: Type icon`);
+  // Every Type has a coded icon (V7a, 7c), Ghost and Dragon included.
+  assert.ok(TYPE_COLOURS[line.type] && TYPE_GLYPHS.includes(line.type.toLowerCase()), `${line.id}: a coded ${line.type} icon`);
 }
 assert.ok(existsSync(join(ROOT, 'assets/ui/card-back.jpg')));
 
@@ -75,11 +89,11 @@ for (const file of files(join(V2, 'src/engine'))) {
 // --- The settled numbers (docs/v2-design.md 1.1, 4, 6.1, 7a) ------------------------------------
 
 assert.deepEqual([LANES, RECOGNITION_TARGET, ROUND_LIMIT, CHAMPIONSHIP_ROUND, DECK_SIZE], [9, 60, 12, 10, 40]);
-assert.deepEqual([MAX_LEVEL, LEGENDARY_LEVEL], [6, 7]);
+assert.equal(MAX_LEVEL, 6, 'Levels 1–6 (Legendaries are single cards: no Level 7, V7a)');
 assert.deepEqual([1, 3, 6, 9].map((round) => levelFor(round, 6)), [1, 3, 6, 6], 'Level = the Round, up to the cap');
 assert.equal(levelFor(5, 3), 3, 'a lower training cap');
-assert.deepEqual([1, 2, 3, 4, 5, 6, 7].map((l) => costFor(l)), [1, 1, 2, 3, 3, 4, 6], 'the cost curve (Legendary Level 7: 6)');
-assert.equal(costFor(7, 'heavy'), 7, 'a heavy Legendary: 7');
+assert.deepEqual([1, 2, 3, 4, 5, 6].map((l) => costFor(l)), [1, 1, 2, 3, 3, 4], 'the cost curve');
+assert.throws(() => costFor(7), /No Level 7/, 'no Level 7');
 assert.deepEqual([1, 2, 3, 4, 5, 6].map((l) => costFor(l, 'heavy')), [2, 2, 3, 4, 4, 5], 'heavy: +1');
 assert.deepEqual([1, 2, 3, 4, 5, 6].map((l) => costFor(l, 'very heavy')), [3, 3, 4, 5, 5, 6], 'heavy: +2');
 assert.deepEqual([1, 2, 3, 6].map((l) => costFor(l, 'light')), [0, 0, 1, 3], 'light: −1, never below 0');

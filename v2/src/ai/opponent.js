@@ -56,6 +56,11 @@ export function moves(state, who) {
   const legal = legalActions(state, who);
   const out = [];
   if (legal.includes('flipCoin')) return [{ type: 'flipCoin' }];
+  // An On Evolve target to choose (Elliott's V6 ruling): each option, scored like any move.
+  if (legal.includes('chooseTarget')) {
+    const c = state.choices[0];
+    return targetOptions(state, who, c.spec, c.ctx).map((t) => ({ type: 'chooseTarget', who, targets: [t] }));
+  }
   if (legal.includes('assignPoints')) return [{ type: 'assignPoints', who, points: assignPlan(state, who) }];
   // A waiting Partner arrives first (it isn't a Battle Action).
   if (legal.includes('placePartner')) {
@@ -380,7 +385,7 @@ function baseScore(state, after, who, move, gained) {
     const t = state.players[who].trainers.find((x) => x.uid === move.uid);
     return 3 * (trainerSpaceValue(state, who, t, move.space) - trainerSpaceValue(state, who, t, t.space)) - 2;
   }
-  if (move.type === 'useAbility' || move.type === 'nurture') return 6 + evaluate(after, who) - evaluate(state, who);
+  if (move.type === 'useAbility' || move.type === 'nurture' || move.type === 'chooseTarget') return 6 + evaluate(after, who) - evaluate(state, who);
   if (['playStrategy', 'playSupporter', 'playItem', 'useItem'].includes(move.type)) {
     let score = 6 + evaluate(after, who) - evaluate(state, who);
     // Grass keeps its Growth for a big Solar Beam (5+), unless it's late or it wins.

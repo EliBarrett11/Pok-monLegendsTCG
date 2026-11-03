@@ -19,7 +19,7 @@ const caps = (series, ...list) => list.map((cap) => ({ series, cap }));
 const cards = (...ids) => ids.map((card) => ({ card }));
 export const TEST_DECK = [
   ...caps('horsea', 6), ...caps('growlithe', 3, 6, 6), ...caps('oddish', 2, 6), ...caps('chansey', 6),
-  ...caps('kyogre', 7), ...caps('charmander', 3, 6), ...caps('bulbasaur', 4, 6), ...caps('goldeen', 6),
+  { series: 'kyogre' }, ...caps('charmander', 3, 6), ...caps('bulbasaur', 4, 6), ...caps('goldeen', 6),
   ...caps('ponyta', 3, 6), ...caps('chinchou', 6), ...caps('wooper', 6), ...caps('sudowoodo', 6),
   ...['cerulean-cape', 'eterna-forest', 'mt-ember', 'route-119', 'stark-mountain'].map((location) => ({ location })),
   ...cards('ember', 'ember', 'thunderbolt', 'recover', 'quickdraw', 'sleep-powder', 'leech-seed'),
@@ -45,6 +45,9 @@ export function cardAt(entry, round = 1) {
     if (!c) throw new Error(`Unknown card: ${entry.card}`);
     return c;
   }
+  // A Legendary (V7a) is a single card: always its one fixed form, never trained.
+  const line = SERIES.find((l) => l.id === entry.series);
+  if (line?.legendary) return { ...pokemonAt(line, 1), cap: 1 };
   return { ...pokemonAt(entry.series, levelFor(round, entry.cap)), cap: entry.cap };
 }
 const locationCard = (id) => {
@@ -62,7 +65,7 @@ export function cardDef(id, level) {
   const line = SERIES.find((l) => l.id === id) ?? SERIES.find((l) => l.stages.some((st) => slugOf(st.name) === id));
   if (!line) throw new Error(`Unknown card: ${id}`);
   const stage = line.stages.find((st) => slugOf(st.name) === id) ?? line.stages[0];
-  return { ...pokemonAt(line, level ?? stage.from), cap: line.maxLevel };
+  return { ...pokemonAt(line, line.legendary ? 1 : level ?? stage.from), cap: line.maxLevel };
 }
 const slugOf = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
@@ -100,8 +103,11 @@ export function deckProblems(deck) {
     const line = SERIES.find((l) => l.id === e.series);
     if (!line) { problems.push(`Unknown series: ${e.series}`); continue; }
     if (line.partnerOnly) { problems.push(`${line.stages.at(-1).name} is a Partner Pokémon: it comes from a Trainer, not the deck`); continue; }
-    const top = line.legendary ? line.maxLevel : MAX_LEVEL;
-    if (!(Number.isInteger(e.cap) && e.cap >= 1 && e.cap <= top)) problems.push(`${line.stages[0].name}: the cap must be a Level from 1 to ${top} (not ${e.cap})`);
+    if (line.legendary) {
+      if (e.cap !== undefined) problems.push(`${line.stages[0].name} is a Legendary: a single card with no cap`);
+      continue;
+    }
+    if (!(Number.isInteger(e.cap) && e.cap >= 1 && e.cap <= MAX_LEVEL)) problems.push(`${line.stages[0].name}: the cap must be a Level from 1 to ${MAX_LEVEL} (not ${e.cap})`);
   }
   for (const [key, n] of Object.entries(copiesOf(deck))) {
     const known = SERIES.some((l) => l.id === key) || ALL_LOCATIONS.some((l) => l.id === key) || !!otherCard(key);

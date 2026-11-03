@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { actor, createGame, applyAction, legalActions, train, trainTop, summonCost, PLAYERS } from '../src/engine/game.js';
 import { SERIES, seriesDef, pokemonAt, artFor, stagesText } from '../src/engine/series.js';
 import { TEST_DECK, cardAt, cardDef, deckProblems, copiesOf, copyLimit } from '../src/engine/cards.js';
-import { levelFor, costFor, MAX_LEVEL, LEGENDARY_LEVEL, COPY_LIMITS, CHAMPIONSHIP_ROUND } from '../src/engine/rules.js';
+import { levelFor, costFor, MAX_LEVEL, COPY_LIMITS, CHAMPIONSHIP_ROUND } from '../src/engine/rules.js';
 import { chooseAction } from '../src/ai/opponent.js';
 
 function battle(round = 1, seed = 5) {
@@ -29,7 +29,7 @@ function place(s, who, space, series, level, cap = 6) {
 const act = (s, a) => applyAction(s, a);
 const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass', who: s.turn === 'player' ? 'ai' : 'player' });
 
-// --- Series: names and stats per Level; evolution every 2 or 3 Levels; single-stage; Level 7 ---------
+// --- Series: names and stats per Level; evolution every 2 or 3 Levels; single-stage; Legendaries -------
 
 {
   const names = (id) => Array.from({ length: seriesDef(id).maxLevel }, (_, i) => pokemonAt(id, i + 1).name);
@@ -37,11 +37,12 @@ const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass
   assert.deepEqual(names('growlithe'), ['Growlithe', 'Growlithe', 'Growlithe', 'Arcanine', 'Arcanine', 'Arcanine'], 'two-stage: every 3');
   assert.deepEqual(names('oddish'), ['Oddish', 'Oddish', 'Gloom', 'Gloom', 'Vileplume', 'Vileplume']);
   assert.deepEqual(names('chansey'), Array(6).fill('Chansey'), 'single-stage: trains L1–6 without evolving');
-  assert.deepEqual(names('kyogre'), Array(7).fill('Kyogre'), 'a Legendary has Level 7');
+  // A Legendary (V7a) is a single card: no series of Levels, a fixed cost and stats.
+  assert.deepEqual([seriesDef('kyogre').maxLevel, pokemonAt('kyogre', 1).cost, pokemonAt('kyogre', 1).attack, pokemonAt('kyogre', 1).strength], [1, 7, 10, 12]);
   assert.equal(stagesText(seriesDef('horsea')), 'Horsea L1–2 · Seadra L3–4 · Kingdra L5–6');
   for (const line of SERIES) {
-    assert.equal(line.maxLevel, line.legendary ? LEGENDARY_LEVEL : MAX_LEVEL, `${line.id}: Level 7 for Legendaries only`);
-    if (!line.legendary) assert.throws(() => pokemonAt(line.id, 7), /no Level 7/);
+    assert.equal(line.maxLevel, line.legendary ? 1 : MAX_LEVEL, `${line.id}: Levels 1–6, or a single Legendary card`);
+    assert.throws(() => pokemonAt(line.id, 7), /no Level 7/);
     const stats = Array.from({ length: line.maxLevel }, (_, i) => pokemonAt(line.id, i + 1)).map((c) => c.attack + c.strength);
     assert.ok(stats.every((v, i) => i === 0 || v >= stats[i - 1]), `${line.id}: Levels never get weaker`);
   }
@@ -62,8 +63,7 @@ const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass
   assert.deepEqual(costs('horsea'), [1, 1, 2, 3, 3, 4], 'standard');
   assert.deepEqual(costs('oddish'), [0, 0, 1, 2, 2, 3], 'light: −1, minimum 0');
   assert.deepEqual(costs('chansey'), [2, 2, 3, 4, 4, 5], 'heavy: +1');
-  assert.deepEqual(costs('kyogre'), [2, 2, 3, 4, 4, 5, 7], 'a heavy Legendary: Level 7 costs 7');
-  assert.equal(costFor(7), 6, 'a standard Legendary: Level 7 costs 6');
+  assert.deepEqual(costs('kyogre'), [7], 'a Legendary: one fixed cost');
   assert.equal(costFor(4, 'very heavy'), 5, 'heavy +2');
 }
 
@@ -72,7 +72,7 @@ const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass
 {
   assert.deepEqual([1, 2, 5, 9].map((r) => levelFor(r, 5)), [1, 2, 5, 5]);
   assert.deepEqual([1, 3, 5, 6].map((r) => cardAt({ series: 'horsea', cap: 5 }, r).name), ['Horsea', 'Seadra', 'Kingdra', 'Kingdra'], 'a Kingdra capped at 5, drawn in Round 1, is a Level-1 Horsea');
-  assert.equal(cardAt({ series: 'kyogre', cap: 7 }, 8).level, 7);
+  assert.deepEqual([1, 9].map((r) => cardAt({ series: 'kyogre' }, r).attack), [10, 10], 'a Legendary is the same in every Round');
   // In a match: hand, draw pile and discard all follow the Round.
   let s = createGame(11);
   s = applyAction(s, { type: 'flipCoin' });
@@ -151,9 +151,9 @@ const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass
   g.currentStrength = 1;
   train(s, 'player', 1, 1);   // 3/3: 2 damage carried over, 1 left
   assert.equal(s.players.player.row[1].currentStrength, 1);
-  // A Legendary never trains into Level 7.
-  place(s, 'player', 2, 'kyogre', 6, 7);
-  assert.deepEqual([trainTop(s.players.player.row[2]), train(s, 'player', 2, 1)], [6, false]);
+  // A Legendary never trains.
+  place(s, 'player', 2, 'kyogre', 1, 1);
+  assert.deepEqual([trainTop(s.players.player.row[2]), train(s, 'player', 2, 1)], [1, false]);
   // An Empowered bonus stays through training.
   const a = place(s, 'player', 3, 'growlithe', 3, 6);
   Object.assign(a, { empowered: true, attack: a.attack + 2, strength: a.strength + 2, currentStrength: a.strength + 2, keywords: ['Quick Attack'] });
@@ -201,10 +201,10 @@ const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass
   const swap = (deck, i, entry) => deck.map((e, j) => (j === i ? entry : e));
   const firstChinchou = TEST_DECK.findIndex((e) => e.series === 'chinchou');
   assert.deepEqual(deckProblems(swap(TEST_DECK, firstChinchou, { series: 'growlithe', cap: 1 })), ['Growlithe/Arcanine (Common): 4 cards, but its rarity allows 3']);
-  assert.match(deckProblems(swap(TEST_DECK, firstChinchou, { series: 'kyogre', cap: 3 })).join(), /Kyogre \(Legendary\): 2 cards.*At most 1 Legendary/);
+  assert.match(deckProblems(swap(TEST_DECK, firstChinchou, { series: 'kyogre' })).join(), /Kyogre \(Legendary\): 2 cards.*At most 1 Legendary/);
   assert.match(deckProblems(swap(TEST_DECK, firstChinchou, { series: 'chinchou', cap: 7 })).join(), /cap must be a Level from 1 to 6/);
   assert.match(deckProblems(swap(TEST_DECK, firstChinchou, { series: 'chinchou', cap: 0 })).join(), /cap must be/);
-  assert.equal(deckProblems(swap(TEST_DECK, TEST_DECK.findIndex((e) => e.series === 'kyogre'), { series: 'kyogre', cap: 7 })).length, 0, 'a Legendary may cap at 7');
+  assert.match(deckProblems(swap(TEST_DECK, TEST_DECK.findIndex((e) => e.series === 'kyogre'), { series: 'kyogre', cap: 3 })).join(), /a single card with no cap/, 'a Legendary has no cap');
   assert.match(deckProblems(TEST_DECK.slice(1)).join(), /40 cards \(this one has 39\)/);
   assert.match(deckProblems([...TEST_DECK.slice(1), { series: 'mewtwo', cap: 3 }]).join(), /Unknown series/);
   // A built deck plays.
@@ -229,7 +229,7 @@ const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass
   // From the Championship on, nothing is saved: a big Kyogre now beats waiting.
   s = battle(CHAMPIONSHIP_ROUND);
   s.turn = 'ai';
-  give(s, 'ai', 'kyogre', 7);
+  give(s, 'ai', 'kyogre');
   give(s, 'ai', 'horsea', 1);
   const k = chooseAction(s, 'ai', { rng: () => 0.5 });
   assert.equal(s.players.ai.hand.find((c) => c.uid === k.uid)?.series, 'kyogre');

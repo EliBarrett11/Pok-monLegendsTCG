@@ -8,11 +8,9 @@
 // cards; `art` names the picture in assets/cards (null: the frame for its card type).
 // The shapes are the ones the engine already reads (series.js, cardtypes.js,
 // locations.js); see game.js for the ops and triggers. Numbers are first-pass values
-// for the V7 balance pass. Where the docs leave something open, the choice made here is
-// marked "Q:" and listed in the v2 README for Elliott.
+// for the V7 balance pass. Elliott's rulings on the V6 questions are noted where they apply.
 
 import { line, three, two, single } from './series.js';
-import { LEGENDARY_LEVEL } from './rules.js';
 
 // --- Targets ---------------------------------------------------------------------------------
 const T = {
@@ -123,10 +121,10 @@ export const DECK_SERIES = [
     ability: () => ({ vsBurned: 2, text: '+2 damage with its attack against a burned target' }),
   }),
   fire({
-    // Q: the docs give L1 3/4 … L6 8/8 and L7 10/10; Levels 2–5 are filled in evenly.
-    id: 'f-entei', rarity: 'Legendary', type: 'Fire', attackType: 'Physical', strengthType: 'Hitpoints', speed: 'Swift', weight: 'heavy', legendary: true, cap: 7,
-    stages: single({ name: 'Entei', art: 'entei' }, LEGENDARY_LEVEL),
-    stats: [[3, 4], [4, 5], [5, 6], [6, 6], [7, 7], [8, 8], [10, 10]],
+    // A Legendary (V7a): a single card, cost 6, 9/9.
+    id: 'f-entei', rarity: 'Legendary', type: 'Fire', attackType: 'Physical', strengthType: 'Hitpoints', speed: 'Swift', legendary: true, cost: 6,
+    stages: single({ name: 'Entei', art: 'entei' }, 1),
+    stats: [[9, 9]],
     ability: () => ({ keywords: ['Infiltrator', 'Overrun', 'Scorch 2'], text: 'Infiltrator, Overrun, Scorch 2. On Summon: the enemy player gains Burn 3', onSummon: eff(null, op('enemyBurn', 3)) }),
   }),
 
@@ -139,7 +137,7 @@ export const DECK_SERIES = [
     empower: { cost: 2, attack: 0, strength: 0, keywords: [], target: T.enemyHere(), ops: [op('damage', 2)], text: '+2: on summon, 2 damage to each enemy Pokémon in its Location' },
   }),
   water({
-    // Q: Kingdra's "Shell 1" is read as a keyword it always has (not part of Rally).
+    // Kingdra's "Shell 1" is a keyword it always has, not part of Rally (Elliott's V6 ruling).
     id: 'w-horsea', rarity: 'Rare', type: 'Water', attackType: 'Special', strengthType: 'Hitpoints', speed: 'Steady', cap: 6,
     stages: three({ name: 'Horsea', art: 'horsea' }, { name: 'Seadra', art: 'seadra' }, { name: 'Kingdra', art: 'kingdra' }),
     stats: [[2, 4], [3, 5], [4, 6], [4, 7], [6, 8], [7, 9]],
@@ -185,7 +183,7 @@ export const DECK_SERIES = [
       })),
   }),
   water({
-    // Q: "and Douse them" is read as Blissey's only.
+    // "And Douse them" is Blissey's only (Elliott's V6 ruling).
     id: 'w-happiny', rarity: 'Rare', type: 'Normal', attackType: 'Physical', strengthType: 'Hitpoints', speed: 'Slow', weight: 'heavy', cap: 6,
     stages: three({ name: 'Happiny', art: 'happiny' }, { name: 'Chansey', art: 'chansey' }, { name: 'Blissey', art: 'blissey' }),
     stats: [[0, 5], [1, 6], [1, 8], [1, 10], [2, 12], [2, 14]],
@@ -200,14 +198,14 @@ export const DECK_SERIES = [
     ability: byLevel((l) => (l <= 2 ? null : l <= 4 ? { keywords: ['Infiltrator'], text: 'Infiltrator' } : { keywords: ['Infiltrator', 'Shell 1'], text: 'Infiltrator, Shell 1' })),
   }),
   water({
-    id: 'w-kyogre', rarity: 'Legendary', type: 'Water', attackType: 'Special', strengthType: 'Hitpoints', speed: 'Slow', weight: 'heavy', legendary: true, cap: 7,
-    stages: single({ name: 'Kyogre', art: 'kyogre' }, LEGENDARY_LEVEL),
-    stats: [[3, 5], [4, 6], [5, 7], [6, 8], [7, 9], [8, 10], [10, 12]],
-    ability: byLevel((l) => (l < 7 ? { weather: { Rain: 2 }, text: 'Weather: 2 Rain. On Summon: heal every friendly Pokémon 2', onSummon: eff(T.friendAll, op('heal', 2)) }
-      : {
-        weather: { Rain: 2 }, text: 'Weather: 2 Rain. On Summon: heal every friendly Pokémon 2. Origin Pulse: also 3 damage to every enemy Pokémon',
-        onSummon: eff(T.friendAll, op('heal', 2), op('damage', 3, { to: T.enemyAll })),
-      })),
+    // A Legendary (V7a): a single card, cost 7, 10/12.
+    id: 'w-kyogre', rarity: 'Legendary', type: 'Water', attackType: 'Special', strengthType: 'Hitpoints', speed: 'Slow', legendary: true, cost: 7,
+    stages: single({ name: 'Kyogre', art: 'kyogre' }, 1),
+    stats: [[10, 12]],
+    ability: () => ({
+      weather: { Rain: 2 }, text: 'Weather: 2 Rain. On Summon, Origin Pulse: heal every friendly Pokémon 2, and 3 damage to every enemy Pokémon',
+      onSummon: eff(T.friendAll, op('heal', 2), op('damage', 3, { to: T.enemyAll })),
+    }),
   }),
 
   // ===== Grass =====
@@ -278,12 +276,11 @@ export const DECK_SERIES = [
     ability: byLevel((l) => (l <= 3 ? null : { keywords: ['Shell 1'], text: 'Shell 1' })),
   }),
   grass({
-    // Q: the docs give L1 2/5 … L6 6/8 and L7 7/9; Levels 2–5 are filled in evenly.
-    id: 'g-celebi', rarity: 'Legendary', type: 'Grass', attackType: 'Special', strengthType: 'Hitpoints', speed: 'Swift', weight: 'heavy', legendary: true, cap: 7,
-    stages: single({ name: 'Celebi', art: 'celebi' }, LEGENDARY_LEVEL),
-    stats: [[2, 5], [3, 5], [4, 6], [4, 7], [5, 7], [6, 8], [7, 9]],
-    ability: byLevel((l) => (l < 7 ? { text: 'On Summon: gain 3 Growth', onSummon: eff(null, op('growth', 3)) }
-      : { text: 'On Summon: gain 3 Growth, and train 2 every friendly Pokémon', onSummon: eff(null, op('growth', 3), op('train', 2, { to: T.friendAll })) })),
+    // A Legendary (V7a): a single card, cost 3, 4/6 (the early supporter).
+    id: 'g-celebi', rarity: 'Legendary', type: 'Grass', attackType: 'Special', strengthType: 'Hitpoints', speed: 'Swift', legendary: true, cost: 3,
+    stages: single({ name: 'Celebi', art: 'celebi' }, 1),
+    stats: [[4, 6]],
+    ability: () => ({ text: 'On Summon: gain 3 Growth, and train 1 every friendly Pokémon', onSummon: eff(null, op('growth', 3), op('train', 1, { to: T.friendAll })) }),
   }),
 ];
 
@@ -341,7 +338,7 @@ export const DECK_STRATEGIES = [
     bp(6, '9 damage to an enemy Pokémon or the enemy player', T.enemyAny(1), op('damage', 9)),
   ]),
   strategy('water', 'w-thunderbolt', 'Thunderbolt', 'Rare', 'thunderbolt', [
-    // Q: 2 and 4 are read like 6: an enemy Pokémon or the enemy player.
+    // 2 and 4 hit an enemy Pokémon or the enemy player, like 6 (Elliott's V6 ruling).
     bp(2, '3 damage to an enemy Pokémon or the enemy player', T.enemyAny(1), op('damage', 3)),
     bp(4, '6 damage to an enemy Pokémon or the enemy player', T.enemyAny(1), op('damage', 6)),
     bp(6, '6 damage to two targets (Pokémon or the enemy player)', T.enemyAny(2), op('damage', 6)),
@@ -359,8 +356,8 @@ export const DECK_STRATEGIES = [
   ]),
   strategy('grass', 'g-solar-beam', 'Solar Beam', 'Rare', 'solar-beam', [
     { ...bp(2, 'Spend up to 5 Growth: deal that much damage to an enemy Pokémon or the enemy player', T.enemyAny(1), op('solarBeam', undefined, { max: 5 })), needsGrowth: true },
-    // Q: "can't be guarded" only matters if Strategy Cards obey guards; they don't yet (as in v1).
-    { ...bp(4, 'Spend up to 10 Growth: deal that much damage; the target can’t be guarded', T.enemyAny(1, { unguarded: true }), op('solarBeam', undefined, { max: 10 })), needsGrowth: true },
+    // Elliott's V6 ruling: no "can't be guarded"; spending up to 10 Growth is its payoff.
+    { ...bp(4, 'Spend up to 10 Growth: deal that much damage to an enemy Pokémon or the enemy player', T.enemyAny(1), op('solarBeam', undefined, { max: 10 })), needsGrowth: true },
   ], { retain: true }),
   strategy('grass', 'g-rock-slide', 'Rock Slide', 'Rare', 'rock-slide', [
     bp(3, '2 damage to every enemy Pokémon in a chosen Location', T.enemyLoc, op('damage', 2)),
@@ -401,7 +398,7 @@ export const DECK_SUPPORTERS = [
 ];
 
 // --- Trainers (tiers at 2 / 4 / 6) ----------------------------------------------------------------
-// Q: the docs give no Trainer costs: every Trainer costs 1 Energy here.
+// Every Trainer costs 1 Energy (Elliott's V6 ruling).
 const partner = (name, art, type, attackType, speed, attack, strength, extra = {}) => ({ name, art, level: 5, type, attackType, speed, attack, strength, ...extra });
 const trainer = (deck, id, name, art, [passiveText, passive], [abCost, abText, abTarget, ...abOps], [partnerText, partnerSpec]) => ({
   id, name, cardType: 'Trainer', rarity: 'Rare', art, deck, cost: 1,
@@ -422,9 +419,9 @@ export const DECK_TRAINERS = [
       partner('Ninetales', 'ninetales', 'Fire', 'Special', 'Swift', 6, 6, { ability: { text: 'On Summon: the enemy player gains Burn 2', onSummon: eff(null, op('enemyBurn', 2)) } })]),
   trainer('fire', 'f-flannery', 'Flannery', 'flannery',
     ['Your Fire Pokémon in her lane gain Overrun', { kind: 'laneKeyword', keyword: 'Overrun', type: 'Fire', amount: 1 }],
-    // Q: "A Pokémon in her lane" is read as one of yours.
+    // "A Pokémon in her lane" is one of yours (Elliott's V6 ruling).
     [1, 'A Pokémon in her lane gains +2 Attack this Round', laneFriend(), op('buff', undefined, { attack: 2 })],
-    // Q: Torkoal's Attack type isn't given: Special here.
+    // Torkoal is Special (Elliott's V6 ruling).
     ['Torkoal (Level 5): Slow · Defence guard · 4/10, Shell 1',
       partner('Torkoal', 'torkoal', 'Fire', 'Special', 'Slow', 4, 10, { strengthType: 'Defence', keywords: ['Shell 1'] })]),
   trainer('fire', 'f-kabu', 'Kabu', 'kabu',
@@ -529,7 +526,7 @@ export const DECK_LOCATIONS = [
 // --- The decks: 40 cards each (17 Pokémon, 8 Strategy, 4 Supporters, 3 Trainers, 4 Locations, 4 Items) --
 const mon = (series, n) => {
   const s = DECK_SERIES.find((l) => l.id === series);
-  return Array.from({ length: n }, () => ({ series, cap: s.cap }));
+  return Array.from({ length: n }, () => (s.legendary ? { series } : { series, cap: s.cap }));
 };
 const cards = (id, n = 1) => Array.from({ length: n }, () => ({ card: id }));
 const locs = (id, n = 1) => Array.from({ length: n }, () => ({ location: id }));

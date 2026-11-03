@@ -4,7 +4,8 @@
 // objective banner in the middle (name, Weather, objective, both players' progress
 // bars with milestone ticks, Rounds left), the side panel on the right (Round of 12,
 // the Championship, Energy with stored Energy, Weather), and the fanned hand below.
-// Pokémon use the minimal card style: Level badge, small Type icon, name, ⚔ and ♥.
+// Pokémon use the minimal card style: Level badge, small Type icon, name, Attack and
+// Strength. Every icon is coded (icons.js, V7a): no icon images from the current game.
 //
 // Clicks: a Pokémon in hand, then an empty space of your row, summons it (one with
 // an Empowered summon asks whether to pay for its bonus); a
@@ -24,6 +25,7 @@ import { costRange, BAG_SIZE, FAVOURS } from '../engine/cardtypes.js';
 import { RECOGNITION_TARGET, LANES, ROUND_LIMIT, CHAMPIONSHIP_ROUND } from '../engine/rules.js';
 import { rewardText, lastsText } from '../engine/locations.js';
 import { seriesDef, stagesText } from '../engine/series.js';
+import { icon, typeIcon, attackIcon, strengthIcon, speedIcon, rarityIcon, weatherIcon } from './icons.js';
 
 const ASSETS = '../assets';   // the shared art, from the page (v2/index.html)
 const slug = (s) => s.toLowerCase().replace(/\s+/g, '-');
@@ -38,7 +40,7 @@ function pokemonCard(card, opts = {}) {
   const line = card.series ? seriesDef(card.series) : null;
   const tip = [
     `${card.name} · Level ${card.level}${card.cap ? ` (cap ${card.cap})` : ''}`, `${card.type} · ${card.attackType} ${card.attack} · ${card.strengthType} ${card.strength} · ${card.speed}`,
-    line && `${stagesText(line)} · ${line.rarity}${line.weight !== 'standard' ? ` · ${line.weight}` : ''}`,
+    line && `${line.legendary ? 'Legendary · a single card' : stagesText(line)} · ${line.rarity}${line.weight !== 'standard' && !line.legendary ? ` · ${line.weight}` : ''}`,
     card.keywords?.length && card.keywords.join(', '), card.retain && 'Retain', card.ability?.text, card.empower && `Empowered summon ${card.empower.text}`,
     card.empowered && 'Empowered',
   ].filter(Boolean).join('\n');
@@ -47,15 +49,17 @@ function pokemonCard(card, opts = {}) {
     <div class="${cls}" ${opts.attrs ?? ''} title="${esc(tip)}">
       <div class="v2-art" style="background-image: url('${card.art === null ? `${ASSETS}/ui/frame-pokemon.jpg` : `${ASSETS}/cards/${card.art ?? card.id}.jpg`}')"></div>
       ${card.partner ? `<span class="v2-partner-tag" title="${esc(card.trainer)}'s Partner Pokémon">Partner</span>` : ''}
-      <span class="v2-level">Lv ${card.level}${opts.inHand && card.cap > card.level ? `<small>/${card.cap}</small>` : ''}</span>
-      ${TYPE_ICONS.has(card.type) ? `<img class="v2-type" src="${ASSETS}/ui/icons/type-${slug(card.type)}.webp" alt="${card.type}">` : `<span class="v2-type text" title="${card.type}">${card.type.slice(0, 3)}</span>`}
+      ${card.legendary ? `<span class="v2-level legendary" title="Legendary: a single card, no Levels">${icon('legendary')}Legendary</span>`
+        : `<span class="v2-level">Lv ${card.level}${opts.inHand && card.cap > card.level ? `<small>/${card.cap}</small>` : ''}</span>`}
+      ${typeIcon(card.type, 'v2-type')}
+      <span class="v2-speed" title="${card.speed}">${speedIcon(card.speed)}</span>
       ${card.strengthType !== 'Hitpoints' ? `<span class="v2-guard">${card.strengthType === 'Defence' ? 'Def' : 'Sp. Def'}</span>` : ''}
       ${card.keywords?.length ? `<span class="v2-keys">${keywordChips(card).map((k) => `<i>${k}</i>`).join('')}</span>` : ''}
-      ${card.cost !== undefined && opts.showCost ? `<span class="v2-cost">${card.cost}</span>` : ''}
+      ${card.cost !== undefined && opts.showCost ? `<span class="v2-cost">${icon('energy')}<b>${card.cost}</b></span>` : ''}
       <div class="v2-name">${card.name}</div>
       ${notes.length ? `<div class="v2-ability">${notes.map(esc).join('<br>')}</div>` : ''}
-      <div class="v2-stats"><span>⚔ ${card.attack}</span><span class="${strength < card.strength ? 'hurt' : ''}">♥ ${strength}</span></div>
-      ${card.asleep ? '<span class="v2-spent asleep">Asleep z z</span>' : card.spent ? '<span class="v2-spent">Spent</span>' : opts.alert ? '<span class="v2-alert">Alert</span>' : ''}
+      <div class="v2-stats"><span title="${card.attackType} Attack">${attackIcon(card.attackType)}${card.attack}</span><span class="${strength < card.strength ? 'hurt' : ''}" title="${card.strengthType}">${strengthIcon(card.strengthType)}${strength}</span></div>
+      ${card.asleep ? `<span class="v2-spent asleep">${icon('sleep')}Asleep</span>` : card.spent ? '<span class="v2-spent">Spent</span>' : opts.alert ? '<span class="v2-alert">Alert</span>' : ''}
       ${statusChips(card)}
       ${card.held ? `<img class="v2-held" src="${artUrl(card.held)}" alt="${esc(card.held.name)}" title="Holding ${esc(card.held.name)}: ${esc(card.held.text)}">` : ''}
       ${opts.badge ? `<span class="v2-flourish">${opts.badge}</span>` : ''}
@@ -73,13 +77,11 @@ function keywordChips(card) {
   return [...sums].filter(([name]) => name !== 'Big Root').map(([name, n]) => (n ? `${name} ${n}` : name));
 }
 
-// Types with an icon in the shared assets; others (Ghost, Dragon) show a short label.
-const TYPE_ICONS = new Set(['Bug', 'Dark', 'Electric', 'Fighting', 'Fire', 'Grass', 'Normal', 'Rock', 'Water']);
 const artUrl = (c) => (c.art ? `${ASSETS}/cards/${c.art}.jpg` : `${ASSETS}/ui/frame-item.jpg`);
 
 // Burn, Leech Seed (V4): small chips on the card, and its look (classes on the card).
 function statusChips(card) {
-  return `<span class="v2-status">${card.burn ? `<i class="burn" title="Burn ${card.burn}: ${card.burn} damage at Supper, then 1 less">🔥 ${card.burn}</i>` : ''}${card.seededBy ? '<i class="seed" title="Leech Seed: 1 damage at Supper, healing the seeder">🌱 Seeded</i>' : ''}</span>`;
+  return `<span class="v2-status">${card.burn ? `<i class="burn" title="Burn ${card.burn}: ${card.burn} damage at Supper, then 1 less">${icon('burn')}${card.burn}</i>` : ''}${card.seededBy ? `<i class="seed" title="Leech Seed: 1 damage at Supper, healing the seeder">${icon('seed')}Seeded</i>` : ''}</span>`;
 }
 
 // A Trainer tab (V5), above the opponent's space or below yours, as in the mockup: the
@@ -108,7 +110,7 @@ const partnerWaitingNow = (state, ui) => state.phase === 'battle' && state.turn 
 const GROWTH_STAGES = [1, 3, 5, 8];
 function growthTree(n) {
   const stage = GROWTH_STAGES.filter((m) => n >= m).length;
-  return `<div class="v2-growth" style="background-image: url('${ASSETS}/ui/growth-${stage}.jpg')" title="Growth ${n}"><b>${n}</b><span>Growth</span></div>`;
+  return `<div class="v2-growth" style="background-image: url('${ASSETS}/ui/growth-${stage}.jpg')" title="Growth ${n}"><b>${icon('growth')}${n}</b><span>Growth</span></div>`;
 }
 
 // A Strategy Card, Supporter or Item (V4): its art, type, name, cost and text.
@@ -118,16 +120,16 @@ function actionCard(card, opts = {}) {
   let body = '';
   let label = card.cardType;
   if (card.cardType === 'Strategy') {
-    cost = `<span class="v2-cost wide">${costRange(card)}</span>`;
+    cost = `<span class="v2-cost wide">${icon('energy')}<b>${costRange(card)}</b></span>`;
     body = card.breakpoints.map((b) => `<p><b>${b.cost}:</b> ${esc(b.text)}</p>`).join('');
   } else if (card.cardType === 'Trainer') {
-    cost = `<span class="v2-cost">${card.cost}</span>`;
+    cost = `<span class="v2-cost">${icon('energy')}<b>${card.cost}</b></span>`;
     body = card.tiers.map((t) => `<p><b>${t.cost} · ${t.kind}:</b> ${esc(t.text)}</p>`).join('');
   } else if (card.cardType === 'Supporter') {
     cost = `<span class="v2-cost release" title="Release ${card.release} card${card.release === 1 ? '' : 's'} from your hand">⟲${card.release}</span>`;
     body = `<p>${esc(card.text)}</p><p class="favour"><b>Favour</b> (${esc(FAVOURS[card.favour.condition].text)}): ${esc(card.favour.text)}</p>`;
   } else {
-    cost = `<span class="v2-cost">${card.cost}</span>`;
+    cost = `<span class="v2-cost">${icon('energy')}<b>${card.cost}</b></span>`;
     label = `Item · ${card.kind}`;
     body = `<p>${esc(card.text)}</p>`;
   }
@@ -143,7 +145,7 @@ function actionCard(card, opts = {}) {
 }
 
 const weatherIcons = (weather = {}) => Object.entries(weather).filter(([, n]) => n)
-  .map(([kind, n]) => `<span class="v2-wx"><img src="${ASSETS}/ui/icons/weather-${slug(kind)}.webp" alt="${kind}">${n}</span>`).join('');
+  .map(([kind, n]) => `<span class="v2-wx" title="${kind}">${weatherIcon(kind)}${n}</span>`).join('');
 
 // A Location card (in hand): its art, name, lanes and Rounds, Weather and objective.
 function locationCard(card, opts = {}) {
@@ -170,10 +172,10 @@ function recognitionPanel(state, who, targetable, ui) {
   const less = bracket(state, 'Rain', 4) ? 1 : 0;
   return `
     <section class="v2-panel v2-recognition ${who === 'ai' ? 'top' : 'bottom'}${targetable ? ' target' : ''}${effect ? ' effect-target' : ''}${chosen ? ' chosen' : ''}${turn ? ' turn' : ''}${p.burn ? ' burning' : ''}" data-player="${who}">
-      ${p.burn ? `<div class="v2-pc-burn" title="Burn on the player character: at Supper it removes that much Recognition (never below 0), then 1 less">🔥 Burn ${p.burn}<small>−${Math.max(0, p.burn - less)} Recognition at Supper</small></div>` : ''}
+      ${p.burn ? `<div class="v2-pc-burn" title="Burn on the player character: at Supper it removes that much Recognition (never below 0), then 1 less">${icon('burn')} Burn ${p.burn}<small>−${Math.max(0, p.burn - less)} Recognition at Supper</small></div>` : ''}
       <div class="v2-avatar"></div>
       <h3>${who === 'ai' ? 'Opponent' : 'You'}</h3>
-      <div class="v2-label">Recognition</div>
+      <div class="v2-label">${icon('recognition')} Recognition</div>
       <b class="v2-score">${p.recognition}</b>
       <div class="v2-of">of ${RECOGNITION_TARGET} to win</div>
       <div class="v2-bar"><i style="width: ${pct}%"></i></div>
@@ -223,6 +225,8 @@ function sidePanel(state, ui, ctx) {
   } else if (state.phase === 'gameOver') {
     hint = resultLine(state);
     button = '<button data-action="new">New match</button>';
+  } else if (ui.pending?.action.type === 'chooseTarget') {
+    hint = pendingHint(state, ui);
   } else if (state.phase === 'assign') {
     hint = legalActions(state, 'player').length ? 'Breakfast: assign your Trainer Points.' : 'Waiting for the Opponent to assign theirs…';
   } else if (myTurn) {
@@ -248,10 +252,10 @@ function sidePanel(state, ui, ctx) {
       <section class="v2-panel"><div class="v2-label">Round</div><b class="v2-big">${state.round || '—'} <small>of ${ROUND_LIMIT}${state.suddenDeath ? ' · sudden death' : ''}</small></b>
         <p class="v2-note">${state.phase === 'battle' ? `Battle Phase · ${state.turn === 'player' ? 'your turn' : 'their turn'}` : state.phase === 'gameOver' ? 'Match over' : 'Setup'}</p></section>
       ${champPanel(state)}
-      <section class="v2-panel"><div class="v2-label">Energy</div>
+      <section class="v2-panel"><div class="v2-label">${icon('energy')} Energy</div>
         <b class="v2-big">${me.energy} <small>/ ${me.roundEnergy}${me.stored ? ` · +${me.stored} stored` : ''}${me.bonus ? ` · +${me.bonus} milestone` : ''}</small></b>
         ${me.bonusNext ? `<p class="v2-note">+${me.bonusNext} next Round</p>` : ''}
-        ${me.growth || state.players.ai.growth ? `<p class="v2-note on"><b>🌱 Growth ${me.growth}</b> · Opponent ${state.players.ai.growth}</p>` : ''}</section>
+        ${me.growth || state.players.ai.growth ? `<p class="v2-note on"><b>${icon('growth')} Growth ${me.growth}</b> · Opponent ${state.players.ai.growth}</p>` : ''}</section>
       ${trainerPointsPanel(state)}
       ${bagPanel(state, ui)}
       <section class="v2-panel"><div class="v2-label">Weather</div>${weatherPanel(state)}</section>
@@ -272,7 +276,7 @@ function champPanel(state) {
 
 function weatherPanel(state) {
   const totals = weatherTotals(state);
-  const icons = ['Rain', 'Sun'].map((kind) => `<span class="v2-wx big"><img src="${ASSETS}/ui/icons/weather-${slug(kind)}.webp" alt="${kind}">${totals[kind] ?? 0}<small>${kind}</small></span>`).join('');
+  const icons = ['Rain', 'Sun'].map((kind) => `<span class="v2-wx big">${weatherIcon(kind)}${totals[kind] ?? 0}<small>${kind}</small></span>`).join('');
   const on = WEATHER_BRACKETS.filter((b) => bracket(state, b.kind, b.at)).map((b) => `<p class="v2-note on"><b>${b.kind} ${b.at}:</b> ${b.text}</p>`).join('');
   return `<div class="v2-wx-row">${icons}</div>${on || '<p class="v2-note">No bracket reached (2, 4, 6, 8).</p>'}`;
 }
@@ -301,8 +305,8 @@ function trainerPointsPanel(state) {
   const me = state.players.player;
   const them = state.players.ai;
   return `<section class="v2-panel v2-tp"><div class="v2-label">Trainer Points</div>
-    <b class="v2-big">★ ${me.trainerPoints} <small>to assign at Breakfast</small></b>
-    <p class="v2-note">${me.trainers.length ? `${me.trainers.length} Trainer${me.trainers.length === 1 ? '' : 's'} in play · move ${me.movedTrainer ? 'used this Round' : 'available'}` : 'No Trainers in play yet'}${them.trainerPoints || them.trainers.length ? ` · Opponent ★ ${them.trainerPoints}` : ''}</p></section>`;
+    <b class="v2-big">${icon('star')} ${me.trainerPoints} <small>to assign at Breakfast</small></b>
+    <p class="v2-note">${me.trainers.length ? `${me.trainers.length} Trainer${me.trainers.length === 1 ? '' : 's'} in play · move ${me.movedTrainer ? 'used this Round' : 'available'}` : 'No Trainers in play yet'}${them.trainerPoints || them.trainers.length ? ` · Opponent ${icon('star')} ${them.trainerPoints}` : ''}</p></section>`;
 }
 
 // The Bag (V4): 6 spaces, in the side panel as in the mockup. On your turn, an Item
@@ -381,7 +385,7 @@ function locationLayer(state, ui) {
           <p>${esc(loc.objective.text)}</p>
           ${progressBar(loc, 'player')}
           ${progressBar(loc, 'ai')}
-          <footer><span class="v2-rounds">⌛ ${loc.roundsLeft} Round${loc.roundsLeft === 1 ? '' : 's'} left</span>${loc.championship ? `<span class="v2-goals">${esc(goals)}</span>` : ''}</footer>
+          <footer><span class="v2-rounds">${icon('timer')} ${loc.roundsLeft} Round${loc.roundsLeft === 1 ? '' : 's'} left</span>${loc.championship ? `<span class="v2-goals">${esc(goals)}</span>` : ''}</footer>
         </div>
       </div>`;
   }).join('');
@@ -390,8 +394,8 @@ function locationLayer(state, ui) {
   const lanes = Array.from({ length: LANES }, (_, lane) => {
     if (locationAt(state, lane)) return '';
     const can = starts.includes(lane);
-    const home = locTargets.has('home');
-    return `<div class="v2-lane${can ? ' pick' : ''}${home ? ' loc-target' : ''}" style="grid-column: ${lane + 1}" data-lane="${lane}"${home ? ' data-loc-target="home"' : ''}>${can ? `<span>Place<br>here</span>` : `<span>${home ? 'Home<br>(choose)' : 'Home'}</span>`}</div>`;
+    const home = locTargets.has(`home-${lane}`);
+    return `<div class="v2-lane${can ? ' pick' : ''}${home ? ' loc-target' : ''}" style="grid-column: ${lane + 1}" data-lane="${lane}"${home ? ` data-loc-target="home-${lane}"` : ''}>${can ? `<span>Place<br>here</span>` : `<span>${home ? 'Home lane<br>(choose)' : 'Home'}</span>`}</div>`;
   }).join('');
   const ghost = pick ? `<div class="v2-loc ghost" style="--loc: ${pick.color}; display: none"></div>` : '';
   return `<div class="v2-locs">${frames}${ghost}</div><div class="v2-lanes">${lanes}</div>`;
@@ -583,6 +587,11 @@ function gameOver(state) {
 }
 
 export function renderMatch(root, state, ui, ctx) {
+  // An On Evolve target to choose (Elliott's V6 ruling): the target picking, at once.
+  const choice = state.choices?.[0];
+  if (choice?.who === 'player' && !ui.locked && ui.pending?.action.type !== 'chooseTarget') {
+    ui.pending = { action: { type: 'chooseTarget', who: 'player' }, spec: choice.spec, label: `${choice.name} (On Evolve): ${choice.text}`, chosen: [], extra: [], ops: [], ctx: choice.ctx };
+  }
   const targets = ui.attacker !== null && state.phase === 'battle' ? legalTargets(state, 'player', ui.attacker) : [];
   const playerTarget = targets.some((t) => t.kind === 'player');
   root.innerHTML = `
@@ -633,6 +642,13 @@ function wire(root, state, ui, ctx) {
     ui.assignDraft = null;
     ctx.act({ type: 'assignPoints', who: 'player', points });
   });
+  // A waiting On Evolve choice: only its targets can be clicked.
+  if (ui.pending?.action.type === 'chooseTarget' && !ui.locked) {
+    const pick = (ref) => ctx.act({ type: 'chooseTarget', who: 'player', targets: [ref] });
+    on('.v2-space.effect-target', (el) => pick({ who: el.dataset.who, kind: 'pokemon', space: Number(el.dataset.space) }));
+    on('.v2-recognition.effect-target', (el) => pick({ who: el.dataset.player, kind: 'player' }));
+    return;
+  }
   if (!(state.phase === 'battle' && state.turn === 'player') || ui.locked) return;
   const hand = state.players.player.hand;
   // Start an action that may need targets: none (or 'all') acts at once; else choose.

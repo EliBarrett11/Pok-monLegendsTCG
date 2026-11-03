@@ -466,3 +466,34 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #140a04; }
 /* V6: the side panel fits the stage; the log takes what's left. */
 .v2-side { max-height: 976px; overflow: hidden; }
 .v2-keys i { font-size: 10.5px; }
+
+/* --- V7a: coded icons (icons.js; docs/v2-design.md 7c) ------------------------------------------ */
+.v2-ico { width: 1em; height: 1em; vertical-align: -0.16em; flex-shrink: 0; overflow: visible; }
+.v2-typeicon { display: inline-grid; place-items: center; width: 1.25em; height: 1.25em; border-radius: 50%; vertical-align: -0.3em;
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--t) 70%, #fff), var(--t) 60%, color-mix(in srgb, var(--t) 70%, #000));
+  border: 1.5px solid var(--brass-light); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); margin-right: 2px; }
+.v2-typeicon .v2-ico { width: 72%; height: 72%; }
+.v2-card .v2-typeicon.v2-type { position: absolute; z-index: 1; right: 6px; top: 5px; width: 28px; height: 28px; margin: 0; }
+.v2-speed { position: absolute; z-index: 1; right: 8px; top: 36px; font-size: 15px; filter: drop-shadow(0 1px 2px #000); }
+.v2-card:has(.v2-guard) .v2-speed { top: 56px; }
+.v2-stats span { display: inline-flex; align-items: center; gap: 3px; }
+.v2-stats .v2-ico { font-size: 17px; filter: drop-shadow(0 1px 2px #000); }
+.v2-cost { gap: 0; }
+.v2-cost .v2-ico { position: absolute; inset: -3px; width: calc(100% + 6px); height: calc(100% + 6px); }
+.v2-cost b { position: relative; z-index: 1; font-weight: 800; text-shadow: 0 1px 2px #000; }
+.v2-cost.wide .v2-ico, .v2-cost.release .v2-ico { position: static; width: 16px; height: 16px; margin-right: 2px; }
+.v2-cost:not(.wide):not(.release) { background: none; border: 0; width: 28px; height: 28px; }
+.v2-level.legendary { display: inline-flex; align-items: center; gap: 3px; background: linear-gradient(#fff3c4, #e8b84a); }
+.v2-level.legendary .v2-ico { font-size: 14px; }
+.v2-status i { display: inline-flex; align-items: center; gap: 2px; }
+.v2-spent.asleep { display: inline-flex; align-items: center; gap: 3px; }
+.v2-label .v2-ico { font-size: 16px; }
+.v2-big .v2-ico { font-size: 0.8em; }
+.v2-wx .v2-ico { font-size: 20px; }
+.v2-wx.big .v2-ico { font-size: 28px; }
+.v2-rounds .v2-ico { font-size: 13px; }
+.v2-growth b { display: inline-flex; align-items: center; gap: 2px; }
+.v2-growth b .v2-ico { font-size: 22px; }
+.v2-binfo small .v2-ico, .v2-binfo small .v2-typeicon { font-size: 13px; margin-right: 2px; }
+.v2-binfo b .v2-ico { font-size: 15px; }
+.v2-level.legendary { font-size: 10.5px; padding: 1px 5px; letter-spacing: 0.02em; max-width: calc(100% - 46px); }

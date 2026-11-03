@@ -108,8 +108,9 @@ async function aiTurn(id) {
   redraw();
   for (let guard = 0; guard < 2000 && id === match && state.phase !== 'gameOver'; guard++) {
     // The assign step is simultaneous: the AI locks in while you choose.
-    const who = state.phase === 'assign' ? (legalNow('ai') ? 'ai' : autoplay ? actor(state) : null)
-      : state.phase === 'initiative' ? (autoplay ? 'player' : null) : state.turn;
+    const who = state.choices?.length ? actor(state)
+      : state.phase === 'assign' ? (legalNow('ai') ? 'ai' : autoplay ? actor(state) : null)
+        : state.phase === 'initiative' ? (autoplay ? 'player' : null) : state.turn;
     if (!who || (who === 'player' && !autoplay)) break;
     await wait(PAUSE);
     if (id !== match) return;

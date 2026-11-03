@@ -29,16 +29,18 @@
 // for), plus the other V1/V2 test Pokémon turned into lines to fill the test deck.
 // Every number is a test value; v1's art is used, and missing stages fall back.
 
-import { costFor, MAX_LEVEL, LEGENDARY_LEVEL } from './rules.js';
+import { costFor, MAX_LEVEL } from './rules.js';
 
 const none = () => [];
 
 export function line(spec) {
-  const top = spec.legendary ? LEGENDARY_LEVEL : MAX_LEVEL;
+  // A Legendary (V7a) is a single card: one "Level" (never shown), a fixed cost and stats.
+  const top = spec.legendary ? 1 : MAX_LEVEL;
   if (spec.stats.length !== top) throw new Error(`${spec.id}: needs stats for Levels 1–${top}`);
   return {
     weight: 'standard', keywords: none, ability: () => null, art: spec.stages[0].art, ...spec,
     stageKind: spec.legendary ? 'Legendary' : spec.stages.length === 1 ? 'Single-stage' : `${spec.stages.length}-stage`,
+    ...(spec.legendary ? { stages: [{ ...spec.stages[0], from: 1, to: 1 }] } : {}),
     maxLevel: top,
   };
 }
@@ -81,9 +83,9 @@ export const SERIES = [
     },
   }),
   line({
-    id: 'kyogre', rarity: 'Legendary', type: 'Water', attackType: 'Special', strengthType: 'Hitpoints', speed: 'Steady', weight: 'heavy', legendary: true,
-    stages: single({ name: 'Kyogre', art: 'kyogre' }, LEGENDARY_LEVEL),
-    stats: [[3, 5], [4, 6], [5, 7], [6, 8], [7, 9], [8, 10], [10, 12]],
+    id: 'kyogre', rarity: 'Legendary', type: 'Water', attackType: 'Special', strengthType: 'Hitpoints', speed: 'Steady', legendary: true, cost: 7,
+    stages: single({ name: 'Kyogre', art: 'kyogre' }, 1),
+    stats: [[10, 12]],
     empower: { cost: 2, attack: 2, strength: 2, keywords: [], text: '+2: +2/+2' },
   }),
   // --- The other test Pokémon, as lines ------------------------------------------------------------
@@ -179,7 +181,7 @@ export function pokemonAt(seriesId, level) {
   const guard = ab?.guard === 'none' ? 'Hitpoints' : ab?.guard ?? line.strengthType;
   return {
     id: slug(stage.name), name: stage.name, cardType: 'Pokémon', series: line.id, level, stage: stageIndex(line, level),
-    art: artFor(line, level), cost: costFor(level, line.weight), weight: line.weight, rarity: line.rarity,
+    art: artFor(line, level), cost: line.legendary ? line.cost : costFor(level, line.weight), weight: line.weight, rarity: line.rarity,
     type: ab?.type ?? line.type, attack, attackType: line.attackType, strength, strengthType: guard, speed: ab?.speed ?? line.speed,
     keywords: [...line.keywords(level), ...(ab?.keywords ?? [])], ability: ab, empower: line.empower ?? null,
     weather: ab?.weather ?? null, retain: !!line.retain, legendary: !!line.legendary, deck: line.deck ?? null,
