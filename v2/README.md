@@ -306,3 +306,61 @@ To play locally: `python3 -m http.server` at the repository root, then open http
     - FG: Growlithe and Arcanine have Defence with the same numbers, the Fire list is still legal with 2 Duskull and 1 Mankey, and the list is unchanged without FG;
     - the own-lane and player-attack counts.
     - All v2 tests pass. The game in the browser is unchanged.
+
+- **V7d — attack volume experiment.** These are flags for the tools only. Nothing changes in the game until Elliott decides. The baseline is T90 + CH9 + LG, with LG as interpreted in V7c (Elliott confirmed it).
+  - **New flags:**
+    - **C1:** no Pokémon costs less than 1 (light weight and Wallace's discount can't make it free). Free summons by card effects stay free.
+    - **GS:** Grass-deck Pokémon −1 Strength at every Level.
+    - **SL:** Sleep Powder costs 3. Gloom, Bellossom and Butterfree's **On Evolve** Sleep only reaches a Pokémon of a lower Level than themselves. Gloom's On Summon Sleep is unchanged, as written.
+    - `node v2/tools/variants.js 100 --set=v7d` runs them.
+  - **New diagnostics,** per deck:
+    - Pokémon in play per Round (counted at each Supper);
+    - 0-cost summons per match;
+    - attacks per Pokémon per Round;
+    - passes per match;
+    - the share of its attacks that hit a Spent target, and how many of those were Asleep;
+    - Pokémon defeated per match.
+  - **Results:** every config is on top of T90 + CH9 + LG, with 100 matches per matchup (50 per seat order). Win rates are for the first-named deck:
+
+    | Variant | Fire v Water (Fire) | Fire v Grass (Fire) | Water v Grass (Water) | Avg Rounds | Ends: early / Championship / final |
+    |---|---|---|---|---|---|
+    | T90+CH9+LG | 47% | 15% | 17% | 8.8 | 48% / 48% / 4% |
+    | T90+CH9+LG+C1 | 41% | 10% | 13% | 9.0 | 42% / 53% / 4% |
+    | T90+CH9+LG+GS | 47% | 41% | 26% | 9.2 | 35% / 60% / 5% |
+    | T90+CH9+LG+SL | 47% | 18% | 15% | 8.8 | 50% / 46% / 4% |
+    | T90+CH9+LG+C1+GS | 41% | 33% | 21% | 9.3 | 33% / 62% / 5% |
+    | T90+CH9+LG+C1+SL | 41% | 12% | 11% | 8.9 | 43% / 54% / 4% |
+    | T90+CH9+LG+C1+GS+SL | 41% | 28% | 20% | 9.3 | 32% / 64% / 4% |
+    | T90+CH9+LG+C1+F1 | 54% | 32% | 13% | 8.9 | 42% / 56% / 2% |
+    | T90+CH9+LG+C1+GS+F1 | 54% | 62% | 21% | 9.2 | 33% / 65% / 2% |
+    | T90+CH9+LG+C1+GS+F1+W1 | 50% | 62% | 34% | 9.2 | 33% / 65% / 2% |
+    | T90+CH9+LG+C1+GS+SL+F1+W1 | 50% | 62% | 34% | 9.2 | 34% / 64% / 2% |
+
+  - **What the diagnostics show** (baseline):
+    - **Grass attacks more because it has more Pokémon in play, not because each one attacks more often.**
+      - Pokémon in play per Round: Grass 4.6 against Fire and 5.6 against Water; Water 3.9–4.2; Fire only 1.9.
+      - Attacks per Pokémon per Round: Grass 0.77–0.84; Water 0.69–0.74; Fire 1.07–1.19.
+      - Fire passes 21–27 times a match, Water 14–22, Grass 9–10.
+      - Fire loses 10–11 Pokémon a match.
+    - **Free summons are few:** 1.7–3.1 a match for every deck.
+    - **Sleep barely matters:** 21–38% of attacks hit a Spent target, but at most 6% of those were Asleep.
+  - **What each lever moved:**
+    - **GS is the strong lever:** Fire–Grass goes from 15% to 41%, and Water–Grass from 17% to 26%. Grass's board shrinks, and so do its Recognition and its Pokémon in play.
+    - **C1 hurts Fire and Water more than Grass:** they have light Pokémon too (Ponyta, Mankey, Wooper, Chinchou, Wingull). Fire–Water drops to 41%, Fire–Grass to 10% and Water–Grass to 13%.
+    - **SL does almost nothing** (±3 points).
+    - **F1** adds about 7–30 points to Fire's matchups. **W1** adds about 13 to Water–Grass.
+    - **With C1 + GS + F1 + W1:**
+      - Fire–Water is 50% and Fire–Grass is 62% (Fire overshoots).
+      - Water–Grass is 34%, the best Water has reached in any experiment.
+      - Board size against Grass evens out: Grass has 3.2 Pokémon in play and Fire 2.4.
+    - **Pacing holds:** 8.8–9.3 Rounds and 32–50% early in every config.
+  - **Recommendation:**
+    - **No set puts all three matchups at 45–55%.** The closest is **C1 + GS + F1 + W1**: 50% / 62% / 34%, 9.2 Rounds, 33% early. SL adds nothing to it.
+    - **C1 is probably not needed:** its effect works against Fire and Water. The next run to try is **GS + F1 + W1 without C1**.
+    - **Fire–Grass will likely need a smaller Fire lever than F1 once GS is in.**
+    - **Water–Grass still needs more than W1.** Water keeps 4 Pokémon in play but attacks least per Pokémon (about 0.7 a Round).
+  - **Tests:** `v2/tests/variants.test.js` adds:
+    - C1: Oddish costs 1 instead of 0, isn't playable with 0 Energy, and can't be summoned free;
+    - GS: Grass −1 Strength, Fire unchanged;
+    - SL: Sleep Powder at 3 (2 without SL); Gloom's On Evolve Sleep skips a higher Level, and reaches a lower one with SL or any Level without it.
+    - All v2 tests pass. The game in the browser is unchanged.
