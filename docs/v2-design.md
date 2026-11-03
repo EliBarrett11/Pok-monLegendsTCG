@@ -93,17 +93,30 @@ Costs grow more slowly than Levels, so a trained Pokémon doesn't take the whole
 - **Location milestones:** some reward +1 Energy.
 - **Trainer Abilities and Pokémon abilities:** a natural home for the future Resource-Based archetype.
 
-## 7. Open questions
+## 7. Settled 3 Nov, and still open
 
-Settled 2 Nov: 2 Levels per stage, L1–6 plus L7 for Legendaries; costs grow more slowly than Levels; attacks can target anywhere; Locations can cover Pokémon; Partner placement; Growth trains on the board.
+**Settled:**
+- **Two-stage lines** fill 3 Levels per stage (e.g. Growlithe L1–3, Arcanine L4–6).
+- **Single-stage Pokémon** train through L1–6 without evolving.
+- **The cost curve** in 6.1 is liked.
+- **Location** timers, lane widths and rewards are set per Location, by objective complexity, reward strength and Weather.
+- **Trainers in play:** no limit. The limit is where you invest Trainer Points.
+- **Trainer Points** come from Location milestones and completions, and possibly from meeting Supporter Favours while Trainers are in play (the social link). Unlock costs are around 2/4/6, set per Trainer by effect strength.
 
-1. **Two-stage and single-stage Pokémon:** how do Growlithe → Arcanine (two stages) and Chansey or Sudowoodo (one stage) fill Levels 1–6?
-2. **Cost curve and Energy gains:** approve or adjust 6.1 and 6.2.
-3. **Recognition target**, and how long matches should run (it sets which Levels are seen).
-4. **Locations:** how long the Round timer is, the milestone rewards, and lane widths.
-5. **Trainer Points:** sources and unlock costs (e.g. 2/4/6); any limit on Trainers in play.
-6. **Items** without PokéDollars: how are they played?
-7. **Deck building:** 40 cards? Do Trainers join the deck split? How does choosing a cap work in the deck builder?
+**Proposals awaiting Elliott:**
+1. **Big drops (6+ Energy):**
+   - **Weight classes:** each species shifts the cost curve, light −1, standard 0, heavy +1/+2. A heavy line costs 2/2/3/4/4/5 or 3/3/4/5/5/6.
+   - **Legendaries:** Level 7 costs 6–7.
+   - **Optional Empowered summon on selected Pokémon:** pay extra Energy when summoning to unlock a bonus (e.g. +2 for +2/+2 and Quick Attack). These are the same breakpoints as scalable Strategy cards, applied to Pokémon. Any Round can then have a big drop by choice.
+2. **The end of the match: both a target and a Round limit.**
+   - Reaching the Recognition target wins immediately.
+   - Otherwise, at a set Round, the **Championship** arrives for both players: a final Location with big Recognition rewards. When it ends, the highest Recognition wins.
+   - Rewards that are bigger than usual keep a trailing player in the game.
+   - A tiebreaker is needed.
+3. **Items without PokéDollars:**
+   - **Found on the journey:** Location milestones reward drawing or choosing an Item from a shared Item pool, into the Bag. This keeps the Bag and replaces the PokéMart with exploration.
+   - Plus some Items as ordinary deck cards with an Energy cost.
+4. **Deck size:** keep 40 until the prototype. Recycling matters less now that Levels follow the Round number, so bigger decks (more variety, fewer reshuffles) become possible. But Release costs weigh less when cards rarely come back. Decide after playtesting.
 
 ## 8. Build approach (proposal)
 
