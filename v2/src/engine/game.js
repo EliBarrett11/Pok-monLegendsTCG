@@ -124,6 +124,7 @@ export function train(s, who, space, n) {
   };
   if (card.empowered) applyEmpower(next);
   next.strength += waterBonus(s, next);
+  fireGuard(s, next);
   if (card.held) applyHeld(next, card.held);
   // Permanent gains (Rally, Rage, On Heal) and "this Round" / "until Breakfast" buffs stay.
   if (card.grown) { next.attack += card.grown.attack ?? 0; next.strength += card.grown.strength ?? 0; }
@@ -141,6 +142,8 @@ export function train(s, who, space, n) {
 
 // W1 (variant): Water Pokémon +N Strength at every Level.
 // W1 / F1 experiment flags: Water (or Fire) Pokémon +N Strength at every Level.
+// FG experiment flag (V7c): the Growlithe → Arcanine line has the Defence Strength-Type.
+const fireGuard = (s, card) => { if (s.variant?.fireGuards && card.series === 'f-growlithe') card.strengthType = 'Defence'; };
 const waterBonus = (s, card) => (s.variant?.waterStrength && card.type === 'Water' ? s.variant.waterStrength : 0)
   + (s.variant?.fireStrength && card.type === 'Fire' ? s.variant.fireStrength : 0);
 
@@ -198,6 +201,13 @@ export function legalTargets(state, who, from) {
   const all = [...enemy.map(({ space }) => ({ kind: 'pokemon', space })), { kind: 'player' }];
   if (hasKeyword(attacker, 'Infiltrator') || hasKw(state, who, from, 'Infiltrator')) return all;
   const guardType = { Physical: 'Defence', Special: 'Special Defence' }[attacker.attackType];
+  // LG experiment flag (V7c): lane guards. A guard only restricts attacks on targets in its
+  // own lane; with one Pokémon per space that leaves the enemy player, who is guarded only
+  // by a matching guard in the attacker's lane. Every enemy Pokémon can be attacked.
+  if (state.variant?.laneGuards) {
+    const across = state.players[opponentOf(who)].row[from];
+    return across?.strengthType === guardType ? all.filter((t) => t.kind !== 'player') : all;
+  }
   const guards = enemy.filter(({ card }) => card.strengthType === guardType).map(({ space }) => ({ kind: 'pokemon', space }));
   return guards.length ? guards : all;
 }
@@ -1504,6 +1514,7 @@ function placeSummoned(s, who, card, space, { targets, picks, active = false, co
   const played = { ...card, arrivedRound: s.round, buffs: [] };
   if (played.empowered) applyEmpower(played);
   played.strength += waterBonus(s, played);
+  fireGuard(s, played);
   played.currentStrength = played.strength;
   played.spent = !(active || hasKeyword(played, 'Quick Attack'));
   p.row[space] = played;

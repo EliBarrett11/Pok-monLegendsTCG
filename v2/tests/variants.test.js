@@ -3,10 +3,11 @@
 // without them, and Growth and training events name their source.
 // Run with: node v2/tests/variants.test.js
 import assert from 'node:assert/strict';
-import { createGame, applyAction, nurtureSpaces, nurtureCost, champRoundOf, targetOf, PLAYERS } from '../src/engine/game.js';
+import { createGame, applyAction, nurtureSpaces, nurtureCost, champRoundOf, targetOf, legalTargets, PLAYERS } from '../src/engine/game.js';
 import { cardDef, DECKS, POOL_ITEMS } from '../src/engine/cards.js';
 import { pokemonAt, seriesDef } from '../src/engine/series.js';
-import { VARIANTS, variantOf, sourceName, runMatchup } from '../tools/roundrobin.js';
+import { VARIANTS, variantOf, sourceName, runMatchup, deckList } from '../tools/roundrobin.js';
+import { deckProblems, copiesOf } from '../src/engine/cards.js';
 import { SETS } from '../tools/variants.js';
 
 function battle(round = 2, variant = null) {
@@ -35,11 +36,48 @@ const passBoth = (s) => applyAction(applyAction(s, { type: 'pass', who: 'player'
   assert.equal(t.players.ai.row[0].strength, pokemonAt('f-growlithe', 2).strength + 1);
 }
 
+// LG (V7c): lane guards. Every enemy Pokémon can be attacked; the enemy player is guarded
+// only by a matching guard across from the attacker. Without LG: any matching guard.
+{
+  const setup = (variant) => {
+    const s = battle(3, variant);
+    place(s, 'ai', 0, 'g-bulbasaur', 1);   // Ivysaur's line at L1: Special Defence
+    place(s, 'ai', 4, 'g-geodude', 1);     // Defence
+    place(s, 'ai', 6, 'g-oddish', 1);      // Hitpoints
+    place(s, 'player', 4, 'f-growlithe', 1);   // Physical, across from Geodude
+    place(s, 'player', 6, 'f-ponyta', 1);      // Physical, across from Oddish
+    return s;
+  };
+  const key = (ts) => ts.map((t) => (t.kind === 'player' ? 'P' : t.space)).sort().join();
+  const lg = setup(variantOf(['LG']));
+  assert.equal(lg.players.ai.row[4].strengthType, 'Defence');
+  assert.equal(key(legalTargets(lg, 'player', 4)), '0,4,6', 'LG: a Defence guard across blocks the player only');
+  assert.equal(key(legalTargets(lg, 'player', 6)), '0,4,6,P', 'LG: no guard across: the player too');
+  const plain = setup(null);
+  assert.equal(key(legalTargets(plain, 'player', 6)), '4', 'default: the Defence guard anywhere');
+}
+
+// FG (V7c): Growlithe → Arcanine has Defence (same numbers); 2 Duskull for 1 Mankey.
+{
+  const fire = deckList('fire', variantOf(['FG']));
+  assert.deepEqual(deckProblems(fire), [], 'FG: still a legal deck');
+  assert.deepEqual([copiesOf(fire)['f-duskull'], copiesOf(fire)['f-mankey'], fire.length], [2, 1, 40]);
+  assert.equal(deckList('fire', null), DECKS.fire.list, 'default: the deck as written');
+  for (const level of [2, 5]) {
+    const s = battle(level, variantOf(['FG']));
+    s.turn = 'ai';
+    s.players.ai.hand.push({ ...pokemonAt('f-growlithe', level), cap: 6, uid: `ai-fg${level}` });
+    const t = applyAction(s, { type: 'summon', who: 'ai', uid: `ai-fg${level}`, space: 0 });
+    const c = t.players.ai.row[0];
+    assert.deepEqual([c.strengthType, c.strength], ['Defence', pokemonAt('f-growlithe', level).strength]);
+  }
+}
+
 // The flags parse; unknown flags are refused.
 assert.deepEqual(variantOf(['T90', 'N3', 'GX']), { target: 90, nurtureCost: 3, growthBulbasaurOnly: true });
 assert.throws(() => variantOf(['N9']), /No variant N9/);
 assert.equal(variantOf([]), null);
-for (const f of ['N3', 'N1', 'NR', 'GX', 'ER', 'CH9', 'F1']) assert.ok(VARIANTS[f], `${f} exists`);
+for (const f of ['N3', 'N1', 'NR', 'GX', 'ER', 'CH9', 'F1', 'LG', 'FG']) assert.ok(VARIANTS[f], `${f} exists`);
 assert.ok(SETS.v7b.every((c) => c[0] === 'T90') && SETS.v7b.length === 11, 'V7b: 11 configs, each on top of T90');
 
 // T90 and CH9.
@@ -140,6 +178,7 @@ assert.deepEqual([targetOf(battle()), champRoundOf(battle())], [60, 10], 'off by
   assert.ok(Object.keys(g.growth).length > 0 && g.nurtures > 0, 'Growth by source and Nurtures');
   assert.ok(Object.keys(g.board).length > 0 && Object.values(g.board).every((b) => b.n > 0 && b.level >= b.n), 'board Level at Supper');
   assert.ok(r.deck.water.guardsMet >= r.deck.water.guardsAsleep, 'Asleep guards counted');
+  assert.ok(g.atPlayer > 0 && g.atPlayer + g.ownLane <= g.attacks, 'attacks on the player and in its own lane');
 }
 
 console.log('variants.test: ok');
