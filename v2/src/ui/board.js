@@ -6,37 +6,51 @@
 // the Championship, Energy with stored Energy, Weather), and the fanned hand below.
 // Pokémon use the minimal card style: Level badge, small Type icon, name, ⚔ and ♥.
 //
-// Clicks: a Pokémon in hand, then an empty space of your row, summons it; a
+// Clicks: a Pokémon in hand, then an empty space of your row, summons it (one with
+// an Empowered summon asks whether to pay for its bonus); a
 // Location in hand, then a glowing lane in the middle of the board, places it
 // there (from that lane to the right); one of your Alert Pokémon, then a glowing
 // target (an enemy Pokémon, or the Opponent's Recognition panel for the player
 // character), attacks.
 import {
   legalTargets, alertSpaces, playable, placeable, locationStarts, locationAt, weatherTotals, championship,
-  isAlert, passEndsPhase, passSpends, opponentOf,
+  isAlert, passEndsPhase, passSpends, opponentOf, summonCost,
 } from '../engine/game.js';
 import { RECOGNITION_TARGET, LANES, ROUND_LIMIT, CHAMPIONSHIP_ROUND } from '../engine/rules.js';
-import { rewardText } from '../engine/locations.js';
+import { rewardText, lastsText } from '../engine/locations.js';
+import { seriesDef, stagesText } from '../engine/series.js';
 
 const ASSETS = '../assets';   // the shared art, from the page (v2/index.html)
 const slug = (s) => s.toLowerCase().replace(/\s+/g, '-');
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
-// A Pokémon card in the minimal style. opts: { cls, spent, alert, hurt, attrs }.
+// A Pokémon card in the minimal style. opts: { cls, alert, attrs, showCost, inHand }.
+// In hand the Level badge is its current Level (Round, up to its cap; the cap shows
+// beside it); on the board, the Level it was played at.
 function pokemonCard(card, opts = {}) {
   const strength = card.currentStrength ?? card.strength;
-  const cls = ['v2-card', opts.cls, card.spent && 'spent', opts.alert && 'alert'].filter(Boolean).join(' ');
+  const cls = ['v2-card', opts.cls, card.spent && 'spent', opts.alert && 'alert', card.empowered && 'empowered'].filter(Boolean).join(' ');
+  const line = card.series ? seriesDef(card.series) : null;
+  const tip = [
+    `${card.name} · Level ${card.level}${card.cap ? ` (cap ${card.cap})` : ''}`, `${card.type} · ${card.attackType} ${card.attack} · ${card.strengthType} ${card.strength} · ${card.speed}`,
+    line && `${stagesText(line)} · ${line.rarity}${line.weight !== 'standard' ? ` · ${line.weight}` : ''}`,
+    card.keywords?.length && card.keywords.join(', '), card.retain && 'Retain', card.ability?.text, card.empower && `Empowered summon ${card.empower.text}`,
+    card.empowered && 'Empowered',
+  ].filter(Boolean).join('\n');
+  const notes = [card.ability?.text, opts.inHand && card.empower && `Empower ${card.empower.text}`].filter(Boolean);
   return `
-    <div class="${cls}" ${opts.attrs ?? ''} title="${esc(`${card.name} · ${card.type} · ${card.attackType} ${card.attack} · ${card.strengthType} ${card.strength} · ${card.speed}${card.keywords?.length ? ` · ${card.keywords.join(', ')}` : ''}${card.retain ? ' · Retain' : ''}`)}">
-      <div class="v2-art" style="background-image: url('${ASSETS}/cards/${card.id}.jpg')"></div>
-      <span class="v2-level">Lv ${card.level}</span>
+    <div class="${cls}" ${opts.attrs ?? ''} title="${esc(tip)}">
+      <div class="v2-art" style="background-image: url('${ASSETS}/cards/${card.art ?? card.id}.jpg')"></div>
+      <span class="v2-level">Lv ${card.level}${opts.inHand && card.cap > card.level ? `<small>/${card.cap}</small>` : ''}</span>
       <img class="v2-type" src="${ASSETS}/ui/icons/type-${slug(card.type)}.webp" alt="${card.type}">
       ${card.strengthType !== 'Hitpoints' ? `<span class="v2-guard">${card.strengthType === 'Defence' ? 'Def' : 'Sp. Def'}</span>` : ''}
       ${card.keywords?.length ? `<span class="v2-keys">${card.keywords.map((k) => `<i>${k}</i>`).join('')}</span>` : ''}
       ${card.cost !== undefined && opts.showCost ? `<span class="v2-cost">${card.cost}</span>` : ''}
       <div class="v2-name">${card.name}</div>
+      ${notes.length ? `<div class="v2-ability">${notes.map(esc).join('<br>')}</div>` : ''}
       <div class="v2-stats"><span>⚔ ${card.attack}</span><span class="${strength < card.strength ? 'hurt' : ''}">♥ ${strength}</span></div>
       ${card.spent ? '<span class="v2-spent">Spent</span>' : opts.alert ? '<span class="v2-alert">Alert</span>' : ''}
+      ${opts.badge ? `<span class="v2-flourish">${opts.badge}</span>` : ''}
     </div>`;
 }
 
@@ -48,12 +62,12 @@ function locationCard(card, opts = {}) {
   const cls = ['v2-card', 'v2-loc-card', opts.cls].filter(Boolean).join(' ');
   const goals = [...card.milestones.map((m) => `${m.at}: ${rewardText(m.reward)}`), `${card.objective.count}: ${rewardText(card.completion)}`].join(' · ');
   return `
-    <div class="${cls}" ${opts.attrs ?? ''} style="--loc: ${card.color}" title="${esc(`${card.name} · Location · ${card.lanes} lane${card.lanes > 1 ? 's' : ''} · ${card.rounds} Rounds · ${card.objective.text} · ${goals}`)}">
+    <div class="${cls}" ${opts.attrs ?? ''} style="--loc: ${card.color}" title="${esc(`${card.name} · Location · ${card.lanes} lane${card.lanes > 1 ? 's' : ''} · ${lastsText(card.rounds)} · ${card.objective.text} · ${goals}`)}">
       <div class="v2-art" style="background-image: url('${ASSETS}/cards/${card.id}.jpg')"></div>
       <span class="v2-level">Location</span>
       <span class="v2-loc-wx">${weatherIcons(card.weather)}</span>
       <div class="v2-name">${card.name}</div>
-      <div class="v2-loc-meta">${card.lanes} lane${card.lanes > 1 ? 's' : ''} · ${card.rounds} Rounds</div>
+      <div class="v2-loc-meta">${card.lanes} lane${card.lanes > 1 ? 's' : ''} · ${lastsText(card.rounds)}</div>
       <div class="v2-loc-goal">${card.objective.text}</div>
     </div>`;
 }
@@ -86,7 +100,10 @@ function row(state, who, ui, targets) {
     const cls = ['v2-space', loc && 'in-loc', summonHere && 'target', target && 'attack-target', attacker && 'selected'].filter(Boolean).join(' ');
     const alert = card && isAlert(state, card) && state.phase === 'battle';
     const canAct = mine && alert && state.turn === 'player' && !ui.locked;
-    return `<div class="${cls}" data-who="${who}" data-space="${space}"${loc ? ` style="--loc: ${loc.color}"` : ''}>${card ? pokemonCard(card, { alert, cls: canAct ? 'selectable' : '' }) : ''}</div>`;
+    const trained = card && state.events.find((e) => e.type === 'trained' && e.who === who && e.space === space);
+    const cardCls = [canAct && 'selectable', trained && 'levelup'].filter(Boolean).join(' ');
+    const face = card ? pokemonCard(card, { alert, cls: cardCls, badge: trained ? `Level ${trained.to}${trained.name !== trained.fromName ? ` · ${trained.name}!` : ''}` : '' }) : '';
+    return `<div class="${cls}" data-who="${who}" data-space="${space}"${loc ? ` style="--loc: ${loc.color}"` : ''}>${face}</div>`;
   }).join('');
   return `<div class="v2-row ${who === 'ai' ? 'opponent' : 'player'}">${spaces}</div>`;
 }
@@ -153,7 +170,9 @@ function hand(state, ui) {
     const lift = Math.abs(i - (n - 1) / 2) * 6 - (picked ? 34 : 0);
     const cls = [can.has(c.uid) ? 'playable' : 'unaffordable', picked && 'picked'].filter(Boolean).join(' ');
     const attrs = `data-uid="${c.uid}" data-kind="${c.cardType === 'Location' ? 'location' : 'pokemon'}"`;
-    const face = c.cardType === 'Location' ? locationCard(c, { cls, attrs }) : pokemonCard(c, { cls, showCost: true, attrs });
+    const up = state.events.find((e) => e.type === 'levelUp' && e.uid === c.uid);
+    const face = c.cardType === 'Location' ? locationCard(c, { cls, attrs })
+      : pokemonCard(c, { cls: [cls, up && 'levelup'].filter(Boolean).join(' '), showCost: true, inHand: true, attrs, badge: up ? `Evolved: ${up.to}!` : '' });
     return `<div class="v2-hand-slot" style="transform: translateY(${lift}px) rotate(${angle}deg)">${face}</div>`;
   }).join('')}</div>`;
 }
@@ -223,6 +242,23 @@ function resultLine(state) {
   }
 }
 
+// The Empowered summon chooser (the Growth chooser's small dialog style).
+function empowerBox(state, ui) {
+  const a = ui.empowerAsk;
+  const card = a && state.players.player.hand.find((c) => c.uid === a.uid);
+  if (!card) return '';
+  const energy = state.players.player.energy;
+  const can = summonCost(card, true) <= energy;
+  return `<div class="v2-ask" role="dialog" aria-label="Empowered summon"><div class="v2-panel">
+    <p>Summon <b>${card.name}</b> (Level ${card.level}) into space ${a.space + 1}.</p>
+    <div class="v2-ask-buttons">
+      <button data-action="summon-plain">Summon<small>${card.cost} Energy</small></button>
+      <button data-action="summon-empowered"${can ? '' : ' disabled'}>Empowered<small>${summonCost(card, true)} Energy · ${esc(card.empower.text)}</small></button>
+    </div>
+    <button data-action="summon-cancel" class="v2-ask-cancel">Cancel</button>
+  </div></div>`;
+}
+
 function gameOver(state) {
   if (state.phase !== 'gameOver') return '';
   const title = state.winner === 'player' ? 'Victory' : state.winner === 'ai' ? 'Defeat' : 'Draw';
@@ -237,7 +273,7 @@ export function renderMatch(root, state, ui, ctx) {
   const playerTarget = targets.some((t) => t.kind === 'player');
   root.innerHTML = `
     <div class="v2-table">
-      <header class="v2-title"><h1>Pokémon Legends v2</h1><p>${ctx.build} · <a href="../">the current game</a></p></header>
+      <header class="v2-title"><h1>Pokémon Legends v2</h1><p>${ctx.build} · <a href="../">the current game</a> · <button class="v2-linkbtn" data-action="deck">${ctx.customDeck ? "Your deck" : "Deck builder"}</button></p></header>
       ${backs(state.players.ai.hand.length)}
       ${recognitionPanel(state, 'ai', playerTarget)}
       ${recognitionPanel(state, 'player', false)}
@@ -251,6 +287,7 @@ export function renderMatch(root, state, ui, ctx) {
       ${sidePanel(state, ui, ctx)}
       ${hand(state, ui)}
       <div class="v2-piles"><span>Draw ${state.players.player.drawPile.length}</span><span>Discard ${state.players.player.discard.length}</span><span>Released ${state.players.player.released.length}</span></div>
+      ${empowerBox(state, ui)}
       ${gameOver(state)}
     </div>`;
   wire(root, state, ui, ctx);
@@ -261,6 +298,7 @@ function wire(root, state, ui, ctx) {
   on('[data-action="flip"]', () => ctx.act({ type: 'flipCoin' }));
   on('[data-action="pass"]', () => ctx.act({ type: 'pass', who: 'player' }));
   on('[data-action="new"]', () => ctx.newMatch());
+  on('[data-action="deck"]', () => ctx.openDeck());
   if (!(state.phase === 'battle' && state.turn === 'player') || ui.locked) return;
   on('.v2-hand .v2-card.playable', (el) => {
     ui.attacker = null;
@@ -278,7 +316,16 @@ function wire(root, state, ui, ctx) {
     el.addEventListener('mouseenter', () => { ghost.style.display = ''; ghost.style.gridColumn = `${Number(el.dataset.lane) + 1} / span ${pick.lanes}`; });
     el.addEventListener('mouseleave', () => { ghost.style.display = 'none'; });
   });
-  on('.v2-row.player .v2-space.target', (el) => ctx.act({ type: 'summon', who: 'player', uid: ui.summon, space: Number(el.dataset.space) }));
+  on('.v2-row.player .v2-space.target', (el) => {
+    const space = Number(el.dataset.space);
+    const card = state.players.player.hand.find((c) => c.uid === ui.summon);
+    // A Pokémon with an Empowered summon asks first.
+    if (card?.empower) { ui.empowerAsk = { uid: card.uid, space }; ctx.redraw(); return; }
+    ctx.act({ type: 'summon', who: 'player', uid: ui.summon, space });
+  });
+  on('[data-action="summon-plain"]', () => ctx.act({ type: 'summon', who: 'player', uid: ui.empowerAsk.uid, space: ui.empowerAsk.space }));
+  on('[data-action="summon-empowered"]', () => ctx.act({ type: 'summon', who: 'player', uid: ui.empowerAsk.uid, space: ui.empowerAsk.space, empowered: true }));
+  on('[data-action="summon-cancel"]', () => { ui.empowerAsk = null; ctx.redraw(); });
   on('.v2-row.player .v2-card.selectable', (el) => {
     const space = Number(el.closest('.v2-space').dataset.space);
     ui.summon = null;

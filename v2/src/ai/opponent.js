@@ -21,12 +21,22 @@
 //   when nothing else is useful)
 //   summoning goes into a Location whose objective a Pokémon there helps
 //   (summon/attack/presence), else as in V1
+// Training (V3):
+//   a summon scores by what it adds to its own board (Attack + Strength, Quick
+//   Attack, Infiltrator, and any Pokémon an ability trains), not by its cost
+//   waiting: a card that would be stronger in a Round or two (its cap is above its
+//   Level) loses part of that difference, more if it has Retain (it stays in hand);
+//   so it plays low-capped and fully trained cards first and saves the rest; from
+//   the Championship on, nothing is worth saving
+//   Empowered summon: tried as its own move, its bonus counted like any stats, less
+//   1.5 per extra Energy
 import {
   applyAction, legalActions, legalTargets, alertSpaces, playable, placeable, locationStarts, locationAt,
-  passSpends, opponentOf, pokemonOf, pokemonIn,
+  passSpends, opponentOf, pokemonOf, pokemonIn, summonCost,
 } from '../engine/game.js';
 import { LANES, CHAMPIONSHIP_ROUND } from '../engine/rules.js';
 import { OBJECTIVES } from '../engine/locations.js';
+import { pokemonAt } from '../engine/series.js';
 
 const value = (card) => card.cost * 3 + card.attack;
 
@@ -41,10 +51,13 @@ export function moves(state, who) {
   if (legal.includes('summon')) {
     const space = bestSpace(state, who);
     const seen = new Set();
+    const energy = state.players[who].energy;
     for (const card of playable(state, who)) {
-      if (seen.has(card.id)) continue;   // copies are the same move
-      seen.add(card.id);
+      const key = `${card.series}-${card.level}-${card.cap}`;
+      if (seen.has(key)) continue;   // copies are the same move
+      seen.add(key);
       out.push({ type: 'summon', who, uid: card.uid, space });
+      if (card.empower && summonCost(card, true) <= energy) out.push({ type: 'summon', who, uid: card.uid, space, empowered: true });
     }
   }
   if (legal.includes('playLocation')) {
@@ -111,6 +124,21 @@ function progressWorth(state, who) {
   return worth;
 }
 
+// What its Pokémon on the board are worth: Attack + Strength left, and keywords.
+function boardWorth(state, who) {
+  return pokemonOf(state, who).reduce((sum, { card }) => sum + card.attack + card.currentStrength
+    + (card.keywords.includes('Infiltrator') ? 2 : 0) + (card.keywords.includes('Quick Attack') && !card.spent ? 3 : 0), 0);
+}
+
+// What playing this card now gives up: the stats it would gain by waiting a Round
+// or two (up to its cap). Retain cards wait for free; nothing waits past Round 9.
+function waitValue(state, card) {
+  if (card.level >= card.cap || state.round >= CHAMPIONSHIP_ROUND) return 0;
+  const later = pokemonAt(card.series, Math.min(card.cap, card.level + 2));
+  const gain = later.attack + later.strength - card.attack - card.strength;
+  return gain * (card.retain ? 1.2 : 0.6);
+}
+
 function locationScore(state, who, move) {
   const card = state.players[who].hand.find((c) => c.uid === move.uid);
   const endsAt = state.round + card.rounds - 1;
@@ -140,7 +168,8 @@ function baseScore(state, after, who, move, gained) {
   if (move.type === 'playLocation') return locationScore(state, who, move);
   if (move.type === 'summon') {
     const card = state.players[who].hand.find((c) => c.uid === move.uid);
-    return 15 + 3 * card.cost + 3 * gained;
+    const extra = move.empowered ? card.empower.cost : 0;
+    return 14 + 1.5 * (boardWorth(after, who) - boardWorth(state, who)) - waitValue(state, card) - 1.5 * extra + 3 * gained;
   }
   // An attack.
   const foe = opponentOf(who);

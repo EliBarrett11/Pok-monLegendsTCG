@@ -68,7 +68,7 @@ export const SERIES = [
     // The test card for "train N": its strength grows with its Level.
     ability: (level) => {
       const amount = level >= 4 ? 2 : 1;
-      return { text: `When summoned: train ${amount} your other Pokémon with the lowest Level`, onSummon: [{ op: 'train', amount, target: 'lowestOther' }] };
+      return { text: `On summon: train ${amount} your lowest-Level Pokémon`, onSummon: [{ op: 'train', amount, target: 'lowestOther' }] };
     },
   }),
   line({

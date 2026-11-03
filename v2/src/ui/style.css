@@ -256,3 +256,70 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #140a04; }
 .v2-toast.big { padding: 18px 34px; }
 .v2-toast.big b { font-size: 40px; color: #f6d36a; }
 @keyframes v2-toast { 0% { opacity: 0; transform: translateY(18px) scale(0.85); } 12% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
+
+/* --- V3: Training --------------------------------------------------------------------------------- */
+.v2-level small { font-size: 11px; opacity: 0.75; margin-left: 1px; }
+.v2-ability { position: absolute; z-index: 1; left: 9px; right: 9px; bottom: 30px; font-size: 11px; line-height: 1.15; font-weight: 700; color: var(--brass-light); text-shadow: 0 1px 3px #000; }
+.v2-card:has(.v2-ability) .v2-name { bottom: 50px; }
+.v2-card:has(.v2-ability) .v2-keys { bottom: 72px; }
+.v2-space .v2-ability { display: none; }
+.v2-space .v2-card:has(.v2-ability) .v2-name { bottom: 30px; }
+.v2-space .v2-card:has(.v2-ability) .v2-keys { bottom: 52px; }
+.v2-card.empowered { border-color: #ffd36a; }
+/* The level-up flourish: a card in hand reaching a new stage at Breakfast, or one trained on the board. */
+.v2-card.levelup { animation: v2-levelup 1.4s ease-out; }
+.v2-card.levelup .v2-art { animation: v2-levelup-art 1.4s ease-out; }
+.v2-flourish {
+  position: absolute; z-index: 3; left: 50%; top: 46%; transform: translate(-50%, -50%); white-space: nowrap;
+  padding: 3px 10px; border-radius: 6px; font-family: var(--font-display); font-weight: 700; font-size: 14px;
+  color: var(--ink); background: linear-gradient(#fff6c8, #f2c75a); box-shadow: 0 0 16px 4px rgba(255, 230, 140, 0.8);
+  animation: v2-flourish 2.2s ease-out forwards;
+}
+@keyframes v2-levelup { 0% { box-shadow: 0 0 0 0 rgba(255, 236, 160, 0.9); } 30% { box-shadow: 0 0 34px 12px rgba(255, 236, 160, 0.9); } 100% { box-shadow: 0 8px 18px rgba(0, 0, 0, 0.6); } }
+@keyframes v2-levelup-art { 0% { filter: brightness(2.4) saturate(0.3); } 100% { filter: none; } }
+@keyframes v2-flourish { 0% { opacity: 0; scale: 0.6; } 15% { opacity: 1; scale: 1.08; } 30% { scale: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+
+/* The Empowered summon chooser: a small centred dialog. */
+.v2-ask { position: absolute; inset: 0; z-index: 15; display: grid; place-items: center; background: rgba(10, 5, 2, 0.45); }
+.v2-ask .v2-panel { width: 560px; text-align: center; padding: 18px 24px; }
+.v2-ask p { margin: 0 0 12px; font-size: 20px; }
+.v2-ask-buttons { display: flex; gap: 14px; justify-content: center; }
+.v2-ask button, .v2-builder button { cursor: pointer; padding: 9px 18px; border-radius: 9px; font-family: var(--font-display); font-weight: 800; font-size: 18px; color: var(--ink); background: linear-gradient(#f6dd9a, #c99a48); border: 1px solid var(--brass-dark); }
+.v2-ask button small { display: block; font-family: var(--font-text); font-size: 13px; font-weight: 700; }
+.v2-ask button:disabled, .v2-builder button:disabled { opacity: 0.45; cursor: default; }
+.v2-ask .v2-ask-cancel { margin-top: 12px; font-size: 15px; padding: 5px 16px; background: rgba(246, 221, 154, 0.25); color: var(--cream); }
+
+/* The deck builder. */
+.v2-builder { position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; background: rgba(10, 5, 2, 0.7); font-family: var(--font-text); color: var(--cream); }
+.v2-builder-panel { width: 1800px; height: 1030px; display: flex; flex-direction: column; padding: 14px 22px; }
+.v2-builder header h2 { margin: 0; font-family: var(--font-display); font-size: 32px; color: var(--brass-light); }
+.v2-builder header p { margin: 2px 0 6px; font-size: 16px; color: var(--cream-muted); }
+.v2-btotal { font-weight: 800; font-size: 18px; color: #ff9a7a; }
+.v2-btotal.ok { color: #a8e88a; }
+.v2-blist { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; align-content: start; overflow: auto; margin: 8px 0; }
+.v2-brow { display: flex; gap: 10px; align-items: center; padding: 5px; border-radius: 9px; background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(209, 169, 90, 0.3); }
+.v2-brow.loc { border-color: color-mix(in srgb, var(--loc) 60%, transparent); }
+.v2-bart { width: 54px; height: 72px; flex-shrink: 0; border-radius: 6px; background-size: cover; background-position: center; border: 1px solid var(--brass-dark); }
+.v2-binfo { flex: 1; min-width: 0; }
+.v2-binfo b { font-family: var(--font-display); font-size: 16px; }
+.v2-binfo small { display: block; font-size: 13px; color: var(--cream-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v2-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 3px; align-items: center; }
+.v2-chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 3px 1px 2px; border-radius: 6px; background: rgba(246, 221, 154, 0.14); font-size: 13px; }
+.v2-chip select { font: inherit; font-weight: 700; background: #3a2412; color: var(--cream); border: 1px solid var(--brass-mid); border-radius: 4px; }
+.v2-chip em { font-style: normal; color: var(--cream); }
+.v2-builder .v2-chip button, .v2-builder .v2-chips > button { font-size: 13px; padding: 1px 8px; border-radius: 5px; }
+.v2-count { font-weight: 800; min-width: 34px; text-align: center; }
+.v2-builder footer { display: flex; gap: 12px; align-items: center; }
+.v2-bproblems { flex: 1; font-size: 15px; color: #ff9a7a; max-height: 64px; overflow: auto; }
+.v2-bproblems p { margin: 0; }
+.v2-bproblems .ok { color: #a8e88a; font-weight: 700; }
+.v2-builder footer .main { font-size: 20px; padding: 10px 26px; }
+/* V3: the longer timer wording on Location cards; a deck builder that fits. */
+.v2-loc-card .v2-name { bottom: 84px; }
+.v2-loc-meta { bottom: 46px; right: 8px; font-size: 12px; line-height: 1.15; }
+.v2-bart { width: 46px; height: 60px; }
+.v2-brow { padding: 3px 5px; }
+.v2-blist { gap: 5px 14px; }
+.v2-hand .v2-card:has(.v2-ability) .v2-name { bottom: 62px; }
+.v2-hand .v2-card:has(.v2-ability) .v2-keys { bottom: 84px; }
+.v2-linkbtn { padding: 0; border: 0; background: none; cursor: pointer; font: inherit; color: var(--brass-light); text-decoration: underline; }

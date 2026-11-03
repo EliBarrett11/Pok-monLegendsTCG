@@ -5,8 +5,10 @@ import { createGame, applyAction } from './engine/game.js';
 import { chooseAction } from './ai/opponent.js';
 import { renderMatch } from './ui/board.js';
 import { toastsFor, showToasts } from './ui/toasts.js';
+import { openDeckBuilder } from './ui/deckbuilder.js';
+import { TEST_DECK, deckProblems } from './engine/cards.js';
 
-export const BUILD = 'V2 — Locations and the Championship';
+export const BUILD = 'V3 — Training';
 
 const STAGE = { width: 1920, height: 1080 };
 const stage = document.getElementById('stage');
@@ -30,7 +32,28 @@ const PAUSE = autoplay ? 250 : 650;   // a short pause before each AI action, so
 
 let state = null;
 let match = 0;   // bumped by New match, so an old match's AI loop stops
-const ui = { summon: null, location: null, attacker: null, locked: false };
+const ui = { summon: null, location: null, attacker: null, empowerAsk: null, locked: false };
+
+// Your deck: one built in the deck builder (kept in this browser), or the premade
+// test deck. The Opponent always plays the premade deck.
+const DECK_KEY = 'pokemon-legends-v2-deck';
+function savedDeck() {
+  try {
+    const deck = JSON.parse(localStorage.getItem(DECK_KEY));
+    return deck && !deckProblems(deck).length ? deck : null;
+  } catch { return null; }
+}
+function saveDeck(deck) {
+  try { localStorage.setItem(DECK_KEY, JSON.stringify(deck)); } catch { /* private window: this match only */ }
+  customDeck = deck;
+}
+let customDeck = savedDeck();
+function openDeck() {
+  openDeckBuilder(stage, {
+    deck: customDeck ?? TEST_DECK,
+    onUse: (deck) => { saveDeck(deck); newMatch(); },
+  });
+}
 
 // Apply an action and show the moments it brings (milestones, completions…).
 function apply(action) {
@@ -39,7 +62,7 @@ function apply(action) {
 }
 
 function redraw() {
-  renderMatch(root, state, ui, { build: BUILD, autoplay, act, newMatch, redraw });
+  renderMatch(root, state, ui, { build: BUILD, autoplay, act, newMatch, redraw, openDeck, customDeck: !!customDeck });
 }
 
 // An action from the screen (or the AI). Errors from the engine are shown, not thrown.
@@ -53,6 +76,7 @@ async function act(action) {
   ui.summon = null;
   ui.location = null;
   ui.attacker = null;
+  ui.empowerAsk = null;
   redraw();
   await aiTurn(match);
 }
@@ -79,10 +103,11 @@ async function aiTurn(id) {
 function newMatch() {
   match += 1;
   const seed = (match === 1 && Number(params.get('seed'))) || Date.now();
-  state = createGame(seed);
+  state = createGame(seed, { decks: { player: customDeck ?? TEST_DECK, ai: TEST_DECK } });
   ui.summon = null;
   ui.location = null;
   ui.attacker = null;
+  ui.empowerAsk = null;
   ui.locked = false;
   redraw();
   if (autoplay) aiTurn(match);
