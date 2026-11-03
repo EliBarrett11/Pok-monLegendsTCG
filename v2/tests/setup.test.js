@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import {
   LANES, RECOGNITION_TARGET, ROUND_LIMIT, CHAMPIONSHIP_ROUND, MAX_LEVEL, LEGENDARY_LEVEL, levelFor, costFor, DECK_SIZE,
 } from '../src/engine/rules.js';
-import { TEST_POKEMON } from '../src/engine/cards.js';
+import { SERIES, artFor } from '../src/engine/series.js';
 
 const V2 = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOT = resolve(V2, '..');
@@ -52,9 +52,10 @@ for (const { file, p, base } of checked) {
 // Shared art is used from the root, never copied into v2/.
 assert.ok(!existsSync(join(V2, 'assets')), 'no copy of assets/ in v2/');
 // Paths built in JS for the page: every test card's art and Type icon exist (shared from the root).
-for (const c of TEST_POKEMON) {
-  assert.ok(existsSync(join(ROOT, 'assets/cards', `${c.id}.jpg`)), `${c.name}: art`);
-  assert.ok(existsSync(join(ROOT, 'assets/ui/icons', `type-${c.type.toLowerCase()}.webp`)), `${c.name}: Type icon`);
+for (const line of SERIES) {
+  // Every Level shows art: its own stage's, or the line's base art.
+  for (let level = 1; level <= line.maxLevel; level++) assert.ok(existsSync(join(ROOT, "assets/cards", `${artFor(line, level)}.jpg`)), `${line.id} L${level}: art`);
+  assert.ok(existsSync(join(ROOT, 'assets/ui/icons', `type-${line.type.toLowerCase()}.webp`)), `${line.id}: Type icon`);
 }
 assert.ok(existsSync(join(ROOT, 'assets/ui/card-back.jpg')));
 
@@ -71,10 +72,11 @@ assert.deepEqual([LANES, RECOGNITION_TARGET, ROUND_LIMIT, CHAMPIONSHIP_ROUND, DE
 assert.deepEqual([MAX_LEVEL, LEGENDARY_LEVEL], [6, 7]);
 assert.deepEqual([1, 3, 6, 9].map((round) => levelFor(round, 6)), [1, 3, 6, 6], 'Level = the Round, up to the cap');
 assert.equal(levelFor(5, 3), 3, 'a lower training cap');
-assert.deepEqual([1, 2, 3, 4, 5, 6, 7].map((l) => costFor(l)), [1, 1, 2, 3, 3, 4, 5], 'the cost curve');
+assert.deepEqual([1, 2, 3, 4, 5, 6, 7].map((l) => costFor(l)), [1, 1, 2, 3, 3, 4, 6], 'the cost curve (Legendary Level 7: 6)');
+assert.equal(costFor(7, 'heavy'), 7, 'a heavy Legendary: 7');
 assert.deepEqual([1, 2, 3, 4, 5, 6].map((l) => costFor(l, 'heavy')), [2, 2, 3, 4, 4, 5], 'heavy: +1');
 assert.deepEqual([1, 2, 3, 4, 5, 6].map((l) => costFor(l, 'very heavy')), [3, 3, 4, 5, 5, 6], 'heavy: +2');
-assert.deepEqual([1, 2, 3].map((l) => costFor(l, 'light')), [1, 1, 1], 'light: −1, never below 1');
+assert.deepEqual([1, 2, 3, 6].map((l) => costFor(l, 'light')), [0, 0, 1, 3], 'light: −1, never below 0');
 assert.throws(() => costFor(8), /No Level 8/);
 
 // --- The current game is untouched: v2 only reads from the root ----------------------------------

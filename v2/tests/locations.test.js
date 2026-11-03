@@ -10,6 +10,7 @@ import {
   championship, PLAYERS,
 } from '../src/engine/game.js';
 import { cardDef, TEST_DECK } from '../src/engine/cards.js';
+import { lastsText } from '../src/engine/locations.js';
 import { TEST_LOCATIONS, CHAMPIONSHIP, rewardText } from '../src/engine/locations.js';
 import { LANES, RECOGNITION_TARGET, ROUND_LIMIT, CHAMPIONSHIP_ROUND, HAND_SIZE } from '../src/engine/rules.js';
 import { chooseAction } from '../src/ai/opponent.js';
@@ -25,11 +26,12 @@ function battle(round = 1, seed = 5) {
   return s;
 }
 let n = 0;
+const def = (key) => { const [id, level] = key.split('@'); return cardDef(id, level ? Number(level) : undefined); };
 function place(s, who, space, id, { spent = false } = {}) {
-  const card = { ...cardDef(id), uid: `${who}-t${n++}` };
+  const card = { ...def(id), uid: `${who}-t${n++}` };
   s.players[who].row[space] = { ...card, currentStrength: card.strength, spent };
 }
-const give = (s, who, id) => { const card = { ...cardDef(id), uid: `${who}-g${n++}` }; s.players[who].hand.push(card); return card.uid; };
+const give = (s, who, id) => { const card = { ...def(id), uid: `${who}-g${n++}` }; s.players[who].hand.push(card); return card.uid; };
 const act = (s, action) => applyAction(s, action);
 const other = (who) => (who === 'player' ? 'ai' : 'player');
 const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass', who: other(s.turn) });
@@ -43,7 +45,8 @@ function playLoc(s, who, id, start) {
 // --- The deck and the data ---------------------------------------------------------------------
 
 {
-  assert.equal(Object.values(TEST_DECK).reduce((a, b) => a + b, 0), 40, '40 cards');
+  assert.equal(TEST_DECK.length, 40, '40 cards');
+  assert.equal(lastsText(4), 'Lasts 4 Rounds, including this one', "the timer's wording (Elliott's ruling)");
   assert.equal(TEST_LOCATIONS.length, 5);
   for (const loc of TEST_LOCATIONS) {
     assert.ok([1, 2, 3].includes(loc.lanes), `${loc.name}: 1–3 lanes`);
@@ -141,7 +144,7 @@ function playLoc(s, who, id, start) {
   // Attack objective (Eterna Forest: 5 attacks from it; at 2: draw 1; at 4: +1 Recognition).
   let s = battle();
   s = playLoc(s, 'player', 'eterna-forest', 0);
-  place(s, 'player', 1, 'arcanine');
+  place(s, 'player', 1, 'arcanine@5');
   place(s, 'player', 6, 'growlithe');
   const hand = s.players.player.hand.length;
   const attack = (from) => { s.turn = 'player'; s.players.player.row[from].spent = false; s = act(s, { type: 'attack', who: 'player', from, target: { kind: 'player' } }); };
@@ -152,35 +155,46 @@ function playLoc(s, who, id, start) {
   assert.equal(s.players.player.hand.length, hand + 1, 'milestone at 2: draw 1');
 }
 {
-  // Damage to the enemy player counts from anywhere (Mt. Ember: 10 damage; at 5: draw 1; completion +3).
+  // Damage to the enemy player counts only by your Pokémon in the Location (Elliott's
+  // ruling; Mt. Ember: 10 damage; at 5: draw 1; completion +3).
   let s = battle();
   s = playLoc(s, 'ai', 'mt-ember', 8);
-  place(s, 'player', 0, 'arcanine');   // 6 Attack, not in the Location
+  place(s, 'player', 0, 'arcanine@5');   // 6 Attack, not in the Location
   s.turn = 'player';
   s = act(s, { type: 'attack', who: 'player', from: 0, target: { kind: 'player' } });
-  assert.deepEqual([locationAt(s, 8).progress.player, s.players.player.recognition], [6, 6]);
-  s.turn = 'player';
-  s.players.player.row[0].spent = false;
-  s = act(s, { type: 'attack', who: 'player', from: 0, target: { kind: 'player' } });
-  assert.deepEqual([locationAt(s, 8).progress.player, locationAt(s, 8).completed.player, s.players.player.recognition], [10, true, 12 + 3], 'capped at 10; +3 on completion');
+  assert.deepEqual([locationAt(s, 8).progress.player, s.players.player.recognition], [0, 6], 'from outside: no progress');
+  s.players.player.row[0] = null;
+  place(s, 'player', 8, 'arcanine@5');   // in Mt. Ember
+  const hit = () => { s.turn = 'player'; s.players.player.row[8].spent = false; s = act(s, { type: 'attack', who: 'player', from: 8, target: { kind: 'player' } }); };
+  hit();
+  assert.equal(locationAt(s, 8).progress.player, 6);
+  hit();
+  assert.deepEqual([locationAt(s, 8).progress.player, locationAt(s, 8).completed.player, s.players.player.recognition], [10, true, 18 + 3], 'capped at 10; +3 on completion');
 }
 {
-  // Defeats count for whoever defeats: the attacker, or an Alert defender hitting back (Stark Mountain).
+  // Defeats count for whoever defeats with a Pokémon in the Location (Elliott's
+  // ruling): the attacker, or an Alert defender hitting back (Stark Mountain, lanes 4–5).
   let s = battle();
-  s = playLoc(s, 'player', 'stark-mountain', 0);
-  place(s, 'player', 0, 'charmander');   // 3 Attack, 3 HP
-  place(s, 'ai', 4, 'growlithe');        // 3 Attack, 3 HP, Swift (Alert)
-  place(s, 'player', 4, 'arcanine');     // Swift
+  s = playLoc(s, 'player', 'stark-mountain', 3);
+  place(s, 'ai', 0, 'growlithe');        // 3 Attack, 3 HP, Swift (Alert), outside
+  place(s, 'player', 4, 'arcanine@5');   // Swift, in it
   s.turn = 'player';
-  s = act(s, { type: 'attack', who: 'player', from: 4, target: { kind: 'pokemon', space: 4 } });
+  s = act(s, { type: 'attack', who: 'player', from: 4, target: { kind: 'pokemon', space: 0 } });
   // Arcanine (6) defeats Growlithe; Growlithe was Alert and hit back for 3 (Arcanine survives).
-  assert.deepEqual(locationAt(s, 0).progress, { player: 1, ai: 0 });
-  place(s, 'ai', 2, 'ponyta');   // Swift, 3 Attack
+  assert.deepEqual(locationAt(s, 3).progress, { player: 1, ai: 0 }, 'the target may stand anywhere');
+  place(s, 'player', 7, 'arcanine@5');   // outside
+  place(s, 'ai', 1, 'growlithe');
+  s.turn = 'player';
+  s = act(s, { type: 'attack', who: 'player', from: 7, target: { kind: 'pokemon', space: 1 } });
+  assert.deepEqual(locationAt(s, 3).progress, { player: 1, ai: 0 }, 'a defeat from outside does not count');
+  // The hit back in a trade counts for the defender, if it stands in the Location.
+  place(s, 'ai', 3, 'ponyta@2');   // Swift 3/4, in it
   s.players.player.row[4] = null;
-  place(s, 'player', 4, 'growlithe');   // Swift 3/3: trades with Ponyta (3/4) and is defeated
-  s.turn = 'ai';
-  s = act(s, { type: 'attack', who: 'ai', from: 2, target: { kind: 'pokemon', space: 4 } });
-  assert.deepEqual(locationAt(s, 0).progress, { player: 1, ai: 1 }, 'the opponent\'s defeat counts for it');
+  s.players.player.row[7] = null;
+  place(s, 'player', 6, 'growlithe');   // Swift 3/3: trades with Ponyta and is defeated
+  s.turn = 'player';
+  s = act(s, { type: 'attack', who: 'player', from: 6, target: { kind: 'pokemon', space: 3 } });
+  assert.deepEqual(locationAt(s, 3).progress, { player: 1, ai: 1 }, 'the opponent\'s hit back from its lane counts for it');
 }
 {
   // Presence at Supper (Route 119: 3 Pokémon in it at Supper; at 2: +1 Energy; completion +4).
@@ -309,10 +323,22 @@ function round12({ player, ai, champ = { player: 0, ai: 0 } }) {
   assert.deepEqual([s.phase, s.winner, s.round], ['gameOver', 'ai', 4]);
   // During the Championship, by damage.
   s = round12({ player: 58, ai: 10 });
-  place(s, 'player', 0, 'arcanine');
+  place(s, 'player', 0, 'arcanine@5');
   s.turn = 'player';
   s = act(s, { type: 'attack', who: 'player', from: 0, target: { kind: 'player' } });
   assert.deepEqual([s.winner, s.result.reason, s.round], ['player', 'target', ROUND_LIMIT]);
+}
+
+// --- Reward cards drawn at Supper are kept (Elliott's ruling) ---------------------------------------------
+
+{
+  let s = battle();
+  s = playLoc(s, 'player', 'route-119', 0);
+  locationAt(s, 0).milestones = [{ at: 1, reward: { draw: 2 } }];
+  place(s, 'player', 0, 'horsea');
+  s.turn = 'player';
+  s = passBoth(s);
+  assert.equal(s.players.player.hand.length, 2 + HAND_SIZE, 'the 2 drawn at Supper, plus the 7 at Breakfast');
 }
 
 // --- Breakfast draws 7 on top of kept cards (Elliott's ruling) ---------------------------------------------

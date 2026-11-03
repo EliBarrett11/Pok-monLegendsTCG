@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import {
   createGame, applyAction, legalActions, legalTargets, isAlert, playable, passSpends, PLAYERS,
 } from '../src/engine/game.js';
-import { cardDef, TEST_POKEMON, TEST_DECK } from '../src/engine/cards.js';
+import { cardDef, TEST_DECK, deckProblems } from '../src/engine/cards.js';
 import { LANES, RECOGNITION_TARGET, HAND_SIZE } from '../src/engine/rules.js';
 import { chooseAction } from '../src/ai/opponent.js';
 
@@ -21,12 +21,14 @@ function battle(seed = 5) {
 }
 // A Pokémon straight into a space (Active unless spent: true).
 let n = 0;
+// A card by species, or species@Level (e.g. 'arcanine@5').
+const def = (key) => { const [id, level] = key.split('@'); return cardDef(id, level ? Number(level) : undefined); };
 function place(s, who, space, id, { spent = false, ...extra } = {}) {
-  const card = { ...cardDef(id), uid: `${who}-t${n++}`, ...extra };
+  const card = { ...def(id), uid: `${who}-t${n++}`, ...extra };
   s.players[who].row[space] = { ...card, currentStrength: extra.currentStrength ?? card.strength, spent };
   return card;
 }
-const give = (s, who, id) => { const card = { ...cardDef(id), uid: `${who}-g${n++}` }; s.players[who].hand.push(card); return card.uid; };
+const give = (s, who, id) => { const card = { ...def(id), uid: `${who}-g${n++}` }; s.players[who].hand.push(card); return card.uid; };
 const act = (s, action) => applyAction(s, action);
 const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass', who: s.turn === 'player' ? 'ai' : 'player' });
 
@@ -50,8 +52,8 @@ const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass
   assert.throws(() => applyAction(t, { type: 'flipCoin' }));
   // The same seed, the same match.
   assert.deepEqual(applyAction(createGame(3), { type: 'flipCoin' }).players.player.hand.map((c) => c.id), t.players.player.hand.map((c) => c.id));
-  assert.equal(Object.values(TEST_DECK).reduce((a, b) => a + b), 40);
-  assert.ok(TEST_POKEMON.every((c) => c.level >= 1 && c.cost >= 1));
+  assert.deepEqual([TEST_DECK.length, deckProblems(TEST_DECK)], [40, []]);
+  assert.ok(t.players.player.hand.every((c) => c.cardType !== 'Pokémon' || c.level === 1), 'Round 1: every Pokémon is Level 1');
 }
 
 // --- Energy: the Round number (up to 10), and up to 1 stored ------------------------------------
@@ -79,7 +81,7 @@ const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass
 
 {
   let s = battle();
-  const uid = give(s, 'player', 'magmar');   // cost 3
+  const uid = give(s, 'player', 'magmar@4');   // cost 3
   s.players.player.energy = 2;
   assert.ok(!playable(s, 'player').some((c) => c.uid === uid), 'too expensive');
   assert.throws(() => act(s, { type: 'summon', who: 'player', uid, space: 0 }), /Not enough Energy/);
@@ -94,9 +96,9 @@ const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass
   const uid2 = give(s, 'player', 'horsea');
   assert.throws(() => act(s, { type: 'summon', who: 'player', uid: uid2, space: 4 }), /empty space/);
   assert.throws(() => act(s, { type: 'summon', who: 'player', uid: uid2, space: 9 }), /empty space/);
-  // Quick Attack arrives Active.
+  // Quick Attack arrives Active (Ponyta's Empowered summon gives it).
   const pony = give(s, 'player', 'ponyta');
-  s = act(s, { type: 'summon', who: 'player', uid: pony, space: 0 });
+  s = act(s, { type: 'summon', who: 'player', uid: pony, space: 0, empowered: true });
   assert.equal(s.players.player.row[0].spent, false);
   // Not on the opponent's turn.
   assert.throws(() => act(s, { type: 'summon', who: 'player', uid: uid2, space: 1 }), /cannot summon/);
@@ -130,7 +132,7 @@ const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass
 {
   let s = battle();
   place(s, 'player', 0, 'growlithe');            // 3 / 3, Swift
-  place(s, 'ai', 4, 'ponyta');                   // 3 / 4, Swift, Active: hits back
+  place(s, 'ai', 4, 'ponyta@2');                 // 3 / 4, Swift, Active: hits back
   s = act(s, { type: 'attack', who: 'player', from: 0, target: { kind: 'pokemon', space: 4 } });
   assert.equal(s.players.ai.row[4].currentStrength, 4 - 3);
   assert.equal(s.players.player.row[0], null, 'the trade defeated Growlithe (3 − 3)');
@@ -140,8 +142,8 @@ const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass
   assert.deepEqual([e.trades, e.back], [true, 3]);
   // A Spent target doesn't hit back.
   s = battle();
-  place(s, 'player', 0, 'arcanine');             // 6 / 6
-  place(s, 'ai', 1, 'lapras', { spent: true });  // 8
+  place(s, 'player', 0, 'arcanine@5');           // 6 / 6
+  place(s, 'ai', 1, 'sudowoodo@4', { spent: true });  // 8
   s = act(s, { type: 'attack', who: 'player', from: 0, target: { kind: 'pokemon', space: 1 } });
   assert.deepEqual([s.players.ai.row[1].currentStrength, s.players.player.row[0].currentStrength], [2, 6]);
   // Only Alert Pokémon attack.
@@ -155,7 +157,7 @@ const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass
 
 {
   let s = battle();
-  place(s, 'player', 0, 'arcanine');   // Attack 6
+  place(s, 'player', 0, 'arcanine@5');   // Attack 6
   s = act(s, { type: 'attack', who: 'player', from: 0, target: { kind: 'player' } });
   assert.equal(s.players.player.recognition, 6, '6 damage → 6 Recognition');
   assert.equal(s.players.ai.recognition, 0, 'the target loses nothing');
@@ -163,14 +165,14 @@ const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass
   assert.equal(s.players.player.row[0].spent, true);
   // Reaching 60 wins at once.
   s = battle();
-  place(s, 'player', 0, 'arcanine');
+  place(s, 'player', 0, 'arcanine@5');
   s.players.player.recognition = RECOGNITION_TARGET - 6;
   s = act(s, { type: 'attack', who: 'player', from: 0, target: { kind: 'player' } });
   assert.deepEqual([s.phase, s.winner, s.players.player.recognition], ['gameOver', 'player', 60]);
   assert.deepEqual(legalActions(s, 'player'), []);
   // 59 is not enough.
   s = battle();
-  place(s, 'player', 0, 'arcanine');
+  place(s, 'player', 0, 'arcanine@5');
   s.players.player.recognition = RECOGNITION_TARGET - 7;
   s = act(s, { type: 'attack', who: 'player', from: 0, target: { kind: 'player' } });
   assert.equal(s.phase, 'battle');
@@ -250,7 +252,7 @@ const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass
   // It takes a win when it sees one.
   let s = battle();
   s.turn = 'ai';
-  place(s, 'ai', 0, 'arcanine');
+  place(s, 'ai', 0, 'arcanine@5');
   s.players.ai.recognition = 55;
   assert.deepEqual(chooseAction(s, 'ai'), { type: 'attack', who: 'ai', from: 0, target: { kind: 'player' } });
 }

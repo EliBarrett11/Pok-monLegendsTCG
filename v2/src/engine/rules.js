@@ -19,15 +19,21 @@ export const MAX_LEVEL = 6;
 export const LEGENDARY_LEVEL = 7;
 export const levelFor = (round, cap) => Math.max(1, Math.min(round, cap));
 
-// The cost curve (6.1, liked) and weight classes (7a, approved): light −1,
-// standard 0, heavy +1 or +2. Never below 1.
-export const COST_CURVE = { 1: 1, 2: 1, 3: 2, 4: 3, 5: 3, 6: 4, 7: 5 };
+// The cost curve (6.1; V3: Elliott set Legendary Level 7 to 6) and weight classes
+// (7a): light −1 (never below 0), standard 0, heavy +1 or +2 ('very heavy').
+// A heavy Legendary costs 7 at Level 7.
+export const COST_CURVE = { 1: 1, 2: 1, 3: 2, 4: 3, 5: 3, 6: 4, 7: 6 };
 export const WEIGHT_CLASSES = { light: -1, standard: 0, heavy: 1, 'very heavy': 2 };
 export function costFor(level, weight = 'standard') {
   if (!(level in COST_CURVE)) throw new Error(`No Level ${level}`);
   if (!(weight in WEIGHT_CLASSES)) throw new Error(`No weight class "${weight}"`);
-  return Math.max(1, COST_CURVE[level] + WEIGHT_CLASSES[weight]);
+  return Math.max(0, COST_CURVE[level] + WEIGHT_CLASSES[weight]);
 }
+
+// Copy slots (as v1): each card in a series uses 1 copy slot of the series' rarity.
+// At most one Legendary card in a deck.
+export const COPY_LIMITS = { Common: 3, Rare: 2, Epic: 1, Legendary: 1 };
+export const LEGENDARY_PER_DECK = 1;
 
 // The deck (7a): 40 cards for the first build.
 export const DECK_SIZE = 40;
@@ -40,5 +46,5 @@ export const STORE_LIMIT = 1;
 export const PASS_ENERGY = 1;
 export const baseEnergyFor = (round) => Math.min(round, MAX_BASE_ENERGY);
 
-// Breakfast draws up to this many cards in hand.
+// Breakfast draws this many cards, on top of any kept (Retain) cards.
 export const HAND_SIZE = 7;

@@ -31,9 +31,10 @@
 
 import { nextRandom, shuffle } from '../../../src/engine/random.js';
 import {
-  LANES, RECOGNITION_TARGET, HAND_SIZE, STORE_LIMIT, PASS_ENERGY, ROUND_LIMIT, CHAMPIONSHIP_ROUND, baseEnergyFor,
+  LANES, RECOGNITION_TARGET, HAND_SIZE, STORE_LIMIT, PASS_ENERGY, ROUND_LIMIT, CHAMPIONSHIP_ROUND, MAX_LEVEL, baseEnergyFor, levelFor,
 } from './rules.js';
-import { TEST_DECK, cardDef, SPEEDS } from './cards.js';
+import { TEST_DECK, cardAt, SPEEDS } from './cards.js';
+import { pokemonAt } from './series.js';
 import { OBJECTIVES, CHAMPIONSHIP, rewardText } from './locations.js';
 
 export const PLAYERS = ['player', 'ai'];
@@ -60,11 +61,79 @@ export function createGame(seed = Date.now(), { decks = { player: TEST_DECK, ai:
   return state;
 }
 
-// A deck list (id → copies) as cards, each with its own uid.
+// A deck (a list of { series, cap } and { location } cards) as cards, each with its own uid.
 export function buildDeck(who, list) {
-  let n = 0;
-  return Object.entries(list).flatMap(([id, copies]) => Array.from({ length: copies }, () => ({ ...cardDef(id), uid: `${who}-${n++}` })));
+  return list.map((entry, n) => ({ ...cardAt(entry, 1), uid: `${who}-${n}` }));
 }
+
+// --- Training (V3) ------------------------------------------------------------------------------
+//
+// A Pokémon card's Level is the Round number, up to its cap, wherever it is
+// (hand, draw pile, discard). Once played it stays at that Level (frozen), unless an
+// effect trains it.
+
+// The card at a Level of its series, keeping who it is (uid, cap).
+const atLevel = (card, level) => ({ ...pokemonAt(card.series, level), cap: card.cap, uid: card.uid });
+
+// Breakfast: every Pokémon card off the board follows the Round. A card in hand that
+// reaches a new stage says so (a 'levelUp' event, for the flourish).
+function followRound(s, who) {
+  const p = s.players[who];
+  for (const pile of ['hand', 'drawPile', 'discard']) {
+    p[pile] = p[pile].map((card) => {
+      if (card.cardType !== 'Pokémon') return card;
+      const level = levelFor(s.round, card.cap);
+      if (level === card.level) return card;
+      const next = atLevel(card, level);
+      if (pile === 'hand' && next.stage !== card.stage) emit(s, 'levelUp', { who, uid: card.uid, from: card.name, to: next.name, level });
+      return next;
+    });
+  }
+}
+
+// The highest Level training can reach: the cap, and never Level 7 (Legendaries
+// reach it only by the Round).
+export const trainTop = (card) => Math.min(card.cap ?? MAX_LEVEL, MAX_LEVEL);
+
+// Train a played Pokémon by n Levels, up to its cap: the new Level's stats, name and
+// ability. Damage carries over and never defeats it (at least 1 Strength is left), as
+// with Evolution in the current game. An Empowered bonus stays.
+export function train(s, who, space, n) {
+  const card = s.players[who].row[space];
+  if (!card) return false;
+  const to = Math.min(card.level + n, trainTop(card));
+  if (to <= card.level) return false;
+  const damage = card.strength - card.currentStrength;
+  const next = { ...atLevel(card, to), spent: card.spent, arrivedRound: card.arrivedRound, empowered: card.empowered };
+  if (card.empowered) applyEmpower(next);
+  next.currentStrength = Math.max(1, next.strength - damage);
+  s.players[who].row[space] = next;
+  emit(s, 'trained', { who, space, from: card.level, to, fromName: card.name, name: next.name });
+  log(s, `${NAMES[who] === 'You' ? 'Your' : "The Opponent's"} ${card.name} trained to Level ${to}${next.name !== card.name ? `: it evolved into ${next.name}` : ''}.`);
+  return true;
+}
+
+// The Empowered summon's bonus, on the card.
+function applyEmpower(card) {
+  const e = card.empower;
+  card.attack += e.attack ?? 0;
+  card.strength += e.strength ?? 0;
+  card.keywords = [...new Set([...card.keywords, ...(e.keywords ?? [])])];
+}
+
+// Effect ops (series.js). { op: 'train', amount, target: 'lowestOther' }: your other
+// Pokémon with the lowest Level that can still train (the leftmost on a tie).
+function runOps(s, who, space, ops = []) {
+  for (const op of ops) {
+    if (op.op !== 'train') throw new Error(`Unknown effect op: ${op.op}`);
+    const pick = pokemonOf(s, who).filter((p) => p.space !== space && p.card.level < trainTop(p.card))
+      .sort((a, b) => a.card.level - b.card.level || a.space - b.space)[0];
+    if (pick) train(s, who, pick.space, op.amount);
+  }
+}
+
+// What a summon costs: the card's cost, plus the Empowered extra if chosen.
+export const summonCost = (card, empowered) => card.cost + (empowered && card.empower ? card.empower.cost : 0);
 
 // --- Reading the state ---------------------------------------------------------------------------
 
@@ -189,17 +258,26 @@ const ACTIONS = {
 
   // Summon a Pokémon from hand into an empty space of your row, paying its cost.
   // It arrives Spent (Quick Attack: Active).
-  summon(s, { who, uid, space }) {
+  // Empowered (only on Pokémon that have it): pay the extra Energy for its bonus.
+  // It stays at the Level it is played at (frozen).
+  summon(s, { who, uid, space, empowered = false }) {
     const p = s.players[who];
     const card = p.hand.find((c) => c.uid === uid);
     if (!card || card.cardType !== 'Pokémon') throw new Error('Choose a Pokémon from your hand');
     if (!(space >= 0 && space < LANES) || p.row[space]) throw new Error('Choose an empty space in your row');
-    if (card.cost > p.energy) throw new Error(`Not enough Energy for ${card.name}`);
-    p.energy -= card.cost;
+    if (empowered && !card.empower) throw new Error(`${card.name} has no Empowered summon`);
+    const cost = summonCost(card, empowered);
+    if (cost > p.energy) throw new Error(`Not enough Energy for ${card.name}${empowered ? ' (Empowered)' : ''}`);
+    p.energy -= cost;
     p.hand = p.hand.filter((c) => c !== card);
-    p.row[space] = { ...card, currentStrength: card.strength, spent: !hasKeyword(card, 'Quick Attack'), arrivedRound: s.round };
-    emit(s, 'summoned', { who, uid, name: card.name, space, cost: card.cost });
-    log(s, `${p.name} summoned ${card.name} into space ${space + 1} (${card.cost} Energy).`);
+    const played = { ...card, empowered: !!empowered, arrivedRound: s.round };
+    if (empowered) applyEmpower(played);
+    played.currentStrength = played.strength;
+    played.spent = !hasKeyword(played, 'Quick Attack');
+    p.row[space] = played;
+    emit(s, 'summoned', { who, uid, name: card.name, space, cost, level: card.level, stage: card.stage, series: card.series, empowered: !!empowered });
+    log(s, `${p.name} summoned ${card.name} (Level ${card.level}) into space ${space + 1} (${cost} Energy${empowered ? `, Empowered: ${card.empower.text}` : ''}).`);
+    if (card.ability?.onSummon) runOps(s, who, space, card.ability.onSummon);
     progressAt(s, who, 'summon', space);
     endTurn(s, who, false);
   },
@@ -236,7 +314,7 @@ const ACTIONS = {
       log(s, `${p.name === 'You' ? 'Your' : "The Opponent's"} ${attacker.name} attacked ${who === 'player' ? 'the Opponent' : 'you'} directly for ${amount}: +${amount} Recognition (now ${p.recognition}).`);
       if (p.recognition >= RECOGNITION_TARGET) return win(s, who);
       progressAt(s, who, 'attack', from);
-      progressAll(s, who, 'damage', amount);
+      progressAt(s, who, 'damage', from, amount);
       return endTurn(s, who, false);
     }
     const defender = s.players[foe].row[target.space];
@@ -248,8 +326,8 @@ const ACTIONS = {
     emit(s, 'attack', { who, from, target: { kind: 'pokemon', who: foe, space: target.space }, amount: attacker.attack, attacker: attacker.name, defender: defender.name, trades, back: trades ? defender.attack : 0 });
     log(s, `${p.name === 'You' ? 'Your' : "The Opponent's"} ${attacker.name} attacked ${defender.name} for ${attacker.attack}${trades ? `; ${defender.name} was Alert and hit back for ${defender.attack}` : ''}.`);
     progressAt(s, who, 'attack', from);
-    defeat(s, foe, target.space, who);
-    defeat(s, who, from, foe);
+    defeat(s, foe, target.space, who, from);
+    defeat(s, who, from, foe, target.space);
     endTurn(s, who, false);
   },
 
@@ -270,8 +348,9 @@ const ACTIONS = {
 };
 
 // A Pokémon at 0 Strength or below is defeated: it goes to the Released Pile.
-// The defeat counts for `by` (the attacker, or the Alert defender that hit back).
-function defeat(s, who, space, by) {
+// The defeat counts for `by` (the attacker, or the Alert defender that hit back),
+// in the Location over `byLane` (where that Pokémon stands).
+function defeat(s, who, space, by, byLane) {
   const card = s.players[who].row[space];
   if (!card || card.currentStrength > 0) return;
   s.players[who].row[space] = null;
@@ -279,7 +358,7 @@ function defeat(s, who, space, by) {
   s.players[who].released.push(plain);
   emit(s, 'defeated', { who, space, name: card.name });
   log(s, `${NAMES[who] === 'You' ? 'Your' : "The Opponent's"} ${card.name} was defeated.`);
-  if (by) progressAll(s, by, 'defeat', 1);
+  if (by) progressAt(s, by, 'defeat', byLane);
 }
 
 // Reaching 60 Recognition wins at once (the first to get there; later gains in the
@@ -316,14 +395,10 @@ function enterLocation(s, card, owner, lanes) {
   return loc;
 }
 
-// Progress on objectives that count in a Location's lanes (summon, attack): the Location over `lane`.
-function progressAt(s, who, kind, lane) {
+// Progress on an objective in the Location over `lane` (where the Pokémon doing it stands).
+function progressAt(s, who, kind, lane, amount = 1) {
   const loc = locationAt(s, lane);
-  if (loc && loc.objective.kind === kind) advance(s, who, loc, loc.progress[who] + 1);
-}
-// Progress on objectives that count anywhere (damage, defeat): every such Location in play.
-function progressAll(s, who, kind, amount) {
-  for (const loc of [...s.locations]) if (loc.objective.kind === kind && !over(s)) advance(s, who, loc, loc.progress[who] + amount);
+  if (loc && loc.objective.kind === kind && !over(s)) advance(s, who, loc, loc.progress[who] + amount);
 }
 
 // Set a player's progress (capped at the objective's count) and pay any milestone
@@ -403,6 +478,7 @@ function startRound(s, round) {
   for (const who of PLAYERS) {
     const p = s.players[who];
     for (const card of p.row) if (card) card.spent = false;
+    followRound(s, who);
     draw(s, who, HAND_SIZE);
     p.roundEnergy = baseEnergyFor(round);
     p.bonus = p.bonusNext;
