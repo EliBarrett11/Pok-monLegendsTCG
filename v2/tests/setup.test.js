@@ -88,7 +88,7 @@ for (const file of files(join(V2, 'src/engine'))) {
 
 // --- The settled numbers (docs/v2-design.md 1.1, 4, 6.1, 7a) ------------------------------------
 
-assert.deepEqual([LANES, RECOGNITION_TARGET, ROUND_LIMIT, CHAMPIONSHIP_ROUND, DECK_SIZE], [9, 60, 12, 10, 40]);
+assert.deepEqual([LANES, RECOGNITION_TARGET, ROUND_LIMIT, CHAMPIONSHIP_ROUND, DECK_SIZE], [9, 90, 12, 9, 40], 'V7: target 90, the Championship in Round 9');
 assert.equal(MAX_LEVEL, 6, 'Levels 1–6 (Legendaries are single cards: no Level 7, V7a)');
 assert.deepEqual([1, 3, 6, 9].map((round) => levelFor(round, 6)), [1, 3, 6, 6], 'Level = the Round, up to the cap');
 assert.equal(levelFor(5, 3), 3, 'a lower training cap');

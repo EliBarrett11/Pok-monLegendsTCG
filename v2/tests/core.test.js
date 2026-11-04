@@ -1,6 +1,6 @@
 // V1 — the v2 core: setup, Energy and storing, summoning, targeting with the guard
 // rules (and Infiltrator), trades, Recognition from damage to the player character,
-// the win at 60, passing, Supper's Retain (Breakfast draws 7 on top), and the AI playing whole matches.
+// the win at the target, passing, Supper's Retain (Breakfast draws 7 on top), and the AI playing whole matches.
 // Run with: node v2/tests/core.test.js
 import assert from 'node:assert/strict';
 import {
@@ -115,16 +115,20 @@ const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass
   assert.ok(!isAlert(s, s.players.player.row[1]), 'a slower one is not');
   const targets = (from) => legalTargets(s, 'player', from).map((t) => (t.kind === 'player' ? 'player' : t.space)).sort();
   assert.deepEqual(targets(0), [2, 'player'], 'no guards: any enemy Pokémon or the player character');
-  // A Defence guard: Physical attackers must attack it (the player character too is guarded).
-  place(s, 'ai', 5, 'quagsire');
-  assert.deepEqual(targets(0), [5]);
-  // A Special attacker ignores Defence guards, but must attack a Special Defence one.
-  assert.deepEqual(targets(1).sort(), [2, 5, 'player'].sort());
-  place(s, 'ai', 7, 'chinchou');
-  assert.deepEqual(targets(1), [7]);
-  // Infiltrator ignores both.
+  // Lane guards (V7): a Defence guard only guards against Physical attackers in its own lane,
+  // and it guards only the player character: every enemy Pokémon can always be attacked.
+  place(s, 'ai', 5, 'quagsire');                       // Defence, in lane 5
+  assert.deepEqual(targets(0), [2, 5, 'player'], 'a guard in another lane: no effect');
+  place(s, 'ai', 0, 'quagsire');                       // Defence, across from the Growlithe
+  assert.deepEqual(targets(0), [0, 2, 5], 'a guard across: the player character is guarded');
+  // A Special attacker ignores Defence guards, but a Special Defence one across guards against it.
+  assert.deepEqual(targets(1), [0, 2, 5, 'player']);
+  place(s, 'ai', 1, 'chinchou');                       // Special Defence, across from the Horsea
+  assert.deepEqual(targets(1), [0, 1, 2, 5]);
+  // Infiltrator ignores guards.
   place(s, 'player', 3, 'sneasel');
-  assert.deepEqual(targets(3).sort(), [2, 5, 7, 'player'].sort());
+  place(s, 'ai', 3, 'quagsire');
+  assert.deepEqual(targets(3), [0, 1, 2, 3, 5, 'player']);
 }
 
 // --- Attacks, trades and defeats --------------------------------------------------------------
@@ -153,7 +157,7 @@ const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass
   assert.throws(() => act(s, { type: 'attack', who: 'player', from: 2, target: { kind: 'player' } }), /cannot attack|Alert/);
 }
 
-// --- Recognition: damage to the player character, and the win at 60 --------------------------------
+// --- Recognition: damage to the player character, and the win at the target (90, V7) --------------------------------
 
 {
   let s = battle();
@@ -163,12 +167,12 @@ const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass
   assert.equal(s.players.ai.recognition, 0, 'the target loses nothing');
   assert.deepEqual(s.events.filter((x) => x.type === 'recognition').map((x) => [x.who, x.amount, x.total]), [['player', 6, 6]]);
   assert.equal(s.players.player.row[0].spent, true);
-  // Reaching 60 wins at once.
+  // Reaching the target wins at once.
   s = battle();
   place(s, 'player', 0, 'arcanine@5');
   s.players.player.recognition = RECOGNITION_TARGET - 6;
   s = act(s, { type: 'attack', who: 'player', from: 0, target: { kind: 'player' } });
-  assert.deepEqual([s.phase, s.winner, s.players.player.recognition], ['gameOver', 'player', 60]);
+  assert.deepEqual([s.phase, s.winner, s.players.player.recognition], ['gameOver', 'player', RECOGNITION_TARGET]);
   assert.deepEqual(legalActions(s, 'player'), []);
   // 59 is not enough.
   s = battle();
@@ -247,13 +251,13 @@ const passBoth = (s) => act(act(s, { type: 'pass', who: s.turn }), { type: 'pass
       if (s.result.reason === 'target') assert.ok(s.players[s.winner].recognition >= RECOGNITION_TARGET);
     } else if (s.phase !== 'gameOver') results.unfinished += 1;
   }
-  assert.equal(results.unfinished, 0, 'every match ends (60 Recognition, or after Round 12)');
+  assert.equal(results.unfinished, 0, 'every match ends (the target, or after Round 12)');
   assert.ok(results.player > 0 && results.ai > 0, 'either side can win');
   // It takes a win when it sees one.
   let s = battle();
   s.turn = 'ai';
   place(s, 'ai', 0, 'arcanine@5');
-  s.players.ai.recognition = 55;
+  s.players.ai.recognition = RECOGNITION_TARGET - 5;
   assert.deepEqual(chooseAction(s, 'ai'), { type: 'attack', who: 'ai', from: 0, target: { kind: 'player' } });
 }
 

@@ -47,7 +47,7 @@ export const DECK_SERIES = [
   fire({
     id: 'f-growlithe', rarity: 'Common', type: 'Fire', attackType: 'Physical', strengthType: 'Hitpoints', speed: 'Swift', cap: 6,
     stages: two({ name: 'Growlithe', art: 'growlithe' }, { name: 'Arcanine', art: 'arcanine' }),
-    stats: [[3, 3], [3, 4], [4, 4], [5, 6], [6, 6], [7, 7]],
+    stats: [[3, 4], [3, 5], [4, 5], [5, 7], [6, 7], [7, 8]],
     ability: byLevel((l) => (l <= 3 ? { keywords: ['Scorch 1'], text: 'Scorch 1' }
       : { keywords: ['Scorch 1', 'Infiltrator', 'Overrun'], text: 'Scorch 1, Infiltrator, Overrun' })),
     empower: { cost: 2, attack: 2, strength: 2, keywords: ['Quick Attack'], text: '+2: +2/+2 and Quick Attack' },
@@ -55,7 +55,7 @@ export const DECK_SERIES = [
   fire({
     id: 'f-ponyta', rarity: 'Common', type: 'Fire', attackType: 'Physical', strengthType: 'Hitpoints', speed: 'Swift', weight: 'light', cap: 4,
     stages: two({ name: 'Ponyta', art: 'ponyta' }, { name: 'Rapidash', art: 'rapidash' }),
-    stats: [[3, 2], [3, 3], [4, 3], [5, 4], [5, 5], [6, 5]],
+    stats: [[3, 3], [3, 4], [4, 4], [5, 5], [5, 6], [6, 6]],
     ability: byLevel((l) => (l <= 3 ? { keywords: ['Quick Attack'], text: 'Quick Attack' }
       : l < 6 ? { keywords: ['Quick Attack', 'Infiltrator'], text: 'Quick Attack, Infiltrator' }
         : { keywords: ['Quick Attack', 'Infiltrator'], text: 'Quick Attack, Infiltrator. On Attack: the enemy player gains Burn 1', onAttack: eff(null, op('enemyBurn', 1)) })),
@@ -63,14 +63,14 @@ export const DECK_SERIES = [
   fire({
     id: 'f-mankey', rarity: 'Common', type: 'Fighting', attackType: 'Physical', strengthType: 'Hitpoints', speed: 'Swift', weight: 'light', cap: 4,
     stages: two({ name: 'Mankey', art: 'mankey' }, { name: 'Primeape', art: 'primeape' }),
-    stats: [[3, 2], [4, 2], [4, 3], [5, 4], [6, 4], [7, 5]],
+    stats: [[3, 3], [4, 3], [4, 4], [5, 5], [6, 5], [7, 6]],
     ability: byLevel((l) => (l <= 3 ? { keywords: ['Overrun'], text: 'Overrun' }
       : { keywords: ['Overrun', 'Infiltrator', 'Rage'], text: 'Overrun, Infiltrator, Rage (+1 Attack each time it survives damage)' })),
   }),
   fire({
     id: 'f-houndour', rarity: 'Rare', type: 'Fire', attackType: 'Special', strengthType: 'Hitpoints', speed: 'Swift', cap: 6,
     stages: two({ name: 'Houndour', art: 'houndour' }, { name: 'Houndoom', art: 'houndoom' }),
-    stats: [[2, 3], [3, 3], [3, 4], [5, 5], [5, 6], [6, 7]],
+    stats: [[2, 4], [3, 4], [3, 5], [5, 6], [5, 7], [6, 8]],
     ability: byLevel((l) => {
       const n = l <= 3 ? 1 : l < 6 ? 2 : 3;
       return { text: `On Summon: the enemy player gains Burn ${n}`, onSummon: eff(null, op('enemyBurn', n)) };
@@ -79,7 +79,7 @@ export const DECK_SERIES = [
   fire({
     id: 'f-magby', rarity: 'Rare', type: 'Fire', attackType: 'Special', strengthType: 'Hitpoints', speed: 'Steady', weight: 'heavy', cap: 6,
     stages: three({ name: 'Magby', art: 'magby' }, { name: 'Magmar', art: 'magmar' }, { name: 'Magmortar', art: 'magmortar' }),
-    stats: [[2, 4], [3, 4], [4, 5], [5, 6], [6, 7], [8, 8]],
+    stats: [[2, 5], [3, 5], [4, 6], [5, 7], [6, 8], [8, 9]],
     ability: byLevel((l) => (l <= 2 ? { keywords: ['Scorch 1'], text: 'Scorch 1' }
       : l <= 4 ? { keywords: ['Scorch 2'], text: 'Scorch 2' }
         : {
@@ -90,14 +90,14 @@ export const DECK_SERIES = [
   fire({
     id: 'f-sneasel', rarity: 'Rare', type: 'Dark', attackType: 'Physical', strengthType: 'Hitpoints', speed: 'Swift', cap: 5,
     stages: two({ name: 'Sneasel', art: 'sneasel' }, { name: 'Weavile', art: 'weavile' }),
-    stats: [[3, 2], [4, 2], [4, 3], [5, 4], [6, 4], [7, 5]],
+    stats: [[3, 3], [4, 3], [4, 4], [5, 5], [6, 5], [7, 6]],
     ability: byLevel((l) => (l <= 3 ? { keywords: ['Infiltrator'], text: 'Infiltrator' }
       : { keywords: ['Infiltrator'], text: 'Infiltrator. On Knockout: becomes Active (once per Round)', onKnockout: { ...eff(T.self, op('ready')), oncePerRound: true } })),
   }),
   fire({
     id: 'f-charmander', rarity: 'Epic', type: 'Fire', attackType: 'Special', strengthType: 'Hitpoints', speed: 'Steady', weight: 'heavy', cap: 6,
     stages: three({ name: 'Charmander', art: 'charmander' }, { name: 'Charmeleon', art: 'charmeleon' }, { name: 'Charizard', art: 'charizard' }),
-    stats: [[3, 3], [3, 4], [4, 5], [5, 5], [7, 7], [8, 8]],
+    stats: [[3, 4], [3, 5], [4, 6], [5, 6], [7, 8], [8, 9]],
     ability: byLevel((l) => (l <= 4 ? { keywords: ['Scorch 1'], text: 'Scorch 1' }
       : {
         keywords: ['Scorch 2', 'Infiltrator'], speed: 'Swift', text: 'Scorch 2, Infiltrator, Swift. On Summon: Burn 1 to every enemy Pokémon',
@@ -108,7 +108,7 @@ export const DECK_SERIES = [
   fire({
     id: 'f-duskull', rarity: 'Rare', type: 'Ghost', attackType: 'Special', strengthType: 'Special Defence', speed: 'Slow', weight: 'heavy', cap: 4,
     stages: two({ name: 'Duskull', art: 'duskull' }, { name: 'Dusclops', art: 'dusclops' }),
-    stats: [[1, 5], [1, 6], [2, 7], [2, 8], [3, 9], [3, 10]],
+    stats: [[1, 6], [1, 7], [2, 8], [2, 9], [3, 10], [3, 11]],
     ability: byLevel((l) => {
       const n = l <= 3 ? 1 : 2;
       return { text: `On Defend: Burn ${n} to the attacker`, onDefend: eff(T.attacker, op('burn', n)) };
@@ -117,14 +117,14 @@ export const DECK_SERIES = [
   fire({
     id: 'f-absol', rarity: 'Rare', type: 'Dark', attackType: 'Physical', strengthType: 'Hitpoints', speed: 'Swift', cap: 4,
     stages: single({ name: 'Absol', art: 'absol' }),
-    stats: [[3, 3], [4, 3], [4, 4], [5, 4], [6, 5], [6, 6]],
+    stats: [[3, 4], [4, 4], [4, 5], [5, 5], [6, 6], [6, 7]],
     ability: () => ({ vsBurned: 2, text: '+2 damage with its attack against a burned target' }),
   }),
   fire({
     // A Legendary (V7a): a single card, cost 6, 9/9.
     id: 'f-entei', rarity: 'Legendary', type: 'Fire', attackType: 'Physical', strengthType: 'Hitpoints', speed: 'Swift', legendary: true, cost: 6,
     stages: single({ name: 'Entei', art: 'entei' }, 1),
-    stats: [[9, 9]],
+    stats: [[9, 10]],
     ability: () => ({ keywords: ['Infiltrator', 'Overrun', 'Scorch 2'], text: 'Infiltrator, Overrun, Scorch 2. On Summon: the enemy player gains Burn 3', onSummon: eff(null, op('enemyBurn', 3)) }),
   }),
 
@@ -132,7 +132,7 @@ export const DECK_SERIES = [
   water({
     id: 'w-squirtle', rarity: 'Common', type: 'Water', attackType: 'Special', strengthType: 'Defence', speed: 'Steady', cap: 6,
     stages: three({ name: 'Squirtle', art: 'squirtle' }, { name: 'Wartortle', art: 'wartortle' }, { name: 'Blastoise', art: 'blastoise' }),
-    stats: [[2, 4], [2, 5], [3, 6], [4, 7], [5, 9], [6, 10]],
+    stats: [[3, 4], [3, 5], [4, 6], [5, 7], [6, 9], [7, 10]],
     ability: byLevel((l) => (l <= 2 ? null : l <= 4 ? { keywords: ['Shell 1'], text: 'Shell 1' } : { keywords: ['Shell 2'], text: 'Shell 2' })),
     empower: { cost: 2, attack: 0, strength: 0, keywords: [], target: T.enemyHere(), ops: [op('damage', 2)], text: '+2: on summon, 2 damage to each enemy Pokémon in its Location' },
   }),
@@ -140,7 +140,7 @@ export const DECK_SERIES = [
     // Kingdra's "Shell 1" is a keyword it always has, not part of Rally (Elliott's V6 ruling).
     id: 'w-horsea', rarity: 'Rare', type: 'Water', attackType: 'Special', strengthType: 'Hitpoints', speed: 'Steady', cap: 6,
     stages: three({ name: 'Horsea', art: 'horsea' }, { name: 'Seadra', art: 'seadra' }, { name: 'Kingdra', art: 'kingdra' }),
-    stats: [[2, 4], [3, 5], [4, 6], [4, 7], [6, 8], [7, 9]],
+    stats: [[3, 4], [4, 5], [5, 6], [5, 7], [7, 8], [8, 9]],
     ability: byLevel((l) => (l <= 4
       ? { text: 'Rally: +1/+1 when another friendly Pokémon is summoned into its Location', rally: eff(T.self, op('grow', undefined, { attack: 1, strength: 1 })) }
       : { keywords: ['Shell 1'], text: 'Rally: +2/+2. Shell 1', rally: eff(T.self, op('grow', undefined, { attack: 2, strength: 2 })) })),
@@ -148,34 +148,34 @@ export const DECK_SERIES = [
   water({
     id: 'w-magikarp', rarity: 'Rare', type: 'Water', attackType: 'Physical', strengthType: 'Hitpoints', speed: 'Steady', weight: 'heavy', cap: 6,
     stages: two({ name: 'Magikarp', art: 'magikarp' }, { name: 'Gyarados', art: 'gyarados' }),
-    stats: [[1, 3], [1, 4], [1, 5], [7, 6], [8, 7], [9, 8]],
+    stats: [[2, 3], [2, 4], [2, 5], [8, 6], [9, 7], [10, 8]],
     ability: byLevel((l) => (l <= 3 ? { text: 'Splash: On Summon, draw 1 card', onSummon: eff(null, op('draw', 1)) }
       : { keywords: ['Overrun'], text: 'Overrun. On Summon: 2 damage to each enemy Pokémon in its Location', onSummon: eff(T.enemyHere(), op('damage', 2)) })),
   }),
   water({
     id: 'w-wooper', rarity: 'Common', type: 'Water', attackType: 'Physical', strengthType: 'Defence', speed: 'Slow', weight: 'light', cap: 4,
     stages: two({ name: 'Wooper', art: null }, { name: 'Quagsire', art: 'quagsire' }), art: 'quagsire',
-    stats: [[2, 4], [2, 5], [3, 5], [4, 7], [4, 8], [5, 8]],
+    stats: [[3, 4], [3, 5], [4, 5], [5, 7], [5, 8], [6, 8]],
     ability: byLevel((l) => (l <= 3 ? { keywords: ['Regenerate 1'], text: 'Regenerate 1' } : { keywords: ['Regenerate 2'], text: 'Regenerate 2' })),
   }),
   water({
     id: 'w-chinchou', rarity: 'Common', type: 'Electric', attackType: 'Special', strengthType: 'Special Defence', speed: 'Steady', weight: 'light', cap: 4,
     stages: two({ name: 'Chinchou', art: 'chinchou' }, { name: 'Lanturn', art: 'lanturn' }),
-    stats: [[2, 4], [3, 4], [3, 5], [4, 6], [5, 7], [5, 8]],
+    stats: [[3, 4], [4, 4], [4, 5], [5, 6], [6, 7], [6, 8]],
     ability: byLevel((l) => (l <= 3 ? { keywords: ['Regenerate 1'], text: 'Regenerate 1' }
       : { keywords: ['Regenerate 1'], text: 'Regenerate 1. On Attack: heal another friendly Pokémon in its Location 2', onAttack: eff(T.friendHere(1, { other: true, filter: 'damaged' }), op('heal', 2)) })),
   }),
   water({
     id: 'w-wingull', rarity: 'Common', type: 'Water', attackType: 'Special', strengthType: 'Hitpoints', speed: 'Swift', weight: 'light', cap: 4,
     stages: two({ name: 'Wingull', art: 'wingull' }, { name: 'Pelipper', art: 'pelipper' }),
-    stats: [[2, 3], [3, 3], [3, 4], [4, 5], [5, 5], [5, 6]],
+    stats: [[3, 3], [4, 3], [4, 4], [5, 5], [6, 5], [6, 6]],
     ability: byLevel((l) => (l <= 3 ? { weather: { Rain: 1 }, text: 'Weather: 1 Rain' }
       : { weather: { Rain: 2 }, text: 'Weather: 2 Rain. On Summon: a card in your hand gains Retain', onSummon: eff(null, op('grantRetain')) })),
   }),
   water({
     id: 'w-eevee', rarity: 'Epic', type: 'Normal', attackType: 'Special', strengthType: 'Hitpoints', speed: 'Steady', cap: 6,
     stages: two({ name: 'Eevee', art: 'eevee' }, { name: 'Vaporeon', art: 'vaporeon' }),
-    stats: [[2, 4], [3, 4], [3, 5], [5, 7], [5, 8], [6, 9]],
+    stats: [[3, 4], [4, 4], [4, 5], [6, 7], [6, 8], [7, 9]],
     ability: byLevel((l) => (l <= 3 ? { text: 'On Summon: heal a friendly Pokémon 2', onSummon: eff(T.friend(1, { filter: 'damaged' }), op('heal', 2)) }
       : {
         type: 'Water', guard: 'Special Defence', keywords: ['Regenerate 2'], text: 'Regenerate 2. On Heal: +1 Attack (permanent)',
@@ -186,7 +186,7 @@ export const DECK_SERIES = [
     // "And Douse them" is Blissey's only (Elliott's V6 ruling).
     id: 'w-happiny', rarity: 'Rare', type: 'Normal', attackType: 'Physical', strengthType: 'Hitpoints', speed: 'Slow', weight: 'heavy', cap: 6,
     stages: three({ name: 'Happiny', art: 'happiny' }, { name: 'Chansey', art: 'chansey' }, { name: 'Blissey', art: 'blissey' }),
-    stats: [[0, 5], [1, 6], [1, 8], [1, 10], [2, 12], [2, 14]],
+    stats: [[1, 5], [2, 6], [2, 8], [2, 10], [3, 12], [3, 14]],
     ability: byLevel((l) => (l <= 2 ? { text: 'On Breakfast: heal a friendly Pokémon in its Location 1', onBreakfast: eff(T.friendHere(1, { filter: 'damaged' }), op('heal', 1)) }
       : l <= 4 ? { text: 'On Breakfast: heal each friendly Pokémon in its Location 2', onBreakfast: eff(T.friendHere(), op('heal', 2)) }
         : { text: 'On Breakfast: heal each friendly Pokémon in its Location 3 and Douse them', onBreakfast: eff(T.friendHere(), op('heal', 3), op('douse')) })),
@@ -194,14 +194,14 @@ export const DECK_SERIES = [
   water({
     id: 'w-dratini', rarity: 'Epic', type: 'Dragon', attackType: 'Physical', strengthType: 'Hitpoints', speed: 'Steady', weight: 'heavy', cap: 6,
     stages: three({ name: 'Dratini', art: null }, { name: 'Dragonair', art: null }, { name: 'Dragonite', art: 'dragonite' }), art: 'dragonite',
-    stats: [[2, 4], [3, 4], [4, 5], [5, 6], [7, 8], [8, 9]],
+    stats: [[3, 4], [4, 4], [5, 5], [6, 6], [8, 8], [9, 9]],
     ability: byLevel((l) => (l <= 2 ? null : l <= 4 ? { keywords: ['Infiltrator'], text: 'Infiltrator' } : { keywords: ['Infiltrator', 'Shell 1'], text: 'Infiltrator, Shell 1' })),
   }),
   water({
     // A Legendary (V7a): a single card, cost 7, 10/12.
     id: 'w-kyogre', rarity: 'Legendary', type: 'Water', attackType: 'Special', strengthType: 'Hitpoints', speed: 'Slow', legendary: true, cost: 7,
     stages: single({ name: 'Kyogre', art: 'kyogre' }, 1),
-    stats: [[10, 12]],
+    stats: [[11, 12]],
     ability: () => ({
       weather: { Rain: 2 }, text: 'Weather: 2 Rain. On Summon, Origin Pulse: heal every friendly Pokémon 2, and 3 damage to every enemy Pokémon',
       onSummon: eff(T.friendAll, op('heal', 2), op('damage', 3, { to: T.enemyAll })),
@@ -212,7 +212,7 @@ export const DECK_SERIES = [
   grass({
     id: 'g-bulbasaur', rarity: 'Common', type: 'Grass', attackType: 'Special', strengthType: 'Special Defence', speed: 'Steady', cap: 6,
     stages: three({ name: 'Bulbasaur', art: 'bulbasaur' }, { name: 'Ivysaur', art: 'ivysaur' }, { name: 'Venusaur', art: 'venusaur' }),
-    stats: [[2, 5], [2, 6], [3, 7], [4, 7], [5, 10], [6, 12]],
+    stats: [[2, 4], [2, 5], [3, 6], [4, 6], [5, 9], [6, 11]],
     ability: byLevel((l) => (l <= 2 ? { text: 'On Breakfast: gain 1 Growth', onBreakfast: eff(null, op('growth', 1)) }
       : l <= 4 ? { guard: 'none', text: 'On Breakfast: gain 1 Growth. On Evolve: Leech Seed an enemy Pokémon in its Location', onBreakfast: eff(null, op('growth', 1)), onEvolve: eff(T.enemyHere(1), op('leechSeed')) }
         : { guard: 'none', keywords: ['Shell 1'], text: 'On Breakfast: gain 2 Growth. Shell 1', onBreakfast: eff(null, op('growth', 2)) })),
@@ -220,7 +220,7 @@ export const DECK_SERIES = [
   grass({
     id: 'g-oddish', rarity: 'Common', type: 'Grass', attackType: 'Special', strengthType: 'Hitpoints', speed: 'Steady', weight: 'light', cap: 6,
     stages: three({ name: 'Oddish', art: 'oddish' }, { name: 'Gloom', art: 'gloom' }, { name: 'Bellossom', art: 'bellossom' }),
-    stats: [[2, 4], [3, 4], [3, 5], [3, 6], [4, 8], [5, 9]],
+    stats: [[2, 3], [3, 3], [3, 4], [3, 5], [4, 7], [5, 8]],
     ability: byLevel((l) => {
       if (l <= 2) return { text: 'On Breakfast: gain 1 Growth', onBreakfast: eff(null, op('growth', 1)) };
       if (l <= 4) {
@@ -234,14 +234,14 @@ export const DECK_SERIES = [
   grass({
     id: 'g-sunkern', rarity: 'Common', type: 'Grass', attackType: 'Special', strengthType: 'Defence', speed: 'Slow', weight: 'light', cap: 6,
     stages: two({ name: 'Sunkern', art: 'sunkern' }, { name: 'Sunflora', art: 'sunflora' }),
-    stats: [[2, 6], [3, 6], [3, 7], [5, 7], [5, 8], [6, 8]],
+    stats: [[2, 5], [3, 5], [3, 6], [5, 6], [5, 7], [6, 7]],
     ability: byLevel((l) => (l <= 3 ? { weather: { Sun: 1 }, text: 'Weather: 1 Sun. On Breakfast: gain 1 Growth', onBreakfast: eff(null, op('growth', 1)) }
       : { guard: 'none', weather: { Sun: 2 }, sunBonus: { at: 4, amount: 2 }, text: 'Weather: 2 Sun. +2 damage with its attack while Sun is 4+' })),
   }),
   grass({
     id: 'g-sewaddle', rarity: 'Common', type: 'Bug', attackType: 'Physical', strengthType: 'Hitpoints', speed: 'Steady', cap: 6,
     stages: three({ name: 'Sewaddle', art: 'sewaddle' }, { name: 'Swadloon', art: 'swadloon' }, { name: 'Leavanny', art: 'leavanny' }),
-    stats: [[3, 4], [3, 5], [2, 8], [2, 9], [6, 7], [7, 8]],
+    stats: [[3, 3], [3, 4], [2, 7], [2, 8], [6, 6], [7, 7]],
     ability: byLevel((l) => (l <= 2 ? { text: 'On Defeated: gain 2 Growth', onDefeated: eff(null, op('growth', 2)) }
       : l <= 4 ? { guard: 'Defence', keywords: ['Shell 1'], text: 'Shell 1' }
         : { speed: 'Swift', keywords: ['Infiltrator'], text: 'Infiltrator. On Attack: gain 1 Growth', onAttack: eff(null, op('growth', 1)) })),
@@ -249,21 +249,21 @@ export const DECK_SERIES = [
   grass({
     id: 'g-eevee', rarity: 'Epic', type: 'Normal', attackType: 'Physical', strengthType: 'Hitpoints', speed: 'Steady', cap: 6,
     stages: two({ name: 'Eevee', art: 'eevee' }, { name: 'Leafeon', art: null }),
-    stats: [[2, 4], [3, 4], [3, 5], [5, 6], [6, 6], [7, 7]],
+    stats: [[2, 3], [3, 3], [3, 4], [5, 5], [6, 5], [7, 6]],
     ability: byLevel((l) => (l <= 3 ? { text: 'On Summon: gain 1 Growth', onSummon: eff(null, op('growth', 1)) }
       : { type: 'Grass', speed: 'Swift', text: 'On Evolve: train 1 another friendly Pokémon in its Location', onEvolve: eff(T.friendHere(1, { other: true, filter: 'canTrain' }), op('train', 1)) })),
   }),
   grass({
     id: 'g-caterpie', rarity: 'Common', type: 'Bug', attackType: 'Special', strengthType: 'Hitpoints', speed: 'Slow', weight: 'light', cap: 6,
     stages: three({ name: 'Caterpie', art: null }, { name: 'Metapod', art: 'metapod' }, { name: 'Butterfree', art: null }), art: 'metapod',
-    stats: [[1, 4], [1, 5], [1, 7], [1, 8], [5, 6], [6, 7]],
+    stats: [[1, 3], [1, 4], [1, 6], [1, 7], [5, 5], [6, 6]],
     ability: byLevel((l) => (l <= 2 ? null : l <= 4 ? { guard: 'Defence', keywords: ['Shell 1'], text: 'Shell 1' }
       : { speed: 'Swift', keywords: ['Agility'], text: 'Agility. On Evolve: put an enemy Pokémon to Sleep', onEvolve: eff(T.enemyPoke(1), op('sleep')) })),
   }),
   grass({
     id: 'g-geodude', rarity: 'Rare', type: 'Rock', attackType: 'Physical', strengthType: 'Defence', speed: 'Slow', weight: 'heavy', cap: 6,
     stages: three({ name: 'Geodude', art: 'geodude' }, { name: 'Graveler', art: null }, { name: 'Golem', art: null }), art: 'geodude',
-    stats: [[3, 6], [3, 7], [4, 8], [5, 9], [7, 11], [8, 12]],
+    stats: [[3, 5], [3, 6], [4, 7], [5, 8], [7, 10], [8, 11]],
     ability: byLevel((l) => {
       const n = l <= 4 ? 1 : 2;
       return { text: `On Defend: ${n} damage to the attacker`, onDefend: eff(T.attacker, op('damage', n)) };
@@ -272,14 +272,14 @@ export const DECK_SERIES = [
   grass({
     id: 'g-bonsly', rarity: 'Rare', type: 'Rock', attackType: 'Physical', strengthType: 'Defence', speed: 'Slow', cap: 4,
     stages: two({ name: 'Bonsly', art: null }, { name: 'Sudowoodo', art: 'sudowoodo' }), art: 'sudowoodo',
-    stats: [[1, 6], [2, 6], [2, 7], [3, 9], [4, 9], [4, 10]],
+    stats: [[1, 5], [2, 5], [2, 6], [3, 8], [4, 8], [4, 9]],
     ability: byLevel((l) => (l <= 3 ? null : { keywords: ['Shell 1'], text: 'Shell 1' })),
   }),
   grass({
     // A Legendary (V7a): a single card, cost 3, 4/6 (the early supporter).
     id: 'g-celebi', rarity: 'Legendary', type: 'Grass', attackType: 'Special', strengthType: 'Hitpoints', speed: 'Swift', legendary: true, cost: 3,
     stages: single({ name: 'Celebi', art: 'celebi' }, 1),
-    stats: [[4, 6]],
+    stats: [[4, 5]],
     ability: () => ({ text: 'On Summon: gain 3 Growth, and train 1 every friendly Pokémon', onSummon: eff(null, op('growth', 3), op('train', 1, { to: T.friendAll })) }),
   }),
 ];
@@ -330,7 +330,7 @@ export const DECK_STRATEGIES = [
     bp(2, 'Return a Pokémon from your Discard Pile to your hand. It gains Retain', null, op('returnFromDiscard', undefined, { filter: 'pokemon', retain: true })),
   ]),
   strategy('water', 'w-surf', 'Surf', 'Rare', 'surf', [
-    bp(3, '2 damage to each enemy Pokémon', T.enemyAll, op('damage', 2)),
+    bp(2, '2 damage to each enemy Pokémon', T.enemyAll, op('damage', 2)),   // V7: 2 instead of 3
     bp(5, '3 damage to each enemy Pokémon, and heal each friendly Pokémon 2', T.enemyAll, op('damage', 3), op('heal', 2, { to: T.friendAll })),
   ]),
   strategy('water', 'w-hydro-pump', 'Hydro Pump', 'Epic', 'hydro-pump', [
@@ -415,50 +415,50 @@ export const DECK_TRAINERS = [
   trainer('fire', 'f-blaine', 'Blaine', 'blaine',
     ['Burn applied by your Pokémon in his lane is +1', { kind: 'burnPlusLane', amount: 1 }],
     [1, 'Burn 1 to an enemy Pokémon or the enemy player', T.enemyAny(1), op('burn', 1)],
-    ['Ninetales (Level 5): Special · Swift · 6/6, On Summon: the enemy player gains Burn 2',
-      partner('Ninetales', 'ninetales', 'Fire', 'Special', 'Swift', 6, 6, { ability: { text: 'On Summon: the enemy player gains Burn 2', onSummon: eff(null, op('enemyBurn', 2)) } })]),
+    ['Ninetales (Level 5): Special · Swift · 6/7, On Summon: the enemy player gains Burn 2',
+      partner('Ninetales', 'ninetales', 'Fire', 'Special', 'Swift', 6, 7, { ability: { text: 'On Summon: the enemy player gains Burn 2', onSummon: eff(null, op('enemyBurn', 2)) } })]),
   trainer('fire', 'f-flannery', 'Flannery', 'flannery',
     ['Your Fire Pokémon in her lane gain Overrun', { kind: 'laneKeyword', keyword: 'Overrun', type: 'Fire', amount: 1 }],
     // "A Pokémon in her lane" is one of yours (Elliott's V6 ruling).
     [1, 'A Pokémon in her lane gains +2 Attack this Round', laneFriend(), op('buff', undefined, { attack: 2 })],
     // Torkoal is Special (Elliott's V6 ruling).
-    ['Torkoal (Level 5): Slow · Defence guard · 4/10, Shell 1',
-      partner('Torkoal', 'torkoal', 'Fire', 'Special', 'Slow', 4, 10, { strengthType: 'Defence', keywords: ['Shell 1'] })]),
+    ['Torkoal (Level 5): Slow · Defence guard · 4/11, Shell 1',
+      partner('Torkoal', 'torkoal', 'Fire', 'Special', 'Slow', 4, 11, { strengthType: 'Defence', keywords: ['Shell 1'] })]),
   trainer('fire', 'f-kabu', 'Kabu', 'kabu',
     ['Your Pokémon in his lane gain +2 Strength', { kind: 'laneStrength', amount: 2 }],
     [2, 'A Spent Pokémon in his lane becomes Active', laneFriend({ filter: 'spent' }), op('ready')],
-    ['Centiskorch (Level 5): Physical · Steady · 7/7, Overrun, Scorch 1',
-      partner('Centiskorch', 'centiskorch', 'Fire', 'Physical', 'Steady', 7, 7, { keywords: ['Overrun', 'Scorch 1'] })]),
+    ['Centiskorch (Level 5): Physical · Steady · 7/8, Overrun, Scorch 1',
+      partner('Centiskorch', 'centiskorch', 'Fire', 'Physical', 'Steady', 7, 8, { keywords: ['Overrun', 'Scorch 1'] })]),
   trainer('water', 'w-misty', 'Misty', 'misty',
     ['Your Water Pokémon in her lane gain +1/+1', { kind: 'laneStrength', type: 'Water', amount: 1, alsoAttack: true }],
     [1, 'Heal a friendly Pokémon 3', T.friend(1, { filter: 'damaged' }), op('heal', 3)],
-    ['Starmie (Level 5): Special · Swift · 6/7, Regenerate 1, Infiltrator',
-      partner('Starmie', 'starmie', 'Water', 'Special', 'Swift', 6, 7, { keywords: ['Regenerate 1', 'Infiltrator'] })]),
+    ['Starmie (Level 5): Special · Swift · 7/7, Regenerate 1, Infiltrator',
+      partner('Starmie', 'starmie', 'Water', 'Special', 'Swift', 7, 7, { keywords: ['Regenerate 1', 'Infiltrator'] })]),
   trainer('water', 'w-crasher-wake', 'Crasher Wake', 'crasher-wake',
     ['Your Pokémon in his lane gain Shell 1', { kind: 'spaceShell', amount: 1 }],
     [2, '2 damage to an enemy Pokémon in his lane', laneEnemy(), op('damage', 2)],
-    ['Floatzel (Level 5): Physical · Swift · 6/6, Quick Attack, Overrun',
-      partner('Floatzel', 'floatzel', 'Water', 'Physical', 'Swift', 6, 6, { keywords: ['Quick Attack', 'Overrun'] })]),
+    ['Floatzel (Level 5): Physical · Swift · 7/6, Quick Attack, Overrun',
+      partner('Floatzel', 'floatzel', 'Water', 'Physical', 'Swift', 7, 6, { keywords: ['Quick Attack', 'Overrun'] })]),
   trainer('water', 'w-wallace', 'Wallace', 'wallace',
     ['The first Pokémon you summon into his lane each Round costs 1 less', { kind: 'laneDiscount', amount: 1 }],
     [1, 'Return a Pokémon from your Discard Pile to your hand', null, op('returnFromDiscard', undefined, { filter: 'pokemon' })],
-    ['Milotic (Level 5): Special · Steady · 5/10, Regenerate 2, On Summon: heal every friendly Pokémon 2',
-      partner('Milotic', 'milotic', 'Water', 'Special', 'Steady', 5, 10, { keywords: ['Regenerate 2'], ability: { text: 'On Summon: heal every friendly Pokémon 2', onSummon: eff(T.friendAll, op('heal', 2)) } })]),
+    ['Milotic (Level 5): Special · Steady · 6/10, Regenerate 2, On Summon: heal every friendly Pokémon 2',
+      partner('Milotic', 'milotic', 'Water', 'Special', 'Steady', 6, 10, { keywords: ['Regenerate 2'], ability: { text: 'On Summon: heal every friendly Pokémon 2', onSummon: eff(T.friendAll, op('heal', 2)) } })]),
   trainer('grass', 'g-erika', 'Erika', 'erika',
     ['Your Pokémon in her lane train 1 at Breakfast', { kind: 'laneTrain', amount: 1 }],
     [2, 'Put an enemy Pokémon to Sleep', T.enemyPoke(1), op('sleep')],
-    ['Vileplume (Level 5): Special · Slow · 5/10, On Summon: put each enemy Pokémon in its Location to Sleep',
-      partner('Vileplume', 'vileplume', 'Grass', 'Special', 'Slow', 5, 10, { ability: { text: 'On Summon: put each enemy Pokémon in its Location to Sleep', onSummon: eff(T.enemyHere(), op('sleep')) } })]),
+    ['Vileplume (Level 5): Special · Slow · 5/9, On Summon: put each enemy Pokémon in its Location to Sleep',
+      partner('Vileplume', 'vileplume', 'Grass', 'Special', 'Slow', 5, 9, { ability: { text: 'On Summon: put each enemy Pokémon in its Location to Sleep', onSummon: eff(T.enemyHere(), op('sleep')) } })]),
   trainer('grass', 'g-gardenia', 'Gardenia', 'gardenia',
     ['Nurturing a Pokémon in her lane costs 1 Growth less', { kind: 'nurtureDiscount', amount: 1 }],
     [1, 'Gain 1 Growth', null, op('growth', 1)],
-    ['Roserade (Level 5): Special · Swift · 6/5, On Attack: Leech Seed the target',
-      partner('Roserade', 'roserade', 'Grass', 'Special', 'Swift', 6, 5, { ability: { text: 'On Attack: Leech Seed the target', onAttack: eff(T.target, op('leechSeed')) } })]),
+    ['Roserade (Level 5): Special · Swift · 6/4, On Attack: Leech Seed the target',
+      partner('Roserade', 'roserade', 'Grass', 'Special', 'Swift', 6, 4, { ability: { text: 'On Attack: Leech Seed the target', onAttack: eff(T.target, op('leechSeed')) } })]),
   trainer('grass', 'g-ramos', 'Ramos', 'ramos',
     ['Leech Seeds on enemy Pokémon in his lane drain 1 more', { kind: 'seedPlus', amount: 1 }],
     [1, 'Leech Seed an enemy Pokémon in his lane', laneEnemy({ filter: 'unseeded' }), op('leechSeed')],
-    ['Gogoat (Level 5): Physical · Steady · 6/8, Regenerate 2',
-      partner('Gogoat', 'gogoat', 'Grass', 'Physical', 'Steady', 6, 8, { keywords: ['Regenerate 2'] })]),
+    ['Gogoat (Level 5): Physical · Steady · 6/7, Regenerate 2',
+      partner('Gogoat', 'gogoat', 'Grass', 'Physical', 'Steady', 6, 7, { keywords: ['Regenerate 2'] })]),
 ];
 
 // --- Items --------------------------------------------------------------------------------------
@@ -549,7 +549,7 @@ export const DECKS = {
     list: [
       ...mon('w-squirtle', 3), ...mon('w-horsea', 2), ...mon('w-magikarp', 2), ...mon('w-wooper', 2), ...mon('w-chinchou', 2),
       ...mon('w-wingull', 2), ...mon('w-eevee', 1), ...mon('w-happiny', 1), ...mon('w-dratini', 1), ...mon('w-kyogre', 1),
-      ...cards('w-aqua-ring', 2), ...cards('w-bubble-beam', 2), ...cards('w-dive'), ...cards('w-surf'), ...cards('w-hydro-pump'), ...cards('w-thunderbolt'),
+      ...cards('w-aqua-ring', 2), ...cards('w-bubble-beam', 2), ...cards('w-surf', 2), ...cards('w-hydro-pump'), ...cards('w-thunderbolt'),
       ...cards('w-nurse-joy'), ...cards('w-swimmer'), ...cards('w-fisherman'), ...cards('w-tracey'),
       ...cards('w-misty'), ...cards('w-crasher-wake'), ...cards('w-wallace'),
       ...locs('w-cerulean-cape', 2), ...locs('w-lake-of-rage'), ...locs('w-route-119'),

@@ -9,9 +9,10 @@ export const LANES = 9;
 // End of the match (7a): reach the Recognition target to win at once; otherwise the
 // Championship arrives at the start of its Round and covers every lane, and after
 // the Round limit the highest Recognition wins.
-export const RECOGNITION_TARGET = 60;
+// V7 balance (Elliott): target 90, the Championship in Round 9.
+export const RECOGNITION_TARGET = 90;
 export const ROUND_LIMIT = 12;
-export const CHAMPIONSHIP_ROUND = 10;
+export const CHAMPIONSHIP_ROUND = 9;
 
 // Training (4): a card's Level is the Round number, up to its training cap (1–6);
 // Legendaries are single cards (V7a): no series, no Levels, one fixed cost and stats.

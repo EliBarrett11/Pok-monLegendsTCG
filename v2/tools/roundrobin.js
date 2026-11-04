@@ -4,30 +4,25 @@
 //   node v2/tools/roundrobin.js [matches per matchup, default 40] [--mixed] [--variant=T75,L+,W1] [--json]
 //
 // --mixed     only the three mixed matchups (no mirrors)
-// --variant   balance-experiment flags, off by default and never the game's settings:
-//             T75 / T90  Recognition target 75 / 90
+// --pair=a,b  only that matchup (e.g. --pair=fire,water or --pair=grass,grass)
+// --seed=N    the first seed (default 1000)
+// --variant   balance-experiment flags, off by default and never the game's settings
+//             (V7 made T90, CH9, LG, GS, F1, WA and S2c the real rules and cards):
+//             T60 / T75  Recognition target 60 / 75
+//             CH8 / CH10 the Championship arrives in Round 8 / 10 (the limit stays 12)
 //             L+         every Location Recognition reward ×1.5 (rounded up)
-//             CH8        the Championship arrives in Round 8 (the limit stays 12)
 //             W1         Water Pokémon +1 Strength at every Level
 //             W2         Water's Locations last 1 Round longer; their milestones give +1 Recognition
-//             CH9        the Championship arrives in Round 9
 //             N3         Nurture costs 3 Growth (Gardenia's lane: 2)
 //             N1         Nurture is once per Round in total (not per Pokémon)
 //             NR         Nurture can't raise a Pokémon above the Round number + 1
 //             GX         only the Bulbasaur line makes Growth at Breakfast (Oddish and Sunkern don't)
-//             F1         Fire Pokémon +1 Strength at every Level
-//             LG         lane guards: a guard only restricts attacks in its own lane (so the enemy
-//                        player is guarded only by a matching guard across from the attacker)
 //             FG         Fire guards: Growlithe → Arcanine has Defence; Duskull 2 copies (for 1 Mankey)
 //             C1         no Pokémon costs less than 1 (light weight can't make it free)
-//             GS         Grass-deck Pokémon −1 Strength at every Level
 //             SL         Sleep Powder costs 3; Gloom / Bellossom / Butterfree's On Evolve Sleep
 //                        only reaches a Pokémon of a lower Level than themselves
 //             F½ (or FH) Fire Pokémon +1 Strength at Levels 3–6 only
-//             WA         Water Pokémon +1 Attack at every Level
 //             WA½ (WAH)  Water Pokémon +1 Attack at Levels 3–6 only
-//             S2         a second Surf replaces Dive in Water's deck
-//             S2c        S2, and Surf's 3 breakpoint costs 2
 //             ER         Erika's Passive is "your Pokémon in her lane gain +1 Strength" (no training)
 // --json      one JSON line with the results (for v2/tools/variants.js)
 //
@@ -41,13 +36,15 @@
 // and how often its guards were Asleep when an enemy attack had to go through them.
 import { createGame, applyAction, actor, legalTargets } from '../src/engine/game.js';
 import { DECKS, POOL_ITEMS } from '../src/engine/cards.js';
+import { CHAMPIONSHIP_ROUND } from '../src/engine/rules.js';
 import { chooseAction } from '../src/ai/opponent.js';
 
 export const VARIANTS = {
-  T75: { target: 75 }, T90: { target: 90 }, 'L+': { locMult: 1.5 }, CH8: { champRound: 8 },
-  W1: { waterStrength: 1 }, W2: { waterLocations: true }, CH9: { champRound: 9 }, F1: { fireStrength: 1 }, LG: { laneGuards: true }, FG: { fireGuards: true },
-  C1: { minCost: 1 }, 'F½': { fireHalf: true }, FH: { fireHalf: true }, WA: { waterAttack: true },
-  'WA½': { waterAttackHalf: true }, WAH: { waterAttackHalf: true }, S2: { surfTwice: true }, S2c: { surfTwice: true, surfCheap: true }, GS: { grassStrength: -1 }, SL: { sleepLimit: true },
+  // V7: T90, CH9, LG, GS, F1, WA and S2c are now the game's rules and cards, so they're gone.
+  T75: { target: 75 }, T60: { target: 60 }, 'L+': { locMult: 1.5 }, CH8: { champRound: 8 }, CH10: { champRound: 10 },
+  W1: { waterStrength: 1 }, W2: { waterLocations: true }, FG: { fireGuards: true },
+  C1: { minCost: 1 }, 'F½': { fireHalf: true }, FH: { fireHalf: true },
+  'WA½': { waterAttackHalf: true }, WAH: { waterAttackHalf: true }, SL: { sleepLimit: true },
   N3: { nurtureCost: 3 }, N1: { nurtureOnce: true }, NR: { nurtureRoundCap: true }, GX: { growthBulbasaurOnly: true }, ER: { erikaStrength: true },
 };
 export const variantOf = (flags = []) => (flags.length ? Object.assign({}, ...flags.map((f) => {
@@ -58,8 +55,6 @@ export const variantOf = (flags = []) => (flags.length ? Object.assign({}, ...fl
 // The deck list a matchup plays (FG swaps 1 Mankey for a second Duskull in Fire's list).
 export function deckList(name, variant) {
   const list = DECKS[name].list;
-  // S2 / S2c (V7f): a second Surf replaces Dive in Water's list.
-  if (variant?.surfTwice && name === 'water') return list.map((e) => (e.card === 'w-dive' ? { card: 'w-surf' } : e));
   if (!(variant?.fireGuards && name === 'fire')) return list;
   const i = list.findIndex((e) => e.series === 'f-mankey');
   const duskull = list.find((e) => e.series === 'f-duskull');
@@ -90,7 +85,7 @@ export function runMatchup(a, b, n, variant = null, seed0 = 1000) {
   const r = { pair: [a, b], n, draws: 0, rounds: 0, ends: { early: 0, championship: 0, final: 0 }, deck: { [a]: blank(), [b]: blank() }, seats: { first: 0, second: 0 } };
   const mirror = a === b;
   if (mirror) r.deck = { player: blank(), ai: blank() };
-  const champ = variant?.champRound ?? 10;
+  const champ = variant?.champRound ?? CHAMPIONSHIP_ROUND;
   for (let i = 0; i < n; i++) {
     const seed = seed0 + i;
     const swap = i % 2 === 1;
@@ -224,7 +219,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const flags = args.find((x) => x.startsWith('--variant='))?.slice(10).split(',').filter(Boolean) ?? [];
   const variant = variantOf(flags);
   const seed0 = Number(args.find((x) => x.startsWith('--seed='))?.slice(7)) || 1000;
-  const results = pairsFor(args.includes('--mixed')).map(([a, b]) => runMatchup(a, b, n, variant, seed0));
+  const pair = args.find((x) => x.startsWith('--pair='))?.slice(7).split(',');
+  const results = (pair ? [pair] : pairsFor(args.includes('--mixed'))).map(([a, b]) => runMatchup(a, b, n, variant, seed0));
   if (args.includes('--json')) console.log(JSON.stringify({ flags, results }));
   else for (const r of results) console.log(report(r));
 }

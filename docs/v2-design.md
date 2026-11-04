@@ -19,13 +19,14 @@
 - Objectives must be achievable by **any deck**: generic goals, not Type- or mechanic-specific ones.
 - Locations still carry **Weather Tokens** (the current Weather system stays).
 - A Location **can be placed over lanes where Pokémon already stand**; those Pokémon are then in that Location.
-- **Combat isn't lane-restricted:** a Pokémon can attack any target, whatever its lane or Location. Lanes matter for Locations and lane-based effects.
+- **Combat isn't lane-restricted:** a Pokémon can attack any enemy Pokémon, whatever its lane or Location. Lanes matter for Locations, lane-based effects and **lane guards** (below).
+- **Lane guards (V7, Elliott):** a Defence Pokémon guards against Physical attackers and a Special Defence Pokémon against Special attackers, **but only in its own lane, and only the player character**. A Pokémon can't attack the enemy player character while a matching guard stands in the enemy space across from it. Every enemy Pokémon can always be attacked. **Infiltrator** ignores guards.
 
 ### 1.3 The player character and Recognition
-- Trainers-as-health are retired. Each player is a **player character** that can be targeted exactly as Trainers were (guard rules apply).
+- Trainers-as-health are retired. Each player is a **player character** that can be targeted exactly as Trainers were, subject to lane guards (1.2).
 - **Recognition** starts at **0 and goes up.** Damaging the opponent's player character gains **you** Recognition, 1 per point of damage. Location milestones and other effects also give Recognition.
 - Recognition can also be **lost** through effects; Burn is a natural fit.
-- **Win:** the first to a target Recognition. The number is still to be set.
+- **Win:** the first to **90 Recognition** (V7) wins at once.
 
 ## 2. Trainers: a new card type
 
@@ -127,11 +128,11 @@ Costs grow more slowly than Levels, so a trained Pokémon doesn't take the whole
 
 **Claude's starting picks** (Elliott tests them and gives feedback; tune them with the balance tool):
 - **End of the match:**
-  - **Recognition target 60:** reaching it wins immediately.
+  - **Recognition target 90** (V7; was 60): reaching it wins immediately.
   - **Round limit 12.**
-  - **The Championship** arrives at the start of **Round 10** and runs to the end of Round 12. Then the highest Recognition wins.
+  - **The Championship** arrives at the start of **Round 9** (V7; was Round 10) and runs to the end of Round 12. Then the highest Recognition wins.
   - **Tiebreaker:** the most Championship progress; if still tied, one sudden-death Round.
-- **Why these numbers:** today's decks deal about 7 damage a Round to the opposing player. With Location rewards on top, 60 should be reachable before the Championship only by a clearly dominant player. Aim for about a third of matches won early, two thirds decided in the Championship. Level-6 Pokémon appear from Round 6, so the last third of the match is when the strongest forms clash.
+- **Why these numbers:** today's decks deal about 7 damage a Round to the opposing player. With Location rewards on top, the target should be reachable before the Championship only by a clearly dominant player. Aim for about a third of matches won early, two thirds decided in the Championship. **V7 (Elliott, after the V7a–V7f balance experiments):** target 90, the Championship in Round 9, lane guards, and the deck stat changes in `v2-fire.md`, `v2-water.md` and `v2-grass.md`. Level-6 Pokémon appear from Round 6, so the last third of the match is when the strongest forms clash.
 - **Deck size: 40** for the first build. It keeps consistency, and today's balance numbers stay comparable. Revisit after playtesting; the balance tool should report reshuffles per match.
 
 ## 7c. Icons in v2 (Elliott, 3 Nov)

@@ -41,12 +41,8 @@ import { OBJECTIVES, CHAMPIONSHIP, rewardText } from './locations.js';
 export const PLAYERS = ['player', 'ai'];
 // The Recognition target and the Championship's Round (a variant may change them).
 // SL experiment flag (V7d): Sleep Powder costs 3.
-// S2c experiment flag (V7f): Surf's 3 breakpoint costs 2.
-const variantCard = (variant, c) => {
-  if (variant?.sleepLimit && c.id === 'g-sleep-powder') return { ...c, breakpoints: c.breakpoints.map((b) => ({ ...b, cost: Math.max(3, b.cost) })) };
-  if (variant?.surfCheap && c.id === 'w-surf') return { ...c, breakpoints: c.breakpoints.map((b) => (b.cost === 3 ? { ...b, cost: 2 } : b)) };
-  return c;
-};
+const variantCard = (variant, c) => (variant?.sleepLimit && c.id === 'g-sleep-powder'
+  ? { ...c, breakpoints: c.breakpoints.map((b) => ({ ...b, cost: Math.max(3, b.cost) })) } : c);
 export const targetOf = (s) => s.variant?.target ?? RECOGNITION_TARGET;
 export const champRoundOf = (s) => s.variant?.champRound ?? CHAMPIONSHIP_ROUND;
 export const NAMES = { player: 'You', ai: 'Opponent' };
@@ -148,19 +144,15 @@ export function train(s, who, space, n) {
   return true;
 }
 
-// W1 (variant): Water Pokémon +N Strength at every Level.
-// W1 / F1 experiment flags: Water (or Fire) Pokémon +N Strength at every Level.
+// Experiment flags (off by default; the V7 balance itself is in the card data):
+// W1: Water Pokémon +N Strength at every Level.
 // FG experiment flag (V7c): the Growlithe → Arcanine line has the Defence Strength-Type.
 const fireGuard = (s, card) => { if (s.variant?.fireGuards && card.series === 'f-growlithe') card.strengthType = 'Defence'; };
 const waterBonus = (s, card) => (s.variant?.waterStrength && card.type === 'Water' ? s.variant.waterStrength : 0)
-  + (s.variant?.fireStrength && card.type === 'Fire' ? s.variant.fireStrength : 0)
-  // GS experiment flag (V7d): Grass-deck Pokémon −1 Strength at every Level.
-  + (s.variant?.grassStrength && card.deck === 'grass' ? s.variant.grassStrength : 0)
   // F½ experiment flag (V7e): Fire Pokémon +1 Strength at Levels 3–6 only.
   + (s.variant?.fireHalf && card.type === 'Fire' && card.level >= 3 ? 1 : 0);
-// WA experiment flag (V7e): Water Pokémon +1 Attack at every Level.
-// WA½ (V7f): +1 Attack at Levels 3–6 only.
-const waterAttack = (s, card) => (card.type === 'Water' && (s.variant?.waterAttack || (s.variant?.waterAttackHalf && card.level >= 3)) ? 1 : 0);
+// WA½ (V7f): Water Pokémon +1 Attack at Levels 3–6 only.
+const waterAttack = (s, card) => (card.type === 'Water' && s.variant?.waterAttackHalf && card.level >= 3 ? 1 : 0);
 
 // The Empowered summon's bonus, on the card.
 function applyEmpower(card) {
@@ -207,9 +199,11 @@ export const isAlert = (state, card) => !card.spent && speedOf(card) === alertTi
 export const alertSpaces = (state, who) => pokemonOf(state, who).filter(({ card }) => isAlert(state, card)).map(({ space }) => space);
 
 // Where the Pokémon in `from` (a space in its own row) may attack: any enemy
-// Pokémon or the enemy player character, except that a Physical attacker must
-// attack a Defence Pokémon if the enemy has one, and a Special attacker a Special
-// Defence one. Infiltrator ignores both. As { kind: 'pokemon', space } or { kind: 'player' }.
+// Pokémon or the enemy player character. Lane guards (V7, Elliott's design): a Defence
+// Pokémon guards against Physical attackers and a Special Defence Pokémon against Special
+// ones, but only in its own lane, so the enemy player can't be attacked by a Pokémon with
+// a matching guard across from it. Every enemy Pokémon can always be attacked (one Pokémon
+// per space). Infiltrator ignores guards. As { kind: 'pokemon', space } or { kind: 'player' }.
 export function legalTargets(state, who, from) {
   const attacker = state.players[who].row[from];
   if (!attacker) return [];
@@ -217,15 +211,8 @@ export function legalTargets(state, who, from) {
   const all = [...enemy.map(({ space }) => ({ kind: 'pokemon', space })), { kind: 'player' }];
   if (hasKeyword(attacker, 'Infiltrator') || hasKw(state, who, from, 'Infiltrator')) return all;
   const guardType = { Physical: 'Defence', Special: 'Special Defence' }[attacker.attackType];
-  // LG experiment flag (V7c): lane guards. A guard only restricts attacks on targets in its
-  // own lane; with one Pokémon per space that leaves the enemy player, who is guarded only
-  // by a matching guard in the attacker's lane. Every enemy Pokémon can be attacked.
-  if (state.variant?.laneGuards) {
-    const across = state.players[opponentOf(who)].row[from];
-    return across?.strengthType === guardType ? all.filter((t) => t.kind !== 'player') : all;
-  }
-  const guards = enemy.filter(({ card }) => card.strengthType === guardType).map(({ space }) => ({ kind: 'pokemon', space }));
-  return guards.length ? guards : all;
+  const across = state.players[opponentOf(who)].row[from];
+  return across?.strengthType === guardType ? all.filter((t) => t.kind !== 'player') : all;
 }
 
 // The Pokémon in hand this player can summon now: affordable, with an empty space.

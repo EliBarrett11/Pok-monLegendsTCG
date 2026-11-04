@@ -1,7 +1,7 @@
 // V2 — Locations as shared lanes, objectives, the Championship and the end of the match.
 // Placement (width, free lanes, over Pokémon), the timer, both players' progress,
 // milestones and completion rewards, the Championship's arrival and its effect on
-// other Locations, the Round-12 end and the tiebreakers, the instant win at 60, and
+// other Locations, the Round-12 end and the tiebreakers, the instant win at the target (90, V7), and
 // AI-vs-AI matches that finish (with a count of how they end).
 // Run with: node v2/tests/locations.test.js
 import assert from 'node:assert/strict';
@@ -217,7 +217,7 @@ function playLoc(s, who, id, start) {
   assert.deepEqual([locationAt(s, 0).completed.player, s.players.player.recognition - before], [true, cardDef('route-119').completion.recognition]);
 }
 
-// --- The Championship: Round 10, all 9 lanes, every other Location ends --------------------------------
+// --- The Championship: Round 9 (V7), all 9 lanes, every other Location ends --------------------------------
 
 {
   let s = battle(CHAMPIONSHIP_ROUND - 1);
@@ -235,7 +235,7 @@ function playLoc(s, who, id, start) {
   assert.equal(s.round, CHAMPIONSHIP_ROUND);
   assert.equal(s.locations.length, 1, 'every other Location ended');
   const champ = championship(s);
-  assert.deepEqual([champ.name, champ.lanes.length, champ.roundsLeft, champ.owner], ['The Championship', LANES, 3, null]);
+  assert.deepEqual([champ.name, champ.lanes.length, champ.roundsLeft, champ.owner], ['The Championship', LANES, ROUND_LIMIT - CHAMPIONSHIP_ROUND + 1, null]);
   assert.ok(s.events.some((e) => e.type === 'championship'));
   assert.equal(s.events.filter((e) => e.type === 'locationEnded' && e.why === 'championship').length, 2);
   assert.equal(s.players.player.energy, s.players.player.roundEnergy + s.players.player.stored + 1, 'the milestone Energy is kept');
@@ -257,8 +257,7 @@ function playLoc(s, who, id, start) {
   assert.equal(championship(s).progress.player, 3);
   assert.equal(s.players.player.recognition - r0, 3 * 2 + CHAMPIONSHIP.milestones[0].reward.recognition, '3 hits of 2 + the first milestone');
   // It stays through Round 12.
-  s = passBoth(s);
-  s = passBoth(s);
+  while (s.round < ROUND_LIMIT) s = passBoth(s);
   assert.deepEqual([s.round, championship(s).roundsLeft], [ROUND_LIMIT, 1]);
 }
 
@@ -266,9 +265,8 @@ function playLoc(s, who, id, start) {
 
 function round12({ player, ai, champ = { player: 0, ai: 0 } }) {
   let s = battle(CHAMPIONSHIP_ROUND - 1);
-  s = passBoth(s);   // Round 10: the Championship arrives
-  s = passBoth(s);
-  s = passBoth(s);   // Round 12
+  s = passBoth(s);   // the Championship arrives
+  while (s.round < ROUND_LIMIT) s = passBoth(s);   // Round 12
   assert.equal(s.round, ROUND_LIMIT);
   s.players.player.recognition = player;
   s.players.ai.recognition = ai;
@@ -299,7 +297,7 @@ function round12({ player, ai, champ = { player: 0, ai: 0 } }) {
   assert.deepEqual([s.phase, s.winner, s.result.reason], ['gameOver', null, 'draw']);
 }
 
-// --- 60 Recognition still wins at once, at any time ------------------------------------------------------
+// --- The target still wins at once, at any time ------------------------------------------------------
 
 {
   // From a reward, mid-action.
@@ -310,7 +308,7 @@ function round12({ player, ai, champ = { player: 0, ai: 0 } }) {
   s.players.player.recognition = RECOGNITION_TARGET - 2;
   s.turn = 'player';
   s = act(s, { type: 'summon', who: 'player', uid: give(s, 'player', 'horsea'), space: 0 });
-  assert.deepEqual([s.phase, s.winner, s.result.reason], ['gameOver', 'player', 'target'], 'a completion reward reaching 60 wins');
+  assert.deepEqual([s.phase, s.winner, s.result.reason], ['gameOver', 'player', 'target'], 'a completion reward reaching the target wins');
   assert.equal(s.turn, null);
   // From a presence reward at Supper: the match ends there.
   s = battle(4);
@@ -322,7 +320,7 @@ function round12({ player, ai, champ = { player: 0, ai: 0 } }) {
   s = passBoth(s);
   assert.deepEqual([s.phase, s.winner, s.round], ['gameOver', 'ai', 4]);
   // During the Championship, by damage.
-  s = round12({ player: 58, ai: 10 });
+  s = round12({ player: RECOGNITION_TARGET - 2, ai: 10 });
   place(s, 'player', 0, 'arcanine@5');
   s.turn = 'player';
   s = act(s, { type: 'attack', who: 'player', from: 0, target: { kind: 'player' } });
@@ -399,7 +397,7 @@ function round12({ player, ai, champ = { player: 0, ai: 0 } }) {
   }
   assert.ok(placed / N >= 3, 'the AI places Locations');
   assert.ok(completions > 0, 'and completes them');
-  console.log(`${N} AI-vs-AI matches: ${ends.early} won at 60 before the Championship, ${ends.inChampionship} won at 60 during the Championship, ${ends.afterRound12} decided after Round 12, ${ends.draws} draws. ${(placed / N).toFixed(1)} Locations placed and ${(completions / N).toFixed(1)} completed per match.`);
+  console.log(`${N} AI-vs-AI matches: ${ends.early} won at the target before the Championship, ${ends.inChampionship} won at the target during the Championship, ${ends.afterRound12} decided after Round 12, ${ends.draws} draws. ${(placed / N).toFixed(1)} Locations placed and ${(completions / N).toFixed(1)} completed per match.`);
 }
 
 console.log('All v2 Location tests passed.');

@@ -1,8 +1,8 @@
-// V7a balance experiment: runs the round-robin for each variant (flags only, never the
+// The balance experiments (V7a–V7f; V7 kept): runs the round-robin for each variant (flags only, never the
 // game's settings) in parallel child processes and prints one table.
 //
-//   node v2/tools/variants.js [matches per matchup, default 100] [--jobs=4] [--set=v7a|v7b|v7c|v7d|v7e|v7f-confirm|v7f]
-//        [--configs="T90;T90,N3;T90,NR,GX"] [--json > results.json]
+//   node v2/tools/variants.js [matches per matchup, default 100] [--jobs=4] [--set=v7]
+//        [--configs="T75;N1,GX;F½"] [--json > results.json]
 //
 // Each config plays the three mixed matchups (seats alternate, so half each way round).
 // --json prints every config's full results as JSON (instead of the table); `node v2/tools/variants.js --show=results.json`
@@ -12,27 +12,13 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { report } from './roundrobin.js';
 
-export const SETS = {};
-export const CONFIGS = [
-  [], ['T75'], ['T90'], ['L+'], ['CH8'], ['W1'], ['W2'],
-  ['T75', 'L+'], ['T75', 'W1'], ['T75', 'L+', 'W1'], ['T90', 'L+', 'W1', 'W2'], ['T75', 'CH8', 'W1'],
-];
-SETS.v7a = CONFIGS;
-// V7b: the Grass levers, each on top of T90.
-SETS.v7b = [[], ['N3'], ['N1'], ['NR'], ['GX'], ['ER'], ['N3', 'GX'], ['N1', 'GX'], ['NR', 'GX'], ['NR', 'N3'], ['NR', 'GX', 'ER']].map((f) => ['T90', ...f]);
-// V7c: the guard levers, each on top of T90 + CH9.
-SETS.v7c = [[], ['LG'], ['LG', 'F1'], ['LG', 'N1', 'GX'], ['FG'], ['FG', 'F1'], ['FG', 'N1', 'GX'], ['LG', 'FG'], ['LG', 'FG', 'N1', 'GX'], ['LG', 'FG', 'F1', 'W1', 'N1', 'GX']].map((f) => ['T90', 'CH9', ...f]);
-// V7d: the attack-volume levers, each on top of T90 + CH9 + LG.
-SETS.v7d = [[], ['C1'], ['GS'], ['SL'], ['C1', 'GS'], ['C1', 'SL'], ['C1', 'GS', 'SL'], ['C1', 'F1'], ['C1', 'GS', 'F1'], ['C1', 'GS', 'F1', 'W1'], ['C1', 'GS', 'SL', 'F1', 'W1']].map((f) => ['T90', 'CH9', 'LG', ...f]);
-// V7e: the grid. Grass (GS | GS+N1+GX) × Fire (none | F½ | F1) × Water (none | W1 | WA | W1+WA),
-// each on top of T90 + CH9 + LG: 24 configs.
-SETS.v7e = [['GS'], ['GS', 'N1', 'GX']].flatMap((g) => [[], ['F½'], ['F1']].flatMap((f) => [[], ['W1'], ['WA'], ['W1', 'WA']]
-  .map((w) => ['T90', 'CH9', 'LG', ...g, ...f, ...w])));
-// V7f: confirm V7e's top 3 (run at 400), and the Water grid: Fire (F½ | F1) × Water stats
-// (none | WA½ | WA) × Water area damage (none | S2 | S2c), each on top of T90 + CH9 + LG + GS.
-SETS['v7f-confirm'] = [['F½', 'WA'], ['F1', 'W1'], ['F1', 'WA']].map((f) => ['T90', 'CH9', 'LG', 'GS', ...f]);
-SETS.v7f = [['F½'], ['F1']].flatMap((f) => [[], ['WA½'], ['WA']].flatMap((w) => [[], ['S2'], ['S2c']]
-  .map((a) => ['T90', 'CH9', 'LG', 'GS', ...f, ...w, ...a])));
+// The V7a–V7f experiment sets used flags that V7 made the real rules and cards (T90, CH9,
+// LG, GS, F1, WA, S2c), so they're retired; their results are in the v2 README build log.
+// V7 keeps one set: the current game against a few of the remaining levers.
+export const SETS = {
+  v7: [[], ['T75'], ['CH10'], ['F½'], ['WA½'], ['N1', 'GX']],
+};
+export const CONFIGS = SETS.v7;
 
 const RR = fileURLToPath(new URL('./roundrobin.js', import.meta.url));
 const run = (flags, n) => new Promise((resolve, reject) => {
@@ -76,7 +62,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     while (next < configs.length) {
       const i = next++;
       out[i] = await run(configs[i], n);
-      console.error(`done: ${configs[i].join('+') || 'baseline'}`);
+      console.error(`done: ${configs[i].join('+') || 'the game as it is'}`);
     }
   };
   await Promise.all(Array.from({ length: jobs }, worker));

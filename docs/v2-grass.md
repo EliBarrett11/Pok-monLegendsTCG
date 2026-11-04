@@ -1,6 +1,8 @@
 # v2 Grass deck, "Engine" (Combo)
 
-**Status: approved by Elliott (3 Nov).** V6 builds it. Numbers are first-pass values for the V7 balance pass.
+**Status: approved by Elliott (3 Nov).** V6 builds it.
+
+**V7 balance (Elliott):** every Grass-deck Pokémon has **−1 Strength at every Level** (minimum 1; Partners and Celebi included). The numbers below include it.
 
 ## Identity in v2
 
@@ -30,15 +32,15 @@ Stats are **Attack/Strength** at each Level, L1 → L6.
 
 | Line (stages by Level) | × | Rarity | Type · Attack · Speed · guard | Weight | Suggested cap | Stats L1 → L6 | Abilities by Level |
 |---|---|---|---|---|---|---|---|
-| **Bulbasaur** (L1–2) → **Ivysaur** (L3–4) → **Venusaur** (L5–6) | 3 | Common | Grass · Special · Steady · **Special Defence guard** (Bulbasaur only) | standard | 6 | 2/5 · 2/6 · 3/7 · 4/7 · 5/10 · 6/12 | **On Breakfast:** gain 1 Growth (Venusaur 2). Ivysaur **On Evolve:** Leech Seed an enemy Pokémon in its Location. Venusaur: Shell 1 |
-| **Oddish** (L1–2) → **Gloom** (L3–4) → **Bellossom** (L5–6) | 3 | Common | Grass · Special · Steady | light | 6 | 2/4 · 3/4 · 3/5 · 3/6 · 4/8 · 5/9 | Oddish: **On Breakfast:** gain 1 Growth. Gloom **On Evolve or Summon:** put an enemy Pokémon in its Location to Sleep. Bellossom **On Evolve or Summon:** put each enemy Pokémon in its Location to Sleep; **On Attack:** gain 1 Growth |
-| **Sunkern** (L1–3) → **Sunflora** (L4–6) | 3 | Common | Grass · Special · Slow · **Defence guard** (Sunkern only) | light | 6 | 2/6 · 3/6 · 3/7 · 5/7 · 5/8 · 6/8 | Weather 1 Sun (Sunflora 2 Sun). Sunkern: **On Breakfast:** gain 1 Growth. Sunflora: +2 damage with its attack while Sun is 4+ |
-| **Sewaddle** (L1–2) → **Swadloon** (L3–4) → **Leavanny** (L5–6) | 3 | Common | Bug · Physical · Steady (Leavanny Swift) · **Defence guard** (Swadloon only) | standard | 6 | 3/4 · 3/5 · 2/8 · 2/9 · 6/7 · 7/8 | Sewaddle: **On Defeated:** gain 2 Growth. Swadloon: Shell 1. Leavanny: Infiltrator; **On Attack:** gain 1 Growth (Grass's Physical reach) |
-| **Eevee** (L1–3) → **Leafeon** (L4–6) | 1 | Epic | Normal → Grass · Physical · Steady → Swift | standard | 6 | 2/4 · 3/4 · 3/5 · 5/6 · 6/6 · 7/7 | Eevee: **On Summon:** gain 1 Growth. Leafeon: **On Evolve:** train 1 another friendly Pokémon in its Location |
-| **Caterpie** (L1–2) → **Metapod** (L3–4) → **Butterfree** (L5–6) *(neutral)* | 1 | Common | Bug · Special · Slow → Swift · **Defence guard** (Metapod only) | light | 6 | 1/4 · 1/5 · 1/7 · 1/8 · 5/6 · 6/7 | Metapod: Shell 1. Butterfree: Agility; **On Evolve:** put an enemy Pokémon to Sleep |
-| **Geodude** (L1–2) → **Graveler** (L3–4) → **Golem** (L5–6) *(neutral)* | 1 | Rare | Rock · Physical · Slow · **Defence guard** | heavy | 6 | 3/6 · 3/7 · 4/8 · 5/9 · 7/11 · 8/12 | **On Defend:** 1 damage to the attacker (Golem: 2) |
-| **Bonsly** (L1–3) → **Sudowoodo** (L4–6) *(neutral)* | 1 | Rare | Rock · Physical · Slow · **Defence guard** | standard | 4 | 1/6 · 2/6 · 2/7 · 3/9 · 4/9 · 4/10 | Shell 1 from Sudowoodo |
-| **Celebi** *(Legendary: single card)* | 1 | Legendary | Grass · Special · Swift | — | — | **Cost 3 · 4/6** | **On Summon:** gain 3 Growth, and train 1 every friendly Pokémon (the early supporter) |
+| **Bulbasaur** (L1–2) → **Ivysaur** (L3–4) → **Venusaur** (L5–6) | 3 | Common | Grass · Special · Steady · **Special Defence guard** (Bulbasaur only) | standard | 6 | 2/4 · 2/5 · 3/6 · 4/6 · 5/9 · 6/11 | **On Breakfast:** gain 1 Growth (Venusaur 2). Ivysaur **On Evolve:** Leech Seed an enemy Pokémon in its Location. Venusaur: Shell 1 |
+| **Oddish** (L1–2) → **Gloom** (L3–4) → **Bellossom** (L5–6) | 3 | Common | Grass · Special · Steady | light | 6 | 2/3 · 3/3 · 3/4 · 3/5 · 4/7 · 5/8 | Oddish: **On Breakfast:** gain 1 Growth. Gloom **On Evolve or Summon:** put an enemy Pokémon in its Location to Sleep. Bellossom **On Evolve or Summon:** put each enemy Pokémon in its Location to Sleep; **On Attack:** gain 1 Growth |
+| **Sunkern** (L1–3) → **Sunflora** (L4–6) | 3 | Common | Grass · Special · Slow · **Defence guard** (Sunkern only) | light | 6 | 2/5 · 3/5 · 3/6 · 5/6 · 5/7 · 6/7 | Weather 1 Sun (Sunflora 2 Sun). Sunkern: **On Breakfast:** gain 1 Growth. Sunflora: +2 damage with its attack while Sun is 4+ |
+| **Sewaddle** (L1–2) → **Swadloon** (L3–4) → **Leavanny** (L5–6) | 3 | Common | Bug · Physical · Steady (Leavanny Swift) · **Defence guard** (Swadloon only) | standard | 6 | 3/3 · 3/4 · 2/7 · 2/8 · 6/6 · 7/7 | Sewaddle: **On Defeated:** gain 2 Growth. Swadloon: Shell 1. Leavanny: Infiltrator; **On Attack:** gain 1 Growth (Grass's Physical reach) |
+| **Eevee** (L1–3) → **Leafeon** (L4–6) | 1 | Epic | Normal → Grass · Physical · Steady → Swift | standard | 6 | 2/3 · 3/3 · 3/4 · 5/5 · 6/5 · 7/6 | Eevee: **On Summon:** gain 1 Growth. Leafeon: **On Evolve:** train 1 another friendly Pokémon in its Location |
+| **Caterpie** (L1–2) → **Metapod** (L3–4) → **Butterfree** (L5–6) *(neutral)* | 1 | Common | Bug · Special · Slow → Swift · **Defence guard** (Metapod only) | light | 6 | 1/3 · 1/4 · 1/6 · 1/7 · 5/5 · 6/6 | Metapod: Shell 1. Butterfree: Agility; **On Evolve:** put an enemy Pokémon to Sleep |
+| **Geodude** (L1–2) → **Graveler** (L3–4) → **Golem** (L5–6) *(neutral)* | 1 | Rare | Rock · Physical · Slow · **Defence guard** | heavy | 6 | 3/5 · 3/6 · 4/7 · 5/8 · 7/10 · 8/11 | **On Defend:** 1 damage to the attacker (Golem: 2) |
+| **Bonsly** (L1–3) → **Sudowoodo** (L4–6) *(neutral)* | 1 | Rare | Rock · Physical · Slow · **Defence guard** | standard | 4 | 1/5 · 2/5 · 2/6 · 3/8 · 4/8 · 4/9 | Shell 1 from Sudowoodo |
+| **Celebi** *(Legendary: single card)* | 1 | Legendary | Grass · Special · Swift | — | — | **Cost 3 · 4/5** | **On Summon:** gain 3 Growth, and train 1 every friendly Pokémon (the early supporter) |
 
 ## Strategy Cards (8)
 
@@ -63,9 +65,9 @@ Stats are **Attack/Strength** at each Level, L1 → L6.
 
 | Trainer | Passive (2) | Ability (4) | Partner (6) |
 |---|---|---|---|
-| **Erika** | Your Pokémon in her lane train 1 at Breakfast | (2) Put an enemy Pokémon to Sleep | **Vileplume** L5: Special · Slow · 5/10, **On Summon:** put each enemy Pokémon in its Location to Sleep |
-| **Gardenia** | Nurturing a Pokémon in her lane costs 1 Growth less | (1) Gain 1 Growth | **Roserade** L5: Special · Swift · 6/5, **On Attack:** Leech Seed the target |
-| **Ramos** | Leech Seeds on enemy Pokémon in his lane drain 1 more | (1) Leech Seed an enemy Pokémon in his lane | **Gogoat** L5: Physical · Steady · 6/8, Regenerate 2 |
+| **Erika** | Your Pokémon in her lane train 1 at Breakfast | (2) Put an enemy Pokémon to Sleep | **Vileplume** L5: Special · Slow · 5/9, **On Summon:** put each enemy Pokémon in its Location to Sleep |
+| **Gardenia** | Nurturing a Pokémon in her lane costs 1 Growth less | (1) Gain 1 Growth | **Roserade** L5: Special · Swift · 6/4, **On Attack:** Leech Seed the target |
+| **Ramos** | Leech Seeds on enemy Pokémon in his lane drain 1 more | (1) Leech Seed an enemy Pokémon in his lane | **Gogoat** L5: Physical · Steady · 6/7, Regenerate 2 |
 
 ## Locations (4): mostly Rain, generic objectives
 

@@ -1,6 +1,7 @@
-// V7b — the balance-experiment flags (never the game's settings) and the diagnostics'
-// cause tags: N3, N1, NR, GX, ER and CH9 change only what they say, nothing changes
-// without them, and Growth and training events name their source.
+// V7b–V7f — the balance-experiment flags (never the game's settings) and the diagnostics'
+// cause tags: each flag changes only what it says, nothing changes without it, and Growth
+// and training events name their source. (V7 made T90, CH9, LG, GS, F1, WA and S2c the
+// game's rules and cards: see tests/balance.test.js.)
 // Run with: node v2/tests/variants.test.js
 import assert from 'node:assert/strict';
 import { createGame, applyAction, nurtureSpaces, nurtureCost, champRoundOf, targetOf, legalTargets, summonCost, playable, targetOptions, PLAYERS } from '../src/engine/game.js';
@@ -26,36 +27,6 @@ function place(s, who, space, series, level = 1) {
 }
 const trainer = (s, who, id, space, points = 6) => s.players[who].trainers.push({ ...cardDef(id), uid: `${who}-tr${n++}`, space, points, abilityRound: 0 });
 const passBoth = (s) => applyAction(applyAction(s, { type: 'pass', who: 'player' }), { type: 'pass', who: 'ai' });
-
-// F1: Fire Pokémon +1 Strength (W1's mirror); Water and Grass unchanged.
-{
-  const s = battle(2, variantOf(['F1']));
-  s.turn = 'ai';
-  s.players.ai.hand.push({ ...pokemonAt('f-growlithe', 2), cap: 6, uid: 'ai-f1' });
-  const t = applyAction(s, { type: 'summon', who: 'ai', uid: 'ai-f1', space: 0 });
-  assert.equal(t.players.ai.row[0].strength, pokemonAt('f-growlithe', 2).strength + 1);
-}
-
-// LG (V7c): lane guards. Every enemy Pokémon can be attacked; the enemy player is guarded
-// only by a matching guard across from the attacker. Without LG: any matching guard.
-{
-  const setup = (variant) => {
-    const s = battle(3, variant);
-    place(s, 'ai', 0, 'g-bulbasaur', 1);   // Ivysaur's line at L1: Special Defence
-    place(s, 'ai', 4, 'g-geodude', 1);     // Defence
-    place(s, 'ai', 6, 'g-oddish', 1);      // Hitpoints
-    place(s, 'player', 4, 'f-growlithe', 1);   // Physical, across from Geodude
-    place(s, 'player', 6, 'f-ponyta', 1);      // Physical, across from Oddish
-    return s;
-  };
-  const key = (ts) => ts.map((t) => (t.kind === 'player' ? 'P' : t.space)).sort().join();
-  const lg = setup(variantOf(['LG']));
-  assert.equal(lg.players.ai.row[4].strengthType, 'Defence');
-  assert.equal(key(legalTargets(lg, 'player', 4)), '0,4,6', 'LG: a Defence guard across blocks the player only');
-  assert.equal(key(legalTargets(lg, 'player', 6)), '0,4,6,P', 'LG: no guard across: the player too');
-  const plain = setup(null);
-  assert.equal(key(legalTargets(plain, 'player', 6)), '4', 'default: the Defence guard anywhere');
-}
 
 // FG (V7c): Growlithe → Arcanine has Defence (same numbers); 2 Duskull for 1 Mankey.
 {
@@ -85,17 +56,6 @@ const passBoth = (s) => applyAction(applyAction(s, { type: 'pass', who: 'player'
   assert.throws(() => applyAction(c1, { type: 'summon', who: 'player', uid: 'player-c1', space: 0 }));
 }
 
-// GS (V7d): Grass-deck Pokémon −1 Strength at every Level; other decks unchanged.
-{
-  for (const [series, who, minus] of [['g-bulbasaur', 'player', 1], ['f-growlithe', 'ai', 0]]) {
-    const s = battle(4, variantOf(['GS']));
-    s.turn = who;
-    s.players[who].hand.push({ ...pokemonAt(series, 4), cap: 6, uid: `${who}-gs` });
-    const t = applyAction(s, { type: 'summon', who, uid: `${who}-gs`, space: 0 });
-    assert.equal(t.players[who].row[0].strength, pokemonAt(series, 4).strength - minus, series);
-  }
-}
-
 // SL (V7d): Sleep Powder costs 3; Gloom's On Evolve Sleep reaches only a lower Level.
 {
   const powderOf = (variant) => createGame(5, { decks: { player: DECKS.grass.list, ai: DECKS.fire.list }, variant })
@@ -118,20 +78,19 @@ const passBoth = (s) => applyAction(applyAction(s, { type: 'pass', who: 'player'
   }
 }
 
-// F½ and WA (V7e): Fire +1 Strength from Level 3 only; Water +1 Attack.
+// F½ (V7e): Fire +1 Strength from Level 3 only (Grass untouched).
 {
   for (const [series, who, level, flag, field, plus] of [['f-growlithe', 'ai', 2, 'F½', 'strength', 0], ['f-growlithe', 'ai', 4, 'F½', 'strength', 1],
-    ['w-squirtle', 'ai', 2, 'WA', 'attack', 1], ['g-bulbasaur', 'player', 2, 'WA', 'attack', 0]]) {
+    ['g-bulbasaur', 'player', 4, 'F½', 'strength', 0]]) {
     const s = battle(level, variantOf([flag]));
     s.turn = who;
     s.players[who].hand.push({ ...pokemonAt(series, level), cap: 6, uid: `${who}-x` });
     const t = applyAction(s, { type: 'summon', who, uid: `${who}-x`, space: 0 });
     assert.equal(t.players[who].row[0][field], pokemonAt(series, level)[field] + plus, `${flag} ${series} L${level}`);
   }
-  assert.equal(SETS.v7e.length, 24, 'V7e: the 24-config grid');
 }
 
-// WA½, S2 and S2c (V7f): Water +1 Attack from Level 3; a second Surf for Dive; Surf's 3 costs 2.
+// WA½ (V7f): Water +1 Attack from Level 3.
 {
   for (const [level, plus] of [[2, 0], [4, 1]]) {
     const s = battle(level, variantOf(['WA½']));
@@ -140,26 +99,20 @@ const passBoth = (s) => applyAction(applyAction(s, { type: 'pass', who: 'player'
     const t = applyAction(s, { type: 'summon', who: 'ai', uid: 'ai-wah', space: 0 });
     assert.equal(t.players.ai.row[0].attack, pokemonAt('w-squirtle', level).attack + plus, `WA½ L${level}`);
   }
-  for (const flag of ['S2', 'S2c']) {
-    const water = deckList('water', variantOf([flag]));
-    assert.deepEqual([deckProblems(water), copiesOf(water)['w-surf'], copiesOf(water)['w-dive'] ?? 0, water.length], [[], 2, 0, 40], flag);
-  }
-  const surfCosts = (flags) => createGame(5, { decks: { player: deckList('water', variantOf(flags)), ai: DECKS.fire.list }, variant: variantOf(flags) })
-    .players.player.drawPile.filter((c) => c.id === 'w-surf').map((c) => c.breakpoints.map((b) => b.cost).join('/'));
-  assert.deepEqual([surfCosts(['S2']), surfCosts(['S2c'])], [['3/5', '3/5'], ['2/5', '2/5']]);
-  assert.deepEqual([SETS['v7f-confirm'].length, SETS.v7f.length], [3, 18]);
 }
 
 // The flags parse; unknown flags are refused.
-assert.deepEqual(variantOf(['T90', 'N3', 'GX']), { target: 90, nurtureCost: 3, growthBulbasaurOnly: true });
+assert.deepEqual(variantOf(['T75', 'N3', 'GX']), { target: 75, nurtureCost: 3, growthBulbasaurOnly: true });
 assert.throws(() => variantOf(['N9']), /No variant N9/);
 assert.equal(variantOf([]), null);
-for (const f of ['N3', 'N1', 'NR', 'GX', 'ER', 'CH9', 'F1', 'LG', 'FG', 'C1', 'GS', 'SL', 'F½', 'WA', 'WA½', 'S2', 'S2c']) assert.ok(VARIANTS[f], `${f} exists`);
-assert.ok(SETS.v7b.every((c) => c[0] === 'T90') && SETS.v7b.length === 11, 'V7b: 11 configs, each on top of T90');
+for (const f of ['T60', 'T75', 'CH8', 'CH10', 'N3', 'N1', 'NR', 'GX', 'ER', 'FG', 'C1', 'SL', 'F½', 'WA½', 'W1', 'W2', 'L+']) assert.ok(VARIANTS[f], `${f} exists`);
+// V7 made these the game's rules and cards: no longer flags.
+for (const f of ['T90', 'CH9', 'LG', 'GS', 'F1', 'WA', 'S2', 'S2c']) assert.throws(() => variantOf([f]), /No variant/, `${f} retired`);
+assert.ok(SETS.v7.length > 0 && SETS.v7.every((c) => !c.length || variantOf(c)), 'the V7 set parses');
 
-// T90 and CH9.
-assert.deepEqual([targetOf(battle(2, variantOf(['T90']))), champRoundOf(battle(2, variantOf(['CH9'])))], [90, 9]);
-assert.deepEqual([targetOf(battle()), champRoundOf(battle())], [60, 10], 'off by default');
+// T75 and CH10 move the target and the Championship; without them the game's own (V7: 90, Round 9).
+assert.deepEqual([targetOf(battle(2, variantOf(['T75']))), champRoundOf(battle(2, variantOf(['CH10'])))], [75, 10]);
+assert.deepEqual([targetOf(battle()), champRoundOf(battle())], [90, 9], 'the game\'s own');
 
 // N3: Nurture costs 3 (Gardenia's lane: 2).
 {
@@ -250,7 +203,7 @@ assert.deepEqual([targetOf(battle()), champRoundOf(battle())], [60, 10], 'off by
 
 // The diagnostics: a short seeded run fills every new field.
 {
-  const r = runMatchup('grass', 'water', 2, variantOf(['T90']));
+  const r = runMatchup('grass', 'water', 2, null);
   const g = r.deck.grass;
   assert.ok(Object.keys(g.growth).length > 0 && g.nurtures > 0, 'Growth by source and Nurtures');
   assert.ok(Object.keys(g.board).length > 0 && Object.values(g.board).every((b) => b.n > 0 && b.level >= b.n), 'board Level at Supper');

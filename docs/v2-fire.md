@@ -1,6 +1,8 @@
 # v2 Fire deck, "Burn" (Aggressive)
 
-**Status: approved by Elliott (3 Nov).** V6 builds it. Numbers are first-pass values for the V7 balance pass.
+**Status: approved by Elliott (3 Nov).** V6 builds it.
+
+**V7 balance (Elliott):** every Fire-deck Pokémon has **+1 Strength at every Level** (Partners and Entei included). The numbers below include it.
 
 ## Identity in v2
 
@@ -23,16 +25,16 @@ Stats are **Attack/Strength** at each Level, L1 → L6, on the same scale as the
 
 | Line (stages by Level) | × | Rarity | Type · Attack · Speed | Weight | Suggested cap | Stats L1 → L6 | Abilities by Level |
 |---|---|---|---|---|---|---|---|
-| **Growlithe** (L1–3) → **Arcanine** (L4–6) | 3 | Common | Fire · Physical · Swift | standard | 6 | 3/3 · 3/4 · 4/4 · 5/6 · 6/6 · 7/7 | Scorch 1. From Arcanine: + Infiltrator, Overrun. **Empower +2:** +2/+2 and Quick Attack |
-| **Ponyta** (L1–3) → **Rapidash** (L4–6) | 3 | Common | Fire · Physical · Swift | light | 4 | 3/2 · 3/3 · 4/3 · 5/4 · 5/5 · 6/5 | Quick Attack. From Rapidash: + Infiltrator. L6: **On Attack:** the enemy player gains Burn 1 |
-| **Mankey** (L1–3) → **Primeape** (L4–6) | 2 | Common | Fighting · Physical · Swift | light | 4 | 3/2 · 4/2 · 4/3 · 5/4 · 6/4 · 7/5 | Overrun. From Primeape: + Infiltrator, and **Rage:** +1 Attack (permanent) each time it survives damage |
-| **Houndour** (L1–3) → **Houndoom** (L4–6) | 2 | Rare | Fire · Special · Swift | standard | 6 | 2/3 · 3/3 · 3/4 · 5/5 · 5/6 · 6/7 | **On Summon:** the enemy player gains Burn 1 (Houndoom: Burn 2; L6: Burn 3) |
-| **Magby** (L1–2) → **Magmar** (L3–4) → **Magmortar** (L5–6) | 2 | Rare | Fire · Special · Steady | heavy | 6 | 2/4 · 3/4 · 4/5 · 5/6 · 6/7 · 8/8 | Scorch 1 (Magmar Scorch 2). Magmortar: Scorch 2, and **On Attack:** deal 1 damage to each other enemy Pokémon in its Location |
-| **Sneasel** (L1–3) → **Weavile** (L4–6) | 1 | Rare | Dark · Physical · Swift | standard | 5 | 3/2 · 4/2 · 4/3 · 5/4 · 6/4 · 7/5 | Infiltrator. From Weavile: **On Knockout:** becomes Active (once per Round) |
-| **Charmander** (L1–2) → **Charmeleon** (L3–4) → **Charizard** (L5–6) | 1 | Epic | Fire · Special · Steady → Swift at L5 | heavy | 6 | 3/3 · 3/4 · 4/5 · 5/5 · 7/7 · 8/8 | Scorch 1. Charizard: Scorch 2, Infiltrator, and **On Summon:** Burn 1 to every enemy Pokémon. **Empower +3:** the enemy player also gains Burn 2 |
-| **Duskull** (L1–3) → **Dusclops** (L4–6) *(neutral)* | 1 | Rare | Ghost · Special · Slow · **Special Defence guard** | heavy | 4 | 1/5 · 1/6 · 2/7 · 2/8 · 3/9 · 3/10 | **On Defend:** Burn 1 to the attacker (Dusclops: Burn 2) |
-| **Absol** *(neutral, single stage)* | 1 | Rare | Dark · Physical · Swift | standard | 4 | 3/3 · 4/3 · 4/4 · 5/4 · 6/5 · 6/6 | +2 damage with its attack against a **burned** target |
-| **Entei** *(Legendary: single card)* | 1 | Legendary | Fire · Physical · Swift | — | — | **Cost 6 · 9/9** | Infiltrator, Overrun, Scorch 2. **On Summon:** the enemy player gains Burn 3 |
+| **Growlithe** (L1–3) → **Arcanine** (L4–6) | 3 | Common | Fire · Physical · Swift | standard | 6 | 3/4 · 3/5 · 4/5 · 5/7 · 6/7 · 7/8 | Scorch 1. From Arcanine: + Infiltrator, Overrun. **Empower +2:** +2/+2 and Quick Attack |
+| **Ponyta** (L1–3) → **Rapidash** (L4–6) | 3 | Common | Fire · Physical · Swift | light | 4 | 3/3 · 3/4 · 4/4 · 5/5 · 5/6 · 6/6 | Quick Attack. From Rapidash: + Infiltrator. L6: **On Attack:** the enemy player gains Burn 1 |
+| **Mankey** (L1–3) → **Primeape** (L4–6) | 2 | Common | Fighting · Physical · Swift | light | 4 | 3/3 · 4/3 · 4/4 · 5/5 · 6/5 · 7/6 | Overrun. From Primeape: + Infiltrator, and **Rage:** +1 Attack (permanent) each time it survives damage |
+| **Houndour** (L1–3) → **Houndoom** (L4–6) | 2 | Rare | Fire · Special · Swift | standard | 6 | 2/4 · 3/4 · 3/5 · 5/6 · 5/7 · 6/8 | **On Summon:** the enemy player gains Burn 1 (Houndoom: Burn 2; L6: Burn 3) |
+| **Magby** (L1–2) → **Magmar** (L3–4) → **Magmortar** (L5–6) | 2 | Rare | Fire · Special · Steady | heavy | 6 | 2/5 · 3/5 · 4/6 · 5/7 · 6/8 · 8/9 | Scorch 1 (Magmar Scorch 2). Magmortar: Scorch 2, and **On Attack:** deal 1 damage to each other enemy Pokémon in its Location |
+| **Sneasel** (L1–3) → **Weavile** (L4–6) | 1 | Rare | Dark · Physical · Swift | standard | 5 | 3/3 · 4/3 · 4/4 · 5/5 · 6/5 · 7/6 | Infiltrator. From Weavile: **On Knockout:** becomes Active (once per Round) |
+| **Charmander** (L1–2) → **Charmeleon** (L3–4) → **Charizard** (L5–6) | 1 | Epic | Fire · Special · Steady → Swift at L5 | heavy | 6 | 3/4 · 3/5 · 4/6 · 5/6 · 7/8 · 8/9 | Scorch 1. Charizard: Scorch 2, Infiltrator, and **On Summon:** Burn 1 to every enemy Pokémon. **Empower +3:** the enemy player also gains Burn 2 |
+| **Duskull** (L1–3) → **Dusclops** (L4–6) *(neutral)* | 1 | Rare | Ghost · Special · Slow · **Special Defence guard** | heavy | 4 | 1/6 · 1/7 · 2/8 · 2/9 · 3/10 · 3/11 | **On Defend:** Burn 1 to the attacker (Dusclops: Burn 2) |
+| **Absol** *(neutral, single stage)* | 1 | Rare | Dark · Physical · Swift | standard | 4 | 3/4 · 4/4 · 4/5 · 5/5 · 6/6 · 6/7 | +2 damage with its attack against a **burned** target |
+| **Entei** *(Legendary: single card)* | 1 | Legendary | Fire · Physical · Swift | — | — | **Cost 6 · 9/10** | Infiltrator, Overrun, Scorch 2. **On Summon:** the enemy player gains Burn 3 |
 
 ## Strategy Cards (8)
 
@@ -58,9 +60,9 @@ Each higher breakpoint gives more value per Energy (Elliott's rule).
 
 | Trainer | Passive (2) | Ability (4) | Partner (6) |
 |---|---|---|---|
-| **Blaine** | Burn applied by your Pokémon in his lane is +1 | (1) Burn 1 to an enemy Pokémon or the enemy player | **Ninetales** L5: Special · Swift · 6/6, **On Summon:** the enemy player gains Burn 2 |
-| **Flannery** | Your Fire Pokémon in her lane gain Overrun | (1) A Pokémon in her lane gains +2 Attack this Round | **Torkoal** L5: Slow · **Defence guard** · 4/10, Shell 1 (Fire's rare sturdy wall) |
-| **Kabu** | Your Pokémon in his lane gain +2 Strength | (2) A Spent Pokémon in his lane becomes Active | **Centiskorch** L5: Physical · Steady · 7/7, Overrun, Scorch 1 |
+| **Blaine** | Burn applied by your Pokémon in his lane is +1 | (1) Burn 1 to an enemy Pokémon or the enemy player | **Ninetales** L5: Special · Swift · 6/7, **On Summon:** the enemy player gains Burn 2 |
+| **Flannery** | Your Fire Pokémon in her lane gain Overrun | (1) A Pokémon in her lane gains +2 Attack this Round | **Torkoal** L5: Slow · **Defence guard** · 4/11, Shell 1 (Fire's rare sturdy wall) |
+| **Kabu** | Your Pokémon in his lane gain +2 Strength | (2) A Spent Pokémon in his lane becomes Active | **Centiskorch** L5: Physical · Steady · 7/8, Overrun, Scorch 1 |
 
 ## Locations (4): generic objectives, both players progress
 

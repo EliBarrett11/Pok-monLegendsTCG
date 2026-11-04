@@ -69,7 +69,7 @@ const settle = (s) => { const t = structuredClone(s); t.turn = 'player'; return 
   assert.deepEqual(names('f-magby'), ['Magby', 'Magby', 'Magmar', 'Magmar', 'Magmortar', 'Magmortar']);
   assert.deepEqual(names('w-happiny'), ['Happiny', 'Happiny', 'Chansey', 'Chansey', 'Blissey', 'Blissey']);
   assert.deepEqual(names('g-bonsly'), ['Bonsly', 'Bonsly', 'Bonsly', 'Sudowoodo', 'Sudowoodo', 'Sudowoodo']);
-  assert.deepEqual([1, 4, 6].map((l) => [pokemonAt('f-growlithe', l).attack, pokemonAt('f-growlithe', l).strength]), [[3, 3], [5, 6], [7, 7]]);
+  assert.deepEqual([1, 4, 6].map((l) => [pokemonAt('f-growlithe', l).attack, pokemonAt('f-growlithe', l).strength]), [[3, 4], [5, 7], [7, 8]], 'V7: Fire +1 Strength');
   assert.deepEqual(pokemonAt('f-growlithe', 4).keywords, ['Scorch 1', 'Infiltrator', 'Overrun']);
   assert.deepEqual([pokemonAt('f-charmander', 4).speed, pokemonAt('f-charmander', 5).speed], ['Steady', 'Swift'], 'Charizard is Swift');
   assert.deepEqual([pokemonAt('w-eevee', 3).type, pokemonAt('w-eevee', 4).type, pokemonAt('w-eevee', 4).strengthType], ['Normal', 'Water', 'Special Defence'], 'Vaporeon: Water, Special Defence guard');
@@ -77,7 +77,7 @@ const settle = (s) => { const t = structuredClone(s); t.turn = 'player'; return 
   assert.deepEqual([pokemonAt('g-sewaddle', 3).strengthType, pokemonAt('g-sewaddle', 5).speed], ['Defence', 'Swift'], 'Swadloon guards; Leavanny is Swift');
   // Legendaries (V7a): single cards with a fixed cost and stats, no Levels, never trained.
   const legend = (id) => { const c = pokemonAt(id, 1); return [c.cost, c.attack, c.strength, seriesDef(id).maxLevel]; };
-  assert.deepEqual([legend('f-entei'), legend('w-kyogre'), legend('g-celebi')], [[6, 9, 9, 1], [7, 10, 12, 1], [3, 4, 6, 1]]);
+  assert.deepEqual([legend('f-entei'), legend('w-kyogre'), legend('g-celebi')], [[6, 9, 10, 1], [7, 11, 12, 1], [3, 4, 5, 1]], 'V7: Entei 9/10, Kyogre 11/12, Celebi 4/5');
   assert.throws(() => pokemonAt('f-entei', 2), /no Level 2/);
   assert.deepEqual([1, 6, 11].map((r) => cardAt({ series: 'w-kyogre' }, r).cost), [7, 7, 7], 'the same card in every Round');
   assert.deepEqual([pokemonAt('f-ponyta', 1).cost, pokemonAt('f-magby', 1).cost], [0, 2], 'light −1 (min 0), heavy +1');
@@ -200,9 +200,9 @@ const settle = (s) => { const t = structuredClone(s); t.turn = 'player'; return 
   // Retaliate (Rocky Helmet): the attacker takes 2, even if the holder is defeated.
   s = battle(3, 'fire', 'water');
   place(s, 'ai', 0, 'w-wingull', 1, { spent: true, keywords: ['Retaliate 2'] });
-  place(s, 'player', 0, 'f-growlithe', 6);   // 7/7
+  place(s, 'player', 0, 'f-growlithe', 6);   // 7/8 (V7)
   s = act(s, { type: 'attack', who: 'player', from: 0, target: mon('ai', 0) });
-  assert.deepEqual([s.players.ai.row[0], s.players.player.row[0].currentStrength], [null, 5]);
+  assert.deepEqual([s.players.ai.row[0], s.players.player.row[0].currentStrength], [null, 6]);
   // Shell (Blastoise Shell 2): each damage 2 less, minimum 1.
   s = battle(5, 'fire', 'water');
   place(s, 'ai', 0, 'w-squirtle', 5, { spent: true });   // 5/9 Shell 2
@@ -234,7 +234,7 @@ const settle = (s) => { const t = structuredClone(s); t.turn = 'player'; return 
   // Duskull On Defend: Burn 1 to the attacker.
   s = battle(2, 'water', 'fire');
   place(s, 'ai', 0, 'f-duskull', 1, { spent: true });   // Special Defence guard
-  place(s, 'player', 0, 'w-chinchou', 1);   // Special: must attack the guard
+  place(s, 'player', 0, 'w-chinchou', 1);   // Special, attacking the guard across
   s = act(s, { type: 'attack', who: 'player', from: 0, target: mon('ai', 0) });
   assert.equal(s.players.player.row[0].burn, 1);
   // Geodude On Defend: 1 damage to the attacker.
@@ -242,7 +242,7 @@ const settle = (s) => { const t = structuredClone(s); t.turn = 'player'; return 
   place(s, 'ai', 0, 'g-geodude', 1, { spent: true });
   place(s, 'player', 0, 'f-growlithe', 1);
   s = act(s, { type: 'attack', who: 'player', from: 0, target: mon('ai', 0) });
-  assert.equal(s.players.player.row[0].currentStrength, 3 - 1);
+  assert.equal(s.players.player.row[0].currentStrength, 4 - 1, 'Growlithe 3/4 (V7) takes 1');
   // Weavile On Knockout: becomes Active (once per Round).
   s = battle(4);
   place(s, 'player', 0, 'f-sneasel', 4);   // Weavile 5/4
@@ -267,17 +267,17 @@ const settle = (s) => { const t = structuredClone(s); t.turn = 'player'; return 
   place(s, 'ai', 2, 'f-growlithe', 4);
   place(s, 'ai', 7, 'f-growlithe', 4);
   s = act(s, { type: 'summon', who: 'player', uid: give(s, 'player', 'w-magikarp', 4), space: 7 });
-  assert.deepEqual([s.players.ai.row[7].currentStrength, s.players.ai.row[2].currentStrength], [6 - 2, 6], 'at Home, its Location is its own lane (Elliott\'s V6 ruling)');
+  assert.deepEqual([s.players.ai.row[7].currentStrength, s.players.ai.row[2].currentStrength], [7 - 2, 7], 'at Home, its Location is its own lane (Elliott\'s V6 ruling)');
   // Rally: Horsea +1/+1 when another friendly Pokémon is summoned into its Location.
   s = battle(2, 'water', 'fire');
   s = act(s, { type: 'playLocation', who: 'player', uid: give(s, 'player', 'w-cerulean-cape'), start: 0 });   // lanes 1–2
   s.turn = 'player';
   place(s, 'player', 0, 'w-horsea', 1);
   s = act(s, { type: 'summon', who: 'player', uid: give(s, 'player', 'w-wingull'), space: 1 });
-  assert.deepEqual([s.players.player.row[0].attack, s.players.player.row[0].strength], [3, 5]);
+  assert.deepEqual([s.players.player.row[0].attack, s.players.player.row[0].strength], [4, 5], 'Horsea 3/4 (V7) +1/+1');
   s.turn = 'player';
   s = act(s, { type: 'summon', who: 'player', uid: give(s, 'player', 'w-wingull'), space: 5 });
-  assert.deepEqual([s.players.player.row[0].attack, s.players.player.row[0].strength], [3, 5], 'not from outside its Location');
+  assert.deepEqual([s.players.player.row[0].attack, s.players.player.row[0].strength], [4, 5], 'not from outside its Location');
   // Vaporeon On Heal: +1 Attack; Happiny On Breakfast heals.
   s = battle(4, 'water', 'fire');
   place(s, 'player', 0, 'w-eevee', 4, { currentStrength: 3 });   // Vaporeon 5/7
@@ -337,7 +337,7 @@ const settle = (s) => { const t = structuredClone(s); t.turn = 'player'; return 
   place(s, 'player', 0, 'f-growlithe', 1);
   place(s, 'player', 1, 'f-ponyta', 1);
   s = settle(s);
-  assert.equal(s.players.player.row[1].strength, 2 + 2);
+  assert.equal(s.players.player.row[1].strength, 3 + 2, 'Ponyta 3/3 (V7) + Kabu 2');
   s.turn = 'player';
   s.players.player.row[0].spent = false;
   s = act(s, { type: 'attack', who: 'player', from: 0, target: { kind: 'player' } });
@@ -347,7 +347,7 @@ const settle = (s) => { const t = structuredClone(s); t.turn = 'player'; return 
   place(s, 'player', 0, 'w-wingull', 4);   // 2 Rain
   place(s, 'ai', 0, 'f-growlithe', 6);
   s = act(s, { type: 'playStrategy', who: 'player', uid: give(s, 'player', 'w-bubble-beam'), pay: 2, targets: [mon('ai', 0)] });
-  assert.equal(s.players.ai.row[0].currentStrength, 7 - 3, '3 if Rain is 2+');
+  assert.equal(s.players.ai.row[0].currentStrength, 8 - 3, '3 if Rain is 2+');
   s = battle(3, 'water', 'fire');
   assert.equal(legalActions(s, 'player').includes('playStrategy'), false, 'Dive: no Pokémon in the Discard Pile');
   s.players.player.discard.push({ ...pokemonAt('w-squirtle', 3), cap: 6, uid: 'd1' });
@@ -377,14 +377,14 @@ const settle = (s) => { const t = structuredClone(s); t.turn = 'player'; return 
   trainer(s, 'player', 'w-misty', 0, 2);
   place(s, 'player', 0, 'w-squirtle', 1);
   s = settle(s);
-  assert.deepEqual([s.players.player.row[0].attack, s.players.player.row[0].strength], [3, 5]);
+  assert.deepEqual([s.players.player.row[0].attack, s.players.player.row[0].strength], [4, 5], 'Squirtle 3/4 (V7) + Misty');
   // Grass: Leech Seed (Ramos +1), Rock Slide, Mallow Favour, Pokémon Breeder, Brock until Breakfast; Big Root.
   s = battle(3, 'grass', 'fire');
   trainer(s, 'player', 'g-ramos', 4, 2);
   place(s, 'ai', 4, 'f-growlithe', 6);
   s = act(s, { type: 'playStrategy', who: 'player', uid: give(s, 'player', 'g-leech-seed'), pay: 1, targets: [mon('ai', 4)] });
   s = passBoth(s);
-  assert.equal(s.players.ai.row[4].currentStrength, 7 - 2, 'Ramos: drains 1 more in his lane');
+  assert.equal(s.players.ai.row[4].currentStrength, 8 - 2, 'Ramos: drains 1 more in his lane');
   s = battle(3, 'grass', 'fire');
   place(s, 'player', 0, 'g-bulbasaur', 1);
   s = act(s, { type: 'playSupporter', who: 'player', uid: give(s, 'player', 'g-mallow'), release: [give(s, 'player', 'g-oddish')], targets: [mon('player', 0)] });
@@ -392,9 +392,9 @@ const settle = (s) => { const t = structuredClone(s); t.turn = 'player'; return 
   s = battle(3, 'grass', 'fire');
   place(s, 'player', 0, 'g-sunkern', 1);
   s = act(s, { type: 'playSupporter', who: 'player', uid: give(s, 'player', 'g-brock'), release: [give(s, 'player', 'g-geodude')], targets: undefined });
-  assert.deepEqual([s.players.player.row[0].strength, kwSum(s.players.player.row[0], 'Shell')], [8, 1], 'Brock Favour (Rock): every Location');
+  assert.deepEqual([s.players.player.row[0].strength, kwSum(s.players.player.row[0], 'Shell')], [7, 1], 'Brock Favour (Rock): every Location (Sunkern 2/5, V7)');
   s = passBoth(s);
-  assert.deepEqual([s.players.player.row[0].strength, kwSum(s.players.player.row[0], 'Shell')], [6, 0], 'until the next Breakfast');
+  assert.deepEqual([s.players.player.row[0].strength, kwSum(s.players.player.row[0], 'Shell')], [5, 0], 'until the next Breakfast');
   // Items: Choice Band (−2 Strength, minimum 1), Quick Claw (Speed), Charcoal (typed), Escape Rope, Exp. Share.
   s = battle(3);
   place(s, 'player', 0, 'f-ponyta', 1);   // 3/2
@@ -431,7 +431,7 @@ const settle = (s) => { const t = structuredClone(s); t.turn = 'player'; return 
   s = passBoth(s);
   s = act(s, { type: 'assignPoints', who: 'player', points: { [blaine.uid]: 2 } });
   const nine = s.players.player.row[4];
-  assert.deepEqual([nine.name, nine.level, nine.attack, nine.strength, nine.speed, s.players.ai.burn > 0], ['Ninetales', 5, 6, 6, 'Swift', true]);
+  assert.deepEqual([nine.name, nine.level, nine.attack, nine.strength, nine.speed, s.players.ai.burn > 0], ['Ninetales', 5, 6, 7, 'Swift', true], 'Ninetales 6/7 (V7)');
 }
 
 // --- Seeded matches: every pairing to the end --------------------------------------------------------------
