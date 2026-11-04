@@ -551,3 +551,34 @@ To play locally: `python3 -m http.server` at the repository root, then open http
     - `core`, `locations`, `setup` and `decks` tests updated for the new target, Round 9, lane guards and stats. `variants.test` no longer tests the retired flags and checks that they're refused.
     - All v2 tests pass, and the current game's suite passes unchanged.
     - Checked in the browser: "of 90 to win", "Arrives in Round 9" and the V7 build label, with no errors.
+
+- **V7.1 — Fire and Water boosts by Type** (Elliott's correction: the experiments applied them by Type, and that's what he meant).
+  - **F1** is now +1 Strength for **Fire-Type** Pokémon only, in any deck. Mankey, Sneasel, Duskull and Absol in the Fire deck are back to their original Strength.
+  - **WA** is now +1 Attack for **Water-Type** Pokémon only, in any deck. Chinchou, Happiny and Dratini are back to their original Attack, and so is Eevee until it becomes Vaporeon at Level 4.
+  - **Partners and Legendaries follow the same rule.** Ninetales, Torkoal, Centiskorch and Entei are Fire-Type and keep +1 Strength. Starmie, Floatzel, Milotic and Kyogre are Water-Type and keep +1 Attack.
+  - **GS is unchanged:** every Grass-deck Pokémon −1 Strength.
+  - Eight lines changed in `src/engine/decks.js`, and their rows in `docs/v2-fire.md` and `docs/v2-water.md`. The V7 notes in those docs now say "by Type".
+  - **Confirmation:** 400 matches per matchup (200 per seat order). Win rates have a 95% margin of error:
+
+    | Matchup | Result | Avg Rounds | Ends: early / Championship / final count |
+    |---|---|---|---|
+    | Fire–Water | Fire 46% ±4.9, Water 54% | 9.6 | 29% / 58% / 13% |
+    | Fire–Grass | Fire 56% ±4.9, Grass 44% | 9.3 | 25% / 74% / 2% |
+    | Water–Grass | Water 52% ±4.9, Grass 48% | 8.8 | 38% / 62% / 0% |
+    | Fire mirror | first seat 47% ±4.9, second 52%, 5 draws | 11.6 | 3% / 16% / 82% |
+    | Water mirror | first seat 42% ±4.8, second 58% | 8.8 | 43% / 57% / 0% |
+    | Grass mirror | first seat 50% ±4.9, second 50% | 8.7 | 39% / 61% / 0% |
+
+    - **All three mixed matchups are now at or within the margin of 45–55%:**
+      - Fire–Water: 46% for Fire.
+      - Fire–Grass: 56% ±4.9 for Fire.
+      - Water–Grass: 52% for Water.
+    - **This is in line with V7f's measured GS + F1 + WA + S2c** (47% / 57–59% / 52%).
+    - **Pacing:** 8.8–9.6 Rounds, and 25–38% of mixed matches end early.
+    - **The Fire mirror still goes to the final count 82% of the time** (5 draws in 400), because both sides' Burn strips the other's Recognition.
+  - **Tests:** `balance.test.js` now checks:
+    - by-Type for Fire and Water: Mankey, Sneasel, Duskull, Absol, Chinchou, Happiny and Dratini unchanged; Eevee unchanged at Level 3 and +1 Attack as Vaporeon;
+    - the rule against the V6 numbers for a sample of lines at every Level;
+    - Partners and Legendaries;
+    - the deck docs matching the cards.
+    - One `decks.test` expectation (Rage: Wingull now hits back for 3) was updated. All v2 tests pass.
