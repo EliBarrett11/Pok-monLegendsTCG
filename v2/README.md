@@ -640,3 +640,38 @@ To play locally: `python3 -m http.server` at the repository root, then open http
   - **Checked in the browser:**
     - v2 autoplay at Normal (with WebGL), Instant and `?novfx` (2D) played whole matches to the end screen with no console errors.
     - Screenshots in `v2/screenshots/`: `v8-championship.jpg` (the stadium frame across all 9 lanes under the banner), `v8-location-completion.jpg`, `v8-partner-arrival.jpg` (Flannery's Torkoal) and `v8-solar-beam.jpg` (Solar Beam at breakpoint 4).
+
+- **V9 — hot-seat and online play.** v2 follows the current game's multiplayer rules (`docs/rules.md` section 10). The current game's multiplayer is unchanged; its tests all pass.
+  - **Hidden information** (`v2/src/engine/view.js`): `viewFor(state, seat)` and `redactEvents(events, seat)`. The screen is only ever given a seat's view: against the AI, in hot-seat and online. A seat never sees:
+    - the opponent's hand (how many cards only);
+    - either Draw Pile (counts only); your own Search lists only the cards it could take (`searchable`, by name, no order); Tracey's top cards aren't shown in a view, so the best ones are taken for you;
+    - the shared Item pool's order;
+    - the random-number state;
+    - the opponent's Trainer Point assignment until both lock in;
+    - which cards an opponent's Search or Tracey took (counts only), which card of theirs gained Retain, or a card in their hand levelling up.
+  - **Engine changes to make that hold:**
+    - **The log is seat-neutral.** Each seat-dependent word is a token (`⟨seat|Your|The Opponent's⟩`), rendered for the seat reading it. Against the AI it reads exactly as before.
+    - **Card uids are opaque:** numbered by place after the shuffle, renumbered when a Discard Pile becomes the Draw Pile, and renewed when an Item returns to the pool. A uid never says which card it is.
+    - The Strategy and Supporter events carry the card id, so the opponent's played card can be shown.
+  - **Either seat at the bottom** (`v2/src/ui/seat.js`, a copy of the current game's with v2's seat fields, `seededBy` included). The board, Recognition panels, Trainer tabs, Locations, log and all the V8 animations draw from the viewer's side. Lanes keep their order for both players.
+  - **Two players, one screen:**
+    - start it with `?hotseat` or the deck screen's **Two players, one screen** button;
+    - each player chooses a deck in secret (Fire, Water, Grass or Random; mirrors allowed);
+    - a **"Pass to Player 2"** screen hides the board at every hand-over, including each half of the simultaneous Trainer Point step;
+    - the next player then sees the last action again from their side.
+  - **Online:**
+    - **Starting:** the deck screen's **Play a friend online** button opens a room. Your friend opens the invite link (`?join=CODE`) or types the code.
+    - **Decks:** both choose in secret, mirrors allowed; the other side sees only that you've chosen. Then the reveal, and the host's browser flips the coin.
+    - **Rules of play:** host-authoritative (the host's browser runs the match and checks every action; the friend's is sent only its view). No turn timer, no chat, no emotes.
+    - **Robustness:** reconnect (the friend's browser keeps a token for the room), host resume after a refresh (saved after every action, same room code), Leave match, Rematch (both accept; decks again and a new coin flip), and a connection indicator.
+    - **Code reuse:** the current game's `net/` code. `ice.js`, the room codes and the test link pair are imported unchanged. `session.js` (v2's engine, decks and views) and `peer.js` (v2's room ids, shared PeerJS and ICE) are copied with notes.
+    - **Kept apart from the current game:** v2 has its own protocol version (`'v2.1'` against 1) and its own room-id prefix (`pokemon-legends-v2-`). A v2 invite can't find a current-game room, and a mixed connection is refused as a version mismatch.
+  - **For checks:** `?host` opens a room at once; `?autoplay` in an online window lets that side play its own moves, chosen only from its own view; `?peerserver=host:port` uses a local PeerServer.
+  - **Tests:**
+    - `v2/tests/view.test.js`: 5 full seeded matches (767 actions); after every action, both seats' views leak nothing. It also checks the seat-neutral log, the opaque uids and the Search list.
+    - `v2/tests/online.test.js` (Node, the in-memory fake transport): a full seeded match host vs guest reaches a winner; every view the guest is sent leaks nothing; illegal guest actions are rejected; the room turns away a third browser; reconnect, host resume, rematch and leave all work; a current-game guest and a v2 host never start a match.
+    - All v2 tests and the current game's suite pass.
+  - **Checked in the browser:**
+    - Against the AI and in hot-seat (autoplay at Instant), with no console errors.
+    - Two browser windows played online through a local PeerServer for several Rounds, with no console errors: at Fast to Round 2, and at Instant to Round 7. Each side sees its own deck at the bottom and the scores mirrored.
+    - Screenshots in `v2/screenshots/`: `v9-lobby-host.jpg` (the room code and invite link), `v9-lobby-guest-decks.jpg` (the secret deck choice, "Your friend has chosen"), `v9-online-host.jpg` and `v9-online-guest.jpg` (both windows at the same moment, mid-match) and `v9-hotseat-pass.jpg`.

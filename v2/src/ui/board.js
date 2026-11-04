@@ -229,7 +229,7 @@ function sidePanel(state, ui, ctx) {
     button = '<button data-action="flip">Flip the coin</button>';
   } else if (state.phase === 'gameOver') {
     hint = resultLine(state);
-    button = '<button data-action="new">New match</button>';
+    button = `<button data-action="new"${ctx.endDisabled ? ' disabled' : ''}>${ctx.endLabel ?? 'New match'}</button>`;
   } else if (ui.pending?.action.type === 'chooseTarget') {
     hint = pendingHint(state, ui);
   } else if (state.phase === 'assign') {
@@ -299,10 +299,13 @@ const WEATHER_BRACKETS = [
 // Deck selection (V6): Fire, Water, Grass or Random for both players (mirrors allowed),
 // before the coin flip; Your deck when one is built.
 function deckPicker(ctx) {
+  // Hot-seat and online (V9) choose their decks in secret on their own screens.
+  if (ctx.mode && ctx.mode !== 'ai') return '';
   const opts = (who) => [...Object.entries(DECKS).map(([k, d]) => [k, d.name]), ['random', 'Random'], ...(who === 'player' && ctx.customDeck ? [['custom', 'Your deck']] : [])]
     .map(([k, name]) => `<option value="${k}"${ctx.deckChoice?.[who] === k ? ' selected' : ''}>${name}</option>`).join('');
   return `<span class="v2-decks"><label>You <select data-deck="player">${opts('player')}</select></label>
-    <label>Opponent <select data-deck="ai">${opts('ai')}</select></label></span>`;
+    <label>Opponent <select data-deck="ai">${opts('ai')}</select></label></span>
+    <span class="v2-modes"><button class="v2-mode-btn" data-action="hotseat">Two players, one screen</button><button class="v2-mode-btn" data-action="online">Play a friend online</button></span>`;
 }
 
 // Trainer Points (V5): the pool, assigned at Breakfast; and whether the Round's move is used.
@@ -582,14 +585,14 @@ function assignBox(state, ui) {
   </div></div>`;
 }
 
-function gameOver(state) {
+function gameOver(state, ctx = {}) {
   if (state.phase !== 'gameOver') return '';
   const title = state.winner === 'player' ? 'Victory' : state.winner === 'ai' ? 'Defeat' : 'Draw';
   // The end screen (V8): a crest for the ending animation (Victory or Defeat).
   return `<div class="v2-over"><div class="v2-panel"><div class="v2-crest ${title.toLowerCase()}"><h2>${title}</h2></div>
     <p>${resultLine(state)}</p>
     <p>You ${state.players.player.recognition} · Opponent ${state.players.ai.recognition}</p>
-    <button data-action="new">New match</button></div></div>`;
+    <button data-action="new"${ctx.endDisabled ? ' disabled' : ''}>${ctx.endLabel ?? 'New match'}</button>${ctx.mode && ctx.mode !== 'ai' ? ' <button data-action="leave" class="v2-ask-cancel">Leave</button>' : ''}</div></div>`;
 }
 
 export function renderMatch(root, state, ui, ctx) {
@@ -602,7 +605,7 @@ export function renderMatch(root, state, ui, ctx) {
   const playerTarget = targets.some((t) => t.kind === 'player');
   root.innerHTML = `
     <div class="v2-table">
-      <header class="v2-title"><h1>Pokémon Legends v2</h1><p>${ctx.playing ? `${ctx.playing.player} vs ${ctx.playing.ai} · ` : ''}${ctx.build} · <a href="../">the current game</a> · <button class="v2-linkbtn" data-action="deck">${ctx.customDeck ? "Your deck" : "Deck builder"}</button></p></header>
+      <header class="v2-title"><h1>Pokémon Legends v2</h1><p>${ctx.playing ? `${ctx.playing.player} vs ${ctx.playing.ai} · ` : ''}${ctx.build} · <a href="../">the current game</a> · ${ctx.mode && ctx.mode !== 'ai' ? `${ctx.modeLabel ?? ''} · <button class="v2-linkbtn" data-action="leave">Leave match</button>` : `<button class="v2-linkbtn" data-action="deck">${ctx.customDeck ? 'Your deck' : 'Deck builder'}</button>`}</p></header>
       ${backs(state.players.ai.hand.length)}
       ${recognitionPanel(state, 'ai', playerTarget, ui)}
       ${recognitionPanel(state, 'player', false, ui)}
@@ -624,7 +627,7 @@ export function renderMatch(root, state, ui, ctx) {
       ${spaceBox(state, ui)}
       ${trainerBox(state, ui)}
       ${assignBox(state, ui)}
-      ${gameOver(state)}
+      ${gameOver(state, ctx)}
     </div>`;
   wire(root, state, ui, ctx);
 }
@@ -634,6 +637,9 @@ function wire(root, state, ui, ctx) {
   on('[data-action="flip"]', () => ctx.act({ type: 'flipCoin' }));
   on('[data-action="pass"]', () => ctx.act({ type: 'pass', who: 'player' }));
   on('[data-action="new"]', () => ctx.newMatch());
+  on('[data-action="hotseat"]', () => ctx.hotseat?.());
+  on('[data-action="online"]', () => ctx.online?.());
+  on('[data-action="leave"]', () => ctx.leave?.());
   on('[data-action="deck"]', () => ctx.openDeck());
   root.querySelectorAll('select[data-deck]').forEach((el) => el.addEventListener('change', () => ctx.setDeck(el.dataset.deck, el.value)));
   root.querySelectorAll('select[data-speed]').forEach((el) => {
