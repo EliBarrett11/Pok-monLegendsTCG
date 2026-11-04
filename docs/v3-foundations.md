@@ -13,3 +13,11 @@
 ## Working method
 
 Elliott leads. Claude asks what to work on, discusses it, and writes down only what Elliott settles. Knowledge of v1 and v2 (what was built, tested and learned) is available as reference, never as a default.
+
+## Round 1 (Elliott, 4 Nov)
+
+- Each player draws **6 cards**.
+- **Card types:** Pokémon, Moves (what v1 and v2 called Strategy Cards), Supporters, Items. Effects and keywords stay extremely basic for now.
+- Each player has **1 Energy**.
+- **The field:** one starting Location, **Pallet Town**, with **2 lanes**. There are no other lanes on the board. Art: `assets/cards/pallet-town.jpg`.
+- There is nothing else yet.
