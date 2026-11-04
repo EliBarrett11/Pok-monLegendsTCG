@@ -100,3 +100,9 @@ Elliott leads. Claude asks what to work on, discusses it, and writes down only w
   - **Portrait protection** also stops Moves and Supporters from targeting the player character.
   - **The Trophy:** 100 Recognition wins only once space 10 is open.
   - **Locations:** the six test Locations' objectives and rewards are simple test values.
+
+## Settled 4 Nov (late night)
+
+- **Treadmill, revised (replaces option 3):** at the start of each Round, every Location moves one space left, and the leftmost Location shrinks by one lane (it's leaving the board). It's removed when no lanes are left. Pokémon and portraits still never move. New Locations arrive on the right, in the free spaces.
+- **Test cards:** actual Pokémon, Moves and Supporters from v1 and v2 (their names and identities), keeping only their effects; anything relying on systems v3 doesn't have yet is dropped.
+- **Art:** only art made for v1 and v2, plus Pallet Town.
