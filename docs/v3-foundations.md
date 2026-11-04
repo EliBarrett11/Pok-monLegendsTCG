@@ -82,3 +82,21 @@ Elliott leads. Claude asks what to work on, discusses it, and writes down only w
 - **Recognition:** 1 per damage to the enemy player (attacks or other damage); a small amount for defeating a Pokémon; Location milestones and completions; some Supporter Favour bonuses; possibly a small passive amount each Round to keep the pace steady.
 - **Winning:** 100 Recognition. 90 brings you to the final space (space 10), and you must also complete it to reach the Trophy. If no one has reached it after a set number of Locations, the game places an end-game Location, the **Regional Championship Tournament**, which guarantees one player reaches the Trophy. Target match length: **45 minutes**.
 - **No statuses** for now.
+
+## Settled 4 Nov (V3-0)
+
+- **Treadmill (Elliott):** a new Location is added each Round until all 10 spaces are covered by Locations. From then on, each new Location shifts the others left by its width. The board grows to the full 10 spaces and no further. (When a new Location is wider than the room left, it shifts by the overflow.)
+- **Starting values (Elliott, a starting point, in `v3/src/rules.js`):**
+  - +2 Recognition at each Breakfast;
+  - +2 for defeating a Pokémon;
+  - 1 per damage to the enemy player;
+  - running out of cards gives the opponent +3, +6, +9…;
+  - the Regional Championship arrives as the 10th Location if no one has reached the Trophy, covers every space, and at its end the higher Recognition is crowned Champion.
+- **Claude's placeholders in V3-0 (to confirm):**
+  - **The Championship:** it lasts 2 Rounds; a tie plays on Round by Round, up to 3 more, then it's a draw.
+  - **Passive Recognition:** from Round 2's Breakfast.
+  - **Overexert:** a free action on your turn, not a Battle Action.
+  - **Lost cards:** a card drawn beyond the hand limit goes to the Released Pile. Played Moves go to a Discard Pile.
+  - **Portrait protection** also stops Moves and Supporters from targeting the player character.
+  - **The Trophy:** 100 Recognition wins only once space 10 is open.
+  - **Locations:** the six test Locations' objectives and rewards are simple test values.
