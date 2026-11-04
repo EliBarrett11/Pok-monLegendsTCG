@@ -7,6 +7,9 @@ import { renderMatch } from './ui/board.js';
 import { toastsFor, showToasts } from './ui/toasts.js';
 import { openDeckBuilder } from './ui/deckbuilder.js';
 import { DECKS, POOL_ITEMS, deckProblems } from './engine/cards.js';
+import { initVfx, syncStatus } from './ui/vfx/engine.js';
+import { present, skip, resetFx, syncBoardWeather } from './ui/present.js';
+import { setSpeed } from '../../src/ui/settings.js';
 
 export const BUILD = 'V7.1 — Fire and Water boosts by Type';
 
@@ -29,6 +32,34 @@ toastLayer.className = 'v2-toasts';
 stage.appendChild(toastLayer);
 const wait = (ms) => new Promise((r) => { setTimeout(r, ms); });
 const PAUSE = autoplay ? 250 : 650;   // a short pause before each AI action, so it can be followed
+
+// The effects layer (V8): WebGL when it's available (?novfx forces the 2D fallback).
+const vfxOn = params.has('novfx') ? Promise.resolve(false)
+  : initVfx(document.getElementById('vfx')).catch((err) => { console.warn('VFX: WebGL layer off.', err); return false; });
+vfxOn.then((on) => stage.classList.toggle('vfx-gl', Boolean(on)));
+// A click while an action is being shown skips to its end.
+let presenting = false;
+stage.addEventListener('click', (e) => {
+  if (!presenting) return;
+  e.stopPropagation();
+  e.preventDefault();
+  skip();
+}, true);
+// ?instantUntil=9 (for checks and screenshots): no animations until that Round.
+const instantUntil = Number(params.get('instantUntil')) || 0;
+// Shows an action (prev → state) on screen, then draws the new state.
+async function show(prev, who) {
+  if (state.round < instantUntil && state.phase !== 'gameOver') { redraw(); return; }
+  presenting = true;
+  const locked = ui.locked;
+  ui.locked = true;
+  try {
+    await present(root, prev, state, who, redraw);
+  } finally {
+    presenting = false;
+    ui.locked = locked;
+  }
+}
 
 let state = null;
 let playing = null;   // the deck names in this match
@@ -76,11 +107,14 @@ function apply(action) {
 }
 
 function redraw() {
-  renderMatch(root, state, ui, { build: BUILD, autoplay, act, newMatch, redraw, openDeck, customDeck: !!customDeck, deckChoice, setDeck, playing });
+  renderMatch(root, state, ui, { build: BUILD, autoplay, act, newMatch, redraw, openDeck, customDeck: !!customDeck, deckChoice, setDeck, playing, setSpeed: (v) => { setSpeed(v); redraw(); } });
+  syncStatus(root);   // burning, sleeping and seeded cards keep their ambient effects
+  syncBoardWeather(root, state);   // Rain and Sun behind the cards
 }
 
 // An action from the screen (or the AI). Errors from the engine are shown, not thrown.
 async function act(action) {
+  const prev = state;
   try {
     apply(action);
   } catch (err) {
@@ -98,6 +132,9 @@ async function act(action) {
   ui.pending = null;
   ui.trainer = null;
   ui.moveTrainer = null;
+  const id = match;
+  await show(prev, action.who ?? 'player');
+  if (id !== match) return;
   redraw();
   await aiTurn(match);
 }
@@ -112,12 +149,14 @@ async function aiTurn(id) {
       : state.phase === 'assign' ? (legalNow('ai') ? 'ai' : autoplay ? actor(state) : null)
         : state.phase === 'initiative' ? (autoplay ? 'player' : null) : state.turn;
     if (!who || (who === 'player' && !autoplay)) break;
-    await wait(PAUSE);
+    await wait(state.round < instantUntil ? 0 : PAUSE);
     if (id !== match) return;
     const action = chooseAction(state, who);
     if (!action) break;
+    const prev = state;
     apply(action);
-    redraw();
+    await show(prev, who);
+    if (id !== match) return;
   }
   if (id !== match) return;
   ui.locked = false;
@@ -128,6 +167,7 @@ const legalNow = (who) => legalActions(state, who).length > 0;
 
 function newMatch() {
   match += 1;
+  resetFx();
   const seed = (match === 1 && Number(params.get('seed'))) || Date.now();
   // ?decks=fire,grass picks both from the address (for testing).
   const fromUrl = params.get('decks')?.split(',');

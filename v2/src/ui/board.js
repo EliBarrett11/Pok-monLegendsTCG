@@ -26,6 +26,8 @@ import { RECOGNITION_TARGET, LANES, ROUND_LIMIT, CHAMPIONSHIP_ROUND } from '../e
 import { rewardText, lastsText } from '../engine/locations.js';
 import { seriesDef, stagesText } from '../engine/series.js';
 import { icon, typeIcon, attackIcon, strengthIcon, speedIcon, rarityIcon, weatherIcon } from './icons.js';
+import { statusLevel } from './vfx/library.js';
+import { SPEEDS, getSpeed } from '../../../src/ui/settings.js';
 
 const ASSETS = '../assets';   // the shared art, from the page (v2/index.html)
 const slug = (s) => s.toLowerCase().replace(/\s+/g, '-');
@@ -45,8 +47,11 @@ function pokemonCard(card, opts = {}) {
     card.empowered && 'Empowered',
   ].filter(Boolean).join('\n');
   const notes = [card.ability?.text, opts.inHand && card.empower && `Empower ${card.empower.text}`].filter(Boolean);
+  // For the effects layer (V8): what it attacks with, and each status's visual level
+  // (the ambient Burn, Sleep and Leech Seed effects; vfx/engine.js syncStatus).
+  const vfx = `data-ptype="${card.type}" data-atype="${card.attackType}"${card.burn ? ` data-status-burn="${statusLevel('burn', card.burn)}"` : ''}${card.asleep ? ' data-status-sleep="1"' : ''}${card.seededBy ? ' data-status-leechseed="1"' : ''}`;
   return `
-    <div class="${cls}" ${opts.attrs ?? ''} title="${esc(tip)}">
+    <div class="${cls}" ${opts.attrs ?? ''} ${vfx} title="${esc(tip)}">
       <div class="v2-art" style="background-image: url('${card.art === null ? `${ASSETS}/ui/frame-pokemon.jpg` : `${ASSETS}/cards/${card.art ?? card.id}.jpg`}')"></div>
       ${card.partner ? `<span class="v2-partner-tag" title="${esc(card.trainer)}'s Partner Pokémon">Partner</span>` : ''}
       ${card.legendary ? `<span class="v2-level legendary" title="Legendary: a single card, no Levels">${icon('legendary')}Legendary</span>`
@@ -261,7 +266,7 @@ function sidePanel(state, ui, ctx) {
       <section class="v2-panel"><div class="v2-label">Weather</div>${weatherPanel(state)}</section>
       <section class="v2-panel v2-act"><p class="v2-hint">${hint}</p>${button}</section>
       <section class="v2-panel v2-log">${recent}</section>
-      <div class="v2-build">${ctx.build}</div>
+      <div class="v2-build">${ctx.build}<label class="v2-speed-pick" title="How fast animations play (shared with the current game)">Animations <select data-speed>${Object.entries(SPEEDS).map(([k, v]) => `<option value="${k}"${k === getSpeed() ? ' selected' : ''}>${v.label}</option>`).join('')}</select></label></div>
     </aside>`;
 }
 
@@ -580,7 +585,8 @@ function assignBox(state, ui) {
 function gameOver(state) {
   if (state.phase !== 'gameOver') return '';
   const title = state.winner === 'player' ? 'Victory' : state.winner === 'ai' ? 'Defeat' : 'Draw';
-  return `<div class="v2-over"><div class="v2-panel"><h2>${title}</h2>
+  // The end screen (V8): a crest for the ending animation (Victory or Defeat).
+  return `<div class="v2-over"><div class="v2-panel"><div class="v2-crest ${title.toLowerCase()}"><h2>${title}</h2></div>
     <p>${resultLine(state)}</p>
     <p>You ${state.players.player.recognition} · Opponent ${state.players.ai.recognition}</p>
     <button data-action="new">New match</button></div></div>`;
@@ -630,6 +636,10 @@ function wire(root, state, ui, ctx) {
   on('[data-action="new"]', () => ctx.newMatch());
   on('[data-action="deck"]', () => ctx.openDeck());
   root.querySelectorAll('select[data-deck]').forEach((el) => el.addEventListener('change', () => ctx.setDeck(el.dataset.deck, el.value)));
+  root.querySelectorAll('select[data-speed]').forEach((el) => {
+    el.addEventListener('click', (e) => e.stopPropagation());
+    el.addEventListener('change', () => ctx.setSpeed?.(el.value));
+  });
   // The assign step (simultaneous: not your turn, the Breakfast).
   on('[data-assign]', (el) => {
     ui.assignDraft ??= {};
@@ -819,4 +829,4 @@ function wire(root, state, ui, ctx) {
   on('.v2-recognition.target', () => ctx.act({ type: 'attack', who: 'player', from: ui.attacker, target: { kind: 'player' } }));
 }
 
-export { alertSpaces, opponentOf };
+export { alertSpaces, opponentOf, pokemonCard, actionCard, locationCard, artUrl };

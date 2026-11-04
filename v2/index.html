@@ -17,6 +17,9 @@
   <!-- A fixed 1920×1080 stage, scaled to fit the window (src/main.js). -->
   <div id="stage">
     <main id="app"></main>
+    <!-- V8: the effects layer (WebGL, the current game's engine) and its 2D fallback. -->
+    <canvas id="vfx" width="1920" height="1080" hidden></canvas>
+    <canvas id="particles" width="1920" height="1080"></canvas>
   </div>
   <script type="module" src="src/main.js"></script>
 </body>
