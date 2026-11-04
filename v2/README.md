@@ -582,3 +582,61 @@ To play locally: `python3 -m http.server` at the repository root, then open http
     - Partners and Legendaries;
     - the deck docs matching the cards.
     - One `decks.test` expectation (Rage: Wingull now hits back for 3) was updated. All v2 tests pass.
+
+- **V8 — presentation.** The whole effects layer is now in v2, in the approved style (`docs/vfx.md`). The current game is unchanged.
+  - **What comes from the current game:**
+    - The WebGL renderer, timeline clock, textures and the animation library (`src/ui/vfx/gl.js`, `timeline.js`, `textures.js`, `library.js`) are **imported unchanged**.
+    - So are the speed setting (`src/ui/settings.js`: Slow / Normal / Fast / Instant, shared with the current game) and the Weather layer (`src/ui/weather.js`, placed into v2's board through a small shim).
+    - **Copied, with notes:** `v2/src/ui/vfx/engine.js` is the current engine with two changes: textures load from `../assets/vfx/`, and the ambient status effects look for v2's board cards. `tests/vfx.test.js` checks it is otherwise identical. `v2/src/ui/particles.js`, the 2D fallback, is copied with v2's stage size.
+  - **The v2 library** (`v2/src/ui/vfx/library.js`, pure data):
+    - every v2 card maps to its animations: attacks by Type + Attack-Type, with the generic one, tinted, for combinations without their own; Strategy Cards; summons by rarity, with Legendary cinematics for Kyogre (wave and rain), Celebi (time-ripples) and Entei (the eruption); defeats by cause; statuses; healing; evolution;
+    - Hydro Pump, which v2 adds, uses Bubble Beam's water stream;
+    - **a bigger Strategy breakpoint plays a bigger version** (more particles, stronger shake and bloom, extra flares, and a shockwave at the top breakpoint);
+    - v2's own moments, built only from the shared presets;
+    - `EVENT_BEATS`: every engine event type and the beat that shows it.
+  - **The presenter** (`v2/src/ui/present.js`): each action plays in three parts.
+    - **Before the redraw, on the board as it was:**
+      - attacks, with trades, Infiltrator, Shell, Overrun and Scorch touches;
+      - **lane guards:** a shield flashes on the guard across, with "Guarded", when it stopped an attack on the player;
+      - Strategy Cards rise, flare with "Who: Card · Breakpoint N", and dissolve into their effect (sweeps for Heat Wave, Surf, Hyper Voice and Rock Slide);
+      - damage numbers, Burn, Sleep, Leech Seed, cures, healing and defeats (ash, washed away, wilting, shattered);
+      - **Burn on a player character:** it smoulders on their panel and drains the meter at Supper;
+      - **Supporters:** the Released cards and the Supporter itself burn away into the Released Pile, and a met Favour shows a gold "Favour!";
+      - Trainer Abilities, Items used, Rage and buffs;
+      - **Locations whose timer runs out** fade.
+    - **After the redraw, on the new board:**
+      - summons by rarity, and **Partners** with their own entrance under a "Trainer's Partner" banner;
+      - **Location placement:** the frame unfolds over its lanes;
+      - **milestones:** the gold tick pops, with the reward;
+      - **completions:** a gold "Completed!" plate and confetti;
+      - **Recognition:** the number flies to the panel and the meter fills;
+      - **Training:** the level-up glow; a new stage plays the current game's evolution moment; cards in hand level up at Breakfast with a glow and their new Level; **Nurture** sends Growth motes from the Growth tree into the Pokémon;
+      - **Trainers:** the tab slides in; points fly from the Trainer Points panel; each **tier pip lights with a flourish**;
+      - **Items found:** the card flies from the Location into the Bag.
+    - **The Championship's arrival:** after Supper's banner, "The Championship arrives". The other Locations sweep away together, then the stadium frame opens across all 9 lanes with light, a shockwave and gold, under a large banner. At any speed but Instant, it is held at least as long as at Fast.
+    - **Banners** (Round and phases, the coin, sudden death) queue, so one never covers another.
+    - **The end screen:** a Victory or Defeat crest that drops or sinks, then the current game's celebration or slump in the player's deck's style.
+    - **Weather on the board:** Rain and Sun behind the cards; a bracket reached pulses and names its effect.
+  - **Readability:**
+    - the acting card lifts above the board;
+    - every Strategy Card and Supporter says who played it;
+    - numbers sit on their own layer above the board;
+    - anything a cue didn't reach (no WebGL, or a skip) still shows its numbers.
+  - **Speed and skipping:**
+    - an **Animations** picker sits beside the build label;
+    - your own actions play a little faster;
+    - **a click skips** to the end of the action being shown;
+    - **Instant** draws at once.
+  - **Without WebGL** (`?novfx`, or a browser without it), the 2D particles stand in, and every number, banner and card movement still plays.
+  - **For checks:** `?seed=N` now also seeds the autoplay AI, so a match replays exactly. `?instantUntil=N` skips animations until Round N.
+  - **Tests:** `v2/tests/vfx.test.js`:
+    - every card in the three decks maps to its animations; every Strategy Card has its own; Legendaries map to their cinematics; Partners, Trainers, Items and Locations are covered;
+    - all 53 event types the engine emits have a described beat and a presenter handler;
+    - every v2 timeline, every breakpoint of every Strategy Card, every summon and the keyword-composed attacks stay within their budgets; a bigger breakpoint is bigger; the Championship lasts long enough to read at Normal;
+    - skip and running out finish all 146 timelines, with every cue still firing; Instant draws once, at once;
+    - without WebGL the layer stays off and timelines resolve at once;
+    - the engine copy matches the current game's except where noted.
+    - All v2 tests pass.
+  - **Checked in the browser:**
+    - v2 autoplay at Normal (with WebGL), Instant and `?novfx` (2D) played whole matches to the end screen with no console errors.
+    - Screenshots in `v2/screenshots/`: `v8-championship.jpg` (the stadium frame across all 9 lanes under the banner), `v8-location-completion.jpg`, `v8-partner-arrival.jpg` (Flannery's Torkoal) and `v8-solar-beam.jpg` (Solar Beam at breakpoint 4).
