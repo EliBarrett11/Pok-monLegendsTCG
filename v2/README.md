@@ -490,7 +490,7 @@ To play locally: `python3 -m http.server` at the repository root, then open http
       - Surf plays against Grass rise from about 0.3–0.4 to 1.3–1.7 a match, and Surf damage from 3–6 to 12.5–17.
       - Water–Grass rises by 7–9 points.
       - Against Fire, Surf does far less (4–7 damage a match), because Fire keeps only about 2 Pokémon on the board.
-      - Fire–Water moves 1–5 points, within noise.
+      - Fire–Water drops 1–9 points (the most, 63% → 54%, with F1 and no Water stats).
     - **S2 without the cheaper breakpoint does little.** Water rarely pays 3 for it: 0.5–0.7 plays a match against Grass.
     - **WA½ is between none and WA** in both of Water's matchups.
     - **F1 against F½:** Fire–Water about +5 points; Fire–Grass +5 (59% against 54% at 400 matches).
