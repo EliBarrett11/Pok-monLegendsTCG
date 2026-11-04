@@ -40,3 +40,16 @@ Elliott leads. Claude asks what to work on, discusses it, and writes down only w
   - The game drops a new Location to the right at a Breakfast of its choosing, with 1, 2 or 3 lanes, available at once.
   - Locations travel left until they're removed completely.
 - **Concept images:** `docs/design/v3-concept-R1.jpg`, `-R2.jpg`, `-R6.jpg`.
+
+## Settled 4 Nov (evening)
+
+- **Portrait spaces:** a Pokémon may stand on the space its player's portrait occupies. Your player character can only be protected by the Pokémon in its own space, whatever its Strength-Type. Defence and Special Defence Pokémon protect your *other* Pokémon in the same Location.
+- **New Locations:** a new Location is added every Round. A portrait that would advance past the last open space waits there until a new Location opens the next one.
+- **When a Location slides off the left edge:** Pokémon stay exactly where they are. The next Location slides into their spaces, so they're now in that Location without having moved.
+- **Your portrait leaving its guards behind as it advances** is intentional, to keep players thinking.
+- **Location objectives belong to the Location's identity,** not to a strategy. Some luck from which Locations arrive is acceptable (later drawn at random from a large pool).
+- **Timing:** a Location's objective lasts until it naturally slides off the board. Milestone rewards are given immediately; completion rewards are given when the Location expires.
+- **Elliott's ideas so far:**
+  - **Pallet Town** rewards a unique Bulbasaur, Charmander, Squirtle, Pikachu, Professor Oak or Gary card.
+  - **Viridian Forest:** each Move Card played summons a cheap wild Pokémon themed on the Location into an empty space there on your side.
+  - **Cerulean City Gym:** defeat Misty's Starmie, a Pokémon taking up a whole lane, beaten by the player who deals it the most damage.
