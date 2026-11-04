@@ -364,3 +364,75 @@ To play locally: `python3 -m http.server` at the repository root, then open http
     - GS: Grass −1 Strength, Fire unchanged;
     - SL: Sleep Powder at 3 (2 without SL); Gloom's On Evolve Sleep skips a higher Level, and reaches a lower one with SL or any Level without it.
     - All v2 tests pass. The game in the browser is unchanged.
+
+- **V7e — balance search.** These are flags for the tools only. Nothing changes in the game until Elliott decides. The baseline is T90 + CH9 + LG.
+  - **AI check** (`node v2/tools/aicheck.js 20 --variant=T90,CH9,LG[,GS]`): per deck, unspent Energy per Round, passes per Round (split into "a play was available" and "nothing affordable"), and hand size at Supper. For each pass made with a play available, it also records the best play skipped and how it scored.
+    - **No AI bug.** In 20 matches per matchup (baseline and GS), no deck passed with an affordable play more than 1% of the time.
+    - The only such passes were Water's: 2 Strategy Cards whose best target scored −3.2, below the pass's 0.
+    - **Passing is about Energy, not judgement:**
+      - unspent Energy is about 0.4–1.2 a Round;
+      - Fire passes 2.2–3.2 times a Round and Water 1.8–3.5, both with nothing affordable;
+      - Grass passes about 1.3 times a Round;
+      - hand size at Supper is 2.8–3.9.
+    - No AI change was made.
+  - **New flags:**
+    - **F½:** Fire Pokémon +1 Strength at Levels 3–6 only.
+    - **WA:** Water Pokémon +1 Attack at every Level.
+    - `node v2/tools/variants.js 100 --set=v7e` runs the grid.
+  - **The grid:** Grass (GS | GS + N1 + GX) × Fire (none | F½ | F1) × Water (none | W1 | WA | W1 + WA) gives 24 configs. Each is on top of T90 + CH9 + LG, with 100 matches per matchup (50 per seat order). Win rates are for the first-named deck:
+
+    | Grass | Fire | Water | Fire v Water (Fire) | Fire v Grass (Fire) | Water v Grass (Water) | Avg Rounds | Ends: early / Championship / final | Distance from 50% |
+    |---|---|---|---|---|---|---|---|---|
+    | GS | – | – | 47% | 41% | 26% | 9.2 | 35% / 60% / 5% | 36 |
+    | GS | – | W1 | 27% | 41% | 34% | 9.2 | 32% / 64% / 4% | 48 |
+    | GS | – | WA | 34% | 41% | 41% | 9.2 | 38% / 57% / 5% | 34 |
+    | GS | – | W1+WA | 18% | 41% | 59% | 9.1 | 39% / 57% / 4% | 50 |
+    | GS | F½ | – | 53% | 52% | 26% | 9.1 | 35% / 61% / 4% | 29 |
+    | GS | F½ | W1 | 43% | 52% | 34% | 9.1 | 33% / 63% / 4% | 25 |
+    | GS | F½ | WA | 43% | 52% | 41% | 9.2 | 37% / 58% / 5% | 18 |
+    | GS | F½ | W1+WA | 19% | 52% | 59% | 8.9 | 38% / 59% / 3% | 42 |
+    | GS | F1 | – | 56% | 55% | 26% | 9.0 | 38% / 59% / 3% | 35 |
+    | GS | F1 | W1 | 50% | 55% | 34% | 9.0 | 39% / 58% / 3% | 21 |
+    | GS | F1 | WA | 43% | 55% | 41% | 9.1 | 40% / 57% / 3% | 21 |
+    | GS | F1 | W1+WA | 21% | 55% | 59% | 9.0 | 36% / 63% / 1% | 43 |
+    | GS+N1+GX | – | – | 47% | 42% | 32% | 9.3 | 31% / 63% / 6% | 29 |
+    | GS+N1+GX | – | W1 | 27% | 42% | 46% | 9.3 | 31% / 64% / 5% | 35 |
+    | GS+N1+GX | – | WA | 34% | 42% | 50% | 9.5 | 26% / 68% / 6% | 24 |
+    | GS+N1+GX | – | W1+WA | 18% | 42% | 78% | 9.2 | 37% / 58% / 5% | 68 |
+    | GS+N1+GX | F½ | – | 53% | 66% | 32% | 9.2 | 29% / 68% / 3% | 37 |
+    | GS+N1+GX | F½ | W1 | 43% | 66% | 46% | 9.2 | 31% / 66% / 3% | 27 |
+    | GS+N1+GX | F½ | WA | 43% | 66% | 50% | 9.5 | 24% / 72% / 4% | 23 |
+    | GS+N1+GX | F½ | W1+WA | 19% | 66% | 78% | 9.1 | 34% / 64% / 2% | 75 |
+    | GS+N1+GX | F1 | – | 56% | 73% | 32% | 9.1 | 36% / 60% / 4% | 47 |
+    | GS+N1+GX | F1 | W1 | 50% | 73% | 46% | 9.0 | 40% / 56% / 3% | 27 |
+    | GS+N1+GX | F1 | WA | 43% | 73% | 50% | 9.3 | 30% / 66% / 4% | 30 |
+    | GS+N1+GX | F1 | W1+WA | 21% | 73% | 78% | 9.1 | 36% / 62% / 2% | 80 |
+
+  - **No config puts all three matchups at 45–55%.**
+  - **The 5 closest configs,** by total distance from 50%:
+    1. **GS + F½ + WA:** 43% / 52% / 41%, 9.2 Rounds, 37% early (distance 18).
+    2. **GS + F1 + W1:** 50% / 55% / 34%, 9.0 Rounds, 39% early (21).
+    3. **GS + F1 + WA:** 43% / 55% / 41%, 9.1 Rounds, 40% early (21).
+    4. **GS + N1 + GX + F½ + WA:** 43% / 66% / 50%, 9.5 Rounds, 24% early (23).
+    5. **GS + N1 + GX + WA:** 34% / 42% / 50%, 9.5 Rounds, 26% early (24).
+  - **Pacing:** 8.9–9.5 Rounds and 24–40% early in every config.
+  - **Which lever moves which matchup:** each matchup depends only on its own two decks' levers, so the effects can be read straight off the grid.
+    - **Fire–Water** (47% with no Fire or Water lever):
+      - F½ adds 6 and F1 adds 9;
+      - W1 takes away 20, WA 13, and W1 + WA 29.
+    - **Fire–Grass** (41% with GS alone):
+      - F½ adds 11 and F1 adds 14;
+      - N1 + GX adds 1 on its own, but 14 with F½ and 18 with F1.
+    - **Water–Grass** (26% with GS alone):
+      - W1 adds 8, WA 15, and W1 + WA 33;
+      - N1 + GX adds 6 on its own, and about 6–19 more with the Water levers.
+  - **Why no set lands:**
+    - Every Water lever that lifts Water–Grass into range costs Fire–Water more than any Fire lever gives back (WA −13 against F1 +9).
+    - Every Grass lever strong enough for Water–Grass (N1 + GX) pushes Fire–Grass past 55% once Fire has its boost.
+    - The closest, **GS + F½ + WA**, still needs about +2 for Fire against Water and about +4 for Water against Grass.
+  - **Recommendation:** if one of these is adopted, **GS + F½ + WA** (three card-stat changes, no rule changes). To close the last gap, it needs a lever that only touches Water against Grass, or Fire against Water. One example would be a Water card that answers Grass's wide board. A blanket stat change can't do it, because each one moves two matchups at once.
+  - **Tests:** `v2/tests/variants.test.js` adds:
+    - F½: Fire unchanged at Level 2, +1 Strength at Level 4;
+    - WA: Water +1 Attack, Grass unchanged;
+    - the 24-config grid.
+    - All v2 tests pass. The game in the browser is unchanged.
