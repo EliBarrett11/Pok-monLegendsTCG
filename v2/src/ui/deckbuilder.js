@@ -39,7 +39,7 @@ export function openDeckBuilder(host, ctx) {
       const options = Array.from({ length: line.maxLevel }, (_, k) => k + 1).map((lv) => `<option value="${lv}"${lv === e.cap ? ' selected' : ''}>Cap ${lv}</option>`).join('');
       return `<span class="v2-chip"><select data-i="${i}">${options}</select><em>${top.name} · cost ${top.cost}</em><button data-remove="${i}" title="Remove">×</button></span>`;
     }).join('');
-    return `<div class="v2-brow">
+    return `<div class="v2-brow" data-codex="def:${line.id}${line.legendary ? '' : `:${line.cap ?? line.maxLevel}`}">
       <div class="v2-bart" style="background-image: url('${ASSETS}/cards/${line.art}.jpg')"></div>
       <div class="v2-binfo"><b>${line.legendary ? `${icon('legendary')} ${esc(line.stages[0].name)}` : esc(stagesText(line))}</b>
         <small>${rarityIcon(line.rarity)}${line.rarity} · ${typeIcon(line.type)}${line.type} · ${line.legendary ? 'a single card' : line.weight}${line.empower ? ` · Empower ${esc(line.empower.text)}` : ''} · copies ${cards.length}/${limit}</small>
@@ -50,7 +50,7 @@ export function openDeckBuilder(host, ctx) {
   function locationRow(loc) {
     const n = copiesOf(deck)[loc.id] ?? 0;
     const limit = copyLimit(loc.id);
-    return `<div class="v2-brow loc" style="--loc: ${loc.color}">
+    return `<div class="v2-brow loc" style="--loc: ${loc.color}" data-codex="def:${loc.id}">
       <div class="v2-bart" style="background-image: url('${ASSETS}/cards/${loc.art ?? loc.id}.jpg')"></div>
       <div class="v2-binfo"><b>${esc(loc.name)}</b><small>Location · ${loc.lanes} lane${loc.lanes > 1 ? 's' : ''} · ${lastsText(loc.rounds)} · ${esc(loc.objective.text)}</small>
         <div class="v2-chips"><button data-loc-minus="${loc.id}"${n ? '' : ' disabled'}>−</button><span class="v2-count">${n}/${limit}</span><button data-loc-plus="${loc.id}"${n >= limit ? ' disabled' : ''}>+</button></div>
@@ -66,7 +66,7 @@ export function openDeckBuilder(host, ctx) {
         : card.cardType === 'Trainer' ? `Trainer · cost ${card.cost} · ${card.tiers.map((t) => `${t.cost} ${t.kind}: ${t.text}`).join(' · ')}`
         : `Item (${card.kind}) · cost ${card.cost} · ${card.text}`;
     const art = card.art ? `${ASSETS}/cards/${card.art}.jpg` : `${ASSETS}/ui/frame-item.jpg`;
-    return `<div class="v2-brow">
+    return `<div class="v2-brow" data-codex="def:${card.id}">
       <div class="v2-bart" style="background-image: url('${art}')"></div>
       <div class="v2-binfo"><b>${esc(card.name)}</b><small title="${esc(what)}">${rarityIcon(card.rarity)}${card.rarity} · ${esc(what)}</small>
         <div class="v2-chips"><button data-card-minus="${card.id}"${n ? '' : ' disabled'}>−</button><span class="v2-count">${n}/${limit}</span><button data-card-plus="${card.id}"${n >= limit ? ' disabled' : ''}>+</button></div>
@@ -79,7 +79,7 @@ export function openDeckBuilder(host, ctx) {
     const locations = deck.filter((e) => e.location).length;
     el.innerHTML = `<div class="v2-panel v2-builder-panel">
       <header><h2>Deck builder</h2>
-        <p>Each card is a series and a cap: in a match its Level is the Round number, up to the cap. Copy limits by rarity: Common 3, Rare 2, Legendary 1 (one Legendary per deck).</p>
+        <p>Each card is a series and a cap: in a match its Level is the Round number, up to the cap. Copy limits by rarity: Common 3, Rare 2, Legendary 1 (one Legendary per deck). Right-click a card (or hover + Space) to read it in the Codex.</p>
         <div class="v2-btotal ${deck.length === DECK_SIZE ? 'ok' : ''}">${deck.length} / ${DECK_SIZE} cards · ${pokemon} Pokémon · ${locations} Locations · ${deck.length - pokemon - locations} Strategy, Supporter, Trainer and Item cards</div>
       </header>
       <div class="v2-blist">${REAL_SERIES.map(seriesRow).join('')}${REAL_LOCATIONS.map(locationRow).join('')}${REAL_CARDS.map(cardRow).join('')}</div>

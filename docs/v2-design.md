@@ -153,6 +153,22 @@ v2 should look like the concept mockups `docs/design/v2-board-concept.jpg` and `
 - **Pokémon:** full-art cards with **minimal stats**: a Level badge, a small Type icon, the name, and plain ⚔ Attack / ♥ Strength numbers. Elliott prefers this to the current card icons.
 - Nothing clipped: every piece of information and every action is visible and usable in full screen without scrolling at 1920×1080, 1366×768 and 1280×720. (Elliott, v2 Feedback A. Checked after every v2 step by `node v2/tools/layout.mjs`.)
 
+## 7d. Information (Elliott, v2 Feedback B)
+
+Approved mockups: `docs/design/v2-info-A2.jpg` (board and hand), `v2-info-B.jpg` (the Codex), `v2-info-C.jpg` (choosing targets). Principles:
+1. Every piece of information can be explored in detail without obstructing play (the Codex: right-click anything, or hover + Space; the match carries on).
+2. During play, show only what's relevant right now:
+   - board cards show art, ⚔ / ♥, and keyword and status chips;
+   - a Type, Level or name appears only when something in play refers to it;
+   - Trainer Points, Bag, Weather and Growth panels appear only when relevant;
+   - Location rewards show on hover.
+3. The player always knows what they can do, what they must do, and why:
+   - the prompt bar names the current step and the real options;
+   - unplayable cards say why on hover;
+   - targets say what will happen, or why not.
+
+Ruling: **Tracey** shows its player the top 4 cards and they choose (the play is final once revealed); the AI chooses for itself.
+
 ## 8. Build roadmap (Claude Code prompts)
 
 v1 stays live at the root and is tagged `v1.0`. v2 is built in `v2/` (its own engine; it reuses art, effects and networking) and is playable against the AI from V1 onward. Each step ends playable, tested and pushed, with a README log entry.

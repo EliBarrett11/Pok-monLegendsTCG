@@ -34,10 +34,18 @@ function checkView(state, seat) {
   const walk = (node, path) => {
     if (!node || typeof node !== 'object') return;
     if (path.endsWith('.searchable')) return;
+    // A waiting Tracey (Feedback B): the revealed cards, in their own player's view only.
+    if (/\.choices\.\d+\.cards$/.test(path)) return;
     if (!Array.isArray(node) && secret.has(node.uid)) assert.ok(ONLY(node, ['uid', 'hidden']), `${label}: ${path} shows a secret card: ${JSON.stringify(node)}`);
     for (const [k, x] of Object.entries(node)) walk(x, `${path}.${k}`);
   };
   walk(v, 'view');
+  // Tracey's revealed cards: the seat's own top cards, never the opponent's.
+  for (const [i, c] of (state.choices ?? []).entries()) {
+    if (c.kind !== 'pick') continue;
+    if (c.who === seat) assert.deepEqual(v.choices[i].cards.map((x) => x.uid), c.uids, `${label}: your own revealed cards`);
+    else assert.ok(!('cards' in v.choices[i]), `${label}: the opponent's revealed cards stay hidden`);
+  }
   // Own Search: only cards matching a Search the seat holds, all from its own Draw Pile.
   for (const c of v.players[seat].searchable ?? []) assert.ok(state.players[seat].drawPile.some((d) => d.uid === c.uid), `${label}: searchable from own Draw Pile`);
   // The opponent's Trainer Point assignment: only that they've locked in.
@@ -46,7 +54,7 @@ function checkView(state, seat) {
   for (const e of v.events) {
     if (e.who !== foe) continue;
     assert.notEqual(e.type, 'levelUp', `${label}: a card in their hand levelling up isn't shown`);
-    if (e.type === 'searched') assert.ok(!('cards' in e));
+    if (e.type === 'searched' || e.type === 'picked') assert.ok(!('cards' in e));
   }
   // The log: rendered for this seat (no tokens left), Retain on their card unnamed.
   const text = JSON.stringify(v);

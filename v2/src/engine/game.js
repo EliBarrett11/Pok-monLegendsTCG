@@ -41,8 +41,10 @@ import { OBJECTIVES, CHAMPIONSHIP, rewardText } from './locations.js';
 export const PLAYERS = ['player', 'ai'];
 // The Recognition target and the Championship's Round (a variant may change them).
 // SL experiment flag (V7d): Sleep Powder costs 3.
+// TC experiment flag (Feedback B): Trainer tiers cost 2/3/5 instead of 2/4/6.
 const variantCard = (variant, c) => (variant?.sleepLimit && c.id === 'g-sleep-powder'
-  ? { ...c, breakpoints: c.breakpoints.map((b) => ({ ...b, cost: Math.max(3, b.cost) })) } : c);
+  ? { ...c, breakpoints: c.breakpoints.map((b) => ({ ...b, cost: Math.max(3, b.cost) })) }
+  : variant?.tierCosts && c.cardType === 'Trainer' ? { ...c, tiers: c.tiers.map((t, i) => ({ ...t, cost: variant.tierCosts[i] ?? t.cost })) } : c);
 export const targetOf = (s) => s.variant?.target ?? RECOGNITION_TARGET;
 export const champRoundOf = (s) => s.variant?.champRound ?? CHAMPIONSHIP_ROUND;
 export const NAMES = { player: 'You', ai: 'Opponent' };
@@ -78,6 +80,9 @@ export function createGame(seed = Date.now(), { decks = { player: TEST_DECK, ai:
       bag: [], burn: 0,
       trainers: [], trainerPoints: 0, movedTrainer: false, waiting: [],
       growth: 0, plan: plans[who] ?? null, wallaceRound: 0,
+      // For the Codex (Feedback B): every Recognition gain and loss with its source, and
+      // this Round's Energy by source. Public, like Recognition and Energy themselves.
+      recHistory: [], energySources: [],
     };
   }
   // The shared Item pool (V4): one copy of each Item, shuffled (V6: the real pool of 12).
@@ -479,7 +484,7 @@ export const favourMet = (card, released) => !!card.favour && released.some((c) 
 
 export function legalActions(state, who) {
   // A waiting choice (an On Evolve target) comes before anything else.
-  if (state.choices?.length && state.phase !== 'gameOver') return state.choices[0].who === who ? ['chooseTarget'] : [];
+  if (state.choices?.length && state.phase !== 'gameOver') return state.choices[0].who === who ? [state.choices[0].kind === 'pick' ? 'choosePick' : 'chooseTarget'] : [];
   if (state.phase === 'initiative') return ['flipCoin'];
   if (state.phase === 'assign') return needsAssign(state, who) && !state.assign?.[who] ? ['assignPoints'] : [];
   if (state.phase !== 'battle' || state.turn !== who) return [];
@@ -759,6 +764,22 @@ const ACTIONS = {
     if (PLAYERS.every((w) => s.assign[w] || !needsAssign(s, w))) resolveAssign(s);
   },
 
+  // Choose the cards for a waiting Tracey (Feedback B): exactly `take` of the revealed top
+  // cards go into the hand, the rest to the bottom of the Draw Pile.
+  choosePick(s, { who, picks = [] }) {
+    const c = s.choices[0];
+    if (!c || c.who !== who || c.kind !== 'pick') throw new Error('Nothing to choose');
+    if (picks.length !== c.take || new Set(picks).size !== picks.length || picks.some((u) => !c.uids.includes(u))) throw new Error(`Choose ${c.take} of the cards shown`);
+    const p = s.players[who];
+    const top = c.uids.map((u) => p.drawPile.find((x) => x.uid === u)).filter(Boolean);
+    const take = top.filter((x) => picks.includes(x.uid));
+    s.choices.shift();
+    p.drawPile = [...p.drawPile.filter((x) => !top.includes(x)), ...top.filter((x) => !take.includes(x))];
+    p.hand.push(...take);
+    emit(s, 'picked', { who, count: take.length, cards: take.map((x) => x.name) });
+    log(s, `${p.name} took ${take.length} of them into ${vb(who, 'your', 'their')} hand; the rest went to the bottom.`);
+  },
+
   // Choose the target for a waiting On Evolve (not a Battle Action: play goes on).
   chooseTarget(s, { who, targets }) {
     const c = s.choices[0];
@@ -785,7 +806,7 @@ const ACTIONS = {
       attacker.spent = true;
       p.recognition += amount;
       emit(s, 'attack', { who, from, target: { kind: 'player', who: foe }, amount, attacker: attacker.name });
-      emit(s, 'recognition', { who, amount, total: p.recognition, source: 'attack' });
+      emit(s, 'recognition', { who, amount, total: p.recognition, source: 'attack', label: `${attacker.name}'s attack` });
       log(s, `${poss(who)} ${attacker.name} attacked ${vb(who, 'the Opponent', 'you')} directly for ${amount}: +${amount} Recognition (now ${p.recognition}).`);
       if (p.recognition >= targetOf(s)) return win(s, who);
       // Scorch also burns the enemy player character it hits (V6).
@@ -820,7 +841,7 @@ const ACTIONS = {
     if (defenderDown && hasKw(s, who, from, 'Overrun') && hit - left > 0) {
       const over2 = hit - left;
       p.recognition += over2;
-      emit(s, 'recognition', { who, amount: over2, total: p.recognition, overrun: true, source: 'overrun' });
+      emit(s, 'recognition', { who, amount: over2, total: p.recognition, overrun: true, source: 'overrun', label: `${attacker.name}'s Overrun` });
       log(s, `Overrun: ${over2} more to ${vb(who, 'the Opponent', 'you')} (+${over2} Recognition).`);
       if (p.recognition >= targetOf(s)) return win(s, who);
     }
@@ -849,6 +870,7 @@ const ACTIONS = {
     const spends = passSpends(s, who);
     if (!ends) {
       p.energy += PASS_ENERGY;
+      energyFrom(s, who, PASS_ENERGY, 'a Pass');
       for (const space of spends) p.row[space].spent = true;
     }
     emit(s, 'pass', { who, endsPhase: ends, gain: ends ? 0 : PASS_ENERGY, spends });
@@ -932,14 +954,16 @@ function advance(s, who, loc, value) {
       loc.reached[who].push(m.at);
       emit(s, 'milestone', { who, location: loc.uid, name: loc.name, at: m.at, count: loc.objective.count, reward: m.reward, championship: loc.championship });
       log(s, `${nm(who)} reached a milestone at ${loc.name} (${m.at}/${loc.objective.count}): ${rewardText(m.reward)}.`);
-      reward(s, who, m.reward, loc);
+      reward(s, who, { ...m.reward, why: `milestone ${m.at}` }, loc);
+      // TP+ experiment flag (Feedback B): every Location milestone also gives +1 Trainer Point.
+      if (s.variant?.tpPlus && !over(s)) gainTrainerPoints(s, who, 1, 'a milestone (TP+)');
     }
   }
   if (loc.progress[who] >= loc.objective.count && !over(s)) {
     loc.completed[who] = true;
     emit(s, 'completed', { who, location: loc.uid, name: loc.name, reward: loc.completion, championship: loc.championship });
     log(s, `${nm(who)} completed ${loc.name}: ${rewardText(loc.completion)}.`);
-    reward(s, who, loc.completion, loc);
+    reward(s, who, { ...loc.completion, why: 'completed' }, loc);
   }
 }
 
@@ -957,7 +981,7 @@ function reward(s, who, r = {}, loc = null) {
     // L+ (variant): Location Recognition rewards ×1.5, rounded up.
     const amount = s.variant?.locMult ? Math.ceil(r.recognition * s.variant.locMult) : r.recognition;
     p.recognition += amount;
-    emit(s, 'recognition', { who, amount, total: p.recognition, reward: true, source: loc?.championship ? 'championship' : 'location' });
+    emit(s, 'recognition', { who, amount, total: p.recognition, reward: true, source: loc?.championship ? 'championship' : 'location', label: loc ? `${loc.name} (${r.why ?? 'reward'})` : 'a reward' });
     if (p.recognition >= targetOf(s)) win(s, who);
   }
 }
@@ -1010,6 +1034,10 @@ function startRound(s, round) {
     p.bonus = p.bonusNext;
     p.bonusNext = 0;
     p.energy = p.roundEnergy + p.stored + p.bonus;
+    p.energySources = [];
+    energyFrom(s, who, p.roundEnergy, `Round ${round}`);
+    energyFrom(s, who, p.stored, 'stored from last Round');
+    energyFrom(s, who, p.bonus, 'Location milestones');
     log(s, `${p.name}: ${p.roundEnergy} Energy${p.stored ? ` + ${p.stored} stored` : ''}${p.bonus ? ` + ${p.bonus} from milestones` : ''}.`);
     // Regenerate N (a Held Item's keyword): heals N at Breakfast.
     for (const { space, card } of pokemonOf(s, who)) {
@@ -1239,6 +1267,8 @@ const MATCH = {
   waterPokemon: (c) => c.cardType === 'Pokémon' && c.type === 'Water',
   any: () => true,
 };
+// The revealed cards of a waiting Tracey (Feedback B): from the state, or a view's own copy.
+export const choiceCards = (state, c) => c.cards ?? c.uids.map((u) => state.players[c.who].drawPile.find((x) => x.uid === u)).filter((x) => x && !x.hidden);
 export function pickOptions(state, who, op) {
   const p = state.players[who];
   switch (op.op) {
@@ -1253,7 +1283,7 @@ export function pickOptions(state, who, op) {
     default: return [];
   }
 }
-const pickValue = (c) => (c.cardType === 'Pokémon' ? c.attack + c.strength + (c.cap ?? 0) : c.cardType === 'Item' ? 5 : 4);
+export const pickValue = (c) => (c.cardType === 'Pokémon' ? c.attack + c.strength + (c.cap ?? 0) : c.cardType === 'Item' ? 5 : 4);
 function picked(s, who, op, picks, n) {
   const options = pickOptions(s, who, op);
   if (picks?.length) {
@@ -1270,14 +1300,14 @@ function selfOp(s, who, op, ctx = {}) {
   const foe = opponentOf(who);
   switch (op.op) {
     case 'draw': draw(s, who, op.amount); log(s, `${p.name} drew ${op.amount}.`); break;
-    case 'energy': p.energy += op.amount; log(s, `${p.name}: +${op.amount} Energy.`); break;
+    case 'energy': p.energy += op.amount; energyFrom(s, who, op.amount, causeName()); log(s, `${p.name}: +${op.amount} Energy.`); break;
     case 'energyNext': p.bonusNext += op.amount; break;
     case 'growth': gainGrowth(s, who, op.amount); break;
     case 'trainerPoint': gainTrainerPoints(s, who, op.amount, 'an Item'); break;
     case 'enemyBurn': applyBurn(s, { who: foe, kind: 'player' }, op.amount, who, ctx.space); break;
     case 'recognition':
       p.recognition += op.amount;
-      emit(s, 'recognition', { who, amount: op.amount, total: p.recognition, effect: true, source: 'other' });
+      emit(s, 'recognition', { who, amount: op.amount, total: p.recognition, effect: true, source: 'other', label: causeName() });
       log(s, `${p.name}: +${op.amount} Recognition (now ${p.recognition}).`);
       if (p.recognition >= targetOf(s)) win(s, who);
       break;
@@ -1285,7 +1315,7 @@ function selfOp(s, who, op, ctx = {}) {
       const f = s.players[foe];
       const loss = Math.min(f.recognition, op.amount);
       f.recognition -= loss;
-      emit(s, 'recognitionLost', { who: foe, amount: loss, total: f.recognition });
+      emit(s, 'recognitionLost', { who: foe, amount: loss, total: f.recognition, label: causeName() });
       log(s, `${f.name} ${vb(foe, 'lose', 'loses')} ${loss} Recognition (now ${f.recognition}).`);
       break;
     }
@@ -1311,6 +1341,15 @@ function selfOp(s, who, op, ctx = {}) {
     // Tracey: look at the top N; take some into your hand, the rest go to the bottom.
     case 'lookTop': {
       const top = p.drawPile.slice(0, op.n);
+      // Feedback B: the top cards are revealed to their player, who chooses (the play is final
+      // once revealed). Without picks the effect waits in s.choices for a choosePick action;
+      // the cards are shown only in that player's view (view.js).
+      if (!ctx.picks && top.length > op.take) {
+        s.choices.push({ who, kind: 'pick', name: causeName(), op, take: op.take, uids: top.map((c) => c.uid), text: `Look at the top ${top.length} cards of your Draw Pile: put ${op.take} in your hand, the rest on the bottom` });
+        emit(s, 'choiceWaiting', { who, name: causeName(), trigger: 'lookTop' });
+        log(s, `${p.name} looked at the top ${top.length} cards of ${vb(who, 'your', 'their')} Draw Pile.`);
+        break;
+      }
       const take = picked(s, who, op, ctx.picks, op.take);
       p.drawPile = [...p.drawPile.slice(op.n), ...top.filter((c) => !take.includes(c))];
       p.hand.push(...take);
@@ -1387,9 +1426,9 @@ function targetOp(s, who, op, t, ctx = {}) {
       }
       break;
     case 'train': if (card) train(s, t.who, t.space, op.amount); break;
-    case 'shellRound': if (card) addBuff(card, { keywords: [`Shell ${op.amount}`], until: 'supper' }); break;
+    case 'shellRound': if (card) addBuff(card, { keywords: [`Shell ${op.amount}`], until: 'supper', source: causeName() }); break;
     // "This Round" and "until your next Breakfast" buffs; permanent gains.
-    case 'buff': if (card) addBuff(card, { attack: op.attack, strength: op.strength, keywords: op.keywords, until: op.until ?? 'supper' }); break;
+    case 'buff': if (card) addBuff(card, { attack: op.attack, strength: op.strength, keywords: op.keywords, until: op.until ?? 'supper', source: causeName() }); break;
     case 'grow':
       if (card) {
         card.attack += op.attack ?? 0;
@@ -1423,7 +1462,7 @@ function effectDamagePlayer(s, by, target, amount) {
   if (amount <= 0 || by === target) return;
   const p = s.players[by];
   p.recognition += amount;
-  emit(s, 'recognition', { who: by, amount, total: p.recognition, effect: true, source: 'effect' });
+  emit(s, 'recognition', { who: by, amount, total: p.recognition, effect: true, source: 'effect', label: causeName() });
   log(s, `${vb(by, 'You deal', 'The Opponent deals')} ${amount} to ${vb(by, 'the Opponent', 'you')}: +${amount} Recognition (now ${p.recognition}).`);
   if (p.recognition >= targetOf(s)) win(s, by);
 }
@@ -1472,6 +1511,19 @@ function attackDamage(s, attacker, target) {
   if (ab?.vsBurned && target?.burn) n += ab.vsBurned;
   if (ab?.sunBonus && bracket(s, 'Sun', ab.sunBonus.at)) n += ab.sunBonus.amount;
   return n;
+}
+
+// What an attack would do (Feedback B: hovering a target says so), without doing it.
+export function attackPreview(state, who, from, target) {
+  const attacker = state.players[who].row[from];
+  const foe = opponentOf(who);
+  if (!attacker) return null;
+  if (target.kind === 'player') return { hit: attackDamage(state, attacker, state.players[foe]), back: 0 };
+  const defender = state.players[foe].row[target.space];
+  if (!defender) return null;
+  const hit = afterShell(attackDamage(state, attacker, defender), shellOf(state, foe, target.space));
+  const back = isAlert(state, defender) ? afterShell(defender.attack, shellOf(state, who, from)) : 0;
+  return { hit, back, defeats: hit >= defender.currentStrength, falls: back >= attacker.currentStrength };
 }
 
 // Heal: Rain 2 heals 1 more; Big Root +1 to its holder; Drought (Sun 8) stops all
@@ -1602,7 +1654,8 @@ function statusesAtSupper(s) {
   for (const who of PLAYERS) {
     const p = s.players[who];
     if (p.burn) {
-      const loss = Math.min(p.recognition, Math.max(0, p.burn - less));
+      // BC experiment flag (Feedback B): during the Championship, Burn removes no Recognition.
+      const loss = s.variant?.burnNoChamp && championship(s) ? 0 : Math.min(p.recognition, Math.max(0, p.burn - less));
       p.recognition -= loss;
       p.burn -= 1;
       emit(s, 'burnRecognition', { who, amount: loss, total: p.recognition, burn: p.burn });
@@ -1701,6 +1754,38 @@ function removeHeld(card) {
   card.speedUp = (card.speedUp ?? 0) - h.speedUp;
 }
 
+// Where a Pokémon's numbers come from (Feedback B, the Codex): its printed Attack and Strength
+// at its Level, then each modifier with its source. The parts always sum to the card's
+// Attack and Strength (tests/info.test.js checks it over whole matches).
+export function statParts(state, who, space) {
+  const card = state.players[who].row[space];
+  if (!card) return null;
+  const base = card.series ? pokemonAt(card.series, card.level) : null;
+  const parts = { attack: [], strength: [] };
+  const add = (stat, label, n) => { if (n) parts[stat].push({ label, amount: n }); };
+  if (base) { add('attack', `printed at Level ${card.level}`, base.attack); add('strength', `printed at Level ${card.level}`, base.strength); }
+  if (card.empowered && card.empower) { add('attack', 'Empowered summon', card.empower.attack ?? 0); add('strength', 'Empowered summon', card.empower.strength ?? 0); }
+  add('strength', `${card.type}-Type bonus`, waterBonus(state, card));
+  add('attack', `${card.type}-Type bonus`, waterAttack(state, card));
+  if (card.held) { add('attack', `holding ${card.held.name}`, card.heldParts?.attack ?? 0); add('strength', `holding ${card.held.name}`, card.heldStrength ?? 0); }
+  if (card.grown) { add('attack', 'gained in play (Rally, Rage…)', card.grown.attack ?? 0); add('strength', 'gained in play (Rally…)', card.grown.strength ?? 0); }
+  for (const b of card.buffs ?? []) {
+    const label = `${b.source ?? 'an effect'} (${b.until === 'breakfast' ? 'until Breakfast' : 'this Round'})`;
+    add('attack', label, b.attack ?? 0);
+    add('strength', label, b.strength ?? 0);
+  }
+  const trainers = state.players[who].trainers.filter((t) => tiersUnlocked(t) >= 1 && t.space === space && ['laneAttack', 'laneStrength'].includes(passiveOf(state, t).kind)).map((t) => t.name);
+  const lane = trainers.length ? `${trainers.join(' and ')}'s Passive` : 'a Trainer\'s Passive';
+  add('attack', lane, card.passiveAttack ?? 0);
+  add('strength', lane, card.passiveStrength ?? 0);
+  // Anything else (a Partner's printed numbers, which have no series).
+  for (const stat of ['attack', 'strength']) {
+    const rest = card[stat] - parts[stat].reduce((n, x) => n + x.amount, 0);
+    if (rest) parts[stat].push({ label: base ? 'other effects' : 'printed', amount: rest });
+  }
+  return { attack: card.attack, strength: card.strength, current: card.currentStrength, parts };
+}
+
 // A card leaving play keeps none of its play-only state.
 function plainCard(card) {
   const { currentStrength, spent, arrivedRound, burn, asleep, seededBy, held, shellRound, passiveStrength, passiveAttack, buffs, grown, gained,
@@ -1710,6 +1795,27 @@ function plainCard(card) {
 
 function emit(s, type, data = {}) {
   s.events.push({ type, ...data });
+  // The Codex's Recognition history (Feedback B): each gain and loss, by source.
+  const rec = { recognition: 1, recognitionLost: -1, burnRecognition: -1 }[type];
+  if (rec && data.amount) s.players[data.who].recHistory.push({ round: s.round, amount: rec * data.amount, total: data.total, source: data.label ?? recLabel(type, data) });
+}
+// A readable source for a Recognition change (its event's own label, if any).
+function recLabel(type, e) {
+  if (type === 'burnRecognition') return 'Burn at Supper';
+  if (type === 'recognitionLost') return e.label ?? 'an enemy effect';
+  return { attack: 'an attack on the enemy player', overrun: 'Overrun', effect: 'damage to the enemy player', location: 'a Location', championship: 'the Championship' }[e.source] ?? 'an effect';
+}
+// This Round's Energy, by source (Feedback B, the Codex).
+function energyFrom(s, who, amount, source) {
+  if (amount) s.players[who].energySources.push({ amount, source });
+}
+// A readable name for what is acting now (the cause, V7b), for the Codex's sources.
+function causeName() {
+  if (!CAUSE) return 'an effect';
+  const [kind, rest] = String(CAUSE).split(/:(.*)/s);
+  if (kind === 'ability') return rest ? `${rest.replace(/^[a-z]-/, '').replace(/-/g, ' ').replace(/^./, (c) => c.toUpperCase())}'s ability` : 'an ability';
+  if (['strategy', 'supporter', 'item', 'trainer'].includes(kind)) return rest;
+  return { attack: 'an attack', nurture: 'Nurture' }[kind] ?? kind;
 }
 function log(s, line) {
   s.log.push(line);

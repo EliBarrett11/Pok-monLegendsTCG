@@ -42,8 +42,35 @@ export const tintFor = (card) => tintOf(card?.type);
 
 // v2 ids carry a deck prefix (f-ember); the shared library knows the plain id (ember).
 const plain = (id) => String(id ?? '').replace(/^[fwgp]-/, '');
-// v2's Strategy Cards the current game doesn't have: the closest shared animation.
-export const V2_STRATEGIES = { 'hydro-pump': 'strategy-bubble-beam' };
+// v2's own Strategy animations (Feedback B): Hydro Pump, a heavy pressurised water cannon, in
+// docs/vfx.md's style (the shared opening, then its effect): water gathers and spins round the
+// card as the pressure builds, a thick spiralling jet fires, and it slams into the target with
+// hit-stop, a crown of spray and droplets running down. The 6-Energy version is bigger (the
+// breakpoint scale) and adds a shockwave at the impact (strategyDef). Built only from the shared
+// presets, ribbons and motions; added to the shared TIMELINES table for this page only.
+TIMELINES['strategy-hydro-pump'] = {
+  budget: 'strategy', duration: 1200,
+  beats: [
+    { at: 0, end: 420, emit: 'ringDroplets', on: 'card', countScale: 1.4 },
+    { at: 0, end: 420, emit: 'chargeOrb', on: 'card', tint: ['#bfe8ff', '#3a9cff'] },
+    { at: 420, cue: 'fire', shake: 4, bloom: 0.5 },
+    { at: 420, end: 900, emit: 'hydroJet', on: 'card', countScale: 1.5 },
+    { at: 420, end: 900, emit: 'jetDroplets', on: 'card' },
+    { at: 420, end: 900, ribbon: 'hydroStream', on: 'card' },
+    { at: 420, end: 900, ribbon: 'hydroStreamCore', on: 'card' },
+    { at: 560, cue: 'impact', hitstop: 90, shake: 12, flash: 'water', bloom: 0.9 },
+    { at: 560, emit: 'splashCrown', on: 'target' },
+    { at: 560, emit: 'splashDroplets', on: 'target' },
+    { at: 560, emit: 'strikeRing', on: 'target', tint: ['#ffffff', '#8fd0ff'] },
+    { at: 560, end: 980, emit: 'spray', on: 'target' },
+    { at: 600, emit: 'splashMist', on: 'target' },
+    { at: 560, end: 1150, track: 'target', motion: 'drenched' },
+    { at: 760, end: 1050, emit: 'dropletsBead', on: 'target' },
+  ],
+};
+export const V2_STRATEGIES = { 'hydro-pump': 'strategy-hydro-pump' };
+// The impact of each v2 Strategy, for extra breakpoint beats (ms after the opening).
+const IMPACT = { 'hydro-pump': 560 };
 const DECK_TYPE = { f: 'Fire', w: 'Water', g: 'Grass', p: 'Normal' };
 export const strategyFor = (card) => STRATEGIES[plain(card?.id)] ?? V2_STRATEGIES[plain(card?.id)] ?? STRATEGY_FALLBACK;
 export const strategyTypeOf = (card) => STRATEGY_TYPES[plain(card?.id)] ?? (plain(card?.id) === 'hydro-pump' ? 'Water' : DECK_TYPE[String(card?.id)[0]] ?? 'Normal');
@@ -69,6 +96,12 @@ export function strategyDef(card, level = 0) {
     beats.push({ at: base.effectStart, emit: 'epicSparks', on: 'card', countScale: k, breakpoint: true });
   }
   if (level >= 2) beats.push({ at: base.effectStart, cue: 'breakpoint', bloom: 1.2, distort: 'shockwave', emit: 'giftRing', on: 'card', breakpoint: true });
+  // Hydro Pump at 6 Energy: a shockwave where the cannon hits.
+  const impact = IMPACT[plain(card?.id)];
+  if (impact !== undefined && level >= 1) {
+    beats.push({ at: base.effectStart + impact, distort: 'shockwave', shake: 16, emit: 'slamRing', on: 'target', breakpoint: true });
+    beats.push({ at: base.effectStart + impact, emit: 'groundRing', on: 'target', countScale: 2, breakpoint: true });
+  }
   return { ...base, id: `${base.id}@${level}`, beats, level, scale: k };
 }
 
@@ -295,6 +328,7 @@ export const EVENT_BEATS = {
   itemStolen: { phase: 'before', beat: 'the Item flies from one Bag to the other' },
   pass: { phase: 'before', beat: 'a Pass tag on the player\'s side' },
   searched: { phase: 'before', beat: 'the draw pile glints' },
+  picked: { phase: 'before', beat: 'Tracey: the chosen cards fly from the Draw Pile into the hand' },
   shuffled: { phase: 'before', beat: 'the draw pile wobbles' },
   choiceWaiting: { phase: 'after', beat: 'the choice prompt pulses' },
   summoned: { phase: 'after', beat: 'the summon entrance by rarity; Legendaries play their cinematic' },

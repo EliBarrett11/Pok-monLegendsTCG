@@ -12,7 +12,8 @@
 import { createGame, applyAction, actor, legalActions, PLAYERS } from './engine/game.js';
 import { viewFor } from './engine/view.js';
 import { chooseAction } from './ai/opponent.js';
-import { renderMatch } from './ui/board.js';
+import { renderMatch, currentView } from './ui/board.js';
+import { initCodex, drawCodex } from './ui/codex.js';
 import { toastsFor, showToasts } from './ui/toasts.js';
 import { openDeckBuilder } from './ui/deckbuilder.js';
 import { DECKS, POOL_ITEMS, deckProblems, cardAt } from './engine/cards.js';
@@ -25,7 +26,7 @@ import { renderSetup } from './ui/setup.js';
 import { createOnline, savedHostMatch } from './online.js';
 import { setSpeed } from '../../src/ui/settings.js';
 
-export const BUILD = 'v2 Feedback A — setup screen, nothing clipped';
+export const BUILD = 'v2 Feedback B — information';
 
 const STAGE = { width: 1920, height: 1080 };
 const stage = document.getElementById('stage');
@@ -75,8 +76,10 @@ let state = null;    // the real game (against the AI and in hot-seat; online it
 let seat = 'player'; // whose view is on screen (the engine's seat)
 let playing = null;  // the deck names in this match
 let match = 0;       // bumped by every new match, so an old match's loops stop
-const ui = { summon: null, location: null, attacker: null, empowerAsk: null, ask: null, pending: null, trainer: null, moveTrainer: null, assignDraft: null, locked: false };
-const clearUi = () => Object.assign(ui, { summon: null, location: null, attacker: null, empowerAsk: null, ask: null, pending: null, trainer: null, moveTrainer: null });
+const ui = { summon: null, location: null, attacker: null, empowerAsk: null, ask: null, pending: null, trainer: null, moveTrainer: null, strategy: null, preview: null, version: {}, codex: null, assignDraft: null, locked: false };
+const clearUi = () => Object.assign(ui, { summon: null, location: null, attacker: null, empowerAsk: null, ask: null, pending: null, trainer: null, moveTrainer: null, strategy: null, preview: null });
+// The Codex (Feedback B): right-click anything, or hover + Space; over the side panel.
+initCodex(stage, { ui, view: () => (root.querySelector('.v2-table.fb') ? currentView() : null) });
 
 // A seat's view of a state, oriented with that seat at the bottom.
 const viewOf = (s, who = seat) => orient(viewFor(s, who));

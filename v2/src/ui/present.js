@@ -178,8 +178,9 @@ const locEl = (root, uid) => $(root, `.v2-loc[data-loc-target="${uid}"]`);
 const trainerEl = (root, uid) => $(root, `[data-trainer="${uid}"]`);
 const growthEl = (root, who) => $(root, `.v2-row.${who === 'ai' ? 'opponent' : 'player'} .v2-growth`) ?? panelEl(root, who);
 const handCard = (root, uid) => $(root, `.v2-hand [data-uid="${uid}"]`);
-const bagEl = (root, who) => (who === 'player' ? $(root, '.v2-bag') : $(root, '.v2-opp-hand'));
-const tpEl = (root) => $(root, '.v2-tp');
+// (Feedback B: the Bag and Trainer Points panels show only when relevant; else the side panel.)
+const bagEl = (root, who) => (who === 'player' ? $(root, '.v2-bag') ?? $(root, '.v2-sidemain') : $(root, '.v2-opp-hand'));
+const tpEl = (root) => $(root, '.v2-tp') ?? $(root, '.v2-sidemain');
 const releasedEl = (root) => $(root, '.v2-piles span:nth-child(3)');
 const drawEl = (root) => $(root, '.v2-piles span:nth-child(1)');
 const boardEl = (root) => $(root, '.v2-board');
@@ -533,6 +534,7 @@ const BEFORE = {
     return true;
   },
   pass: async ({ root, e, t }) => { floatText(panelEl(root, e.who), e.endsPhase ? 'Pass · Battle over' : 'Pass', 'status', t(900)); return true; },
+  picked: async ({ root, e, t }) => { floatText(drawEl(root), e.who === 'player' ? `Took ${e.count}` : `Opponent took ${e.count}`, 'status', t(800)); return true; },
   searched: async ({ root, e, t }) => { if (e.who === 'player') floatText(drawEl(root), `Searched ${e.count}`, 'status', t(800)); return true; },
   shuffled: async ({ root, e, t }) => { if (e.who === 'player') await animate(drawEl(root), [{ transform: 'none' }, { transform: 'rotate(-4deg)' }, { transform: 'rotate(4deg)' }, { transform: 'none' }], t(300)); return true; },
 };

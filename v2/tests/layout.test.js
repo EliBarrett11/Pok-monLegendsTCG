@@ -25,7 +25,7 @@ for (const id of Object.keys(DECKS)) {
 // The layout check: all three sizes, every screen and dialog type.
 const tool = readFileSync(resolve(V2, 'tools/layout.mjs'), 'utf8');
 for (const size of ['1920x1080', '1366x768', '1280x720']) assert.ok(tool.includes(size), `checks ${size}`);
-for (const scenario of ['setup', 'deckbuilder', 'board', 'board-busy', 'empower', 'cost', 'amount', 'pick', 'space', 'release', 'item', 'trainer', 'assign', 'end-victory', 'hotseat-pick', 'hotseat-pass', 'online-waiting', 'online-decks', 'online-error', 'online-mismatch']) {
+for (const scenario of ['setup', 'deckbuilder', 'board', 'board-busy', 'empower', 'strategy', 'preview', 'choose', 'codex', 'codex-rules', 'tracey', 'amount', 'pick', 'space', 'release', 'item', 'trainer', 'assign', 'end-victory', 'hotseat-pick', 'hotseat-pass', 'online-waiting', 'online-decks', 'online-error', 'online-mismatch']) {
   assert.ok(tool.includes(`${scenario.includes('-') ? `'${scenario}'` : scenario}:`), `checks ${scenario}`);
 }
 // It fails on the page scrolling, things off-screen, clipped or covered.

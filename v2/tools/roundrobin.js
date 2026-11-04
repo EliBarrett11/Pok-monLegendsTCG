@@ -24,6 +24,9 @@
 //             F½ (or FH) Fire Pokémon +1 Strength at Levels 3–6 only
 //             WA½ (WAH)  Water Pokémon +1 Attack at Levels 3–6 only
 //             ER         Erika's Passive is "your Pokémon in her lane gain +1 Strength" (no training)
+//             TP+        (Feedback B) every Location milestone also gives +1 Trainer Point
+//             TC         (Feedback B) Trainer tiers cost 2/3/5 instead of 2/4/6
+//             BC         (Feedback B) Burn removes no Recognition during the Championship
 // --json      one JSON line with the results (for v2/tools/variants.js)
 //
 // For each deck in each matchup it reports, per match: Recognition by source (attacks on
@@ -45,6 +48,7 @@ export const VARIANTS = {
   W1: { waterStrength: 1 }, W2: { waterLocations: true }, FG: { fireGuards: true },
   C1: { minCost: 1 }, 'F½': { fireHalf: true }, FH: { fireHalf: true },
   'WA½': { waterAttackHalf: true }, WAH: { waterAttackHalf: true }, SL: { sleepLimit: true },
+  'TP+': { tpPlus: true }, TC: { tierCosts: [2, 3, 5] }, BC: { burnNoChamp: true },
   N3: { nurtureCost: 3 }, N1: { nurtureOnce: true }, NR: { nurtureRoundCap: true }, GX: { growthBulbasaurOnly: true }, ER: { erikaStrength: true },
 };
 export const variantOf = (flags = []) => (flags.length ? Object.assign({}, ...flags.map((f) => {
@@ -65,7 +69,7 @@ const SOURCES = ['attack', 'overrun', 'effect', 'location', 'championship', 'oth
 const blank = () => ({ wins: 0, recognition: Object.fromEntries(SOURCES.map((k) => [k, 0])), burnRemoved: 0, lossRemoved: 0,
   attacks: 0, guarded: 0, defeated: 0, levels: 0, played: 0,
   growth: {}, nurtures: 0, training: {}, board: {}, guardsMet: 0, guardsAsleep: 0, ownLane: 0, atPlayer: 0,
-  free: 0, passes: 0, atSpent: 0, atAsleep: 0, monRounds: 0, suppers: 0, surfs: 0, surfDamage: 0 });
+  free: 0, passes: 0, atSpent: 0, atAsleep: 0, monRounds: 0, suppers: 0, surfs: 0, surfDamage: 0, tp: {}, partners: 0, trainersPlayed: 0 });
 const add = (o, k, n) => { o[k] = (o[k] ?? 0) + n; };
 // A readable source for a Growth or training cause ('ability:g-oddish' → 'Oddish line').
 const LINE_NAMES = { 'g-eevee': 'Leafeon (Eevee line)', 'g-celebi': 'Celebi' };
@@ -147,6 +151,9 @@ export function runMatchup(a, b, n, variant = null, seed0 = 1000) {
       for (const e of s.events) {
         if (e.type === 'growth') add(r.deck[deckOf(e.who)].growth, sourceName(e.cause), e.amount);
         else if (e.type === 'nurtured') r.deck[deckOf(e.who)].nurtures += 1;
+        else if (e.type === 'trainerPoints') add(r.deck[deckOf(e.who)].tp, e.why ?? 'other', e.amount);
+        else if (e.type === 'partnerArrived') r.deck[deckOf(e.who)].partners += 1;
+        else if (e.type === 'trainerPlayed') r.deck[deckOf(e.who)].trainersPlayed += 1;
         else if (e.type === 'trained' && e.cause !== 'nurture') add(r.deck[deckOf(e.who)].training, sourceName(e.cause), e.to - e.from);
         else if (e.type === 'recognition') r.deck[deckOf(e.who)].recognition[e.source ?? 'other'] += e.amount;
         else if (e.type === 'burnRecognition') r.deck[deckOf(e.who === 'player' ? 'ai' : 'player')].burnRemoved += e.amount;
@@ -190,6 +197,7 @@ export function extraReport(d, n) {
     + (d.surfs ? `Surf plays/match ${per(d.surfs, n)}, Surf damage/match ${per(d.surfDamage, n)} · ` : '')
     + `attacks per Pokémon per Round ${d.monRounds ? (d.attacks / d.monRounds).toFixed(2) : '–'} · passes/match ${per(d.passes, n)} · `
     + `attacks on a Spent target ${pct(d.atSpent, d.attacks)}% (Asleep ${pct(d.atAsleep, d.atSpent)}% of those) · Pokémon defeated/match ${per(d.defeated, n)} · `
+    + `Trainers played/match ${per(d.trainersPlayed, n)} · Trainer Points/match ${bySource(d.tp, n)} · Partner arrivals/match ${per(d.partners, n)} · `
     + `Growth/match ${bySource(d.growth, n)} · Nurtures/match ${per(d.nurtures, n)} · other training (Levels)/match ${bySource(d.training, n)} · `
     + `attacks on a target in its own lane ${d.attacks ? Math.round((100 * d.ownLane) / d.attacks) : 0}%, on the enemy player ${d.attacks ? Math.round((100 * d.atPlayer) / d.attacks) : 0}% · `
     + `avg board Level at Supper by Round: ${curve || '–'} · its guards Asleep when attacked through: ${d.guardsMet ? Math.round((100 * d.guardsAsleep) / d.guardsMet) : 0}% of ${per(d.guardsMet, n)}/match`;

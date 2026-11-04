@@ -7,8 +7,9 @@
 // It serves the repository itself (no other server needed), opens v2 in Chromium (Playwright,
 // pre-installed) with ?debug, and for each window size goes through: the setup screen, the
 // deck builder, a mid-match board (and one with a full hand and every panel busy), every
-// dialog type (Empowered summon, the cost chooser, the Growth amount, card picks, the space
-// picker, the Release payment, an Item, a Trainer, the Trainer Point step), the end screen,
+// dialog type (Empowered summon, the Growth amount, card picks, the space picker, the Release
+// payment, an Item, a Trainer, the Trainer Point step, Tracey's revealed cards), a Strategy Card
+// and a Pokémon with their ▲ previews, choosing targets, the Codex (a Pokémon, the rules), the end screen,
 // the hot-seat deck pick and pass screen, and the online lobby screens. It fails if:
 //   - the page itself scrolls;
 //   - a button, input, select, card or text block is outside the visible stage;
@@ -168,7 +169,38 @@ const SCENARIOS = {
     await match(p, 5);
     await v2(p, () => { const v = window.__v2; const uid = v.give('f-growlithe'); v.set((s, ui) => { s.players.player.energy = 10; ui.empowerAsk = { uid, space: s.players.player.row.indexOf(null) }; }); });
   },
-  cost: async (p) => { await match(p, 5); await v2(p, () => { const v = window.__v2; const uid = v.give('f-ember'); v.set((s, ui) => { s.players.player.energy = 10; ui.ask = { kind: 'cost', uid }; }); }); },
+  // Feedback B: a Strategy Card selected with its ▲ preview; a Pokémon's ▲ preview; choosing
+  // targets (C) with a numbered badge; the Codex on a Pokémon and on the searchable rules;
+  // Tracey's revealed cards.
+  strategy: async (p) => {
+    await match(p, 5);
+    await v2(p, () => { const v = window.__v2; const uid = v.give('w-hydro-pump'); v.set((s, ui) => { s.players.player.energy = 4; ui.strategy = uid; ui.preview = { uid, offset: 1 }; }); });
+  },
+  preview: async (p) => {
+    await match(p, 3);
+    await v2(p, () => { const v = window.__v2; const uid = v.give('w-horsea'); v.set((s, ui) => { s.players.player.energy = 9; ui.summon = uid; ui.preview = { uid, offset: 2 }; }); });
+  },
+  choose: async (p) => {
+    await match(p, 6);
+    await v2(p, () => {
+      const v = window.__v2;
+      const uid = v.give('f-ember');
+      v.set((s, ui) => {
+        s.players.player.energy = 4;
+        const card = s.players.player.hand.find((c) => c.uid === uid);
+        const bp = card.breakpoints[1];
+        const first = s.players.ai.row.findIndex(Boolean);
+        ui.pending = { action: { type: 'playStrategy', who: 'player', uid, pay: bp.cost }, spec: bp.target, label: `Ember (4): ${bp.text}`, chosen: first >= 0 ? [{ who: 'ai', kind: 'pokemon', space: first }] : [], extra: [], ops: bp.ops, ctx: {}, tag: 'Ember · 4 Energy' };
+      });
+    });
+    await p.hover('.v2-row.opponent .v2-space.effect-target:not(.chosen) .v2-card').catch(() => {});
+  },
+  codex: async (p) => { await match(p, 6); await p.click('.v2-row .v2-card', { button: 'right' }); },
+  'codex-rules': async (p) => { await match(p, 6); await p.click('[data-codex-open="rules"]'); await p.fill('.v2-codex-search', 'burn'); },
+  tracey: async (p) => {
+    await match(p, 5);
+    await v2(p, () => window.__v2.set((s) => { s.choices.push({ who: 'player', kind: 'pick', name: 'Tracey', op: { op: 'lookTop', n: 4, take: 2 }, take: 2, uids: s.players.player.drawPile.slice(0, 4).map((c) => c.uid), text: '' }); }));
+  },
   amount: async (p) => { await match(p, 5); await v2(p, () => { const v = window.__v2; const uid = v.give('g-solar-beam'); v.set((s, ui) => { ui.ask = { kind: 'amount', uid, pay: 4, x: 7, max: 10, label: 'Solar Beam' }; }); }); },
   pick: async (p) => {
     await match(p, 5);

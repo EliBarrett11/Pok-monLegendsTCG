@@ -42,7 +42,7 @@ import {
   passSpends, opponentOf, pokemonOf, pokemonIn, summonCost, targetOptions, breakpointsFor, playableStrategies,
   playableSupporters, playableItems, usableBagItems, itemUsable, bagFull, trainTop,
   playableTrainers, trainerSpaces, canMoveTrainer, usableAbilities, freeSpaces, tiersUnlocked, needsAssign,
-  nurtureSpaces, championship,
+  nurtureSpaces, championship, pickValue, choiceCards,
 } from '../engine/game.js';
 import { FAVOURS } from '../engine/cardtypes.js';
 import { LANES, CHAMPIONSHIP_ROUND } from '../engine/rules.js';
@@ -60,6 +60,12 @@ export function moves(state, who) {
   if (legal.includes('chooseTarget')) {
     const c = state.choices[0];
     return targetOptions(state, who, c.spec, c.ctx).map((t) => ({ type: 'chooseTarget', who, targets: [t] }));
+  }
+  // A waiting Tracey (Feedback B): it takes the best of the revealed cards, as the engine did.
+  if (legal.includes('choosePick')) {
+    const c = state.choices[0];
+    const best = [...choiceCards(state, c)].sort((a, b) => pickValue(b) - pickValue(a)).slice(0, c.take);
+    return [{ type: 'choosePick', who, picks: best.map((x) => x.uid) }];
   }
   if (legal.includes('assignPoints')) return [{ type: 'assignPoints', who, points: assignPlan(state, who) }];
   // A waiting Partner arrives first (it isn't a Battle Action).
@@ -415,6 +421,7 @@ function baseScore(state, after, who, move, gained) {
 export function chooseAction(state, who, { rng = Math.random } = {}) {
   const options = moves(state, who);
   if (!options.length) return null;
+  if (options[0].type === 'choosePick') { rng(); return options[0]; }
   let best = null;
   let bestScore = -Infinity;
   for (const move of options) {

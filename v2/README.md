@@ -711,3 +711,98 @@ To play locally: `python3 -m http.server` at the repository root, then open http
     - `v2/tests/layout.test.js`: every deck has its art and plan; the check covers every screen and size; the rule is in the design doc.
     - All v2 tests and the current game's suite pass.
   - **Screenshots:** `v2/screenshots/feedback-a-setup-1920x1080.jpg`, `feedback-a-setup-1366x768.jpg` and `feedback-a-setup-1280x720.jpg`.
+
+- **v2 Feedback B — information.** Matches the approved mockups `docs/design/v2-info-A2.jpg` (board and hand), `v2-info-B.jpg` (the Codex) and `v2-info-C.jpg` (choosing targets). Elliott's three principles are recorded in `docs/v2-design.md` 7d: explore any detail without obstructing play, show only what's relevant now, and always know what you can do, must do, and why.
+  - **The board (A2):**
+    - **Board cards** show art, ⚔ and ♥, keyword chips and status chips only. A Pokémon's Level, Type or name appears (highlighted) only while a card or effect refers to it: hovering or selecting a card whose text names a Type, "Level" or a Pokémon on the board, or choosing targets for one. Alert glow, Spent tilt and status glows stay.
+    - **Locations** are bold tiles (opaque art, thick coloured frame). Each has one compact panel on the board's midline, the same height for 1, 2 or 3 lanes: name, objective, Weather, both progress bars with milestone ticks, and Rounds left. The rewards appear on hover (a small card beside the panel) and in the Codex.
+    - **Trainers** are slim tabs with three tier bars.
+    - **Recognition panels** sit on the left, with each player's piles: the opponent's hand count, plus Draw, Discard and Released for each player.
+  - **The side panel (A2):**
+    - Round, with a small Championship countdown chip.
+    - Energy as the standout tile: "4 of 6 this Round", a crystal per point that dims as it's spent, and a pulse when it changes.
+    - The last action, Pass (+1 Energy, or "ends the Battle Phase"), Nurture when available, and Log · Rules.
+    - Trainer Points, Bag, Weather and Growth appear only when relevant.
+    - Under them: the build line, links, Animations, and the new **Hints** setting.
+  - **The hand** carries the most information: cost, Level and cap, type line, full text and stats.
+    - Playable cards glow. Unplayable ones dim and say why on hover ("Needs 7 Energy · you have 4", "No empty space", "No legal target"; `v2/src/engine/explain.js`).
+    - **Pokémon:** selecting one shows ▲ above and ▼ below. They step through its other Levels up to its cap as a dimmed preview above the hand.
+    - **Strategy Cards:** the hand shows the highest affordable version. ▲ ▼ explore the others: higher ones are dimmed with "Needs N", and a lower affordable one can be selected to play instead. When Energy drops, the shown version steps down by itself, or dims if none is affordable. Click the card again (or Play in the prompt bar) to play the shown version; the old cost dialog is gone.
+  - **The Codex (B)** (`v2/src/ui/codex.js`): right-click anything (or hover + Space) and a panel opens over the side panel. The board stays visible and the match carries on; Esc or ✕ closes it.
+    - **Entries for:**
+      - every card, in hand, on the board, in the piles, the Bag and the deck builder;
+      - Pokémon in play: the series ladder with the current Level and cap, "where its numbers come from" (printed numbers plus each modifier and its source), abilities, keywords, statuses, Held Item and when it was played;
+      - Locations, Trainers (every tier and cost) and the Championship;
+      - Recognition (a history of every gain and loss, by source), Energy (this Round's sources) and Weather (every bracket, with the active ones lit, and where the tokens come from);
+      - the piles, the Bag, and the log (the whole log and each line).
+    - **Links:** every game term in any text links to its rule, with Back and breadcrumbs.
+    - **Glossary:** a searchable glossary of every rule, keyword, trigger and status in plain words, written from `docs/v2-design.md` and the deck docs. It lives in one data file, `v2/src/engine/glossary.js`, so a new card's terms are added in one place.
+  - **The prompt bar (A2, C)** (`v2/src/ui/prompt.js`) replaces the title line. It always describes the current step and the options actually available ("Attack with Arcanine or Growlithe (glowing), play a glowing card — or Pass for +1 Energy").
+    - It turns gold for a choice in progress ("Ember · 4 Energy: Choose target 2 of 2: …"), with Confirm and Cancel where allowed.
+    - The same goes for summoning, placing a Location, attacking, Supporter Release and Favour, Items, Trainers, the Growth amount, card picks, Tracey, the Breakfast assign step, the opponent's turn ("Opponent is choosing…") and the end.
+    - If Pass is the only option, it says so and why.
+    - **During any choice:** legal targets glow and lift, chosen ones get a numbered badge, and everything else dims. Hovering a target says what will happen ("Quagsire · click to Burn 2"); hovering an illegal one says why ("The Opponent · Guarded by Blastoise, across from this Pokémon").
+  - **Hints (Full / Minimal / Off)**, beside the speed picker: Minimal keeps only the prompt bar's essentials; Off also hides hover reasons. The Codex stays available.
+  - **Engine (no rule changes except Tracey):**
+    - each player's Recognition history and this Round's Energy sources (public, like the totals);
+    - `statParts` (where a Pokémon's numbers come from), `attackPreview`, and the labelled sources;
+    - **Tracey:** its player sees the top 4 cards and chooses (a waiting `choosePick`, like an On Evolve target; the play is final once revealed). Only that player's view carries the cards, and the opponent never learns which were taken. The AI chooses for itself through the same action.
+  - **Hydro Pump** has its own animation (`v2/src/ui/vfx/library.js`), in `docs/vfx.md`'s style. Water gathers and spins round the card as the pressure builds, then a thick spiralling jet fires and slams in with hit-stop, a crown of spray and droplets running down. The 6-Energy version is bigger and adds a shockwave at the impact.
+  - **Experiments** (flags only, not committed: `node v2/tools/roundrobin.js 100 --variant=…`; 100 matches per matchup, win rates in %). The round-robin now also reports Trainer Points per match by source, Trainers played and Partner arrivals.
+
+    Partners:
+
+    | | Fire–Water | Fire–Grass | Water–Grass | TP/match | Partners/match |
+    |---|---|---|---|---|---|
+    | Now | 40–60 | 56–44 | 52–48 | 2.1–2.8 (Locations ~1.3, Favours ~1) | 0.00–0.05 |
+    | TP+ (each milestone +1 TP) | 46–54 | 63–37 | 53–47 | 6.8–8.8 | 0.7–1.0 |
+    | TC (tiers 2/3/5) | 41–59 | 56–44 | 50–50 | 2.1–2.9 | 0.02–0.11 |
+    | TP+ and TC | 47–53 | 60–40 | 59–41 | 6.7–8.8 | 0.9–1.3 |
+
+    - Today Partners almost never arrive (one match in 20–100): Trainer Points come to about 2.5 a match, against 6 for the third tier.
+    - TC alone barely changes that.
+    - TP+ brings a Partner in most matches, and TP+ with TC about one per match per player.
+    - Win rates move by up to 7 points: Fire–Grass tilts towards Fire, and Water–Grass towards Water with both flags.
+
+    Fire mirror, BC (Burn removes no Recognition during the Championship):
+
+    | | Fire mirror | Fire–Water | Fire–Grass |
+    |---|---|---|---|
+    | Now: win rate | first 46, second 52 | 40–60 | 56–44 |
+    | Now: draws | 2 | 0 | 0 |
+    | Now: ends early / Championship / final count | 2 / 18 / 80 | 30 / 57 / 13 | 25 / 74 / 1 |
+    | BC: win rate | first 47, second 53 | 26–74 | 55–45 |
+    | BC: draws | 0 | 0 | 0 |
+    | BC: ends early / Championship / final count | 2 / 64 / 34 | 30 / 68 / 2 | 25 / 75 / 0 |
+
+    - BC turns the Fire mirror from a Recognition grind decided on the final count (80%) into one mostly decided in the Championship (64%), with no draws.
+    - It costs Fire 14 points against Water (Burn there removes about 56 Recognition a match; with BC, about 32).
+    - Fire–Grass is unchanged.
+  - **Nothing clipped:** the layout check (`node v2/tools/layout.mjs`) now also opens:
+    - a Strategy Card with its ▲ preview;
+    - a Pokémon with its Level preview;
+    - choosing targets;
+    - the Codex on a Pokémon and on the searched rules;
+    - Tracey's revealed cards.
+
+    The old cost dialog's case is gone. It reports `layout: ok` at 1920×1080, 1366×768 and 1280×720.
+  - **Tests:**
+    - `v2/tests/info.test.js`:
+      - a Codex entry for every card, keyword, trigger and status, and every glossary link resolves;
+      - over four whole matches, "where its numbers come from" always sums to the shown Attack and Strength, with every part named;
+      - the Strategy versions and their step-down when Energy drops, and the "why not" reasons;
+      - the hover notes (guards, Burn, Shell or Scorch);
+      - the prompt-bar text for each kind of step;
+      - Tracey's choice is hidden from the opponent, the chooser takes exactly 2, the rest go to the bottom, and the AI chooses for itself.
+    - `v2/tests/view.test.js` now also checks Tracey's revealed cards.
+    - All v2 tests and the current game's suite pass.
+  - **Checked in the browser:** autoplay to the end at Instant (2D) and at Normal (WebGL), and hot-seat autoplay through a Tracey choice, all with no console errors.
+  - **Screenshots** (`v2/screenshots/`):
+    - `feedback-b-board.jpg` (A2);
+    - `feedback-b-codex.jpg` (B);
+    - `feedback-b-choosing.jpg` (C);
+    - `feedback-b-strategy-preview.jpg` (Hydro Pump at 3 with its 6 version above, "Needs 6 · you have 4");
+    - `feedback-b-pokemon-levels.jpg` (Seadra with ▲ ▼, previewing Kingdra at Level 5);
+    - `feedback-b-tracey.jpg`;
+    - `feedback-b-hydro-pump.jpg` (the jet in flight).
+

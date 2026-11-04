@@ -11,12 +11,12 @@
 //   - the shared Item pool: how many Items, not which or in what order;
 //   - the random-number state and seed (they would predict every shuffle);
 //   - the opponent's Trainer Point assignment until both have locked in (then it resolves);
-//   - which cards an opponent's Search or Tracey took (counts only), the card a Retain was
+//   - which cards an opponent's Search or Tracey took, or Tracey revealed (counts only), the card a Retain was
 //     granted to, and a card in their hand levelling up;
 //   - anything in the log or events that would give these away.
 // Everything else is public: both rows, Locations, Trainers, the Discard and Released Piles,
 // the Bags, Energy, Growth, Recognition, Trainer Points, played and revealed cards.
-import { PLAYERS, opponentOf, localize, pickOptions } from './game.js';
+import { PLAYERS, opponentOf, localize, pickOptions, choiceCards } from './game.js';
 
 export const HIDDEN = Object.freeze({ hidden: true });
 
@@ -42,6 +42,8 @@ export function viewFor(state, seat) {
   // The simultaneous Trainer Point step: only that the opponent has locked in.
   if (v.assign && v.assign[foe]) v.assign[foe] = { locked: true };
   blank(v, secret);
+  // A waiting Tracey (Feedback B): the revealed cards, for their player only.
+  for (const [i, c] of (state.choices ?? []).entries()) if (c.kind === 'pick' && c.who === seat) v.choices[i].cards = structuredClone(choiceCards(state, c));
   // The seat's own Search: the cards it could take from its Draw Pile (no order: by name).
   const searchable = searchMatches(state, seat);
   if (searchable.length) v.players[seat].searchable = searchable;
@@ -62,6 +64,7 @@ export function redactEvents(events = [], seat) {
     switch (e.type) {
       // Searched from the Draw Pile into the opponent's hand: how many, not which.
       case 'searched':
+      case 'picked':
         if (theirs) delete e.cards;
         break;
       default:
