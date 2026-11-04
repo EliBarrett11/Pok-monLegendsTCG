@@ -41,8 +41,12 @@ import { OBJECTIVES, CHAMPIONSHIP, rewardText } from './locations.js';
 export const PLAYERS = ['player', 'ai'];
 // The Recognition target and the Championship's Round (a variant may change them).
 // SL experiment flag (V7d): Sleep Powder costs 3.
-const variantCard = (variant, c) => (variant?.sleepLimit && c.id === 'g-sleep-powder'
-  ? { ...c, breakpoints: c.breakpoints.map((b) => ({ ...b, cost: Math.max(3, b.cost) })) } : c);
+// S2c experiment flag (V7f): Surf's 3 breakpoint costs 2.
+const variantCard = (variant, c) => {
+  if (variant?.sleepLimit && c.id === 'g-sleep-powder') return { ...c, breakpoints: c.breakpoints.map((b) => ({ ...b, cost: Math.max(3, b.cost) })) };
+  if (variant?.surfCheap && c.id === 'w-surf') return { ...c, breakpoints: c.breakpoints.map((b) => (b.cost === 3 ? { ...b, cost: 2 } : b)) };
+  return c;
+};
 export const targetOf = (s) => s.variant?.target ?? RECOGNITION_TARGET;
 export const champRoundOf = (s) => s.variant?.champRound ?? CHAMPIONSHIP_ROUND;
 export const NAMES = { player: 'You', ai: 'Opponent' };
@@ -155,7 +159,8 @@ const waterBonus = (s, card) => (s.variant?.waterStrength && card.type === 'Wate
   // F½ experiment flag (V7e): Fire Pokémon +1 Strength at Levels 3–6 only.
   + (s.variant?.fireHalf && card.type === 'Fire' && card.level >= 3 ? 1 : 0);
 // WA experiment flag (V7e): Water Pokémon +1 Attack at every Level.
-const waterAttack = (s, card) => (s.variant?.waterAttack && card.type === 'Water' ? 1 : 0);
+// WA½ (V7f): +1 Attack at Levels 3–6 only.
+const waterAttack = (s, card) => (card.type === 'Water' && (s.variant?.waterAttack || (s.variant?.waterAttackHalf && card.level >= 3)) ? 1 : 0);
 
 // The Empowered summon's bonus, on the card.
 function applyEmpower(card) {

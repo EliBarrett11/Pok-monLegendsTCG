@@ -1,7 +1,7 @@
 // V7a balance experiment: runs the round-robin for each variant (flags only, never the
 // game's settings) in parallel child processes and prints one table.
 //
-//   node v2/tools/variants.js [matches per matchup, default 100] [--jobs=4] [--set=v7a|v7b|v7c|v7d|v7e]
+//   node v2/tools/variants.js [matches per matchup, default 100] [--jobs=4] [--set=v7a|v7b|v7c|v7d|v7e|v7f-confirm|v7f]
 //        [--configs="T90;T90,N3;T90,NR,GX"] [--json > results.json]
 //
 // Each config plays the three mixed matchups (seats alternate, so half each way round).
@@ -28,6 +28,11 @@ SETS.v7d = [[], ['C1'], ['GS'], ['SL'], ['C1', 'GS'], ['C1', 'SL'], ['C1', 'GS',
 // each on top of T90 + CH9 + LG: 24 configs.
 SETS.v7e = [['GS'], ['GS', 'N1', 'GX']].flatMap((g) => [[], ['F½'], ['F1']].flatMap((f) => [[], ['W1'], ['WA'], ['W1', 'WA']]
   .map((w) => ['T90', 'CH9', 'LG', ...g, ...f, ...w])));
+// V7f: confirm V7e's top 3 (run at 400), and the Water grid: Fire (F½ | F1) × Water stats
+// (none | WA½ | WA) × Water area damage (none | S2 | S2c), each on top of T90 + CH9 + LG + GS.
+SETS['v7f-confirm'] = [['F½', 'WA'], ['F1', 'W1'], ['F1', 'WA']].map((f) => ['T90', 'CH9', 'LG', 'GS', ...f]);
+SETS.v7f = [['F½'], ['F1']].flatMap((f) => [[], ['WA½'], ['WA']].flatMap((w) => [[], ['S2'], ['S2c']]
+  .map((a) => ['T90', 'CH9', 'LG', 'GS', ...f, ...w, ...a])));
 
 const RR = fileURLToPath(new URL('./roundrobin.js', import.meta.url));
 const run = (flags, n) => new Promise((resolve, reject) => {

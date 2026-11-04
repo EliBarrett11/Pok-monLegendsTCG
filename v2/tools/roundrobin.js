@@ -25,6 +25,9 @@
 //                        only reaches a Pokémon of a lower Level than themselves
 //             F½ (or FH) Fire Pokémon +1 Strength at Levels 3–6 only
 //             WA         Water Pokémon +1 Attack at every Level
+//             WA½ (WAH)  Water Pokémon +1 Attack at Levels 3–6 only
+//             S2         a second Surf replaces Dive in Water's deck
+//             S2c        S2, and Surf's 3 breakpoint costs 2
 //             ER         Erika's Passive is "your Pokémon in her lane gain +1 Strength" (no training)
 // --json      one JSON line with the results (for v2/tools/variants.js)
 //
@@ -43,7 +46,8 @@ import { chooseAction } from '../src/ai/opponent.js';
 export const VARIANTS = {
   T75: { target: 75 }, T90: { target: 90 }, 'L+': { locMult: 1.5 }, CH8: { champRound: 8 },
   W1: { waterStrength: 1 }, W2: { waterLocations: true }, CH9: { champRound: 9 }, F1: { fireStrength: 1 }, LG: { laneGuards: true }, FG: { fireGuards: true },
-  C1: { minCost: 1 }, 'F½': { fireHalf: true }, FH: { fireHalf: true }, WA: { waterAttack: true }, GS: { grassStrength: -1 }, SL: { sleepLimit: true },
+  C1: { minCost: 1 }, 'F½': { fireHalf: true }, FH: { fireHalf: true }, WA: { waterAttack: true },
+  'WA½': { waterAttackHalf: true }, WAH: { waterAttackHalf: true }, S2: { surfTwice: true }, S2c: { surfTwice: true, surfCheap: true }, GS: { grassStrength: -1 }, SL: { sleepLimit: true },
   N3: { nurtureCost: 3 }, N1: { nurtureOnce: true }, NR: { nurtureRoundCap: true }, GX: { growthBulbasaurOnly: true }, ER: { erikaStrength: true },
 };
 export const variantOf = (flags = []) => (flags.length ? Object.assign({}, ...flags.map((f) => {
@@ -54,6 +58,8 @@ export const variantOf = (flags = []) => (flags.length ? Object.assign({}, ...fl
 // The deck list a matchup plays (FG swaps 1 Mankey for a second Duskull in Fire's list).
 export function deckList(name, variant) {
   const list = DECKS[name].list;
+  // S2 / S2c (V7f): a second Surf replaces Dive in Water's list.
+  if (variant?.surfTwice && name === 'water') return list.map((e) => (e.card === 'w-dive' ? { card: 'w-surf' } : e));
   if (!(variant?.fireGuards && name === 'fire')) return list;
   const i = list.findIndex((e) => e.series === 'f-mankey');
   const duskull = list.find((e) => e.series === 'f-duskull');
@@ -64,7 +70,7 @@ const SOURCES = ['attack', 'overrun', 'effect', 'location', 'championship', 'oth
 const blank = () => ({ wins: 0, recognition: Object.fromEntries(SOURCES.map((k) => [k, 0])), burnRemoved: 0, lossRemoved: 0,
   attacks: 0, guarded: 0, defeated: 0, levels: 0, played: 0,
   growth: {}, nurtures: 0, training: {}, board: {}, guardsMet: 0, guardsAsleep: 0, ownLane: 0, atPlayer: 0,
-  free: 0, passes: 0, atSpent: 0, atAsleep: 0, monRounds: 0, suppers: 0 });
+  free: 0, passes: 0, atSpent: 0, atAsleep: 0, monRounds: 0, suppers: 0, surfs: 0, surfDamage: 0 });
 const add = (o, k, n) => { o[k] = (o[k] ?? 0) + n; };
 // A readable source for a Growth or training cause ('ability:g-oddish' → 'Oddish line').
 const LINE_NAMES = { 'g-eevee': 'Leafeon (Eevee line)', 'g-celebi': 'Celebi' };
@@ -119,6 +125,17 @@ export function runMatchup(a, b, n, variant = null, seed0 = 1000) {
       if (action.type === 'pass') r.deck[deckOf(who)].passes += 1;
       const prev = s;
       s = applyAction(s, action);
+      // Surf (V7f): plays, and the damage it did to enemy Pokémon (Strength lost, capped by what was left).
+      if (action.type === 'playStrategy' && s.events.some((e) => e.type === 'strategy' && e.name === 'Surf')) {
+        const d = r.deck[deckOf(who)];
+        const foe = who === 'player' ? 'ai' : 'player';
+        d.surfs += 1;
+        prev.players[foe].row.forEach((c, i) => {
+          if (!c) return;
+          const after = s.players[foe].row[i];
+          d.surfDamage += after && after.uid === c.uid ? Math.max(0, c.currentStrength - after.currentStrength) : c.currentStrength;
+        });
+      }
       // Supper: the board as it stood (the action that ends a Round changes nothing on it).
       if (s.events.some((e) => e.type === 'phaseChanged' && e.phase === 'supper')) {
         for (const w of ['player', 'ai']) {
@@ -175,6 +192,7 @@ export function extraReport(d, n) {
   const curve = rounds.map((k) => `R${k} ${(d.board[k].level / d.board[k].n).toFixed(1)}`).join(', ');
   const pct = (a, b) => (b ? Math.round((100 * a) / b) : 0);
   return `Pokémon in play per Round ${d.suppers ? (d.monRounds / d.suppers).toFixed(1) : '–'} · 0-cost summons/match ${per(d.free, n)} · `
+    + (d.surfs ? `Surf plays/match ${per(d.surfs, n)}, Surf damage/match ${per(d.surfDamage, n)} · ` : '')
     + `attacks per Pokémon per Round ${d.monRounds ? (d.attacks / d.monRounds).toFixed(2) : '–'} · passes/match ${per(d.passes, n)} · `
     + `attacks on a Spent target ${pct(d.atSpent, d.attacks)}% (Asleep ${pct(d.atAsleep, d.atSpent)}% of those) · Pokémon defeated/match ${per(d.defeated, n)} · `
     + `Growth/match ${bySource(d.growth, n)} · Nurtures/match ${per(d.nurtures, n)} · other training (Levels)/match ${bySource(d.training, n)} · `
@@ -205,7 +223,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const n = Number(args.find((x) => /^\d+$/.test(x))) || 40;
   const flags = args.find((x) => x.startsWith('--variant='))?.slice(10).split(',').filter(Boolean) ?? [];
   const variant = variantOf(flags);
-  const results = pairsFor(args.includes('--mixed')).map(([a, b]) => runMatchup(a, b, n, variant));
+  const seed0 = Number(args.find((x) => x.startsWith('--seed='))?.slice(7)) || 1000;
+  const results = pairsFor(args.includes('--mixed')).map(([a, b]) => runMatchup(a, b, n, variant, seed0));
   if (args.includes('--json')) console.log(JSON.stringify({ flags, results }));
   else for (const r of results) console.log(report(r));
 }

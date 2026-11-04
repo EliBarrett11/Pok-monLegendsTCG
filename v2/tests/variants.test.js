@@ -131,11 +131,30 @@ const passBoth = (s) => applyAction(applyAction(s, { type: 'pass', who: 'player'
   assert.equal(SETS.v7e.length, 24, 'V7e: the 24-config grid');
 }
 
+// WA½, S2 and S2c (V7f): Water +1 Attack from Level 3; a second Surf for Dive; Surf's 3 costs 2.
+{
+  for (const [level, plus] of [[2, 0], [4, 1]]) {
+    const s = battle(level, variantOf(['WA½']));
+    s.turn = 'ai';
+    s.players.ai.hand.push({ ...pokemonAt('w-squirtle', level), cap: 6, uid: 'ai-wah' });
+    const t = applyAction(s, { type: 'summon', who: 'ai', uid: 'ai-wah', space: 0 });
+    assert.equal(t.players.ai.row[0].attack, pokemonAt('w-squirtle', level).attack + plus, `WA½ L${level}`);
+  }
+  for (const flag of ['S2', 'S2c']) {
+    const water = deckList('water', variantOf([flag]));
+    assert.deepEqual([deckProblems(water), copiesOf(water)['w-surf'], copiesOf(water)['w-dive'] ?? 0, water.length], [[], 2, 0, 40], flag);
+  }
+  const surfCosts = (flags) => createGame(5, { decks: { player: deckList('water', variantOf(flags)), ai: DECKS.fire.list }, variant: variantOf(flags) })
+    .players.player.drawPile.filter((c) => c.id === 'w-surf').map((c) => c.breakpoints.map((b) => b.cost).join('/'));
+  assert.deepEqual([surfCosts(['S2']), surfCosts(['S2c'])], [['3/5', '3/5'], ['2/5', '2/5']]);
+  assert.deepEqual([SETS['v7f-confirm'].length, SETS.v7f.length], [3, 18]);
+}
+
 // The flags parse; unknown flags are refused.
 assert.deepEqual(variantOf(['T90', 'N3', 'GX']), { target: 90, nurtureCost: 3, growthBulbasaurOnly: true });
 assert.throws(() => variantOf(['N9']), /No variant N9/);
 assert.equal(variantOf([]), null);
-for (const f of ['N3', 'N1', 'NR', 'GX', 'ER', 'CH9', 'F1', 'LG', 'FG', 'C1', 'GS', 'SL', 'F½', 'WA']) assert.ok(VARIANTS[f], `${f} exists`);
+for (const f of ['N3', 'N1', 'NR', 'GX', 'ER', 'CH9', 'F1', 'LG', 'FG', 'C1', 'GS', 'SL', 'F½', 'WA', 'WA½', 'S2', 'S2c']) assert.ok(VARIANTS[f], `${f} exists`);
 assert.ok(SETS.v7b.every((c) => c[0] === 'T90') && SETS.v7b.length === 11, 'V7b: 11 configs, each on top of T90');
 
 // T90 and CH9.
