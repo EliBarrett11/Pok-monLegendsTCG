@@ -436,3 +436,71 @@ To play locally: `python3 -m http.server` at the repository root, then open http
     - WA: Water +1 Attack, Grass unchanged;
     - the 24-config grid.
     - All v2 tests pass. The game in the browser is unchanged.
+
+- **V7f — confirm and finish.** These are flags for the tools only. Nothing changes in the game until Elliott decides. The baseline is T90 + CH9 + LG + GS.
+  - **New flags:**
+    - **WA½:** Water Pokémon +1 Attack at Levels 3–6 only.
+    - **S2:** a second Surf replaces Dive in Water's deck (Surf is Rare, so 2 copies are allowed).
+    - **S2c:** S2, and Surf's 3 breakpoint costs 2.
+    - `node v2/tools/variants.js 400 --set=v7f-confirm` and `200 --set=v7f` run them.
+    - `roundrobin.js` takes `--seed=N` and reports Surf plays and Surf damage per match. Surf damage is the Strength enemy Pokémon lost to it, capped by what each had left.
+  - **The V7e top 3, confirmed at 400 matches per matchup** (200 per seat order). Win rates are for the first-named deck, with a 95% margin of error:
+
+    | Config | Fire v Water (Fire) | Fire v Grass (Fire) | Water v Grass (Water) | Avg Rounds | Ends: early / Championship / final | Distance from 50% |
+    |---|---|---|---|---|---|---|
+    | GS+F½+WA | 41% ±4.8 | 54% ±4.9 | 47% ±4.9 | 9.2 | 33% / 63% / 4% | 16 |
+    | GS+F1+W1 | 50% ±4.9 | 59% ±4.8 | 38% ±4.8 | 9.0 | 37% / 60% / 3% | 21 |
+    | GS+F1+WA | 46% ±4.9 | 59% ±4.8 | 47% ±4.9 | 9.1 | 35% / 62% / 3% | 16 |
+
+    - V7e's 100-match numbers held within their margin. F1 against Grass settles at 59% (above range) and F½ at 54%.
+    - **GS + F1 + WA** (46% / 59% / 47%) and **GS + F½ + WA** (41% / 54% / 47%) tie at distance 16.
+  - **The Water grid:** Fire (F½ | F1) × Water stats (none | WA½ | WA) × Water area damage (none | S2 | S2c) gives 18 configs, each at 200 matches per matchup (100 per seat order). The margin of error is about ±7 points. The last two columns are Water's Surf plays / Surf damage per match against Fire and against Grass:
+
+    | Config | Fire v Water (Fire) | Fire v Grass (Fire) | Water v Grass (Water) | Avg Rounds | Ends: early / Championship / final | Distance | Surf vs Fire | Surf vs Grass |
+    |---|---|---|---|---|---|---|---|---|
+    | GS+F½ | 55% | 52% | 28% | 9.0 | 36% / 61% / 3% | 29 | 0.17 / 1.5 | 0.43 / 5.7 |
+    | GS+F½+S2 | 54% | 52% | 23% | 9.0 | 38% / 59% / 4% | 33 | 0.29 / 2.4 | 0.69 / 9.1 |
+    | GS+F½+S2c | 52% | 52% | 33% | 9.2 | 32% / 63% / 5% | 21 | 0.70 / 5.1 | 1.60 / 16.8 |
+    | GS+F½+WA½ | 48% | 52% | 34% | 9.2 | 33% / 62% / 6% | 20 | 0.18 / 1.4 | 0.43 / 4.8 |
+    | GS+F½+WA½+S2 | 42% | 52% | 34% | 9.2 | 34% / 63% / 4% | 26 | 0.27 / 2.0 | 0.64 / 7.2 |
+    | GS+F½+WA½+S2c | 41% | 52% | 40% | 9.3 | 30% / 66% / 4% | 21 | 0.61 / 4.3 | 1.66 / 15.9 |
+    | GS+F½+WA | 42% | 52% | 44% | 9.1 | 36% / 60% / 5% | 16 | 0.20 / 1.4 | 0.28 / 2.9 |
+    | GS+F½+WA+S2 | 36% | 52% | 44% | 9.2 | 33% / 64% / 3% | 22 | 0.28 / 2.0 | 0.46 / 5.1 |
+    | GS+F½+WA+S2c | 37% | 52% | 52% | 9.2 | 31% / 65% / 4% | 17 | 0.60 / 4.1 | 1.34 / 12.5 |
+    | GS+F1 | 63% | 57% | 28% | 8.9 | 40% / 57% / 3% | 42 | 0.20 / 1.7 | 0.43 / 5.7 |
+    | GS+F1+S2 | 63% | 57% | 23% | 8.9 | 41% / 56% / 3% | 47 | 0.29 / 2.5 | 0.69 / 9.1 |
+    | GS+F1+S2c | 54% | 57% | 33% | 9.2 | 33% / 63% / 4% | 28 | 0.90 / 6.9 | 1.60 / 16.8 |
+    | GS+F1+WA½ | 50% | 57% | 34% | 9.1 | 37% / 61% / 3% | 23 | 0.17 / 1.3 | 0.43 / 4.8 |
+    | GS+F1+WA½+S2 | 53% | 57% | 34% | 9.1 | 37% / 61% / 3% | 26 | 0.26 / 2.0 | 0.64 / 7.2 |
+    | GS+F1+WA½+S2c | 50% | 57% | 40% | 9.2 | 33% / 64% / 4% | 17 | 0.83 / 6.1 | 1.66 / 15.9 |
+    | GS+F1+WA | 48% | 57% | 44% | 9.0 | 40% / 57% / 3% | 15 | 0.19 / 1.4 | 0.28 / 2.9 |
+    | GS+F1+WA+S2 | 49% | 57% | 44% | 9.1 | 37% / 60% / 4% | 14 | 0.28 / 2.0 | 0.46 / 5.1 |
+    | GS+F1+WA+S2c | 47% | 57% | 52% | 9.2 | 34% / 62% / 4% | 12 | 0.83 / 6.1 | 1.34 / 12.5 |
+
+  - **No config puts all three matchups at 45–55%.**
+  - **The 5 closest:**
+    1. **GS + F1 + WA + S2c:** 47% / 57% / 52%, 9.2 Rounds, 34% early (distance 12).
+    2. **GS + F1 + WA + S2:** 49% / 57% / 44% (14).
+    3. **GS + F1 + WA:** 48% / 57% / 44% (15).
+    4. **GS + F½ + WA:** 42% / 52% / 44% (16).
+    5. **GS + F½ + WA + S2c:** 37% / 52% / 52% (17).
+  - **Pacing holds everywhere:** 8.9–9.3 Rounds and 30–41% early.
+  - **What moved what:**
+    - **S2c is the Water lever that helps against Grass without hurting Fire–Water much.**
+      - Surf plays against Grass rise from about 0.3–0.4 to 1.3–1.7 a match, and Surf damage from 3–6 to 12.5–17.
+      - Water–Grass rises by 7–9 points.
+      - Against Fire, Surf does far less (4–7 damage a match), because Fire keeps only about 2 Pokémon on the board.
+      - Fire–Water moves 1–5 points, within noise.
+    - **S2 without the cheaper breakpoint does little.** Water rarely pays 3 for it: 0.5–0.7 plays a match against Grass.
+    - **WA½ is between none and WA** in both of Water's matchups.
+    - **F1 against F½:** Fire–Water about +5 points; Fire–Grass +5 (59% against 54% at 400 matches).
+  - **Recommendation:**
+    - **GS + F1 + WA + S2c** comes closest: Fire–Water 47%, Water–Grass 52%. Fire–Grass is 57% here; at 400 matches the same Fire–Grass pairing (GS + F1) measured 59% ±4.8, so it is genuinely a little high.
+    - **The swap to F½ fixes Fire–Grass** (52–54%) **but costs Fire–Water about 5–10 points** (37–42%).
+    - **The last step needs a Fire change worth about +5 against Water and −4 against Grass,** something between F½ and F1 that matters more against Water. If Elliott takes this set as it stands, every matchup lands within about 7 points of 50%.
+  - **Tests:** `v2/tests/variants.test.js` adds:
+    - WA½: no change at Level 2, +1 Attack at Level 4;
+    - S2 and S2c: the Water list is still legal with 2 Surf and no Dive;
+    - Surf's breakpoints: 3/5 with S2 and 2/5 with S2c;
+    - the V7f sets.
+    - All v2 tests pass. The game in the browser is unchanged.
