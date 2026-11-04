@@ -186,9 +186,9 @@ const settle = (s) => { const t = structuredClone(s); t.turn = 'player'; return 
   // Rage: +1 Attack (permanent) each time it survives damage.
   s = battle(4);
   const pri = place(s, 'player', 0, 'f-mankey', 4);   // Primeape 5/4, Rage
-  place(s, 'ai', 0, 'w-wingull', 1);   // Swift 2/3: hits back
+  place(s, 'ai', 0, 'w-wingull', 1);   // Swift 3/3 (V7: Water +1 Attack): hits back
   s = act(s, { type: 'attack', who: 'player', from: 0, target: mon('ai', 0) });
-  assert.deepEqual([s.players.player.row[0].attack, s.players.player.row[0].currentStrength], [pri.attack + 1, 2]);
+  assert.deepEqual([s.players.player.row[0].attack, s.players.player.row[0].currentStrength], [pri.attack + 1, 4 - 3]);
   // Agility: no Strategy Card can choose it; "every" effects still reach it.
   s = battle(5, 'fire', 'grass');
   place(s, 'ai', 0, 'g-caterpie', 5);   // Butterfree, Agility

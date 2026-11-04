@@ -63,7 +63,7 @@ export const DECK_SERIES = [
   fire({
     id: 'f-mankey', rarity: 'Common', type: 'Fighting', attackType: 'Physical', strengthType: 'Hitpoints', speed: 'Swift', weight: 'light', cap: 4,
     stages: two({ name: 'Mankey', art: 'mankey' }, { name: 'Primeape', art: 'primeape' }),
-    stats: [[3, 3], [4, 3], [4, 4], [5, 5], [6, 5], [7, 6]],
+    stats: [[3, 2], [4, 2], [4, 3], [5, 4], [6, 4], [7, 5]],
     ability: byLevel((l) => (l <= 3 ? { keywords: ['Overrun'], text: 'Overrun' }
       : { keywords: ['Overrun', 'Infiltrator', 'Rage'], text: 'Overrun, Infiltrator, Rage (+1 Attack each time it survives damage)' })),
   }),
@@ -90,7 +90,7 @@ export const DECK_SERIES = [
   fire({
     id: 'f-sneasel', rarity: 'Rare', type: 'Dark', attackType: 'Physical', strengthType: 'Hitpoints', speed: 'Swift', cap: 5,
     stages: two({ name: 'Sneasel', art: 'sneasel' }, { name: 'Weavile', art: 'weavile' }),
-    stats: [[3, 3], [4, 3], [4, 4], [5, 5], [6, 5], [7, 6]],
+    stats: [[3, 2], [4, 2], [4, 3], [5, 4], [6, 4], [7, 5]],
     ability: byLevel((l) => (l <= 3 ? { keywords: ['Infiltrator'], text: 'Infiltrator' }
       : { keywords: ['Infiltrator'], text: 'Infiltrator. On Knockout: becomes Active (once per Round)', onKnockout: { ...eff(T.self, op('ready')), oncePerRound: true } })),
   }),
@@ -108,7 +108,7 @@ export const DECK_SERIES = [
   fire({
     id: 'f-duskull', rarity: 'Rare', type: 'Ghost', attackType: 'Special', strengthType: 'Special Defence', speed: 'Slow', weight: 'heavy', cap: 4,
     stages: two({ name: 'Duskull', art: 'duskull' }, { name: 'Dusclops', art: 'dusclops' }),
-    stats: [[1, 6], [1, 7], [2, 8], [2, 9], [3, 10], [3, 11]],
+    stats: [[1, 5], [1, 6], [2, 7], [2, 8], [3, 9], [3, 10]],
     ability: byLevel((l) => {
       const n = l <= 3 ? 1 : 2;
       return { text: `On Defend: Burn ${n} to the attacker`, onDefend: eff(T.attacker, op('burn', n)) };
@@ -117,7 +117,7 @@ export const DECK_SERIES = [
   fire({
     id: 'f-absol', rarity: 'Rare', type: 'Dark', attackType: 'Physical', strengthType: 'Hitpoints', speed: 'Swift', cap: 4,
     stages: single({ name: 'Absol', art: 'absol' }),
-    stats: [[3, 4], [4, 4], [4, 5], [5, 5], [6, 6], [6, 7]],
+    stats: [[3, 3], [4, 3], [4, 4], [5, 4], [6, 5], [6, 6]],
     ability: () => ({ vsBurned: 2, text: '+2 damage with its attack against a burned target' }),
   }),
   fire({
@@ -161,7 +161,7 @@ export const DECK_SERIES = [
   water({
     id: 'w-chinchou', rarity: 'Common', type: 'Electric', attackType: 'Special', strengthType: 'Special Defence', speed: 'Steady', weight: 'light', cap: 4,
     stages: two({ name: 'Chinchou', art: 'chinchou' }, { name: 'Lanturn', art: 'lanturn' }),
-    stats: [[3, 4], [4, 4], [4, 5], [5, 6], [6, 7], [6, 8]],
+    stats: [[2, 4], [3, 4], [3, 5], [4, 6], [5, 7], [5, 8]],
     ability: byLevel((l) => (l <= 3 ? { keywords: ['Regenerate 1'], text: 'Regenerate 1' }
       : { keywords: ['Regenerate 1'], text: 'Regenerate 1. On Attack: heal another friendly Pokémon in its Location 2', onAttack: eff(T.friendHere(1, { other: true, filter: 'damaged' }), op('heal', 2)) })),
   }),
@@ -175,7 +175,7 @@ export const DECK_SERIES = [
   water({
     id: 'w-eevee', rarity: 'Epic', type: 'Normal', attackType: 'Special', strengthType: 'Hitpoints', speed: 'Steady', cap: 6,
     stages: two({ name: 'Eevee', art: 'eevee' }, { name: 'Vaporeon', art: 'vaporeon' }),
-    stats: [[3, 4], [4, 4], [4, 5], [6, 7], [6, 8], [7, 9]],
+    stats: [[2, 4], [3, 4], [3, 5], [6, 7], [6, 8], [7, 9]],
     ability: byLevel((l) => (l <= 3 ? { text: 'On Summon: heal a friendly Pokémon 2', onSummon: eff(T.friend(1, { filter: 'damaged' }), op('heal', 2)) }
       : {
         type: 'Water', guard: 'Special Defence', keywords: ['Regenerate 2'], text: 'Regenerate 2. On Heal: +1 Attack (permanent)',
@@ -186,7 +186,7 @@ export const DECK_SERIES = [
     // "And Douse them" is Blissey's only (Elliott's V6 ruling).
     id: 'w-happiny', rarity: 'Rare', type: 'Normal', attackType: 'Physical', strengthType: 'Hitpoints', speed: 'Slow', weight: 'heavy', cap: 6,
     stages: three({ name: 'Happiny', art: 'happiny' }, { name: 'Chansey', art: 'chansey' }, { name: 'Blissey', art: 'blissey' }),
-    stats: [[1, 5], [2, 6], [2, 8], [2, 10], [3, 12], [3, 14]],
+    stats: [[0, 5], [1, 6], [1, 8], [1, 10], [2, 12], [2, 14]],
     ability: byLevel((l) => (l <= 2 ? { text: 'On Breakfast: heal a friendly Pokémon in its Location 1', onBreakfast: eff(T.friendHere(1, { filter: 'damaged' }), op('heal', 1)) }
       : l <= 4 ? { text: 'On Breakfast: heal each friendly Pokémon in its Location 2', onBreakfast: eff(T.friendHere(), op('heal', 2)) }
         : { text: 'On Breakfast: heal each friendly Pokémon in its Location 3 and Douse them', onBreakfast: eff(T.friendHere(), op('heal', 3), op('douse')) })),
@@ -194,7 +194,7 @@ export const DECK_SERIES = [
   water({
     id: 'w-dratini', rarity: 'Epic', type: 'Dragon', attackType: 'Physical', strengthType: 'Hitpoints', speed: 'Steady', weight: 'heavy', cap: 6,
     stages: three({ name: 'Dratini', art: null }, { name: 'Dragonair', art: null }, { name: 'Dragonite', art: 'dragonite' }), art: 'dragonite',
-    stats: [[3, 4], [4, 4], [5, 5], [6, 6], [8, 8], [9, 9]],
+    stats: [[2, 4], [3, 4], [4, 5], [5, 6], [7, 8], [8, 9]],
     ability: byLevel((l) => (l <= 2 ? null : l <= 4 ? { keywords: ['Infiltrator'], text: 'Infiltrator' } : { keywords: ['Infiltrator', 'Shell 1'], text: 'Infiltrator, Shell 1' })),
   }),
   water({

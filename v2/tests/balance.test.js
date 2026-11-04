@@ -1,7 +1,8 @@
 // V7 — the balance Elliott chose after the V7a–V7f experiments, as the game's own rules and
-// cards: target 90, the Championship in Round 9, lane guards, Grass −1 Strength, Fire +1
-// Strength, Water +1 Attack (every deck Pokémon, Partners and Legendaries included), and
-// Water's Surf ×2 (no Dive) with its first breakpoint at 2. The deck docs match the cards.
+// cards: target 90, the Championship in Round 9, lane guards, Grass-deck Pokémon −1 Strength,
+// Fire-Type Pokémon +1 Strength and Water-Type Pokémon +1 Attack (V7.1: by Type, Partners
+// and Legendaries included), and Water's Surf ×2 (no Dive) with its first breakpoint at 2.
+// The deck docs match the cards.
 // Run with: node v2/tests/balance.test.js
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -40,16 +41,34 @@ assert.deepEqual([targetOf(fresh), champRoundOf(fresh)], [90, 9]);
   assert.equal(key(7), '2,5,7,P', 'Infiltrator ignores guards');
 }
 
-// The stat changes, by deck (not by Type): Mankey (Fighting) is in the Fire deck; Chinchou
-// (Electric) and Happiny (Normal) in the Water deck; Sewaddle (Bug) in the Grass deck.
+// The Fire and Water changes go by Type (V7.1, Elliott's correction): the Fire deck's
+// Mankey (Fighting), Sneasel and Absol (Dark) and Duskull (Ghost), and the Water deck's
+// Chinchou (Electric), Happiny (Normal), Dratini (Dragon) and Eevee (Normal until it is
+// Vaporeon at Level 4) keep their original numbers. Grass goes by deck: Sewaddle (Bug) too.
 const at = (id, l = 1) => [pokemonAt(id, l).attack, pokemonAt(id, l).strength];
-assert.deepEqual([at('f-growlithe'), at('f-mankey'), at('f-entei')], [[3, 4], [3, 3], [9, 10]], 'Fire +1 Strength');
-assert.deepEqual([at('w-squirtle'), at('w-chinchou'), at('w-happiny'), at('w-kyogre')], [[3, 4], [3, 4], [1, 5], [11, 12]], 'Water +1 Attack');
-assert.deepEqual([at('g-bulbasaur'), at('g-sewaddle'), at('g-celebi')], [[2, 4], [3, 3], [4, 5]], 'Grass −1 Strength');
+assert.deepEqual([at('f-growlithe'), at('f-entei')], [[3, 4], [9, 10]], 'Fire-Type +1 Strength');
+assert.deepEqual([at('f-mankey'), at('f-sneasel'), at('f-duskull'), at('f-absol')], [[3, 2], [3, 2], [1, 5], [3, 3]], 'non-Fire: unchanged');
+assert.deepEqual([at('w-squirtle'), at('w-kyogre'), at('w-eevee', 4)], [[3, 4], [11, 12], [6, 7]], 'Water-Type +1 Attack (Vaporeon too)');
+assert.deepEqual([at('w-chinchou'), at('w-happiny'), at('w-dratini'), at('w-eevee', 3)], [[2, 4], [0, 5], [2, 4], [3, 5]], 'non-Water: unchanged');
+// The rule itself, for every deck Pokémon at every Level: against the V6 numbers.
+const V6 = {
+  'f-mankey': [[3, 2], [4, 2], [4, 3], [5, 4], [6, 4], [7, 5]], 'f-growlithe': [[3, 3], [3, 4], [4, 4], [5, 6], [6, 6], [7, 7]],
+  'w-eevee': [[2, 4], [3, 4], [3, 5], [5, 7], [5, 8], [6, 9]], 'w-squirtle': [[2, 4], [2, 5], [3, 6], [4, 7], [5, 9], [6, 10]],
+  'g-bulbasaur': [[2, 5], [2, 6], [3, 7], [4, 7], [5, 10], [6, 12]], 'g-eevee': [[2, 4], [3, 4], [3, 5], [5, 6], [6, 6], [7, 7]],
+};
+for (const [id, rows] of Object.entries(V6)) {
+  const line = DECK_SERIES.find((l) => l.id === id);
+  rows.forEach(([a, st], i) => {
+    const c = pokemonAt(id, i + 1);
+    const want = [a + (c.type === 'Water' ? 1 : 0), st + (c.type === 'Fire' ? 1 : 0) - (line.deck === 'grass' ? 1 : 0)];
+    assert.deepEqual([c.attack, c.strength], want, `${id} L${i + 1} (${c.type})`);
+  });
+}
+assert.deepEqual([at('g-bulbasaur'), at('g-sewaddle'), at('g-celebi')], [[2, 4], [3, 3], [4, 5]], 'Grass deck −1 Strength');
 for (const line of DECK_SERIES.filter((l) => l.deck === 'grass')) {
   for (let l = 1; l <= line.maxLevel; l++) assert.ok(pokemonAt(line.id, l).strength >= 1, `${line.id} L${l}: at least 1 Strength`);
 }
-// Partners too.
+// Partners too (all of their deck's Type).
 const partnerOf = (id) => cardDef(id).tiers[2].partner;
 assert.deepEqual(['f-blaine', 'w-misty', 'g-ramos'].map((id) => [partnerOf(id).name, partnerOf(id).attack, partnerOf(id).strength]),
   [['Ninetales', 6, 7], ['Starmie', 7, 7], ['Gogoat', 6, 7]]);

@@ -8,7 +8,7 @@ import { toastsFor, showToasts } from './ui/toasts.js';
 import { openDeckBuilder } from './ui/deckbuilder.js';
 import { DECKS, POOL_ITEMS, deckProblems } from './engine/cards.js';
 
-export const BUILD = 'V7 — the balance';
+export const BUILD = 'V7.1 — Fire and Water boosts by Type';
 
 const STAGE = { width: 1920, height: 1080 };
 const stage = document.getElementById('stage');
