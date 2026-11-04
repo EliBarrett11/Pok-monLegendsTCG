@@ -64,3 +64,21 @@ Elliott leads. Claude asks what to work on, discusses it, and writes down only w
 - **Items:** on hold (undecided between PokéDollars and Energy; Energy risks making them too like Moves).
 - **Exert:** may return in some form (Elliott enjoyed v1's version: exciting, flexible, a real cost).
 - **Starting cards:** extremely basic, generic test cards first, before redesigning any decks. "If it's not fun with bad cards, it's not fun with great decks."
+
+## Settled 4 Nov (night)
+
+- **Deck and hand:** 40-card decks, opening hand 6, draw 2 at each Breakfast, hand limit 10 (a card drawn beyond 10 is lost).
+- **Overexert:** once per Round you may spend up to 2 Energy you don't have; at the next Breakfast you get that much less, plus 1 (borrow 2, lose 3).
+- **Energy:** the Round number, capped at 10. Pass gives +1 (as before). No Stored Energy.
+- **Moves:** v2's breakpoints return (pay a chosen amount; each higher breakpoint gives more value per Energy).
+- **Speed stays; it's what makes the game different.** It drives the tension of alternating turns, the passing strategy and targeting. Clearer presentation:
+  - **Ready** replaces "Alert"; **Spent** stays.
+  - Every Pokémon on the board shows its **Speed-Tier icon between its Attack and Strength**.
+  - Ready Pokémon get a clearly visible, gently animated glow on both sides (stronger than v2's faint glow).
+- **Pokémon on the board:** frozen at the Level they were played. They don't move between spaces.
+- **Defeated Pokémon** go to the Released Pile (which also receives Supporter payments). No way back.
+- **Running out of cards:** each draw you can't make gives your opponent escalating Recognition (numbers to set).
+- **Mulligan:** yes; mulliganed cards are shuffled back into the deck.
+- **Recognition:** 1 per damage to the enemy player (attacks or other damage); a small amount for defeating a Pokémon; Location milestones and completions; some Supporter Favour bonuses; possibly a small passive amount each Round to keep the pace steady.
+- **Winning:** 100 Recognition. 90 brings you to the final space (space 10), and you must also complete it to reach the Trophy. If no one has reached it after a set number of Locations, the game places an end-game Location, the **Regional Championship Tournament**, which guarantees one player reaches the Trophy. Target match length: **45 minutes**.
+- **No statuses** for now.
