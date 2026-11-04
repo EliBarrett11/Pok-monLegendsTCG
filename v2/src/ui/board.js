@@ -299,8 +299,8 @@ const WEATHER_BRACKETS = [
 // Deck selection (V6): Fire, Water, Grass or Random for both players (mirrors allowed),
 // before the coin flip; Your deck when one is built.
 function deckPicker(ctx) {
-  // Hot-seat and online (V9) choose their decks in secret on their own screens.
-  if (ctx.mode && ctx.mode !== 'ai') return '';
+  // The decks are chosen on the setup screen (v2 Feedback A), not in the side panel.
+  if (!ctx.inlineDecks) return '';
   const opts = (who) => [...Object.entries(DECKS).map(([k, d]) => [k, d.name]), ['random', 'Random'], ...(who === 'player' && ctx.customDeck ? [['custom', 'Your deck']] : [])]
     .map(([k, name]) => `<option value="${k}"${ctx.deckChoice?.[who] === k ? ' selected' : ''}>${name}</option>`).join('');
   return `<span class="v2-decks"><label>You <select data-deck="player">${opts('player')}</select></label>
@@ -352,17 +352,25 @@ function hand(state, ui) {
   const can = new Set(mine && !ui.pending ? [...playable(state, 'player'), ...placeable(state, 'player'), ...playableStrategies(state, 'player'),
     ...playableSupporters(state, 'player'), ...playableItems(state, 'player'), ...playableTrainers(state, 'player')].map((c) => c.uid) : []);
   const n = cards.length;
+  // Nothing clipped (v2 Feedback A): the hand fans across a fixed band (between the
+  // Recognition panels and the side panel), overlapping more as it grows; the middle rises
+  // instead of the edges dropping, so no card goes past the stage.
+  const BAND = 1480;
+  const CARD = 150;
+  const step = n > 1 ? Math.min(CARD + 8, (BAND - CARD) / (n - 1)) : 0;
+  const start = (BAND - (CARD + step * (n - 1))) / 2;
   return `<div class="v2-hand">${cards.map((c, i) => {
     const picked = ui.summon === c.uid || ui.location === c.uid || ui.trainer === c.uid;
-    const angle = (i - (n - 1) / 2) * 4;
-    const lift = Math.abs(i - (n - 1) / 2) * 6 - (picked ? 34 : 0);
+    const off = i - (n - 1) / 2;
+    const angle = off * Math.min(3, 18 / Math.max(1, n));
+    const lift = -(((n - 1) / 2) ** 2 - off ** 2) * Math.min(2.5, 30 / Math.max(1, n * n / 4)) - (picked ? 24 : 0);
     const cls = [can.has(c.uid) ? 'playable' : 'unaffordable', picked && 'picked'].filter(Boolean).join(' ');
     const attrs = `data-uid="${c.uid}" data-kind="${c.cardType.toLowerCase().replace('é', 'e')}"`;
     const up = state.events.find((e) => e.type === 'levelUp' && e.uid === c.uid);
     const face = c.cardType === 'Location' ? locationCard(c, { cls, attrs })
       : ['Strategy', 'Supporter', 'Item', 'Trainer'].includes(c.cardType) ? actionCard(c, { cls, attrs })
       : pokemonCard(c, { cls: [cls, up && 'levelup'].filter(Boolean).join(' '), showCost: true, inHand: true, attrs, badge: up ? `Evolved: ${up.to}!` : '' });
-    return `<div class="v2-hand-slot" style="transform: translateY(${lift}px) rotate(${angle}deg)">${face}</div>`;
+    return `<div class="v2-hand-slot" style="left: ${Math.round(start + step * i)}px; z-index: ${i + 1}; transform: translateY(${lift.toFixed(1)}px) rotate(${angle.toFixed(2)}deg)">${face}</div>`;
   }).join('')}</div>`;
 }
 
@@ -516,7 +524,7 @@ function releaseBox(state, ui) {
   const tiles = others.map((c) => `<button class="v2-rel${a.chosen.includes(c.uid) ? ' on' : ''}${FAVOURS[card.favour.condition].test(c) ? ' favour' : ''}" data-rel="${c.uid}" style="background-image: url('${c.cardType === 'Pokémon' ? `${ASSETS}/cards/${c.art}.jpg` : c.cardType === 'Location' ? `${ASSETS}/cards/${c.art ?? c.id}.jpg` : artUrl(c)}')"><span>${esc(c.name)}${c.level ? ` L${c.level}` : ''}</span></button>`).join('');
   return `<div class="v2-ask" role="dialog" aria-label="Release cards"><div class="v2-panel v2-release-ask">
     <p><b>${card.name}</b>: Release ${card.release} card${card.release === 1 ? '' : 's'} from your hand (gone for the match). ${esc(card.text)}.</p>
-    <p class="v2-favour${met ? ' met' : ''}">Favour: Release ${esc(FAVOURS[card.favour.condition].text)} → ${esc(card.favour.text)} ${met ? '✓ met' : ''}</p>
+    <p class="v2-rel-favour${met ? ' met' : ''}">Favour: Release ${esc(FAVOURS[card.favour.condition].text)} → ${esc(card.favour.text)} ${met ? '✓ met' : ''}</p>
     <div class="v2-rels">${tiles}</div>
     <div class="v2-ask-buttons"><button data-action="release-done"${picked.length === card.release ? '' : ' disabled'}>Release ${picked.length}/${card.release} and play</button></div>
     <button data-action="ask-cancel" class="v2-ask-cancel">Cancel</button>
@@ -630,6 +638,23 @@ export function renderMatch(root, state, ui, ctx) {
       ${gameOver(state, ctx)}
     </div>`;
   wire(root, state, ui, ctx);
+  fitText(root);
+}
+
+// Nothing clipped (v2 Feedback A): text that doesn't fit its box (card text, Location and
+// Trainer names) is set smaller until it does, never cut off.
+const FIT = [['.v2-act-text', 8], ['.v2-ability', 8], ['.v2-loc-goal', 8], ['.v2-loc-meta', 8], ['.v2-loc-banner h4', 11], ['.v2-loc-banner p', 9], ['.v2-trainer b', 9], ['.v2-name', 10], ['.v2-keys', 7]];
+function fitText(root) {
+  if (typeof getComputedStyle !== 'function') return;
+  for (const [sel, min] of FIT) {
+    for (const el of root.querySelectorAll(sel)) {
+      let size = parseFloat(getComputedStyle(el).fontSize);
+      for (let i = 0; i < 24 && size > min && (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1); i++) {
+        size -= 0.5;
+        el.style.fontSize = `${size}px`;
+      }
+    }
+  }
 }
 
 function wire(root, state, ui, ctx) {

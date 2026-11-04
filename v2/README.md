@@ -17,7 +17,7 @@ The same rules as the current game (the root `CLAUDE.md`): plain HTML, CSS and J
 | `v2/src/ai/` | The v2 AI opponent (it plays through the same engine actions as the player). |
 | `v2/src/ui/` | Drawing the board and handling clicks. |
 | `v2/tests/` | Tests, run with Node: `for t in v2/tests/*.test.js; do node $t; done` |
-| `v2/tools/` | The round-robin: `node v2/tools/roundrobin.js [matches per matchup]` |
+| `v2/tools/` | The round-robin: `node v2/tools/roundrobin.js [matches per matchup]`; the layout check: `node v2/tools/layout.mjs` (run after every v2 step) |
 
 URL options: `?seed=123` replays the same shuffle and coin flip; `?autoplay` lets the AI play both sides; `?decks=fire,grass` picks both decks.
 
@@ -675,3 +675,39 @@ To play locally: `python3 -m http.server` at the repository root, then open http
     - Against the AI and in hot-seat (autoplay at Instant), with no console errors.
     - Two browser windows played online through a local PeerServer for several Rounds, with no console errors: at Fast to Round 2, and at Instant to Round 7. Each side sees its own deck at the bottom and the scores mirrored.
     - Screenshots in `v2/screenshots/`: `v9-lobby-host.jpg` (the room code and invite link), `v9-lobby-guest-decks.jpg` (the secret deck choice, "Your friend has chosen"), `v9-online-host.jpg` and `v9-online-guest.jpg` (both windows at the same moment, mid-match) and `v9-hotseat-pass.jpg`.
+
+- **v2 Feedback A — a proper setup screen, and "nothing clipped".** Elliott: the new-game setup was squeezed into the bottom of the side panel, with buttons cut off. New standing rule (`docs/v2-design.md` 7b): *every piece of information and every action is visible and usable in full screen without scrolling at 1920×1080, 1366×768 and 1280×720.*
+  - **Setup screen** (`v2/src/ui/setup.js`): its own full-stage screen, shown before every match against the AI and after New match. It has:
+    - three large mode choices: **Play the AI** · **Two players, one screen** · **Play a friend online**;
+    - the deck choice as big deck cards, each with its art, name and one-line plan: Fire (Entei), Water (Kyogre), Grass (Celebi), Random, and Your deck once one is built. There is a row for You and one for the AI;
+    - a clear **Start** button (the coin flip follows);
+    - a link to the Deck builder;
+    - Resume, when an online match was left open.
+
+    Hot-seat and online keep their own secret deck pick, pass screens and lobby, in the same style. The deck picker is gone from the side panel.
+  - **Fit everywhere:**
+    - The whole game is drawn on the fixed 1920×1080 stage and scaled to the window, and nothing may leave the stage.
+    - **The hand** is a fixed band between the Recognition panels and the side panel. Cards overlap more as it fills, and never run off the bottom or over Pass.
+    - **The side panel** fills the stage's height with tighter panels. The log takes what's left and scrolls in its own frame; the build line and the Animations picker always show.
+    - **Long names and card text** shrink to fit and never end in "…".
+    - **Dialogs** never grow past the stage: the Release dialog's card list scrolls inside it. Its Favour line had been hidden by a style clash with the Favour pop-up animation, and is renamed.
+  - **The layout check** (`v2/tools/layout.mjs`, Playwright) runs at all three sizes and goes through:
+    - the setup screen;
+    - the deck builder;
+    - a mid-match board, and a busy one (a 20-card hand, a full Bag, every panel in use);
+    - every dialog type: Empowered summon, cost, Growth amount, card pick, space, Release, Item, Trainer and the Trainer Point step;
+    - the end screen;
+    - the hot-seat deck pick and pass screen;
+    - the four online lobby screens.
+
+    It fails if:
+    - the page scrolls;
+    - any button, input, card or text block is outside the stage;
+    - one is clipped by its container (with no scrollbar of its own);
+    - one is covered by another element.
+
+    The first run found 64 problems at 1920×1080; it now reports `layout: ok` at all three sizes. **It runs after every v2 step from now on.**
+  - **Tests:**
+    - `v2/tests/layout.test.js`: every deck has its art and plan; the check covers every screen and size; the rule is in the design doc.
+    - All v2 tests and the current game's suite pass.
+  - **Screenshots:** `v2/screenshots/feedback-a-setup-1920x1080.jpg`, `feedback-a-setup-1366x768.jpg` and `feedback-a-setup-1280x720.jpg`.

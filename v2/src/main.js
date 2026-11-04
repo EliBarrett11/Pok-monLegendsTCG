@@ -15,15 +15,17 @@ import { chooseAction } from './ai/opponent.js';
 import { renderMatch } from './ui/board.js';
 import { toastsFor, showToasts } from './ui/toasts.js';
 import { openDeckBuilder } from './ui/deckbuilder.js';
-import { DECKS, POOL_ITEMS, deckProblems } from './engine/cards.js';
+import { DECKS, POOL_ITEMS, deckProblems, cardAt } from './engine/cards.js';
+import { renderFriend } from './ui/lobby.js';
 import { initVfx, syncStatus } from './ui/vfx/engine.js';
 import { present, skip, resetFx, syncBoardWeather } from './ui/present.js';
 import { orient, toEngine, screenSeat } from './ui/seat.js';
 import { renderDeckPick, renderPassScreen } from './ui/lobby.js';
+import { renderSetup } from './ui/setup.js';
 import { createOnline, savedHostMatch } from './online.js';
 import { setSpeed } from '../../src/ui/settings.js';
 
-export const BUILD = 'V9 — hot-seat and online';
+export const BUILD = 'v2 Feedback A — setup screen, nothing clipped';
 
 const STAGE = { width: 1920, height: 1080 };
 const stage = document.getElementById('stage');
@@ -101,14 +103,14 @@ const resolve = (choice) => (choice === 'random' ? DECK_IDS[Math.floor(Math.rand
 function setDeck(who, value) {
   deckChoice = { ...deckChoice, [who]: value };
   try { localStorage.setItem(CHOICE_KEY, JSON.stringify(deckChoice)); } catch { /* this match only */ }
-  newMatch();
+  redraw();
 }
 function openDeck() {
   const base = DECKS[deckChoice.player] ?? DECKS.fire;
   openDeckBuilder(stage, {
     deck: customDeck ?? base.list,
     premade: base.list,
-    onUse: (deck) => { saveDeck(deck); deckChoice = { ...deckChoice, player: 'custom' }; newMatch(); },
+    onUse: (deck) => { saveDeck(deck); deckChoice = { ...deckChoice, player: 'custom' }; redraw(); },
   });
 }
 
@@ -125,7 +127,29 @@ function matchCtx(extra = {}) {
   };
 }
 
+// The setup screen (v2 Feedback A): before every match against the AI.
+let setupOpen = false;
+function drawSetup() {
+  renderSetup(root, {
+    deckChoice, customDeck: Boolean(customDeck), build: BUILD, resume: savedHostMatch(BUILD),
+    handlers: {
+      ai: () => redraw(), hotseat: () => switchMode('hotseat'), online: () => switchMode('online'),
+      setDeck, start: () => { setupOpen = false; startAiMatch(); }, deck: openDeck,
+      resume: () => { mode = 'online'; setupOpen = false; setUrl('online'); online.hostResume(); },
+    },
+  });
+}
+function showSetup() {
+  match += 1;
+  resetFx();
+  mode = 'ai';
+  setupOpen = true;
+  state = null;
+  redraw();
+}
+
 function redraw() {
+  if (mode === 'ai' && setupOpen) { drawSetup(); return; }
   if (mode === 'online') online.drawScreen(root, ui);
   else if (mode === 'hotseat' && hot.screen !== 'match') drawHotseatScreen();
   else renderMatch(root, viewOf(state), ui, matchCtx());
@@ -205,9 +229,16 @@ async function aiTurn(id) {
 
 const legalNow = (who) => legalActions(state, who).length > 0;
 
+// New match (the end screen's button, Leave, Back): the setup screen again.
 function newMatch() {
   if (mode === 'hotseat') { startHotseat(); return; }
   if (mode === 'online') return;
+  showSetup();
+}
+
+function startAiMatch() {
+  mode = 'ai';
+  setupOpen = false;
   match += 1;
   resetFx();
   seat = 'player';
@@ -350,14 +381,14 @@ const online = createOnline({
 });
 addEventListener('pagehide', () => online.goodbye());
 
+// A new room (the setup screen offers "Resume your online match" separately).
 function startOnline() {
   mode = 'online';
+  setupOpen = false;
   match += 1;
   resetFx();
   setUrl('online');
-  const saved = savedHostMatch(BUILD);
-  if (saved && confirm(`Resume your match with your friend (room ${saved.code}, Round ${saved.round})?\n\nOK resumes it; Cancel starts a new room.`)) online.hostResume();
-  else online.hostNew();
+  online.hostNew();
 }
 
 // Switching between the AI, hot-seat and online (the address keeps ?hotseat for a refresh).
@@ -367,7 +398,7 @@ function switchMode(next) {
   setUrl(next);
   if (next === 'hotseat') startHotseat();
   else if (next === 'online') startOnline();
-  else newMatch();
+  else showSetup();
 }
 function setUrl(next) {
   const url = new URL(location.href);
@@ -377,9 +408,46 @@ function setUrl(next) {
   history.replaceState(null, '', url.toString().replace('hotseat=', 'hotseat'));
 }
 
+// --- ?debug: a hook for the layout check (v2/tools/layout.mjs) -------------------------------------
+
+if (params.has('debug')) {
+  let n = 0;
+  const make = (id) => {
+    const entry = DECKS.fire.list.concat(DECKS.water.list, DECKS.grass.list).find((e) => (e.series ?? e.card ?? e.location) === id) ?? { card: id };
+    return { ...cardAt(entry, state?.round || 1), uid: `dbg-${n++}` };
+  };
+  window.__v2 = {
+    get state() { return state; },
+    ui,
+    redraw,
+    showSetup,
+    startAiMatch,
+    // Both seats play (no animations) until Round r and it's the viewer's Battle turn.
+    fastForward(r) {
+      match += 1;
+      for (let i = 0; i < 4000 && state.phase !== 'gameOver'; i++) {
+        if (state.round >= r && state.phase === 'battle' && state.turn === 'player' && !state.choices?.length) break;
+        const who = state.choices?.length ? actor(state) : state.phase === 'assign' ? PLAYERS.find((w) => legalActions(state, w).length)
+          : state.phase === 'initiative' ? 'player' : state.turn;
+        state = applyAction(state, chooseAction(state, who, { rng: aiRng }));
+      }
+      clearUi();
+      ui.locked = false;
+      redraw();
+    },
+    // A card into a pile of the player's (hand by default); returns its uid.
+    give(id, pile = 'hand') { const c = make(id); state.players.player[pile].push(c); return c.uid; },
+    set(fn) { fn(state, ui); redraw(); },
+    lobby(screen) { renderFriend(root, screen, { back() {}, join() {}, retry: screen.retry ? () => {} : null, copy() {}, chooseDeck() {} }); },
+    make,
+  };
+}
+
 // --- Start ----------------------------------------------------------------------------------------
 
 if (mode === 'online') online.join(params.get('join'));
 else if (params.has('host')) switchMode('online');   // ?host opens a room at once (for checks)
 else if (mode === 'hotseat') startHotseat();
-else newMatch();
+// ?autoplay or ?decks= go straight into a match (for checks); otherwise the setup screen.
+else if (autoplay || params.has('decks')) startAiMatch();
+else showSetup();

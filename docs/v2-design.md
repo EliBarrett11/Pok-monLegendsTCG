@@ -151,6 +151,7 @@ v2 should look like the concept mockups `docs/design/v2-board-concept.jpg` and `
   - a side panel with Round, Championship, Energy (plus stored), Trainer Points, Bag and Weather;
   - a fanned hand below the board.
 - **Pokémon:** full-art cards with **minimal stats**: a Level badge, a small Type icon, the name, and plain ⚔ Attack / ♥ Strength numbers. Elliott prefers this to the current card icons.
+- Nothing clipped: every piece of information and every action is visible and usable in full screen without scrolling at 1920×1080, 1366×768 and 1280×720. (Elliott, v2 Feedback A. Checked after every v2 step by `node v2/tools/layout.mjs`.)
 
 ## 8. Build roadmap (Claude Code prompts)
 
