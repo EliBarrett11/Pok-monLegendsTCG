@@ -28,7 +28,7 @@ const shownLocations = new Set();
 function boardCard(s, card, who, space, opts = {}) {
   const ready = s.phase === 'battle' && isReady(s, card);
   const cls = ['v3-card', 'v3-mon', ready && 'ready', card.spent && 'spent', opts.cls, card.currentStrength < card.strength && 'hurt'].filter(Boolean).join(' ');
-  const tip = `${card.name} · Level ${card.level} · ${card.band} · ${card.speed} · ${card.attackType}${card.strengthType !== 'Hitpoints' ? ` · ${card.strengthType} guard` : ''} · ${card.currentStrength}/${card.strength} Strength${ready ? ' · Ready' : card.spent ? ' · Spent' : ''}`;
+  const tip = `${card.name} · Level ${card.level} · ${card.type} · ${card.band} · ${card.speed} · ${card.attackType}${card.strengthType !== 'Hitpoints' ? ` · ${card.strengthType} guard` : ''} · ${card.currentStrength}/${card.strength} Strength${ready ? ' · Ready' : card.spent ? ' · Spent' : ''}${card.text ? ` · ${card.text}` : ''}${card.buffs?.length ? ` · ${card.buffs.map((b) => [b.attack && `+${b.attack} Attack`, b.strength && `+${b.strength} Strength`, ...b.keywords].filter(Boolean).join(', ')).join('; ')} (${card.buffs[0].until === 'breakfast' ? 'until Breakfast' : 'this Round'})` : ''}`;
   return `<div class="${cls}" title="${esc(tip)}" data-who="${who}" data-space="${space}">
     <div class="v3-art" style="background-image: url('${art(card)}')"></div>
     ${card.strengthType !== 'Hitpoints' ? `<span class="v3-guard" title="${card.strengthType} guard">${icon('guard')}${card.strengthType === 'Defence' ? 'Def' : 'Sp.Def'}</span>` : ''}
@@ -43,7 +43,8 @@ function handCard(s, card, opts = {}) {
   let cost = '';
   let foot = '';
   if (card.cardType === 'Pokémon') {
-    line = `${card.band} · ${card.attackType}${card.strengthType !== 'Hitpoints' ? ` · ${card.strengthType} guard` : ''}`;
+    line = `${card.type} · ${card.band} · ${card.attackType}${card.strengthType !== 'Hitpoints' ? ` · ${card.strengthType === 'Defence' ? 'Def' : 'Sp.Def'} guard` : ''}`;
+    body = card.text ? `<p class="ok">${esc(card.text)}</p>` : '';
     corner = `<span class="v3-lv">Lv ${card.level}<small>/${card.cap}</small></span>`;
     cost = `<span class="v3-cost">${card.cost}</span>`;
     foot = `<div class="v3-stats"><span class="atk">${icon('attack')}${card.attack}</span>${speedIcon(card.speed)}<span class="str">${icon('strength')}${card.strength}</span></div>`;
@@ -81,7 +82,13 @@ export function promptFor(s, ui, ctx = {}) {
     const pl = t.some((x) => x.kind === 'player');
     return { tag: `${c?.name} attacks · ${c?.attack}`, text: `Choose <b>a glowing target</b>: an enemy Pokémon${pl ? ' or the Opponent (their portrait medal)' : ` (the Opponent is protected by ${esc(protectorOf(s, 'ai')?.name)} on their portrait's space)`}. A Ready target hits back.`, buttons: [{ action: 'cancel', label: 'Cancel' }], gold: true };
   }
-  if (ui.select?.kind === 'target') return { tag: ui.select.tag, text: `Choose <b>a glowing target</b>: ${esc(ui.select.text)}.`, buttons: [{ action: 'cancel', label: 'Cancel' }], gold: true };
+  if (ui.select?.kind === 'target') {
+    const n = ui.select.spec.count ?? 1;
+    const k = (ui.select.chosen ?? []).length;
+    const what = ui.select.spec.kinds.includes('location') ? 'a glowing Location panel' : 'a glowing target';
+    return { tag: ui.select.tag, text: `${n > 1 ? `Choose <b>target ${k + 1} of ${n}</b>` : `Choose <b>${what}</b>`}: ${esc(ui.select.text)}${n > 1 ? ', or Done' : ''}.`,
+      buttons: [...(n > 1 ? [{ action: 'targets-done', label: `Done (${k})` }] : []), { action: 'cancel', label: 'Cancel' }], gold: true };
+  }
   if (ui.ask) return { tag: ui.ask.kind === 'move' ? 'Choose a breakpoint' : 'Release cards', text: ui.ask.kind === 'move' ? 'Pay one of the amounts shown: more Energy, a bigger effect.' : 'Choose the cards to Release (gone for the match).', buttons: [], gold: true };
   if (s.phase === 'battle' && s.turn === 'player' && !ui.locked) {
     const opts = [];
@@ -118,7 +125,7 @@ function board(s, ui) {
     return `<div class="v3-loc w${lanes.length}${l.championship ? ' champ' : ''}${isNew && arriving ? ' arriving' : ''}" style="left: ${left}px; width: ${width}px; --loc: ${l.color}" data-loc="${l.uid}">
       <div class="v3-loc-art" style="background-image: url('${ASSETS}/${l.art}')"></div>
       ${isNew ? '<span class="v3-new">New</span>' : ''}
-      <div class="v3-loc-panel${hasTrophy ? ' trophy' : ''}" title="${esc(`${l.name}: ${l.objective.text}. Rewards · ${rewards}`)}">
+      <div class="v3-loc-panel${hasTrophy ? ' trophy' : ''}${targets.has(`ai:loc:${l.uid}`) || targets.has(`player:loc:${l.uid}`) ? ' target' : ''}" data-loc-uid="${l.uid}" data-loc-who="${targets.has(`ai:loc:${l.uid}`) ? 'ai' : 'player'}" title="${esc(`${l.name}: ${l.objective.text}. Rewards · ${rewards}`)}">
         <header><h4>${esc(l.name)}</h4>${l.width > lanes.length ? `<small>${lanes.length} of ${l.width} lanes left</small>` : ''}</header>
         <p>${esc(l.objective.text)}${l.effect ? ` · <em>${esc(l.tagline)}</em>` : ''}</p>
         ${bar('player')}${bar('ai')}
@@ -155,12 +162,16 @@ function board(s, ui) {
   </section>`;
 }
 
-// The spaces (and players) that can be clicked for the choice in progress.
+const key = (t) => (t.kind === 'player' ? `${t.who}:player` : t.kind === 'location' ? `${t.who}:loc:${t.uid}` : `${t.who}:${t.space}`);
+// The spaces (and players, and Locations) that can be clicked for the choice in progress.
 function targetSet(s, ui) {
   const out = new Set();
   if (ui.select?.kind === 'summon') for (const i of emptyOpenSpaces(s, 'player')) out.add(`player:${i}`);
   if (ui.select?.kind === 'attack') for (const t of legalTargets(s, 'player', ui.select.from)) out.add(t.kind === 'player' ? 'ai:player' : `ai:${t.space}`);
-  if (ui.select?.kind === 'target') for (const t of effectTargets(s, 'player', ui.select.spec)) out.add(t.kind === 'player' ? `${t.who}:player` : `${t.who}:${t.space}`);
+  if (ui.select?.kind === 'target') {
+    const chosen = new Set((ui.select.chosen ?? []).map(key));
+    for (const t of effectTargets(s, 'player', ui.select.spec)) if (!chosen.has(key(t))) out.add(key(t));
+  }
   return out;
 }
 
@@ -313,24 +324,34 @@ function wire(root, s, ui, ctx) {
     const action = { type: 'playSupporter', who: 'player', uid: c.uid, release: [...ui.ask.chosen] };
     const met = favourMet(c, me.hand.filter((x) => ui.ask.chosen.includes(x.uid)));
     ui.ask = null;
-    if (!c.target) return ctx.act(action);
+    if (!c.target || (met && c.favour.untargeted)) return ctx.act(action);
     ui.select = { kind: 'target', spec: c.target, tag: c.name, text: met ? c.favour.text : c.text, action };
     redraw();
   });
   // The board: summon into a glowing space; choose an attacker; choose a target.
+  // A target for a Move or Supporter: one acts at once; for two, the second (or Done).
+  const pick = (t) => {
+    const sel = ui.select;
+    sel.chosen = [...(sel.chosen ?? []), t];
+    const left = effectTargets(s, 'player', sel.spec).filter((o) => !sel.chosen.some((c) => key(c) === key(o)));
+    if (sel.chosen.length >= (sel.spec.count ?? 1) || !left.length) return ctx.act({ ...sel.action, targets: sel.chosen });
+    redraw();
+  };
+  on('[data-action="targets-done"]', () => { if (ui.select?.chosen?.length) ctx.act({ ...ui.select.action, targets: ui.select.chosen }); });
   on('.v3-row.player .v3-space.target', (el) => {
     if (ui.select?.kind === 'summon') ctx.act({ type: 'summon', who: 'player', uid: ui.select.uid, space: Number(el.dataset.space) });
-    else if (ui.select?.kind === 'target') ctx.act({ ...ui.select.action, target: { who: 'player', kind: 'pokemon', space: Number(el.dataset.space) } });
+    else if (ui.select?.kind === 'target') pick({ who: 'player', kind: 'pokemon', space: Number(el.dataset.space) });
   });
   on('.v3-row.opponent .v3-space.target', (el) => {
     const space = Number(el.dataset.space);
     if (ui.select?.kind === 'attack') ctx.act({ type: 'attack', who: 'player', from: ui.select.from, target: { kind: 'pokemon', space } });
-    else if (ui.select?.kind === 'target') ctx.act({ ...ui.select.action, target: { who: 'ai', kind: 'pokemon', space } });
+    else if (ui.select?.kind === 'target') pick({ who: 'ai', kind: 'pokemon', space });
   });
   on('.v3-medal.target', (el) => {
     if (ui.select?.kind === 'attack') ctx.act({ type: 'attack', who: 'player', from: ui.select.from, target: { kind: 'player' } });
-    else if (ui.select?.kind === 'target') ctx.act({ ...ui.select.action, target: { who: el.dataset.player, kind: 'player' } });
+    else if (ui.select?.kind === 'target') pick({ who: el.dataset.player, kind: 'player' });
   });
+  on('.v3-loc-panel.target', (el) => pick({ who: el.dataset.locWho, kind: 'location', uid: el.dataset.locUid }));
   on('.v3-row.player .v3-card.can-attack', (el) => { ui.select = { kind: 'attack', from: Number(el.dataset.space) }; redraw(); });
 }
 

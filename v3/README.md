@@ -12,7 +12,7 @@ Plain HTML, CSS and JavaScript modules: no build step, no npm dependencies, rela
 | Folder | Contents |
 |---|---|
 | `v3/src/rules.js` | Every number, in one place, to tune |
-| `v3/src/engine/` | Rules and game state (`game.js`), the test cards (`cards.js`), the Locations (`locations.js`). **No DOM code.** |
+| `v3/src/engine/` | Rules and game state (`game.js`), keywords (`keywords.js`), the test cards (`cards.js`), the Locations (`locations.js`). **No DOM code.** |
 | `v3/src/ai/` | The AI: it plays only through `applyAction` |
 | `v3/src/ui/` | Drawing the match and handling clicks; coded icons |
 | `v3/tests/` | `for t in v3/tests/*.test.js; do node $t; done` |
@@ -108,3 +108,74 @@ Plain HTML, CSS and JavaScript modules: no build step, no npm dependencies, rela
     - Per match: an average final Recognition of 87, 95 actions, 12 Overexerts and no deck-outs.
   - **Placeholders to confirm with Elliott:** listed in `docs/v3-foundations.md` ("Settled 4 Nov (V3-0)").
   - **Screenshots** (`v3/screenshots/`): `v3-0-round1.jpg`, `v3-0-round2.jpg`, `v3-0-board.jpg` (Round 6), `v3-0-attack.jpg`, `v3-0-overexerted.jpg`, `v3-0-championship.jpg`, `v3-0-game-over.jpg`.
+
+- **V3-1 — Elliott's changes to V3-0** (`docs/v3-foundations.md`, "Settled 4 Nov (late night)").
+  - **The treadmill, revised:**
+    - From Round 2, at the start of each Round every Location moves one space left, so the leftmost shrinks by a lane. It's removed when no lanes are left, and its completion rewards are given then.
+    - Pokémon and portraits never move.
+    - A new Location then arrives on the right if one fits the free spaces there. The game picks the widest that fits, at random among those and preferring one not already on the board, so the board fills its 10 spaces and stays full.
+    - If none fits, it waits; for example, only 3-lane Locations in line and 1–2 free spaces.
+    - **Consequence:** once the board is full, one space frees each Round, so only 1-lane Locations arrive from then on.
+  - **The Regional Championship:** still the 10th Location if no one has reached the Trophy, covering every space. The shrinking treadmill never clears the board, so it arrives as soon as it's due (Round 10) over all 10 spaces; the remaining Locations leave and pay their completion rewards. It lasts 2 Rounds, then the higher Recognition is crowned.
+  - **Locations** (`v3/src/engine/locations.js`): named for their v1/v2 art.
+    - Pallet Town (2 lanes).
+    - Eterna Forest (3; wild Pokémon: each Move you play brings a Wild Sewaddle).
+    - Shalour City (1; its Pokémon Center heals your Pokémon there fully at Supper).
+    - Cerulean Cape (2), Mt. Ember (3), Lake of Rage (2), Floaroma Meadow (1), Route 119 (2) and Petalburg Woods (1).
+    - The Regional Championship at Stark Mountain.
+  - **Cards** (`v3/src/engine/cards.js`): actual v1/v2 Pokémon, Moves and Supporters, with their names, art, stats and series. Each Pokémon's Level picks its stage, so Squirtle becomes Wartortle at Level 3 and Blastoise at 5. Bands come from v2's weights: light → Light, standard → Medium, heavy → Heavy.
+    - **New in the engine for them:**
+      - keywords: Quick Attack, Infiltrator, Overrun, Rage, Shell N, Regenerate N;
+      - abilities: On Summon, On Attack, On Defend, Rally;
+      - "this Round" and "until your next Breakfast" buffs;
+      - effects with two targets, or a chosen Location (click its panel).
+    - **The test deck** (both players; 40 cards):
+
+      | Card | Copies | Type | Band, Speed, attack | What it keeps | Dropped |
+      |---|---|---|---|---|---|
+      | Growlithe → Arcanine | 3 | Fire | Medium, Swift, Physical | Arcanine: Infiltrator, Overrun | Scorch (Burn); Empowered summon |
+      | Ponyta → Rapidash | 3 | Fire | Light, Swift, Physical | Quick Attack; Rapidash: Infiltrator | Level 6's "the enemy player gains Burn 1" |
+      | Mankey → Primeape | 2 | Fighting | Light, Swift, Physical | Overrun; Primeape: Infiltrator, Rage | — |
+      | Magby → Magmar → Magmortar | 2 | Fire | Heavy, Steady, Special | Magmortar: On Attack, 1 damage to each other enemy Pokémon in its Location | Scorch |
+      | Duskull → Dusclops | 2 | Ghost | Heavy, Slow, Special, Special Defence guard | — | On Defend: Burn the attacker |
+      | Squirtle → Wartortle → Blastoise | 3 | Water | Medium, Steady, Special, Defence guard | Shell 1, then Shell 2 | Empowered summon |
+      | Horsea → Seadra → Kingdra | 2 | Water | Medium, Steady, Special | Rally +1/+1; Kingdra: Rally +2/+2 and Shell 1 | — |
+      | Magikarp → Gyarados | 2 | Water | Heavy, Steady, Physical | Magikarp: On Summon, draw 1; Gyarados: Overrun, and On Summon 2 damage to each enemy Pokémon in its Location | — |
+      | Chinchou → Lanturn | 2 | Electric | Light, Steady, Special, Special Defence guard | Regenerate 1; Lanturn: On Attack, heal another friendly Pokémon in its Location 2 | — |
+      | Bulbasaur → Ivysaur → Venusaur | 2 | Grass | Medium, Steady, Special; Special Defence guard at Levels 1–2 | Venusaur: Shell 1 | On Breakfast Growth; Ivysaur's Leech Seed |
+      | Geodude → Graveler → Golem | 2 | Rock | Heavy, Slow, Physical, Defence guard | On Defend: 1 damage to the attacker (Golem: 2) | — (Graveler and Golem use Geodude's art, as in v2) |
+      | Wingull → Pelipper | 1 | Water | Light, Swift, Special | — | Weather (Rain); Pelipper's Retain |
+      | **Moves:** Hydro Pump | 2 | | | 3: 4 damage; 6: 9 damage | — |
+      | Thunderbolt | 2 | | | 2: 3 damage; 4: 6 damage; 6: 6 damage to two targets | — |
+      | Surf | 2 | | | 2: 2 to each enemy Pokémon; 5: 3 to each, and heal each friendly 2 | — |
+      | Hyper Voice | 1 | | | 4: 2 to every enemy Pokémon; 6: 3 to each, and 2 to the enemy player | — |
+      | Flame Charge | 2 | | | 1: +2 Attack this Round; 3: also becomes Active | Scorch 1 |
+      | Rock Slide | 1 | | | 3: 2 to every enemy Pokémon in a chosen Location; 5: 3 there and 1 to every other | — |
+      | **Supporters:** Professor Oak | 2 | | | Release 2: draw 3; Favour (a Pokémon card): draw 4 | — |
+      | Nurse Joy | 1 | | | Release 1: heal each friendly Pokémon in a chosen Location 3; Favour (a Normal Pokémon): every Location | Douse |
+      | Brock | 1 | | | Release 1: friendly Pokémon in a chosen Location gain +2 Strength and Shell 1 until your next Breakfast; Favour (a Rock Pokémon): every Location | Douse your player character |
+
+    - **Not used:**
+      - Legendaries: v3 has no rule for them yet.
+      - Cards whose effects are all Burn, Sleep, Leech Seed, Growth, Weather, Items or Trainers: Ember, Heat Wave, Leech Seed, Sleep Powder, Solar Beam, Firebreather and the others.
+      - Cards that need systems not yet in v3: Dive (no Discard Pile of Pokémon), Swimmer, Fisherman, Tracey (searching and choosing from the deck).
+  - **Art:** only v1/v2 card art from `assets/cards/` (and Pallet Town). The table and the mat are now drawn in CSS: no other images.
+  - **Tests:**
+    - `rules.test.js` covers:
+      - the treadmill: moving, shrinking, removal with completion rewards, Pokémon staying put, arrivals only when they fit (a 3-lane one waits until 3 spaces are free), and the board filling and staying full;
+      - the Championship;
+      - the cards (a mix, series stages, no dropped systems in any effect);
+      - every keyword and ability above, two targets and a chosen Location.
+    - `setup.test.js` checks the art rule: only `assets/cards`, Locations named for their art, no images in the CSS.
+    - The layout check adds two-target and chosen-Location screens and reports `layout: ok` at 1920×1080, 1366×768 and 1280×720.
+  - **AI-vs-AI report** (`node v3/tools/matches.js 100`):
+    - All 100 matches finish, averaging **9.88 Rounds** (Round 8: 3, Round 9: 21, Round 10: 61, Round 11: 15).
+    - **How they end:**
+      - the Trophy before the Championship: 24;
+      - the Trophy during the Championship: 75;
+      - crowned at the Championship's end: 1;
+      - no draws, though one match ended with both players reaching the Trophy at once (no winner).
+    - The player with initiative in Round 1 won 51, the other 48.
+    - Per match: an average final Recognition of 90, 94 actions, 13 Overexerts and no deck-outs.
+  - **Screenshots** (`v3/screenshots/`): `v3-1-round2.jpg`, `v3-1-round6.jpg`, `v3-1-round8.jpg`, `v3-1-location-target.jpg` (Rock Slide), `v3-1-two-targets.jpg` (Thunderbolt at 6) and `v3-1-championship.jpg`.
+

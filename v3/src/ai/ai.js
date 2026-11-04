@@ -48,7 +48,7 @@ export function moves(s, who) {
       seen.add(c.id);
       for (const bp of affordableBreakpoints(s, who, c)) {
         if (!bp.target) out.push({ type: 'playMove', who, uid: c.uid, pay: bp.cost });
-        else for (const target of effectTargets(s, who, bp.target)) out.push({ type: 'playMove', who, uid: c.uid, pay: bp.cost, target });
+        else for (const targets of targetSets(s, who, bp.target)) out.push({ type: 'playMove', who, uid: c.uid, pay: bp.cost, targets });
       }
     }
   }
@@ -57,11 +57,19 @@ export function moves(s, who) {
       const others = p.hand.filter((x) => x !== c).sort((a, b) => worth(a) - worth(b));
       const fav = others.find((x) => FAVOURS[c.favour.condition].test(x));
       const pay = (fav ? [fav, ...others.filter((x) => x !== fav)] : others).slice(0, c.release).map((x) => x.uid);
-      const targets = c.target ? effectTargets(s, who, c.target) : [undefined];
-      for (const target of targets) out.push({ type: 'playSupporter', who, uid: c.uid, release: pay, target });
+      const met = fav && c.favour.untargeted;
+      const sets = c.target && !met ? targetSets(s, who, c.target) : [[]];
+      for (const targets of sets) out.push({ type: 'playSupporter', who, uid: c.uid, release: pay, targets });
     }
   }
   return out;
+}
+// Target choices worth trying: each single target, and for two-target effects each pair.
+function targetSets(s, who, spec) {
+  const opts = effectTargets(s, who, spec);
+  const sets = opts.map((t) => [t]);
+  if ((spec.count ?? 1) >= 2) for (let i = 0; i < opts.length; i++) for (let j = i + 1; j < opts.length; j++) sets.push([opts[i], opts[j]]);
+  return sets;
 }
 const worth = (c) => (c.cardType === 'Pokémon' ? c.attack + c.strength : 4);
 

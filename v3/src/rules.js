@@ -6,12 +6,14 @@ export const RULES = {
   // The board: 10 spaces per side; Pallet Town (2 lanes) starts on spaces 1–2.
   spaces: 10,
   startLocation: 'pallet-town',
-  // A new Location every Round from this Round on (at Breakfast). Locations fill the board
-  // from the left; once all 10 spaces are covered, a new Location pushes the others left by
-  // its width (Elliott, V3-0), and any that fall off the left are removed.
+  // The treadmill (Elliott, V3-1): from this Round on, at the start of each Round every Location
+  // moves this many spaces left, so the leftmost shrinks (removed when no lanes are left); then a
+  // new Location arrives on the right if one fits the free spaces there (else it waits).
   newLocationFrom: 2,
+  treadmillShift: 1,
   // The Regional Championship arrives as this Location (Pallet Town is the 1st), if no one
-  // has reached the Trophy. It covers every space and lasts this many Rounds; at its end the
+  // has reached the Trophy. It covers every space (it arrives over the whole board, and the other
+  // Locations leave, paying their completion rewards) and lasts this many Rounds; at its end the
   // higher Recognition is crowned Champion (a tie plays on, Round by Round, up to the limit).
   championshipAs: 10,
   championshipRounds: 2,

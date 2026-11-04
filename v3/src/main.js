@@ -6,7 +6,7 @@ import { chooseAction } from './ai/ai.js';
 import { renderMatch } from './ui/board.js';
 import { pokemonAt, cardById } from './engine/cards.js';
 
-export const BUILD = 'V3-0 — the first playable v3';
+export const BUILD = 'V3-1 — the shrinking treadmill, v1 and v2 cards';
 
 const STAGE = { width: 1920, height: 1080 };
 const stage = document.getElementById('stage');

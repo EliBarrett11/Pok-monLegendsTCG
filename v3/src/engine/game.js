@@ -4,10 +4,10 @@
 //
 // The board: 10 spaces per side, two facing rows (space i on both sides is lane i). Locations
 // cover spaces; a space with no Location is closed (no summoning there). The game controls the
-// Locations, a treadmill: from Round 2 a new one arrives every Breakfast at the right end of the
-// Locations; while there's room the board just grows; once all 10 spaces are covered, a new
-// Location pushes the others left by its width, and any that fall off the left are removed
-// (their completion rewards are given then). Pokémon and portraits never move with them.
+// Locations, a treadmill (V3-1): from Round 2, at the start of each Round every Location moves one
+// space left, so the leftmost shrinks by a lane and is removed when none is left (its completion
+// rewards are given then); then a new Location (1–3 lanes) arrives on the right if one fits the
+// free spaces there, else it waits. Pokémon and portraits never move with them.
 //
 // The race: each player's portrait stands on space 1 + one per 10 Recognition, never past the
 // furthest open space. 100 Recognition reaches the Trophy on space 10 and wins. If no one has,
@@ -22,6 +22,7 @@
 import { RULES, SPEEDS, levelFor, energyFor, portraitSpace } from '../rules.js';
 import { nextRandom, shuffle } from './random.js';
 import { TEST_DECK, cardAt, pokemonAt, seriesDef, FAVOURS, WILD } from './cards.js';
+import { kwSum, hasKw } from './keywords.js';
 import { PALLET_TOWN, LOCATIONS, CHAMPIONSHIP, locationDef, rewardText } from './locations.js';
 
 export const PLAYERS = ['player', 'ai'];
@@ -82,12 +83,14 @@ export function legalTargets(s, who, from) {
   if (!attacker) return [];
   const foe = opponentOf(who);
   const guard = attacker.attackType === 'Physical' ? 'Defence' : 'Special Defence';
+  // Infiltrator ignores guards and the portrait's protection.
+  const infiltrator = hasKw(attacker, 'Infiltrator');
   const out = [];
-  for (const { card, space } of pokemonOf(s, foe)) {
-    if (guardedBy(s, foe, space, guard)) continue;
+  for (const { space } of pokemonOf(s, foe)) {
+    if (!infiltrator && guardedBy(s, foe, space, guard)) continue;
     out.push({ kind: 'pokemon', space });
   }
-  if (playerTargetable(s, foe)) out.push({ kind: 'player' });
+  if (infiltrator || playerTargetable(s, foe)) out.push({ kind: 'player' });
   return out;
 }
 // The guard standing in front of the Pokémon on `space` (another Pokémon of `foe` in the same
@@ -116,15 +119,20 @@ export function effectTargets(s, who, spec) {
     }
   }
   if (spec.kinds.includes('player') && (side === who || playerTargetable(s, side))) out.push({ who: side, kind: 'player' });
+  // A chosen Location: one with at least one of that side's Pokémon in it.
+  if (spec.kinds.includes('location')) {
+    for (const l of s.locations) if (lanesOf(l).some((i) => s.players[side].row[i])) out.push({ who: side, kind: 'location', uid: l.uid });
+  }
   return out;
 }
+const refKey = (t) => `${t?.who}:${t?.kind}:${t?.space ?? t?.uid ?? ''}`;
 
 export const emptyOpenSpaces = (s, who) => Array.from({ length: RULES.spaces }, (_, i) => i).filter((i) => isOpen(s, i) && !s.players[who].row[i]);
 export const summonable = (s, who) => (emptyOpenSpaces(s, who).length ? s.players[who].hand.filter((c) => c.cardType === 'Pokémon' && c.cost <= s.players[who].energy) : []);
 export const affordableBreakpoints = (s, who, card) => (card.breakpoints ?? []).filter((b) => b.cost <= s.players[who].energy && (!b.target || effectTargets(s, who, b.target).length));
 export const playableMoves = (s, who) => s.players[who].hand.filter((c) => c.cardType === 'Move' && affordableBreakpoints(s, who, c).length);
 export const favourMet = (card, paid) => !!card.favour && paid.some((c) => FAVOURS[card.favour.condition].test(c));
-export const supporterPlayable = (s, who, card) => s.players[who].hand.length - 1 >= card.release && (!card.target || effectTargets(s, who, card.target).length);
+export const supporterPlayable = (s, who, card) => s.players[who].hand.length - 1 >= card.release && (!card.target || effectTargets(s, who, card.target).length || card.favour?.untargeted);
 export const playableSupporters = (s, who) => s.players[who].hand.filter((c) => c.cardType === 'Supporter' && supporterPlayable(s, who, c));
 export const canOverexert = (s, who) => s.phase === 'battle' && s.turn === who && s.players[who].overexertRound !== s.round;
 export const attackers = (s, who) => readySpaces(s, who).filter((sp) => legalTargets(s, who, sp).length);
@@ -218,27 +226,46 @@ const ACTIONS = {
     }
     const d = s.players[foe].row[target.space];
     const trades = isReady(s, d);
-    d.currentStrength -= a.attack;
-    if (trades) a.currentStrength -= d.attack;
+    const left = d.currentStrength;
+    const hit = afterShell(a.attack, d);
+    const back = trades ? afterShell(d.attack, a) : 0;
+    d.currentStrength -= hit;
+    if (trades) a.currentStrength -= back;
     a.spent = true;
     if (trades) d.spent = true;
-    emit(s, 'attack', { who, from, target: { kind: 'pokemon', space: target.space }, amount: a.attack, back: trades ? d.attack : 0, attacker: a.name, defender: d.name });
-    log(s, `${POSS[who]} ${a.name} attacked ${d.name} for ${a.attack}${trades ? `; ${d.name} was Ready and hit back for ${d.attack}` : ''}.`);
+    emit(s, 'attack', { who, from, target: { kind: 'pokemon', space: target.space }, amount: hit, back, attacker: a.name, defender: d.name });
+    log(s, `${POSS[who]} ${a.name} attacked ${d.name} for ${hit}${trades ? `; ${d.name} was Ready and hit back for ${back}` : ''}.`);
     progress(s, who, here, 'attack', 1);
-    if (d.currentStrength <= 0) { defeat(s, foe, target.space, who); progress(s, who, here, 'defeat', 1); }
-    if (a.currentStrength <= 0) { defeat(s, who, from, foe); progress(s, foe, locationAt(s, target.space), 'defeat', 1); }
+    const dDown = d.currentStrength <= 0;
+    const aDown = a.currentStrength <= 0;
+    // Overrun: when its attack defeats the target, the damage left over goes to the enemy player.
+    if (dDown && hasKw(a, 'Overrun') && hit > left) {
+      progress(s, who, here, 'damagePlayer', hit - left);
+      gainRecognition(s, who, (hit - left) * RULES.perDamageToPlayer, `${a.name}'s Overrun`);
+      if (s.phase === 'gameOver') return;
+    }
+    // Rage: +1 Attack each time it survives damage.
+    if (!dDown && hit > 0) rage(d);
+    if (!aDown && back > 0) rage(a);
+    if (dDown) { defeat(s, foe, target.space, who); progress(s, who, here, 'defeat', 1); }
+    if (aDown) { defeat(s, who, from, foe); progress(s, foe, locationAt(s, target.space), 'defeat', 1); }
+    if (s.phase === 'gameOver') return;
+    // On Attack (the attacker survived); On Defend (the defender survived damage).
+    if (!aDown && a.onAttack) ability(s, who, from, a.onAttack, target.space);
+    if (!dDown && hit > 0 && d.onDefend && s.players[who].row[from] === a) hurt(s, who, from, d.onDefend, foe);
+    if (s.phase === 'gameOver') return;
     endTurn(s, who, false);
   },
 
   // A Move: pay one of its breakpoints; its effect on the chosen target. Then the Discard Pile.
-  playMove(s, { who, uid, pay, target }) {
+  playMove(s, { who, uid, pay, target, targets }) {
     const p = s.players[who];
     const card = p.hand.find((c) => c.uid === uid);
     if (!card || card.cardType !== 'Move') throw new Error('Choose a Move from your hand');
     const bp = card.breakpoints.find((b) => b.cost === pay);
     if (!bp) throw new Error(`${card.name} can be paid ${card.breakpoints.map((b) => b.cost).join(', ')}`);
     if (pay > p.energy) throw new Error(`Not enough Energy for ${card.name} at ${pay}`);
-    const t = checkTarget(s, who, bp.target, target);
+    const t = checkTargets(s, who, bp.target, targets ?? (target ? [target] : []));
     p.energy -= pay;
     p.hand = p.hand.filter((c) => c !== card);
     p.discard.push(card);
@@ -250,14 +277,14 @@ const ACTIONS = {
       const space = lanesOf(l).find((i) => !p.row[i]);
       if (space === undefined || s.phase === 'gameOver') continue;
       place(s, who, { ...pokemonAt(WILD.id, 1, 1), uid: `wild-${s.round}-${who}-${space}`, wild: true }, space, 0);
-      log(s, `A Wild Bug joined ${NAMES[who] === 'You' ? 'you' : 'the Opponent'} in ${l.name}.`);
+      log(s, `A Wild Sewaddle joined ${NAMES[who] === 'You' ? 'you' : 'the Opponent'} in ${l.name}.`);
     }
     if (s.phase !== 'gameOver') endTurn(s, who, false);
   },
 
   // A Supporter: Release exactly its number of other cards from your hand; the Favour (a Released
   // card that meets it) improves it. The Supporter is Released too.
-  playSupporter(s, { who, uid, release = [], target }) {
+  playSupporter(s, { who, uid, release = [], target, targets }) {
     const p = s.players[who];
     const card = p.hand.find((c) => c.uid === uid);
     if (!card || card.cardType !== 'Supporter') throw new Error('Choose a Supporter from your hand');
@@ -265,7 +292,7 @@ const ACTIONS = {
     const paid = release.map((u) => p.hand.find((c) => c.uid === u && c !== card));
     if (paid.some((c) => !c)) throw new Error('Release cards from your hand');
     const met = favourMet(card, paid);
-    const t = checkTarget(s, who, card.target, target);
+    const t = checkTargets(s, who, met && card.favour.untargeted ? null : card.target, targets ?? (target ? [target] : []));
     p.hand = p.hand.filter((c) => c !== card && !paid.includes(c));
     p.released.push(...paid, card);
     emit(s, 'supporter', { who, uid, name: card.name, released: paid.map((c) => c.name), favour: met });
@@ -300,45 +327,142 @@ const ACTIONS = {
   },
 };
 
-function checkTarget(s, who, spec, target) {
-  if (!spec) return null;
+// The chosen targets for a spec: 1 up to its count, all different, all legal.
+function checkTargets(s, who, spec, targets) {
+  if (!spec) return [];
   const options = effectTargets(s, who, spec);
-  const found = options.find((o) => o.who === target?.who && o.kind === target?.kind && o.space === target?.space);
-  if (!found) throw new Error(options.length ? 'Choose a legal target' : 'There is no legal target');
-  return found;
+  if (!options.length) throw new Error('There is no legal target');
+  const list = targets.filter(Boolean);
+  if (list.length < 1 || list.length > (spec.count ?? 1)) throw new Error((spec.count ?? 1) === 1 ? 'Choose a target' : `Choose 1 to ${spec.count} targets`);
+  if (new Set(list.map(refKey)).size !== list.length) throw new Error('Choose different targets');
+  return list.map((t) => {
+    const found = options.find((o) => refKey(o) === refKey(t));
+    if (!found) throw new Error('Choose a legal target');
+    return found;
+  });
 }
 
-function runOps(s, who, ops, t) {
-  const p = s.players[who];
+// Shell N: each instance of damage this Pokémon takes is N less, but at least 1.
+const afterShell = (amount, card) => (amount > 0 ? Math.max(1, amount - kwSum(card, 'Shell')) : 0);
+const rage = (card) => { if (hasKw(card, 'Rage')) { card.attack += 1; card.grown = (card.grown ?? 0) + 1; } };
+// The Pokémon a target reaches (a Pokémon, or every one of a side's in a chosen Location).
+function pokemonFor(s, t) {
+  if (t.kind === 'pokemon') return s.players[t.who].row[t.space] ? [{ who: t.who, space: t.space }] : [];
+  if (t.kind === 'location') {
+    const l = s.locations.find((x) => x.uid === t.uid);
+    return l ? lanesOf(l).filter((i) => s.players[t.who].row[i]).map((space) => ({ who: t.who, space })) : [];
+  }
+  return [];
+}
+// Effect damage to a Pokémon (Shell applies); a defeat counts for `by`.
+function hurt(s, who, space, amount, by) {
+  const card = s.players[who].row[space];
+  if (!card || amount <= 0 || s.phase === 'gameOver') return;
+  const n = afterShell(amount, card);
+  card.currentStrength -= n;
+  emit(s, 'damaged', { who, space, amount: n });
+  if (card.currentStrength <= 0) defeat(s, who, space, by);
+  else rage(card);
+}
+function heal(s, who, space, amount) {
+  const card = s.players[who].row[space];
+  if (!card) return;
+  card.currentStrength = Math.min(card.strength, card.currentStrength + amount);
+  emit(s, 'healed', { who, space });
+}
+// A buff: +Attack / +Strength / keywords until Supper ("this Round") or the next Breakfast.
+function buff(card, o) {
+  const b = { attack: o.attack ?? 0, strength: o.strength ?? 0, keywords: o.keywords ?? [], until: o.until ?? 'supper' };
+  card.attack += b.attack;
+  card.strength += b.strength;
+  card.currentStrength += b.strength;
+  card.keywords = [...card.keywords, ...b.keywords];
+  card.buffs = [...(card.buffs ?? []), b];
+}
+function expireBuffs(s, until) {
+  for (const who of PLAYERS) {
+    for (const { card } of pokemonOf(s, who)) {
+      for (const b of (card.buffs ?? []).filter((x) => x.until === until)) {
+        card.attack -= b.attack;
+        card.strength -= b.strength;
+        card.currentStrength = Math.max(1, Math.min(card.currentStrength, card.strength));
+        for (const k of b.keywords) card.keywords.splice(card.keywords.indexOf(k), 1);
+      }
+      card.buffs = (card.buffs ?? []).filter((x) => x.until !== until);
+    }
+  }
+}
+
+function runOps(s, who, ops, targets) {
+  const foe = opponentOf(who);
   for (const op of ops) {
     if (s.phase === 'gameOver') return;
+    const reach = targets.flatMap((t) => pokemonFor(s, t));
     switch (op.op) {
       case 'damage':
-        if (t.kind === 'player') gainRecognition(s, who, op.amount * RULES.perDamageToPlayer, 'damage to the enemy player');
-        else {
-          const card = s.players[t.who].row[t.space];
-          card.currentStrength -= op.amount;
-          emit(s, 'damaged', { who: t.who, space: t.space, amount: op.amount });
-          if (card.currentStrength <= 0) defeat(s, t.who, t.space, who);
-        }
+        for (const t of targets) if (t.kind === 'player') gainRecognition(s, who, op.amount * RULES.perDamageToPlayer, 'damage to the enemy player');
+        for (const r of reach) hurt(s, r.who, r.space, op.amount, who);
         break;
-      case 'heal': { const card = s.players[t.who].row[t.space]; card.currentStrength = Math.min(card.strength, card.currentStrength + op.amount); emit(s, 'healed', { who: t.who, space: t.space }); break; }
-      case 'healAll': for (const { card } of pokemonOf(s, who)) card.currentStrength = Math.min(card.strength, card.currentStrength + op.amount); break;
+      case 'heal': for (const r of reach) heal(s, r.who, r.space, op.amount); break;
+      case 'buff': for (const r of reach) buff(s.players[r.who].row[r.space], op); break;
+      case 'ready': for (const r of reach) s.players[r.who].row[r.space].spent = false; break;
+      case 'damageAll': for (const { space } of pokemonOf(s, foe)) hurt(s, foe, space, op.amount, who); break;
+      case 'damageOthers': {
+        const hit = new Set(targets.flatMap((t) => pokemonFor(s, t)).map((r) => r.space));
+        for (const { space } of pokemonOf(s, foe)) if (!hit.has(space)) hurt(s, foe, space, op.amount, who);
+        break;
+      }
+      case 'healAll': for (const { space } of pokemonOf(s, who)) heal(s, who, space, op.amount); break;
+      case 'buffAll': for (const { card } of pokemonOf(s, who)) buff(card, op); break;
+      case 'damagePlayer': if (playerTargetable(s, foe)) gainRecognition(s, who, op.amount * RULES.perDamageToPlayer, 'damage to the enemy player'); break;
       case 'draw': draw(s, who, op.amount); break;
-      case 'recognition': gainRecognition(s, who, op.amount, 'a Move'); break;
+      case 'recognition': gainRecognition(s, who, op.amount, 'an effect'); break;
       default: throw new Error(`Unknown op ${op.op}`);
     }
   }
-  void p;
+}
+
+// A Pokémon's own ability (On Summon, On Attack): its targets are chosen by the engine.
+//   enemyHere: every enemy Pokémon in its Location · enemyHereOthers: the same, but not `except`
+//   friendHereOtherDamaged: its most-damaged other friendly Pokémon in its Location
+function ability(s, who, space, eff, except) {
+  if (!eff || s.phase === 'gameOver') return;
+  const foe = opponentOf(who);
+  const l = locationAt(s, space);
+  const lanes = l ? lanesOf(l) : [space];
+  let targets = [];
+  if (eff.to === 'enemyHere' || eff.to === 'enemyHereOthers') {
+    targets = lanes.filter((i) => s.players[foe].row[i] && !(eff.to === 'enemyHereOthers' && i === except)).map((i) => ({ who: foe, kind: 'pokemon', space: i }));
+    if (!targets.length) return;
+  } else if (eff.to === 'friendHereOtherDamaged') {
+    const hurtOnes = lanes.filter((i) => i !== space && s.players[who].row[i] && s.players[who].row[i].currentStrength < s.players[who].row[i].strength);
+    if (!hurtOnes.length) return;
+    const worst = hurtOnes.sort((x, y) => (s.players[who].row[y].strength - s.players[who].row[y].currentStrength) - (s.players[who].row[x].strength - s.players[who].row[x].currentStrength))[0];
+    targets = [{ who, kind: 'pokemon', space: worst }];
+  }
+  emit(s, 'ability', { who, space, name: s.players[who].row[space]?.name });
+  runOps(s, who, eff.ops, targets);
 }
 
 // A Pokémon arrives (Spent), frozen at its Level.
 function place(s, who, card, space, cost) {
   const { entry, ...plain } = card;
-  s.players[who].row[space] = { ...plain, currentStrength: card.strength, spent: true, arrivedRound: s.round };
+  // It arrives Spent (Quick Attack: Active).
+  s.players[who].row[space] = { ...plain, currentStrength: card.strength, spent: !hasKw(card, 'Quick Attack'), arrivedRound: s.round, buffs: [] };
   emit(s, 'summoned', { who, space, name: card.name, level: card.level, cost, wild: !!card.wild });
   if (!card.wild) log(s, `${NAMES[who]} summoned ${card.name} (Level ${card.level}) into space ${space + 1} (${cost} Energy).`);
   progress(s, who, locationAt(s, space), 'summon', 1);
+  if (card.onSummon) ability(s, who, space, card.onSummon);
+  // Rally: the others already in its Location grow.
+  const l = locationAt(s, space);
+  for (const i of l ? lanesOf(l) : []) {
+    const other = s.players[who].row[i];
+    if (i === space || !other?.rally || s.phase === 'gameOver') continue;
+    other.attack += other.rally.attack;
+    other.strength += other.rally.strength;
+    other.currentStrength += other.rally.strength;
+    emit(s, 'rally', { who, space: i, name: other.name });
+  }
 }
 
 function defeat(s, who, space, by) {
@@ -392,27 +516,35 @@ function endMatch(s, winner, reason, line) {
 
 function placeLocation(s, def) {
   s.locationCount += 1;
-  // The Regional Championship covers every space: every other Location expires.
+  // The Regional Championship covers every space: every other Location leaves (V3-1: it arrives
+  // over the whole board when it's due, since the treadmill never empties the board).
   if (def.width >= RULES.spaces) {
     for (const l of [...s.locations]) expire(s, l, 'championship');
     s.locations.push(newLoc(s, def, 0));
     s.championship = { roundsLeft: RULES.championshipRounds, tieRounds: 0 };
-    emit(s, 'locationArrived', { id: def.id, name: def.name, start: 0, width: def.width, shift: 0, championship: true });
+    emit(s, 'locationArrived', { id: def.id, name: def.name, start: 0, width: def.width, championship: true });
     log(s, `The Regional Championship arrives over every space! It lasts ${RULES.championshipRounds} Rounds; then the higher Recognition is crowned Champion.`);
     return;
   }
-  const end = furthestOpen(s) + 1;
-  const shift = Math.max(0, end + def.width - RULES.spaces);
-  if (shift) {
-    for (const l of s.locations) l.start -= shift;
-    for (const l of s.locations.filter((x) => x.start + x.width <= 0)) expire(s, l, 'off');
-  }
-  const l = newLoc(s, def, end - shift);
+  const start = furthestOpen(s) + 1;
+  const l = newLoc(s, def, start);
   s.locations.push(l);
-  emit(s, 'locationArrived', { id: def.id, name: def.name, start: l.start, width: def.width, shift });
-  if (s.locationCount > 1) log(s, `${def.name} arrives (${def.width} lane${def.width > 1 ? 's' : ''})${shift ? `: the board shifts ${shift} left` : ''}. ${def.objective.text}.`);
+  emit(s, 'locationArrived', { id: def.id, name: def.name, start, width: def.width });
+  if (s.locationCount > 1) log(s, `${def.name} arrives on ${def.width === 1 ? `space ${start + 1}` : `spaces ${start + 1}–${start + def.width}`}. ${def.objective.text}.`);
   checkTrophy(s);
 }
+
+// The treadmill (V3-1): every Location moves one space left; the leftmost shrinks, and is removed
+// when no lanes are left (its completion rewards are given then).
+function moveLocations(s) {
+  if (s.championship) return;
+  for (const l of s.locations) l.start -= RULES.treadmillShift;
+  emit(s, 'treadmill', {});
+  for (const l of s.locations.filter((x) => x.start + x.width <= 0)) expire(s, l, 'off');
+}
+// The free spaces at the right edge of the board.
+export const freeAtRight = (s) => RULES.spaces - (furthestOpen(s) + 1);
+
 const newLoc = (s, def, start) => ({
   uid: `loc-${s.nextLocation++}`, id: def.id, name: def.name, art: def.art, width: def.width, color: def.color, tagline: def.tagline,
   objective: def.objective, milestones: def.milestones, completion: def.completion, effect: def.effect, start, arrivedRound: s.round,
@@ -509,6 +641,7 @@ function supper(s) {
     }
   }
   if (s.phase === 'gameOver') return;
+  expireBuffs(s, 'supper');
   // The Regional Championship: at its end, the higher Recognition is crowned Champion.
   if (s.championship) {
     s.championship.roundsLeft -= 1;
@@ -536,13 +669,22 @@ function startRound(s, round) {
   emit(s, 'breakfast', { round });
   log(s, `Round ${round} · Breakfast.`);
   if (round >= RULES.newLocationFrom && !s.championship) {
+    moveLocations(s);
+    if (s.phase === 'gameOver') return;
     if (s.locationCount + 1 >= RULES.championshipAs) placeLocation(s, CHAMPIONSHIP);
-    else placeLocation(s, nextLocationDef(s));
+    else {
+      const def = nextLocationDef(s);
+      if (def) placeLocation(s, def);
+      else { emit(s, 'locationWaits', { free: freeAtRight(s) }); log(s, 'No new Location fits the free spaces: it waits.'); }
+    }
   }
   if (s.phase === 'gameOver') return;
+  expireBuffs(s, 'breakfast');
   for (const who of PLAYERS) {
     const p = s.players[who];
     for (const { card } of pokemonOf(s, who)) card.spent = false;
+    // Regenerate N: heals N at Breakfast.
+    for (const { card, space } of pokemonOf(s, who)) if (kwSum(card, 'Regenerate')) heal(s, who, space, kwSum(card, 'Regenerate'));
     followRound(s, who);
     draw(s, who, RULES.drawPerRound);
     if (s.phase === 'gameOver') return;
@@ -558,10 +700,24 @@ function startRound(s, round) {
   s.passesInARow = 0;
 }
 
-// The next Location: from a shuffled bag of the six (refilled when empty); tests may set a queue.
+// The next Location: one whose width fits the free spaces at the right edge (none: it waits).
+// From a test queue if one is set (the first that fits); else the widest that fits, at random
+// among those, preferring ones not already on the board.
 function nextLocationDef(s) {
-  if (!s.locationQueue.length) s.locationQueue = shuffle(s, LOCATIONS.map((l) => l.id));
-  return locationDef(s.locationQueue.shift());
+  const free = freeAtRight(s);
+  if (free <= 0) return null;
+  if (s.locationQueue.length) {
+    const i = s.locationQueue.findIndex((id) => locationDef(id).width <= free);
+    return i < 0 ? null : locationDef(s.locationQueue.splice(i, 1)[0]);
+  }
+  // The widest that fits (so the board fills its 10 spaces and stays full), at random among them.
+  const fits = LOCATIONS.filter((l) => l.width <= free);
+  if (!fits.length) return null;
+  const widest = Math.max(...fits.map((l) => l.width));
+  const best = fits.filter((l) => l.width === widest);
+  const fresh = best.filter((l) => !s.locations.some((x) => x.id === l.id));
+  const pool = fresh.length ? fresh : best;
+  return pool[Math.floor(nextRandom(s) * pool.length)];
 }
 
 // --- Events and the log -------------------------------------------------------------------------------

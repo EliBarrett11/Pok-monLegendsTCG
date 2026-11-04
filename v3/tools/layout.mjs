@@ -6,7 +6,7 @@
 //
 // It serves the repository itself, opens v3 in Chromium (Playwright, pre-installed) with ?debug,
 // and goes through: the mulligan, Round 1, a mid-match board, a full hand, choosing a space,
-// choosing an attack target, a Move's breakpoints and its target, a Supporter's Release, an
+// choosing an attack target, a Move's breakpoints and its targets (two, or a Location), a Supporter's Release, an
 // Overexerted Energy display, the Regional Championship and the end screen. It fails if the page
 // scrolls, or if a button, card or text block is outside the window, clipped by its container
 // (with no scrollbar of its own) or covered by another element. Exit code 1 on any failure.
@@ -145,11 +145,11 @@ const SCENARIOS = {
   board: async (p) => { await to(p, 6); },
   'full-hand': async (p) => {
     await to(p, 7);
-    await v3(p, () => { const v = window.__v3; for (const id of ['quick-strike', 'study', 'show-off', 'professor', 'rival', 'iron-brute', 'storm-wing', 'mist-warden', 'sprout', 'patch-up']) if (v.state.players.player.hand.length < 10) v.give(id, 5); });
+    await v3(p, () => { const v = window.__v3; for (const id of ['hydro-pump', 'thunderbolt', 'surf', 'professor-oak', 'brock', 'magikarp', 'wingull', 'chinchou', 'geodude', 'rock-slide']) if (v.state.players.player.hand.length < 10) v.give(id, 5); });
   },
   summon: async (p) => {
     await to(p, 4);
-    await v3(p, () => { const v = window.__v3; const uid = v.give('swift-striker', 2); v.set((s, ui) => { s.players.player.energy = 9; ui.select = { kind: 'summon', uid }; }); });
+    await v3(p, () => { const v = window.__v3; const uid = v.give('ponyta', 2); v.set((s, ui) => { s.players.player.energy = 9; ui.select = { kind: 'summon', uid }; }); });
   },
   attack: async (p) => {
     await to(p, 5);
@@ -158,12 +158,16 @@ const SCENARIOS = {
       if (sp >= 0) { for (const c of [...s.players.player.row, ...s.players.ai.row]) if (c) c.spent = true; s.players.player.row[sp].spent = false; ui.select = { kind: 'attack', from: sp }; }
     }));
   },
-  breakpoints: async (p) => { await to(p, 5); await v3(p, () => { const v = window.__v3; const uid = v.give('quick-strike'); v.set((s, ui) => { s.players.player.energy = 4; ui.ask = { kind: 'move', uid }; }); }); },
+  breakpoints: async (p) => { await to(p, 5); await v3(p, () => { const v = window.__v3; const uid = v.give('thunderbolt'); v.set((s, ui) => { s.players.player.energy = 4; ui.ask = { kind: 'move', uid }; }); }); },
   'move-target': async (p) => {
     await to(p, 5);
-    await v3(p, () => { const v = window.__v3; const uid = v.give('quick-strike'); v.set((s, ui) => { const c = s.players.player.hand.find((x) => x.uid === uid); ui.select = { kind: 'target', spec: c.breakpoints[1].target, tag: 'Quick Strike · 3 Energy', text: c.breakpoints[1].text, action: { type: 'playMove', who: 'player', uid, pay: 3 } }; }); });
+    await v3(p, () => { const v = window.__v3; const uid = v.give('thunderbolt'); v.set((s, ui) => { const c = s.players.player.hand.find((x) => x.uid === uid); ui.select = { kind: 'target', spec: c.breakpoints[2].target, tag: 'Thunderbolt · 6 Energy', text: c.breakpoints[2].text, action: { type: 'playMove', who: 'player', uid, pay: 6 }, chosen: [] }; }); });
   },
-  release: async (p) => { await to(p, 5); await v3(p, () => { const v = window.__v3; const uid = v.give('rival'); v.set((s, ui) => { ui.ask = { kind: 'release', uid, chosen: [] }; }); }); },
+  'location-target': async (p) => {
+    await to(p, 6);
+    await v3(p, () => { const v = window.__v3; const uid = v.give('rock-slide'); v.set((s, ui) => { const c = s.players.player.hand.find((x) => x.uid === uid); ui.select = { kind: 'target', spec: c.breakpoints[0].target, tag: 'Rock Slide · 3 Energy', text: c.breakpoints[0].text, action: { type: 'playMove', who: 'player', uid, pay: 3 }, chosen: [] }; }); });
+  },
+  release: async (p) => { await to(p, 5); await v3(p, () => { const v = window.__v3; const uid = v.give('nurse-joy'); v.set((s, ui) => { ui.ask = { kind: 'release', uid, chosen: [] }; }); }); },
   overexerted: async (p) => { await to(p, 3); await p.click('[data-over="2"]'); },
   championship: async (p) => { await to(p, 10); },
   'game-over': async (p) => { await to(p, 30); },

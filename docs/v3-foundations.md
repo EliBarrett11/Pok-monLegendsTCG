@@ -106,3 +106,15 @@ Elliott leads. Claude asks what to work on, discusses it, and writes down only w
 - **Treadmill, revised (replaces option 3):** at the start of each Round, every Location moves one space left, and the leftmost Location shrinks by one lane (it's leaving the board). It's removed when no lanes are left. Pokémon and portraits still never move. New Locations arrive on the right, in the free spaces.
 - **Test cards:** actual Pokémon, Moves and Supporters from v1 and v2 (their names and identities), keeping only their effects; anything relying on systems v3 doesn't have yet is dropped.
 - **Art:** only art made for v1 and v2, plus Pallet Town.
+
+## V3-1 (built; Claude's choices to confirm)
+
+- **Treadmill as built:**
+  - From Round 2, at the start of each Round every Location moves one space left. The leftmost loses a lane and is removed when none is left; its completion rewards are given then.
+  - A new Location then arrives on the right if one fits the free spaces there. The game picks the widest that fits, so the board fills its 10 spaces and stays full; if nothing fits, it waits.
+  - Once the board is full, only one space frees each Round, so only 1-lane Locations can arrive (V3-1 has three: Shalour City, Floaroma Meadow and Petalburg Woods).
+- **The Regional Championship:**
+  - The treadmill never clears the board, so the Championship arrives as soon as it's due (the 10th Location, Round 10).
+  - It covers every space at once; the other Locations leave and pay their completion rewards.
+- **Infiltrator** (from v1/v2): its attacks ignore guards and the portrait's protection.
+- **Cards:** the test deck uses v1/v2 Pokémon, Moves and Supporters. Their dropped parts are listed in `v3/README.md` (V3-1).
