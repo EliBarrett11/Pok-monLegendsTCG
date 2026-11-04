@@ -53,3 +53,14 @@ Elliott leads. Claude asks what to work on, discusses it, and writes down only w
   - **Pallet Town** rewards a unique Bulbasaur, Charmander, Squirtle, Pikachu, Professor Oak or Gary card.
   - **Viridian Forest:** each Move Card played summons a cheap wild Pokémon themed on the Location into an empty space there on your side.
   - **Cerulean City Gym:** defeat Misty's Starmie, a Pokémon taking up a whole lane, beaten by the player who deals it the most damage.
+
+## Settled 4 Nov (late)
+
+- **Treadmill, option 3:** when a new Location arrives, the board shifts left by its width (1–3 spaces), so a big Location pushes the world along. One new Location every Round. Players can't be sure whether the leftmost Location will go next Round or later.
+- **Location ideas:** Claude's twelve Location concepts are ideas only; nothing is locked.
+- **Hands:** a traditional TCG hand. A limited opening draw; unused cards are **kept**, not discarded. A draw at each Breakfast and a hand limit (numbers to set). Card draw matters again.
+- **Supporters:** as in v2. Release cards from your hand to play them (stronger now, since a released card would otherwise have been kept).
+- **Trainers:** on hold. What Elliott liked: permanent pieces on the board, perhaps extra portraits like the player character's, with more freedom to move. Trainer Points and tier unlocks are not returning.
+- **Items:** on hold (undecided between PokéDollars and Energy; Energy risks making them too like Moves).
+- **Exert:** may return in some form (Elliott enjoyed v1's version: exciting, flexible, a real cost).
+- **Starting cards:** extremely basic, generic test cards first, before redesigning any decks. "If it's not fun with bad cards, it's not fun with great decks."
