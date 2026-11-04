@@ -19,11 +19,11 @@
 // Recognition), Battle (alternating turns: summon, attack, play a Move or a Supporter, or Pass for
 // +1 Energy; Overexert is free, once per Round; two Passes in a row end it), Supper (Location
 // effects and "at Supper" objectives; hands are kept). Round 1: draw 6, then a mulligan.
-import { RULES, SPEEDS, levelFor, energyFor, portraitSpace } from '../rules.js';
-import { nextRandom, shuffle } from './random.js';
-import { TEST_DECK, cardAt, pokemonAt, seriesDef, FAVOURS, WILD } from './cards.js';
-import { kwSum, hasKw } from './keywords.js';
-import { PALLET_TOWN, LOCATIONS, CHAMPIONSHIP, locationDef, rewardText } from './locations.js';
+import { RULES, SPEEDS, levelFor, energyFor, portraitSpace } from '../rules.js?v=202611042305';
+import { nextRandom, shuffle } from './random.js?v=202611042305';
+import { TEST_DECK, cardAt, pokemonAt, seriesDef, FAVOURS, WILD } from './cards.js?v=202611042305';
+import { kwSum, hasKw } from './keywords.js?v=202611042305';
+import { PALLET_TOWN, LOCATIONS, CHAMPIONSHIP, locationDef, rewardText } from './locations.js?v=202611042305';
 
 export const PLAYERS = ['player', 'ai'];
 export const NAMES = { player: 'You', ai: 'The Opponent' };

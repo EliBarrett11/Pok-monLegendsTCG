@@ -16,7 +16,7 @@ Plain HTML, CSS and JavaScript modules: no build step, no npm dependencies, rela
 | `v3/src/ai/` | The AI: it plays only through `applyAction` |
 | `v3/src/ui/` | Drawing the match and handling clicks; coded icons |
 | `v3/tests/` | `for t in v3/tests/*.test.js; do node $t; done` |
-| `v3/tools/` | `node v3/tools/matches.js [n]` (AI-vs-AI report); `node v3/tools/layout.mjs` (the nothing-clipped check, run after every v3 step) |
+| `v3/tools/` | `node v3/tools/matches.js [n]` (AI-vs-AI report); `node v3/tools/layout.mjs` (the nothing-clipped check, run after every v3 step); `node v3/tools/stamp.mjs` (cache-busting: run before every commit) |
 
 - **Shared with the other versions:** only the art in the root `assets/`, by relative path.
 - **Copied code (simple, noted in the files):**
@@ -178,4 +178,9 @@ Plain HTML, CSS and JavaScript modules: no build step, no npm dependencies, rela
     - The player with initiative in Round 1 won 51, the other 48.
     - Per match: an average final Recognition of 90, 94 actions, 13 Overexerts and no deck-outs.
   - **Screenshots** (`v3/screenshots/`): `v3-1-round2.jpg`, `v3-1-round6.jpg`, `v3-1-round8.jpg`, `v3-1-location-target.jpg` (Rock Slide), `v3-1-two-targets.jpg` (Thunderbolt at 6) and `v3-1-championship.jpg`.
+
+- **V3-1 fix — always the latest build.** After V3-1 went live, the v3 link still served V3-0's cards (Swift Striker…) to players who had played before. The GitHub Pages deploy had succeeded; browsers (and GitHub's 10-minute cache) were reusing the old JavaScript files.
+  - `v3/tools/stamp.mjs` now stamps every v3 module import, the stylesheet and the entry script with `?v=<build>`, so each build's files have new addresses and are fetched fresh.
+  - `setup.test.js` fails if any import is missing the stamp, or if two stamps differ.
+  - Run it before every commit.
 

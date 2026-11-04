@@ -4,9 +4,9 @@
 import {
   applyAction, legalActions, opponentOf, summonable, emptyOpenSpaces, attackers, legalTargets, playableMoves,
   affordableBreakpoints, effectTargets, playableSupporters, canOverexert, pokemonOf, isReady, portraitOf,
-} from '../engine/game.js';
-import { RULES } from '../rules.js';
-import { FAVOURS } from '../engine/cards.js';
+} from '../engine/game.js?v=202611042305';
+import { RULES } from '../rules.js?v=202611042305';
+import { FAVOURS } from '../engine/cards.js?v=202611042305';
 
 // How good a state is for `who` (Recognition first; then board, hand, Energy).
 export function evaluate(s, who) {

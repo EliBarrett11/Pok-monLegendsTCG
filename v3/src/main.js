@@ -1,10 +1,10 @@
 // Pokémon Legends v3 — entry point (V3-0): you against the AI, on a fixed 1920×1080 stage scaled
 // to fit the window. ?seed=123 replays the same shuffle and AI choices; ?autoplay lets the AI play
 // both sides; ?debug exposes window.__v3 for the layout check (v3/tools/layout.mjs).
-import { createGame, applyAction, actor } from './engine/game.js';
-import { chooseAction } from './ai/ai.js';
-import { renderMatch } from './ui/board.js';
-import { pokemonAt, cardById } from './engine/cards.js';
+import { createGame, applyAction, actor } from './engine/game.js?v=202611042305';
+import { chooseAction } from './ai/ai.js?v=202611042305';
+import { renderMatch } from './ui/board.js?v=202611042305';
+import { pokemonAt, cardById } from './engine/cards.js?v=202611042305';
 
 export const BUILD = 'V3-1 — the shrinking treadmill, v1 and v2 cards';
 

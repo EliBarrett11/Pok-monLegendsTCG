@@ -13,15 +13,21 @@ const V3 = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOT = resolve(V3, '..');
 const files = (dir) => readdirSync(dir).flatMap((n) => { const p = join(dir, n); return statSync(p).isDirectory() ? files(p) : [p]; });
 const src = files(join(V3, 'src')).filter((f) => f.endsWith('.js'));
+const stamps = new Set();
 for (const f of src) {
   const text = readFileSync(f, 'utf8');
   for (const m of text.matchAll(/from '([^']+)'/g)) {
-    const target = resolve(dirname(f), m[1]);
+    const target = resolve(dirname(f), m[1].replace(/\?v=.*$/, ''));
+    // Cache-busting: every relative import carries the build's stamp (v3/tools/stamp.mjs).
+    if (m[1].startsWith('.')) stamps.add(/\?v=(.+)$/.exec(m[1])?.[1]);
     assert.ok(target.startsWith(V3), `${f}: imports only from v3 (${m[1]})`);
     assert.ok(existsSync(target), `${f}: ${m[1]} exists`);
   }
   if (f.includes('/engine/') || f.includes('/ai/') || f.endsWith('rules.js')) assert.ok(!/document\.|window\./.test(text), `${f}: no DOM code`);
 }
+for (const m of readFileSync(join(V3, 'index.html'), 'utf8').matchAll(/(?:src|href)="src\/[^"?]+\?v=([^"]+)"/g)) stamps.add(m[1]);
+assert.equal(stamps.size, 1, `one build stamp everywhere (${[...stamps].join(', ')}): run node v3/tools/stamp.mjs`);
+assert.ok([...stamps][0], 'stamped');
 // The page and the stylesheet: relative paths only.
 assert.ok(!/(src|href)="\//.test(readFileSync(join(V3, 'index.html'), 'utf8')), 'index.html: relative paths');
 const css = readFileSync(join(V3, 'src/ui/style.css'), 'utf8');

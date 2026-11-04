@@ -4,7 +4,7 @@
 // doesn't have yet (Growth, statuses such as Burn, Sleep and Leech Seed, Weather, Items, Trainers,
 // Locations in the deck, Douse, Retain, Empowered summons) is dropped; each card notes what.
 // Data only: game.js resolves it.
-import { costFor, levelFor } from '../rules.js';
+import { costFor, levelFor } from '../rules.js?v=202611042305';
 
 // --- Targets and ops -----------------------------------------------------------------------------
 // A target spec: { side: 'enemy' | 'friendly', kinds: ['pokemon', 'player', 'location'], count }.

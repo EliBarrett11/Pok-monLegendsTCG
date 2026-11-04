@@ -7,14 +7,14 @@
 // Ready Pokémon glow on both sides.
 import {
   RULES,
-} from '../rules.js';
+} from '../rules.js?v=202611042305';
 import {
   isOpen, locationAt, portraitOf, isReady, legalTargets, attackers, summonable, emptyOpenSpaces, playableMoves,
   affordableBreakpoints, effectTargets, playableSupporters, supporterPlayable, favourMet, canOverexert, passEndsPhase, passSpends,
   legalActions, protectorOf, guardedBy, topSpeed, lanesOf, rewardText,
-} from '../engine/game.js';
-import { FAVOURS } from '../engine/cards.js';
-import { icon, speedIcon } from './icons.js';
+} from '../engine/game.js?v=202611042305';
+import { FAVOURS } from '../engine/cards.js?v=202611042305';
+import { icon, speedIcon } from './icons.js?v=202611042305';
 
 const ASSETS = '../assets';
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
