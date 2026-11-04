@@ -11,7 +11,7 @@ import { initVfx, syncStatus } from './ui/vfx/engine.js';
 import { present, skip, resetFx, syncBoardWeather } from './ui/present.js';
 import { setSpeed } from '../../src/ui/settings.js';
 
-export const BUILD = 'V7.1 — Fire and Water boosts by Type';
+export const BUILD = 'V8 — presentation';
 
 const STAGE = { width: 1920, height: 1080 };
 const stage = document.getElementById('stage');

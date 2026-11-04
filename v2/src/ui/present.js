@@ -589,10 +589,14 @@ async function milestoneBeat(root, e, t, complete) {
   const tick = complete ? null : [...(prog?.querySelectorAll('.tick') ?? [])].find((x) => Number.parseFloat(x.style.left) === (100 * e.at) / e.count);
   const reward = rewardText(complete ? e.reward : e.reward) || '';
   if (complete) {
+    // The plate sits on the effects layer, over the Location's banner (never clipped by it).
     const b = document.createElement('div');
     b.className = 'v2-complete';
     b.innerHTML = `<b>Completed!</b><span>${NAME[e.who]} · ${esc(reward)}</span>`;
-    bannerEl.appendChild(b);
+    const at = centre(rectOf(bannerEl));
+    b.style.left = `${at.x}px`;
+    b.style.top = `${at.y}px`;
+    fxEl().appendChild(b);
     await Promise.all([
       play(V2_TIMELINES['v2-completion'], { target: bannerEl, tint: ['#ffd36b', '#fff6c8'] }, t),
       animate(b, [{ opacity: 0, transform: 'translate(-50%, -50%) scale(0.6)' }, { opacity: 1, transform: 'translate(-50%, -50%) scale(1.1)', offset: 0.25 }, { opacity: 1, transform: 'translate(-50%, -50%) scale(1)' }], readableMs(t(1300)), { fill: 'forwards' }),

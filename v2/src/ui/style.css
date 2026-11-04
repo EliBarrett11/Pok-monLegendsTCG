@@ -548,7 +548,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #140a04; }
 .v2-flyer i.ash { display: block; width: 18px; height: 18px; border-radius: 50%; background: #8a7a6a; box-shadow: 0 0 10px 4px rgba(120, 100, 80, 0.6); }
 .v2-favour { position: absolute; left: 50%; top: -24px; transform: translateX(-50%); font-family: var(--font-display); font-size: 40px; font-weight: 800; color: #ffe08a;
   text-shadow: 0 3px 0 #6b4a10, 0 0 24px rgba(255, 210, 90, 0.9); white-space: nowrap; }
-.v2-complete { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 3; padding: 10px 28px; text-align: center; white-space: nowrap; border-radius: 12px;
+.v2-complete { position: absolute; transform: translate(-50%, -50%); z-index: 3; padding: 10px 28px; text-align: center; white-space: nowrap; border-radius: 12px;
   background: linear-gradient(#fff2b8, #e8b440 55%, #a8741a); border: 2px solid #6b4a10; box-shadow: 0 0 30px 8px rgba(255, 210, 90, 0.7); }
 .v2-complete b { display: block; font-family: var(--font-display); font-size: 32px; font-weight: 800; color: #3d2508; }
 .v2-complete span { font-size: 15px; font-weight: 700; color: #4a2e08; }
