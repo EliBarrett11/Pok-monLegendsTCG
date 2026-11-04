@@ -31,6 +31,15 @@ import { legalTargets, weatherTotals } from '../engine/game.js';
 import { RECOGNITION_TARGET } from '../engine/rules.js';
 import { rewardText } from '../engine/locations.js';
 import { actionCard, artUrl } from './board.js';
+import { cardDef } from '../engine/cards.js';
+
+// A card just played from someone's hand: from the hand when the viewer could see it, else
+// (the opponent's: their hand is hidden in the view) from the card id the event carries.
+const playedCard = (prev, e, fallback) => {
+  const c = prev.players[e.who].hand.find((x) => x.uid === e.uid);
+  if (c?.name) return c;
+  try { return e.id ? { ...cardDef(e.id), uid: e.uid } : fallback; } catch { return fallback; }
+};
 
 // --- Timing and skipping ---------------------------------------------------------------------
 
@@ -212,7 +221,7 @@ async function reveal(root, who, card, t) {
 }
 
 async function strategyBeat(root, prev, next, e, t) {
-  const card = [...prev.players[e.who].hand].find((c) => c.uid === e.uid) ?? { id: '', name: e.name, cardType: 'Strategy', breakpoints: [] };
+  const card = playedCard(prev, e, { id: '', name: e.name, cardType: 'Strategy', breakpoints: [] });
   const ev = next.events;
   const start = ev.indexOf(e);
   const stopAt = ev.findIndex((x, j) => j > start && ['strategy', 'attack', 'supporter', 'phaseChanged', 'summoned'].includes(x.type));
@@ -359,7 +368,7 @@ async function statusBeat(root, e, t) {
 }
 
 async function supporterBeat(root, prev, next, e, t) {
-  const card = prev.players[e.who].hand.find((c) => c.uid === e.uid) ?? { name: e.name, cardType: 'Supporter' };
+  const card = playedCard(prev, e, { name: e.name, cardType: 'Supporter' });
   const ev = next.events;
   const start = ev.indexOf(e);
   const released = ev.slice(Math.max(0, start - e.released.length - 2), start).concat(ev.slice(start + 1))
@@ -374,7 +383,7 @@ async function supporterBeat(root, prev, next, e, t) {
   // The Released cards burn away into the Released Pile.
   const burns = released.filter((x) => x.uid !== e.uid).map((x) => {
     take(x);
-    const c = prev.players[e.who].hand.find((h) => h.uid === x.uid);
+    const c = prev.players[e.who].hand.find((h) => h.uid === x.uid && h.name);
     return fly(c ? `<div class="mini" style="background-image:url('${artUrl(c.art !== undefined || c.cardType !== 'Pokémon' ? c : { ...c, art: c.art ?? c.id })}')"></div>` : '<div class="mini"></div>',
       fromHand(root, e.who, x.uid), pile, t(700), { cls: 'burning', end: { scale: 0.4, opacity: 0, filter: 'sepia(1) brightness(0.3)' } });
   });
@@ -493,7 +502,7 @@ const BEFORE = {
   recognitionLost: (c) => recognitionDrain(c.root, c.prev, c.next, c.e, c.t, 'loss'),
   locationEnded: (c) => locationGoneBeat(c.root, c.e, c.t, c.e.why === 'championship'),
   released: async ({ root, prev, e, t }) => {
-    const c = prev.players[e.who].hand.find((h) => h.uid === e.uid);
+    const c = prev.players[e.who].hand.find((h) => h.uid === e.uid && h.name);
     await fly(`<div class="mini"${c ? ` style="background-image:url('${artUrl(c.cardType === 'Pokémon' ? { ...c, art: c.art ?? c.id } : c)}')"` : ''}></div>`,
       fromHand(root, e.who, e.uid), pointOf(releasedEl(root)) ?? { x: 1700, y: 1040 }, t(600), { cls: 'burning', end: { scale: 0.4, opacity: 0, filter: 'sepia(1) brightness(0.3)' } });
     return true;

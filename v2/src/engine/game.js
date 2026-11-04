@@ -46,6 +46,13 @@ const variantCard = (variant, c) => (variant?.sleepLimit && c.id === 'g-sleep-po
 export const targetOf = (s) => s.variant?.target ?? RECOGNITION_TARGET;
 export const champRoundOf = (s) => s.variant?.champRound ?? CHAMPIONSHIP_ROUND;
 export const NAMES = { player: 'You', ai: 'Opponent' };
+// The log is seat-neutral (V9): each seat-dependent word is a token ⟨seat|for that seat|for the
+// other⟩, rendered for the seat reading it (localize, and view.js viewFor). Against the AI the
+// screen reads the 'player' seat's view, so it reads exactly as before.
+export const nm = (w) => `⟨${w}|You|Opponent⟩`;
+export const poss = (w) => `⟨${w}|Your|The Opponent's⟩`;
+export const vb = (w, mine, theirs) => `⟨${w}|${mine}|${theirs}⟩`;
+export const localize = (line, seat) => String(line).replace(/⟨(player|ai)\|([^|⟩]*)\|([^⟩]*)⟩/g, (m, w, a, b) => (w === seat ? a : b));
 export const opponentOf = (who) => (who === 'player' ? 'ai' : 'player');
 
 // --- Setup ---------------------------------------------------------------------------------
@@ -62,8 +69,9 @@ export function createGame(seed = Date.now(), { decks = { player: TEST_DECK, ai:
   };
   for (const who of PLAYERS) {
     state.players[who] = {
-      name: NAMES[who],
-      drawPile: shuffle(state, buildDeck(who, decks[who]).map((c) => variantCard(variant, c))),
+      name: nm(who),
+      // Opaque uids (V9): numbered by place after the shuffle, so a uid never says which card it is.
+      drawPile: shuffle(state, buildDeck(who, decks[who]).map((c) => variantCard(variant, c))).map((c, i) => ({ ...c, uid: `${who}-${i}` })),
       hand: [], discard: [], released: [],
       row: Array(LANES).fill(null),
       energy: 0, roundEnergy: 0, stored: 0, bonusNext: 0, bonus: 0, recognition: 0,
@@ -73,7 +81,7 @@ export function createGame(seed = Date.now(), { decks = { player: TEST_DECK, ai:
     };
   }
   // The shared Item pool (V4): one copy of each Item, shuffled (V6: the real pool of 12).
-  state.itemPool = shuffle(state, itemPool.map((c) => ({ ...c, uid: `pool-${state.nextItem++}` })));
+  state.itemPool = shuffle(state, itemPool.map((c) => ({ ...c }))).map((c) => ({ ...c, uid: `pool-${state.nextItem++}` }));
   log(state, 'Flip a coin to decide who has initiative in Round 1.');
   return state;
 }
@@ -138,7 +146,7 @@ export function train(s, who, space, n) {
   if (next.stage !== card.stage) { next.asleep = false; next.seededBy = null; }
   s.players[who].row[space] = next;
   emit(s, 'trained', { who, space, from: card.level, to, fromName: card.name, name: next.name, evolved: next.stage !== card.stage, cause: CAUSE });
-  log(s, `${NAMES[who] === 'You' ? 'Your' : "The Opponent's"} ${card.name} trained to Level ${to}${next.name !== card.name ? `: it evolved into ${next.name}` : ''}.`);
+  log(s, `${poss(who)} ${card.name} trained to Level ${to}${next.name !== card.name ? `: it evolved into ${next.name}` : ''}.`);
   // On Evolve (V6): training into a new stage fires the new stage's On Evolve.
   if (next.stage !== card.stage) fireTrigger(s, who, space, 'onEvolve');
   return true;
@@ -544,7 +552,7 @@ const ACTIONS = {
     const winner = nextRandom(s) < 0.5 ? 'player' : 'ai';
     s.initiative = winner;
     emit(s, 'coinFlip', { winner });
-    log(s, `Coin flip: ${NAMES[winner]} ${winner === 'player' ? 'have' : 'has'} initiative in Round 1.`);
+    log(s, `Coin flip: ${nm(winner)} ${vb(winner, 'have', 'has')} initiative in Round 1.`);
     startRound(s, 1);
   },
 
@@ -596,7 +604,7 @@ const ACTIONS = {
     p.energy -= pay;
     p.hand = p.hand.filter((c) => c !== card);
     p.discard.push(card);
-    emit(s, 'strategy', { who, uid, name: card.name, pay, level: card.breakpoints.indexOf(bp), levels: card.breakpoints.length, text: bp.text });
+    emit(s, 'strategy', { who, uid, id: card.id, name: card.name, pay, level: card.breakpoints.indexOf(bp), levels: card.breakpoints.length, text: bp.text });
     log(s, `${p.name} played ${card.name} for ${pay} Energy: ${bp.text}.`);
     runEffect(s, who, bp.target, bp.ops, targets, { x: amount, picks });
     endTurn(s, who, false);
@@ -632,7 +640,7 @@ const ACTIONS = {
     chooseTargets(s, who, target, targets);
     p.hand = p.hand.filter((c) => c !== card && !paid.includes(c));
     p.released.push(...paid.map(plainCard));
-    emit(s, 'supporter', { who, uid, name: card.name, released: paid.map((c) => c.name), favour });
+    emit(s, 'supporter', { who, uid, id: card.id, name: card.name, released: paid.map((c) => c.name), favour });
     log(s, `${p.name} played ${card.name}, Releasing ${paid.map((c) => c.name).join(' and ')}${favour ? ` (Favour: ${FAVOURS[card.favour.condition].text}: ${card.favour.text})` : ''}.`);
     // Meeting the Favour with a Trainer in play earns a Trainer Point (V5).
     if (favour && p.trainers.length) gainTrainerPoints(s, who, 1, `${card.name}'s Favour`);
@@ -778,7 +786,7 @@ const ACTIONS = {
       p.recognition += amount;
       emit(s, 'attack', { who, from, target: { kind: 'player', who: foe }, amount, attacker: attacker.name });
       emit(s, 'recognition', { who, amount, total: p.recognition, source: 'attack' });
-      log(s, `${p.name === 'You' ? 'Your' : "The Opponent's"} ${attacker.name} attacked ${who === 'player' ? 'the Opponent' : 'you'} directly for ${amount}: +${amount} Recognition (now ${p.recognition}).`);
+      log(s, `${poss(who)} ${attacker.name} attacked ${vb(who, 'the Opponent', 'you')} directly for ${amount}: +${amount} Recognition (now ${p.recognition}).`);
       if (p.recognition >= targetOf(s)) return win(s, who);
       // Scorch also burns the enemy player character it hits (V6).
       if (scorch && amount > 0) applyBurn(s, ref, scorch, who, from);
@@ -803,7 +811,7 @@ const ACTIONS = {
     attacker.spent = true;
     if (trades) defender.spent = true;
     emit(s, 'attack', { who, from, target: { kind: 'pokemon', who: foe, space: target.space }, amount: hit, attacker: attacker.name, defender: defender.name, trades, back, retaliated });
-    log(s, `${p.name === 'You' ? 'Your' : "The Opponent's"} ${attacker.name} attacked ${defender.name} for ${hit}${trades ? `; ${defender.name} was Alert and hit back for ${back}` : ''}${retaliated ? `; Retaliate: ${retaliated} back` : ''}.`);
+    log(s, `${poss(who)} ${attacker.name} attacked ${defender.name} for ${hit}${trades ? `; ${defender.name} was Alert and hit back for ${back}` : ''}${retaliated ? `; Retaliate: ${retaliated} back` : ''}.`);
     progressAt(s, who, 'attack', from);
     const defenderDown = defender.currentStrength <= 0;
     const attackerDown = attacker.currentStrength <= 0;
@@ -813,7 +821,7 @@ const ACTIONS = {
       const over2 = hit - left;
       p.recognition += over2;
       emit(s, 'recognition', { who, amount: over2, total: p.recognition, overrun: true, source: 'overrun' });
-      log(s, `Overrun: ${over2} more to ${who === 'player' ? 'the Opponent' : 'you'} (+${over2} Recognition).`);
+      log(s, `Overrun: ${over2} more to ${vb(who, 'the Opponent', 'you')} (+${over2} Recognition).`);
       if (p.recognition >= targetOf(s)) return win(s, who);
     }
     // Scorch: its own attack burns the target, if it's still in play.
@@ -859,7 +867,7 @@ function defeat(s, who, space, by, byLane) {
   if (card.held) returnToPool(s, card.held);
   if (!card.partner) s.players[who].released.push(plainCard(card));   // a Partner leaves the game
   emit(s, 'defeated', { who, space, name: card.name });
-  log(s, `${NAMES[who] === 'You' ? 'Your' : "The Opponent's"} ${card.name} was defeated.`);
+  log(s, `${poss(who)} ${card.name} was defeated.`);
   if (by) progressAt(s, by, 'defeat', byLane);
   // On Defeated (Sewaddle): it fires as it leaves play.
   const eff = card.ability?.onDefeated;
@@ -870,7 +878,7 @@ function defeat(s, who, space, by, byLane) {
 // same action don't change it).
 function win(s, who) {
   if (s.phase === 'gameOver') return;
-  endMatch(s, who, 'target', `${NAMES[who]} reached ${targetOf(s)} Recognition and ${who === 'player' ? 'win' : 'wins'}!`);
+  endMatch(s, who, 'target', `${nm(who)} reached ${targetOf(s)} Recognition and ${vb(who, 'win', 'wins')}!`);
 }
 
 // result.reason: 'target' (60 Recognition), 'recognition' (the most after Round 12),
@@ -923,14 +931,14 @@ function advance(s, who, loc, value) {
     if (loc.progress[who] >= m.at && !loc.reached[who].includes(m.at) && !over(s)) {
       loc.reached[who].push(m.at);
       emit(s, 'milestone', { who, location: loc.uid, name: loc.name, at: m.at, count: loc.objective.count, reward: m.reward, championship: loc.championship });
-      log(s, `${NAMES[who]} reached a milestone at ${loc.name} (${m.at}/${loc.objective.count}): ${rewardText(m.reward)}.`);
+      log(s, `${nm(who)} reached a milestone at ${loc.name} (${m.at}/${loc.objective.count}): ${rewardText(m.reward)}.`);
       reward(s, who, m.reward, loc);
     }
   }
   if (loc.progress[who] >= loc.objective.count && !over(s)) {
     loc.completed[who] = true;
     emit(s, 'completed', { who, location: loc.uid, name: loc.name, reward: loc.completion, championship: loc.championship });
-    log(s, `${NAMES[who]} completed ${loc.name}: ${rewardText(loc.completion)}.`);
+    log(s, `${nm(who)} completed ${loc.name}: ${rewardText(loc.completion)}.`);
     reward(s, who, loc.completion, loc);
   }
 }
@@ -1042,7 +1050,7 @@ function beginBattle(s) {
 function gainTrainerPoints(s, who, n, why) {
   s.players[who].trainerPoints += n;
   emit(s, 'trainerPoints', { who, amount: n, total: s.players[who].trainerPoints, why });
-  log(s, `${NAMES[who]}: +${n} Trainer Point${n === 1 ? '' : 's'} (${why}).`);
+  log(s, `${nm(who)}: +${n} Trainer Point${n === 1 ? '' : 's'} (${why}).`);
 }
 
 // Both have locked in: the points go onto the Trainers, tiers unlock, Partners arrive.
@@ -1056,7 +1064,7 @@ function resolveAssign(s) {
       t.points += n;
       p.trainerPoints -= n;
       emit(s, 'pointsAssigned', { who, uid, name: t.name, amount: n, points: t.points });
-      log(s, `${NAMES[who]} assigned ${n} Trainer Point${n === 1 ? '' : 's'} to ${t.name} (${t.points}).`);
+      log(s, `${nm(who)} assigned ${n} Trainer Point${n === 1 ? '' : 's'} to ${t.name} (${t.points}).`);
       for (let tier = before; tier < tiersUnlocked(t); tier++) unlockTier(s, who, t, tier);
     }
   }
@@ -1103,7 +1111,10 @@ function draw(s, who, n) {
   for (let i = 0; i < n; i++) {
     if (!p.drawPile.length) {
       if (!p.discard.length) break;
-      p.drawPile = shuffle(s, p.discard);
+      // The Discard Pile (public) becomes the new Draw Pile: renumbered (V9), so a card
+      // seen in the Discard Pile can't be followed into a hidden hand.
+      p.reshuffles = (p.reshuffles ?? 0) + 1;
+      p.drawPile = shuffle(s, p.discard).map((c, i) => ({ ...c, uid: `${who}-${p.reshuffles}.${i}` }));
       p.discard = [];
       emit(s, 'shuffled', { who });
     }
@@ -1152,7 +1163,7 @@ function supper(s) {
 function finalScore(s) {
   const r = { player: s.players.player.recognition, ai: s.players.ai.recognition };
   const champ = championship(s)?.progress ?? { player: 0, ai: 0 };
-  const name = (w) => `${NAMES[w]} ${w === 'player' ? 'win' : 'wins'}`;
+  const name = (w) => `${nm(w)} ${vb(w, 'win', 'wins')}`;
   if (r.player !== r.ai) {
     const w = r.player > r.ai ? 'player' : 'ai';
     endMatch(s, w, s.suddenDeath ? 'suddenDeath' : 'recognition', `${s.suddenDeath ? 'Sudden death is over' : `Round ${ROUND_LIMIT} is over`}: ${name(w)} with ${r[w]} Recognition to ${r[opponentOf(w)]}.`);
@@ -1178,7 +1189,7 @@ function finalScore(s) {
 
 const NO_TARGET = new Set(['draw', 'energy', 'energyNext', 'recognition', 'findItem', 'enemyLosesRecognition', 'growth', 'trainerPoint',
   'search', 'returnFromDiscard', 'lookTop', 'stealItem', 'freeSummon', 'grantRetain', 'enemyBurn']);
-const owner = (who) => (NAMES[who] === 'You' ? 'Your' : "The Opponent's");
+const owner = (who) => poss(who);
 
 // Run an effect: each op on each target (or on its player when it has none). ctx:
 // { space (the source), lane, attacker, target, x (Solar Beam's Growth), picks }.
@@ -1217,7 +1228,7 @@ function gainGrowth(s, who, n, why) {
   if (!n) return;
   s.players[who].growth += n;
   emit(s, 'growth', { who, amount: n, total: s.players[who].growth, why, cause: why ? 'Sun 4' : CAUSE });
-  log(s, `${NAMES[who]}: +${n} Growth${why ? ` (${why})` : ''} (now ${s.players[who].growth}).`);
+  log(s, `${nm(who)}: +${n} Growth${why ? ` (${why})` : ''} (now ${s.players[who].growth}).`);
 }
 
 // The cards an op lets you pick from (Search, Return, look at the top, Burglar,
@@ -1231,9 +1242,11 @@ const MATCH = {
 export function pickOptions(state, who, op) {
   const p = state.players[who];
   switch (op.op) {
-    case 'search': return p.drawPile.filter(MATCH[op.filter ?? 'any']);
+    // (A seat's view hides its Draw Pile but lists what its Search could take: searchable, V9.)
+    case 'search': return (p.searchable ?? p.drawPile).filter((c) => !c.hidden && MATCH[op.filter ?? 'any'](c));
     case 'returnFromDiscard': return p.discard.filter(MATCH[op.filter ?? 'pokemon']);
-    case 'lookTop': return p.drawPile.slice(0, op.n);
+    // (In a view the top cards are hidden: no options there, and the engine takes the best.)
+    case 'lookTop': return p.drawPile.slice(0, op.n).filter((c) => !c.hidden);
     case 'stealItem': return state.players[opponentOf(who)].bag;
     case 'freeSummon': return p.row.includes(null) ? p.hand.filter((c) => c.cardType === 'Pokémon' && c.level <= op.maxLevel) : [];
     case 'grantRetain': return p.hand.filter((c) => !c.retain);
@@ -1273,7 +1286,7 @@ function selfOp(s, who, op, ctx = {}) {
       const loss = Math.min(f.recognition, op.amount);
       f.recognition -= loss;
       emit(s, 'recognitionLost', { who: foe, amount: loss, total: f.recognition });
-      log(s, `${f.name} ${foe === 'player' ? 'lose' : 'loses'} ${loss} Recognition (now ${f.recognition}).`);
+      log(s, `${f.name} ${vb(foe, 'lose', 'loses')} ${loss} Recognition (now ${f.recognition}).`);
       break;
     }
     case 'findItem': findItem(s, who); break;
@@ -1327,7 +1340,8 @@ function selfOp(s, who, op, ctx = {}) {
     }
     case 'grantRetain': {
       const [card] = picked(s, who, op, ctx.picks, 1);
-      if (card) { card.retain = true; log(s, `${card.name} gains Retain.`); }
+      // (A card in hand: the other seat reads only that one of their cards gained Retain.)
+      if (card) { card.retain = true; log(s, vb(who, `${card.name} gains Retain.`, 'A card in the Opponent\'s hand gains Retain.')); }
       break;
     }
     default: throw new Error(`Unknown effect op: ${op.op}`);
@@ -1410,7 +1424,7 @@ function effectDamagePlayer(s, by, target, amount) {
   const p = s.players[by];
   p.recognition += amount;
   emit(s, 'recognition', { who: by, amount, total: p.recognition, effect: true, source: 'effect' });
-  log(s, `${p.name === 'You' ? 'You deal' : 'The Opponent deals'} ${amount} to ${target === 'player' ? 'you' : 'the Opponent'}: +${amount} Recognition (now ${p.recognition}).`);
+  log(s, `${vb(by, 'You deal', 'The Opponent deals')} ${amount} to ${vb(by, 'the Opponent', 'you')}: +${amount} Recognition (now ${p.recognition}).`);
   if (p.recognition >= targetOf(s)) win(s, by);
 }
 
@@ -1423,7 +1437,7 @@ function applyBurn(s, t, amount, by, sourceSpace) {
   if (!target) return;
   target.burn = (target.burn ?? 0) + n;
   emit(s, 'burned', { who: t.who, kind: t.kind, space: t.space, amount: n, total: target.burn, by });
-  log(s, `${t.kind === 'player' ? (t.who === 'player' ? 'You' : 'The Opponent') : `${owner(t.who)} ${target.name}`} ${t.kind === 'player' && t.who === 'player' ? 'are' : 'is'} Burned ${n} (Burn ${target.burn}).`);
+  log(s, `${t.kind === 'player' ? `${vb(t.who, 'You are', 'The Opponent is')}` : `${owner(t.who)} ${target.name} is`} Burned ${n} (Burn ${target.burn}).`);
 }
 
 // Effect damage (Strategy Cards, Burn, Leech Seed, abilities): it wakes a sleeping
@@ -1592,7 +1606,7 @@ function statusesAtSupper(s) {
       p.recognition -= loss;
       p.burn -= 1;
       emit(s, 'burnRecognition', { who, amount: loss, total: p.recognition, burn: p.burn });
-      log(s, `Burn: ${who === 'player' ? 'you lose' : 'the Opponent loses'} ${loss} Recognition (now ${p.recognition}).`);
+      log(s, `Burn: ${vb(who, 'you lose', 'the Opponent loses')} ${loss} Recognition (now ${p.recognition}).`);
     }
     for (const { space, card } of pokemonOf(s, who)) {
       if (!card.burn) continue;
@@ -1633,7 +1647,8 @@ function findItem(s, who) {
 
 // A used or lost Item goes back into the shared pool (shuffled in).
 function returnToPool(s, card) {
-  s.itemPool.push({ ...card });
+  // (A new uid in the pool (V9): a card seen played can't be followed through the pool.)
+  s.itemPool.push({ ...card, uid: `pool-${s.nextItem++}` });
   s.itemPool = shuffle(s, s.itemPool);
 }
 
@@ -1651,7 +1666,7 @@ function useItemCard(s, who, card, targets, picks) {
     log(s, `${owner(t.who)} ${holder.name} now holds ${card.name} (${card.text.replace(/^Held: /, '')}).`);
     return;
   }
-  log(s, `${NAMES[who]} used ${card.name}: ${card.text}`);
+  log(s, `${nm(who)} used ${card.name}: ${card.text}`);
   runEffect(s, who, card.target, card.ops, targets, { picks, moveTo: picks?.space });
   returnToPool(s, card);
 }
