@@ -42,6 +42,7 @@ export const isSkipping = () => skipping;
 // Skips to the end of the action being shown (the new state is still drawn).
 export function skip() {
   skipping = true;
+  resetBanners();
   skipTimelines();
   for (const a of running) a.finish();
   for (const done of [...waiters]) done();
@@ -111,7 +112,13 @@ function floatText(el, text, kind, ms) {
 }
 
 // A banner across the middle of the board (phases, the Championship, completions).
-async function banner(title, sub, t, { kind = '', hold = 700 } = {}) {
+// Banners queue: one never covers another.
+let bannerChain = Promise.resolve();
+function banner(title, sub, t, opts = {}) {
+  bannerChain = bannerChain.then(() => showBanner(title, sub, t, opts));
+  return bannerChain;
+}
+async function showBanner(title, sub, t, { kind = '', hold = 700 } = {}) {
   if (skipping) return;
   const b = document.createElement('div');
   b.className = `v2-banner ${kind}`;
@@ -789,8 +796,6 @@ export async function present(root, prev, next, actor, draw) {
   const late = [];
   let drawn = false;
   try {
-    const championshipNow = ev.some((x) => x.type === 'championship');
-    if (championshipNow) banner('The Championship arrives', 'Every other Location is swept away', (ms) => Math.max(t(ms), ms * 0.9), { kind: 'champ', hold: 700 });
     for (const e of ev) {
       if (skipping) break;
       // Supper's banner comes first: then its Burn and Leech Seed ticks, on the board as it was.
@@ -798,6 +803,13 @@ export async function present(root, prev, next, actor, draw) {
         cause = 'supper';
         take(e);
         await BANNERS.phaseChanged({ root, prev, next, e, t });
+        continue;
+      }
+      // The Championship's arrival: a banner, then every other Location swept away together.
+      if (e.type === 'locationEnded' && e.why === 'championship' && !consumed.has(e)) {
+        const gone = ev.filter((x) => x.type === 'locationEnded' && x.why === 'championship').map(take);
+        await banner('The Championship arrives', 'Every other Location is swept away', (ms) => Math.max(t(ms), ms * 0.9), { kind: 'champ arrive', hold: 600 });
+        await Promise.all(gone.map((x, n) => wait(t(90 * n)).then(() => locationGoneBeat(root, x, t, true))));
         continue;
       }
       const fn = BEFORE[e.type];
@@ -827,6 +839,8 @@ function finish() {
   skipping = false;
   for (const el of document.querySelectorAll('.v2-reveal, .v2-flyer')) el.remove();
 }
+// After a skip, banners still queued are dropped (the queue starts afresh).
+function resetBanners() { bannerChain = Promise.resolve(); }
 
 export function resetFx() {
   skip();

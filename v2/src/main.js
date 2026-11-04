@@ -45,6 +45,13 @@ stage.addEventListener('click', (e) => {
   e.preventDefault();
   skip();
 }, true);
+// ?seed=123 also makes the AI's choices repeatable (a seeded random, as in v2/tools).
+let aiRng = Math.random;
+function seedAi(seed) {
+  if (!params.has('seed')) { aiRng = Math.random; return; }
+  let k = seed;
+  aiRng = () => { k = (k * 9301 + 49297) % 233280; return k / 233280; };
+}
 // ?instantUntil=9 (for checks and screenshots): no animations until that Round.
 const instantUntil = Number(params.get('instantUntil')) || 0;
 // Shows an action (prev → state) on screen, then draws the new state.
@@ -151,7 +158,7 @@ async function aiTurn(id) {
     if (!who || (who === 'player' && !autoplay)) break;
     await wait(state.round < instantUntil ? 0 : PAUSE);
     if (id !== match) return;
-    const action = chooseAction(state, who);
+    const action = chooseAction(state, who, { rng: aiRng });
     if (!action) break;
     const prev = state;
     apply(action);
@@ -169,6 +176,7 @@ function newMatch() {
   match += 1;
   resetFx();
   const seed = (match === 1 && Number(params.get('seed'))) || Date.now();
+  seedAi(seed);
   // ?decks=fire,grass picks both from the address (for testing).
   const fromUrl = params.get('decks')?.split(',');
   const pick = { player: fromUrl?.[0] ?? deckChoice.player, ai: fromUrl?.[1] ?? deckChoice.ai };
