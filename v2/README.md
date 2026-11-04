@@ -504,3 +504,50 @@ To play locally: `python3 -m http.server` at the repository root, then open http
     - Surf's breakpoints: 3/5 with S2 and 2/5 with S2c;
     - the V7f sets.
     - All v2 tests pass. The game in the browser is unchanged.
+
+- **V7 — the balance, committed.** Elliott chose **T90 + CH9 + LG + GS + F1 + WA + S2c** after the V7a–V7f experiments. These are now the game's own rules and cards, not flags:
+  - **Recognition target 90** (was 60).
+  - **The Championship arrives at the start of Round 9** (was Round 10). The limit stays 12.
+  - **Lane guards.** A Defence Pokémon guards against Physical attackers and a Special Defence Pokémon against Special ones, but only in its own lane, and only the player character. A Pokémon can't attack the enemy player while a matching guard stands across from it. Every enemy Pokémon can always be attacked. Infiltrator ignores guards.
+  - **Grass:** every Grass-deck Pokémon has −1 Strength at every Level (minimum 1).
+  - **Fire:** every Fire-deck Pokémon has +1 Strength at every Level.
+  - **Water:** every Water-deck Pokémon has +1 Attack at every Level.
+  - **Water's Surf:** Water runs Surf ×2 instead of Surf + Dive. Surf's breakpoints are now **2:** 2 damage to each enemy Pokémon · **5:** 3 damage to each enemy Pokémon and heal each friendly Pokémon 2. Dive stays in the card pool for deck building.
+  - **The stat changes are by deck, as Elliott wrote, and include Partners and Legendaries.** Entei is now 9/10, Kyogre 11/12 and Celebi 4/5. The numbers are in `src/engine/decks.js` itself, not added at run time.
+  - **The flags are gone from the tools:** T90, CH9, LG, GS, F1, WA, S2 and S2c. The other flags and every diagnostic stay. New flags T60 / CH10 can try the old values. The V7a–V7f experiment sets are retired, since their flags no longer exist; their results stay in this log.
+  - `roundrobin.js` takes `--pair=a,b`. The early-ending count now uses the game's Championship Round.
+  - **Docs:**
+    - `docs/v2-design.md`: target 90, the Championship in Round 9, and lane guards in 1.2.
+    - `docs/v2-fire.md`, `v2-water.md` and `v2-grass.md`: every Pokémon's stats L1 → L6, the Legendaries and the Partners are updated. Water's deck lists Surf ×2 with its new breakpoint and no Dive.
+  - **Confirmation:** 400 matches per matchup (200 per seat order). Win rates have a 95% margin of error:
+
+    | Matchup | Result | Avg Rounds | Ends: early / Championship / final count |
+    |---|---|---|---|
+    | Fire–Water | Fire 45% ±4.9, Water 56% | 9.5 | 29% / 62% / 9% |
+    | Fire–Grass | Fire 64% ±4.7, Grass 36% | 9.2 | 31% / 69% / 1% |
+    | Water–Grass | Water 56% ±4.9, Grass 44% | 8.7 | 40% / 60% / 0% |
+    | Fire mirror | first seat 44% ±4.9, second 53%, 13 draws | 11.6 | 4% / 14% / 82% |
+    | Water mirror | first seat 46% ±4.9, second 55% | 8.8 | 41% / 60% / 0% |
+    | Grass mirror | first seat 50% ±4.9, second 50% | 8.7 | 39% / 61% / 0% |
+
+    - **Every early-ending share is 29–41%,** apart from the Fire mirror.
+    - **The three mixed matchups:**
+      - Fire–Water: 45% ±4.9 for Fire.
+      - Fire–Grass: 64% ±4.7 for Fire.
+      - Water–Grass: 56% ±4.9 for Water.
+    - **These differ from V7f's estimate** (47% / 57% / 52%) because **V7f's F1 and WA flags went by a Pokémon's Type, while the committed change goes by deck.**
+      - Fire's non-Fire Pokémon now get +1 Strength too: Mankey, Sneasel, Duskull, Absol. That moves Fire–Grass to 64%.
+      - Water's non-Water Pokémon now get +1 Attack too: Chinchou, Happiny, Dratini, and Eevee before Vaporeon. That moves Water–Grass to 56%.
+      - Fire–Water stays in range.
+    - **If Elliott wants the tested numbers back,** apply F1 and WA by Type instead of by deck.
+    - **The Fire mirror goes to the final count 82% of the time,** with 13 draws in 400, because each side's Burn strips the other's Recognition. With a target of 90 that's more pronounced than before.
+  - **Tests:**
+    - New `v2/tests/balance.test.js`:
+      - the constants 90 / 9 / 12;
+      - lane guards: a matching guard across, a guard of the other kind, and Infiltrator;
+      - the stat changes by deck (Mankey, Chinchou, Happiny and Sewaddle included), every Grass Pokémon at least 1 Strength, and the Partners;
+      - Surf ×2 and no Dive, with Surf's breakpoints;
+      - every deck doc's stats, Legendaries and Partners matching the cards.
+    - `core`, `locations`, `setup` and `decks` tests updated for the new target, Round 9, lane guards and stats. `variants.test` no longer tests the retired flags and checks that they're refused.
+    - All v2 tests pass, and the current game's suite passes unchanged.
+    - Checked in the browser: "of 90 to win", "Arrives in Round 9" and the V7 build label, with no errors.
