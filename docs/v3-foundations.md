@@ -21,3 +21,22 @@ Elliott leads. Claude asks what to work on, discusses it, and writes down only w
 - Each player has **1 Energy**.
 - **The field:** one starting Location, **Pallet Town**, with **2 lanes**. There are no other lanes on the board. Art: `assets/cards/pallet-town.jpg`.
 - There is nothing else yet.
+
+## Round 1 details and the board (Elliott, 4 Nov)
+
+- **Lanes:** one Pokémon per player per lane, facing each other.
+- **Rounds:** Breakfast, Battle, Supper. Battle turns alternate.
+- **No dead draws:** a Pokémon starts at Level 1 of 6 in Round 1 and gains +1 Level per Round while it isn't on the board. Its cost follows its cost band: Light 0–5, Medium 1–6, Heavy 2–7 (Level 1 = the band's lowest cost).
+- **Attacking** works as before: a summoned Pokémon is Spent the turn it arrives.
+- **Defence and Special Defence** protect all Pokémon and the player within the same Location.
+- **Goal:** become Regional Champion by being the first to reach the Pokémon League Trophy on the right-most space.
+  - Each player has an on-board portrait, whose border contains a board space. Each starts on space 1 in Pallet Town.
+  - **Recognition** comes from attacking the opposing player character and from rewards: most successful actions give a little (e.g. defeating an opposing Pokémon).
+  - Each time a player crosses into the next 10 Recognition (9 → 10, or 45 → 53), their portrait moves one space right.
+- **The board** has at most 10 spaces, opened as Locations drop in.
+- **Locations are controlled by the game** and work like a treadmill:
+  - From Round 2, each Round Pallet Town loses a space as it moves one space left.
+  - Pokémon and player characters keep their spaces; the Locations pass through them.
+  - The game drops a new Location to the right at a Breakfast of its choosing, with 1, 2 or 3 lanes, available at once.
+  - Locations travel left until they're removed completely.
+- **Concept images:** `docs/design/v3-concept-R1.jpg`, `-R2.jpg`, `-R6.jpg`.
