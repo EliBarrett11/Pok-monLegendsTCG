@@ -120,7 +120,7 @@ The Codex doesn't show it either; it explains the Level range as *"Level 2 now; 
 
 - **The PokéMart** opens as a drawer from a shop button with a "3 new" badge at Breakfast. It's not a permanent strip.
 - **The Bags** become 6 small slots beside each player's portrait.
-- **Weather** becomes two icon counters on each Location tile, showing the active bracket and the next (*"Rain 2 · at 4: +1 Strength"*). The full table is in the Codex.
+- **Weather** totals are shared across the board, so they become one compact chip in the right column showing the active bracket and the next (*"Sun 2 · Physical +1 damage · at Sun 4: all Pokémon +1 Attack"*). Each Location tile shows what it adds (*"+2 Sun"*). The full table is in the Codex.
 - **Trainer Objectives** become compact trackers beside each portrait: Trainer art, the Objective, a progress pip such as **1/2**, and the Partner's thumbnail. They pulse on progress.
 
 **The log** becomes a collapsible side drawer with icons, coloured names and clickable cards. A short "last 3 actions" ticker stays visible.
@@ -269,8 +269,8 @@ I review each report and screenshot before writing the next prompt.
 
 | Stage | Contents | Depends on |
 |---|---|---|
-| **UX1: Rules and React** | Elliott's changes 2a, 2b and 2c. The React window with its banner, options, timer and default. Recognition capped at 100. Tests for all of it | Ready to send |
-| **UX2: Layout and HUD** | The new layout (3.1): prompt bar, portraits with Recognition rings, Trainer trackers, Bag slots, PokéMart drawer, piles, log drawer, Weather on Location tiles. The Actions panel is removed | A mockup approved by Elliott (I make it before the prompt) |
+| **UX1: Rules and React** ✅ | Elliott's changes 2a, 2b and 2c. The React window with its banner, options, timer and default. Recognition capped at 100. Tests for all of it | Done: commit 3ba8b7c |
+| **UX2: Layout and HUD** | The new layout (3.1): prompt bar, portraits with Recognition rings, Trainer trackers, Bag slots, PokéMart drawer, piles, log drawer, the Weather chip and Location contributions. The Actions panel is removed | Elliott's approval of the mockup `docs/design/v4-ux2-layout-mockup.jpg` |
 | **UX3: Cards and interaction** | Hand and board card faces (3.3), drag and drop, targeting arrows with result previews, hover reasons, Ready/Spent states, Cancel, confirmations, keyboard | UX2 |
 | **UX4: Motion and VFX** | Port v2's presenter, particles and WebGL layer. AI pacing, speed settings, click to skip, phase banners and the Breakfast/Supper summaries, the Recognition ring animation, Partner and Tournament moments, low motion | UX3 |
 | **UX5: Learning and flow** | Port the Codex, explain and glossary. First-match tips, title screen, mulligan screen, end screen with match summary, settings, resume, colourblind and text size, and a final polish and layout pass | UX4 |
@@ -350,4 +350,6 @@ Settled 9 November 2026:
 - **Q3:** Sound is in scope, but only at good quality and for free (section 3.8).
 - **Q4:** The React timer defaults to 5 s, with 8, 12 and 20 s in Settings.
 
-None open.
+Open:
+- **Q5 (from UX1):** with Objectives active from Round 1, they complete almost at once. Over 200 AI-vs-AI matches (median length 8 Rounds), Misty's "Defeat 2" completed by a median of Round 2 and Blaine's "Dominate a Location" by Round 3. With higher targets: Misty 3 → Round 3, 4 → Round 4, 5 → Round 4; Blaine 2 → Round 4, 3 → Round 4, 4 → Round 5. Keep as is, raise the targets, or change what they ask?
+- **Q6:** approve the UX2 layout mockup, or ask for changes.
