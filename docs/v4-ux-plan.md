@@ -59,31 +59,27 @@ React isn't shown.
   - a **React** button.
 
   Cards that can't React stay in the hand, dimmed.
-- **The timer:** a countdown bar runs across the banner, **8 seconds** at the Normal speed setting. Choosing a card shows its target arrows; choose a target to commit (with a single target, it commits on the first click).
+- **The timer:** a countdown bar runs across the banner, **5 seconds** by default. Choosing a card shows its target arrows; choose a target to commit (with a single target, it commits on the first click).
 - **The default:** a **Let it happen** button. When the timer runs out, it chooses Let it happen.
 - **The keys:** **Space** plays the React when there is exactly one option and one target. **Esc** chooses Let it happen.
 - **The timer belongs to the UI, not the engine.** On timeout the UI sends the same `decline` action a click would. Tests and autoplay never wait.
-- **Settings:** the timer length is a setting: 5 s, **8 s**, 12 s or 20 s. There is no "off", since a short window is part of the design. It doesn't scale with animation speed.
+- **Settings:** the timer length is a setting: **5 s** (default), 8 s, 12 s or 20 s. There is no "off", since a short window is part of the design. It doesn't scale with animation speed.
 
 ### 2b. Trainer Objectives begin the game in play
 
 **This is a rule change.** The rulebook and FOUNDATION_ASSUMPTIONS.md are updated with it.
 
-**Proposed reading — for Elliott to confirm:**
+**Settled by Elliott (Q1 and Q2):**
 
-- **At match start,** each player's Trainer area holds one Objective for each Trainer in their deck list (today: Misty and Blaine). They're active from Round 1 at no cost, with progress 0.
-- **The deck is unchanged** (still 40 cards, still one Misty and one Blaine). A Trainer card drawn into the hand can only be played as its **Trainer Command**. The "play as Objective" action is removed.
-- **Completing an Objective** works as today:
-  - its Partner is summoned (it arrives at the next Breakfast, as now);
-  - its On Summon resolves;
-  - you gain +2 Recognition.
-
-  The Objective then shows as complete in the Trainer area, rather than going to the Discard Pile. Playing that Trainer's Command later is unaffected.
-
-**Questions for Elliott:**
-
-- **Q1.** Is that right, that the Objective is *not* one of the 40 cards, so both Misty cards stay in the deck as Commands? The alternative is that the Trainer card leaves the deck to start in play, which makes the deck 38.
-- **Q2.** Should a completed Objective's Trainer stay on show in the Trainer area for the rest of the match (proposed: yes, as a trophy with a tick), or disappear?
+- **At match start** the Trainer cards are shuffled into the 40-card deck with everything else. Each Trainer's **Objective is active from Round 1** at no cost, with progress 0, and is tracked from the start.
+- **The player is always told how their Objectives stand.** Each one shows as a tracker in their Trainer area: the Trainer, the Objective, its progress (e.g. 1/2) and the Partner. The opponent's trackers are visible too.
+- **A drawn Trainer card can only be played as its Trainer Command.** It then goes to the Discard Pile and keeps cycling through the deck as normal. The "play as Objective" action is removed.
+- **When an Objective completes,** the Trainer card is played at once from wherever it is: the Draw Pile, the hand (Retained or not) or the Discard Pile.
+  - It leaves the deck for good.
+  - Its Partner is summoned as now: at once into the first free space on your side, or waiting for a free space.
+  - Its On Summon resolves.
+  - You gain +2 Recognition.
+- **A completed Trainer stays on show** in the Trainer area for the rest of the match, ticked. Its Command can't be played again, since the card is no longer in the deck.
 
 ### 2c. Light, Mid and Heavy are hidden
 
@@ -250,7 +246,13 @@ During the AI's turn it reads *"Opponent is thinking…"* and then names the AI'
 
 v4 has no audio. A proper soundscape (UI clicks, attack hits, defeats, Recognition chimes, the Tournament fanfare, a music bed) is a big part of a game feeling finished.
 
-**Question for Elliott (Q3):** should it be in scope? It needs sourced audio files, for example CC0 packs from Kenney or freesound, credited in the README. I'd make it the last stage, so it can be dropped without affecting anything else.
+**Settled by Elliott (Q3):** yes, but only at a good level of quality and for free.
+
+**How:**
+- **Sound effects** come from free CC0 packs (e.g. Kenney's interface, impact and RPG audio, which need no credit but are credited in the README anyway), mixed and trimmed to a consistent loudness.
+- **Music** is only included if a free track of real quality is found, with a licence that allows use on GitHub Pages. Otherwise UX6 ships sound effects only and says so.
+- **The quality check:** I listen-test the selection before the prompt and list each file, its source and its licence. Anything that sounds cheap is left out.
+- **Settings:** master, effects and music volume, plus a mute. Sound starts after the first click, as browsers require.
 
 ---
 
@@ -267,28 +269,33 @@ I review each report and screenshot before writing the next prompt.
 
 | Stage | Contents | Depends on |
 |---|---|---|
-| **UX1: Rules and React** | Elliott's changes 2a, 2b and 2c. The React window with its banner, options, timer and default. Recognition capped at 100. Tests for all of it | Elliott's answers to Q1 and Q2 |
+| **UX1: Rules and React** | Elliott's changes 2a, 2b and 2c. The React window with its banner, options, timer and default. Recognition capped at 100. Tests for all of it | Ready to send |
 | **UX2: Layout and HUD** | The new layout (3.1): prompt bar, portraits with Recognition rings, Trainer trackers, Bag slots, PokéMart drawer, piles, log drawer, Weather on Location tiles. The Actions panel is removed | A mockup approved by Elliott (I make it before the prompt) |
 | **UX3: Cards and interaction** | Hand and board card faces (3.3), drag and drop, targeting arrows with result previews, hover reasons, Ready/Spent states, Cancel, confirmations, keyboard | UX2 |
 | **UX4: Motion and VFX** | Port v2's presenter, particles and WebGL layer. AI pacing, speed settings, click to skip, phase banners and the Breakfast/Supper summaries, the Recognition ring animation, Partner and Tournament moments, low motion | UX3 |
 | **UX5: Learning and flow** | Port the Codex, explain and glossary. First-match tips, title screen, mulligan screen, end screen with match summary, settings, resume, colourblind and text size, and a final polish and layout pass | UX4 |
-| *UX6: Sound (optional)* | Sound effects and music with volume settings | Q3 |
+| **UX6: Sound** | Free CC0 sound effects (and music, only if a good free track is found), volume settings and mute | UX5, plus my listen-tested file list |
 
 ---
 
-## 5. Prompt UX1 (ready to send once Q1 and Q2 are answered)
+## 5. Prompt UX1 (ready to send)
 
 > **v4 UX1: Elliott's rule and display changes, and the React window**
 >
 > Work only in `v4/`. Read `v4/FOUNDATION_ASSUMPTIONS.md` and `docs/v4-ux-plan.md` sections 2 and 3.4 first. Don't change any other rule, number or card. The AI must still play only through `applyAction`. Keep the engine free of DOM code and of any timer.
 >
-> **1. Trainer Objectives start in play (a rule change).**
-> - At match setup, put one Objective in each player's Trainer area for each Trainer card in their deck list (today: Misty and Blaine). Each is active from Round 1, costs nothing, and starts at progress 0.
-> - The deck is unchanged: still 40 cards, still including the Trainer cards.
-> - Remove the `trainerObjective` action. A Trainer card in hand can only be played as its Trainer Command.
-> - When an Objective completes, everything else works as now: the Partner is summoned (as now, it arrives at the next Breakfast), its On Summon resolves, and +2 Recognition. The Objective stays in the Trainer area marked complete and makes no further progress.
-> - Update the AI so it never tries to play an Objective.
-> - Update FOUNDATION_ASSUMPTIONS.md (the Trainer section and the Breakfast setup) and record the change in `docs/rules.md` if it covers v4.
+> **1. Trainer Objectives are active from the start (a rule change Elliott has settled).**
+> - The Trainer cards stay shuffled into the 40-card deck with everything else.
+> - At match setup, put one Objective tracker in each player's Trainer area for each Trainer card in their deck (today: Misty and Blaine). Each tracker is linked to its card's `uid`, is active from Round 1, costs nothing, and starts at progress 0. Objective progress works exactly as now.
+> - Remove the `trainerObjective` action. A Trainer card drawn into the hand can only be played as its Trainer Command. It then goes to the Discard Pile and keeps cycling through the deck (it can be drawn and used as a Command again). Playing the Command doesn't affect its Objective.
+> - **When an Objective completes,** take that Trainer card at once from wherever it is (Draw Pile, hand, Retained or not, or Discard Pile) and remove it from the deck for good. Then, as now:
+>   - its Partner arrives at once in your first free space, or waits for one;
+>   - its On Summon resolves;
+>   - +2 Recognition.
+> - The tracker stays in the Trainer area for the rest of the match, marked complete, and makes no further progress.
+> - **Show the trackers to both players at all times,** in each player's Trainer area: the Trainer's art and name, the Objective text, its progress (e.g. 1/2) and the Partner's name. A completed one shows a tick. Log progress and completion. When a Trainer card is pulled out of the hand or a pile on completion, log where it came from.
+> - Update the AI so it never tries to play an Objective; it may still play Trainer Commands.
+> - Update FOUNDATION_ASSUMPTIONS.md (the Trainer section and the match setup) and `docs/rules.md` if it covers v4.
 >
 > **2. Command Card modes by situation.** Add a pure engine helper `commandModesFor(s, who, uid)` that returns the modes to *display* for a Command card in hand:
 > - **On your own turn:** Adapt, with its reason if it isn't playable, plus Strat only if you can afford it.
@@ -303,7 +310,7 @@ I review each report and screenshot before writing the next prompt.
 > - Show a banner in the middle of the board: **REACT?**, with a plain sentence saying what is about to happen (e.g. *"The Opponent's Gyarados is attacking your Charizard for 9."*).
 > - Show each playable React card large, with its React effect in plain words aimed at the actual target, its cost, the Energy you'll have left, and a **React** button. If the card needs a target, clicking it highlights the legal targets; with one target, it commits at once.
 > - Add a **Let it happen** button.
-> - Run a countdown bar of 8 seconds by default (a `reactTimer` setting of 5, 8, 12 or 20 s, saved in localStorage inside try/catch). On timeout, send exactly the same `decline` action as the button.
+> - Run a countdown bar of 5 seconds by default. Add a small settings control for `reactTimer` (5, 8, 12 or 20 s), saved in localStorage inside try/catch; the full Settings screen comes in UX5. On timeout, send exactly the same `decline` action as the button.
 > - **Keys:** Space reacts when there's exactly one option and one target. Esc lets it happen.
 > - The AI's own React decisions stay instant.
 > - Autoplay (`?autoplay`) and tests must never wait on the timer.
@@ -313,10 +320,10 @@ I review each report and screenshot before writing the next prompt.
 > **5. Recognition display.** Show Recognition capped at 100 everywhere on screen. The real total can stay in the log and the end screen's detail.
 >
 > **6. Tests** (`node v4/tests/ux1.test.js`), checking that:
-> - both players start with 2 active Objectives at progress 0, and still have 40 cards in total in their Draw Pile and hand;
+> - both players start with 2 active Objectives at progress 0, and still have 40 cards (including both Trainers) across the Draw Pile and hand;
 > - `trainerObjective` isn't a legal action;
-> - a Trainer in hand is playable only as a Command;
-> - an Objective completed in play summons its Partner and gives +2;
+> - a Trainer in hand is playable only as a Command, goes to the Discard Pile, and its Objective stays active;
+> - completing an Objective removes the Trainer card from the Draw Pile, from the hand, or from the Discard Pile (one test each), summons its Partner, gives +2, and leaves a completed tracker; the deck total drops to 39;
 > - `commandModesFor` returns:
 >   - Adapt (plus Strat only when affordable) on your turn;
 >   - [] on the opponent's turn;
@@ -337,7 +344,10 @@ I review each report and screenshot before writing the next prompt.
 
 ## 6. Open questions
 
-- **Q1:** Do the starting Objectives come in addition to the 40-card deck? Proposed: yes, and the Trainer cards stay in the deck as Commands.
-- **Q2:** Does a completed Objective stay on show? Proposed: yes, ticked.
-- **Q3:** Is sound in scope (stage UX6, with sourced CC0 audio)?
-- **Q4:** Is 8 s right for the React timer at its default?
+Settled 9 November 2026:
+- **Q1:** Trainer cards are shuffled into the deck. Their Objectives are active from the start. A drawn Trainer is a Command only and cycles as normal, until its Objective completes and the card is played at once from wherever it is (section 2b).
+- **Q2:** A completed Trainer stays on show, ticked.
+- **Q3:** Sound is in scope, but only at good quality and for free (section 3.8).
+- **Q4:** The React timer defaults to 5 s, with 8, 12 and 20 s in Settings.
+
+None open.
