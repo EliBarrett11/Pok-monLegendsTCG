@@ -1,0 +1,92 @@
+# Pokémon Legends v4: the foundation
+
+v4 builds `docs/v4-foundation-spec.md`: sections 1–16, with section 16's clarifications taking priority. It's built in five steps. v1 (the root), v2 (`v2/`) and v3 (`v3/`) don't change.
+
+- **Play v4:** https://elibarrett11.github.io/Pok-monLegendsTCG/v4/
+- **Assumptions:** `v4/FOUNDATION_ASSUMPTIONS.md`.
+
+## How it's built
+
+Plain HTML, CSS and JavaScript modules: no build step and relative paths only. It shares only the art in `assets/cards/`.
+
+| Folder | Contents |
+|---|---|
+| `v4/src/rules.js` | The numbers |
+| `v4/src/engine/` | Game rules and state (`game.js`), cards (`cards.js`), Energy (`energy.js`), random numbers. **No DOM code.** |
+| `v4/src/ai/` | The simple AI: greedy, one move ahead, through the engine's actions |
+| `v4/src/ui/` | The interface (v3's look), coded icons |
+| `v4/tests/` | `node v4/tests/core.test.js` (focused rule tests; no match simulations) |
+| `v4/tools/` | `node v4/tools/layout.mjs` (the nothing-clipped check); `node v4/tools/stamp.mjs` (cache-busting: run before each commit) |
+
+**Reused (copied, with the source noted in each file):**
+
+| From | What | Changed? |
+|---|---|---|
+| v1 | `src/engine/energy.js` (Base Energy, Exert and Exhaust) | Unchanged |
+| v1 | `src/engine/random.js` | Unchanged |
+| v3 | `v3/src/ui/style.css` and `icons.js` | Renamed `v3-` → `v4-` |
+| v3 | `v3/src/main.js` | Adapted |
+| v3 | `v3/src/ai/ai.js` | Adapted |
+| v3 | `v3/tools/layout.mjs` and `stamp.mjs` | Adapted |
+
+The rules for Ready, the unmatched-Speed Pass and trades follow v3's engine.
+
+**URL options:** `?seed=123` replays the same match; `?autoplay` lets the AI play both sides; `?debug` exposes `window.__v4` for checks.
+
+## Build log
+
+- **F1 — the core (step 1 of 5).**
+  - **The battlefield:**
+    - 9 lanes, with one space per player in each.
+    - The whole battlefield is the Default Location (placed Locations come later), with no passive, Weather or dominance.
+    - The Player Characters sit outside it.
+  - **Rounds:**
+    - **Breakfast:** Exhaust recovers; Base Energy is the Round (max 10); Exert maximum is the Round (max 3); Spent Pokémon become Active; Pokémon cards off the battlefield gain their Level; draw 7, less one per Retained card.
+    - **Round 1:** draw 7, then a v1 mulligan.
+    - **Battle:** alternating turns, with one action each:
+      - Summon;
+      - Attack (a Ready Pokémon attacks an enemy Pokémon or the enemy Player Character, subject to guards);
+      - Retain (1 Energy);
+      - Pass (+1 Base Energy, except the Pass that ends the phase; the unmatched-Speed rule applies).
+    - **Supper:** the hand is discarded except Retained cards. The Discard Pile reshuffles into the Draw Pile when it runs out (v1).
+  - **Energy:** v1's Base Energy, Exert and Exhaust exactly (recovery positions 2, 3 and 4 Rounds later).
+  - **Pokémon:**
+    - Light (Levels 1–6), Mid (2–7) and Heavy (3–8) series, +1 Level per Round off the battlefield.
+    - A summoned Pokémon is a snapshot.
+    - Form, stats, ability and cost come from the Level; Mid costs about half the Round's Base Energy.
+    - **Evolution paths:** Ponyta → Rapidash, Chinchou → Lanturn, Squirtle → Wartortle → Blastoise, Growlithe → Arcanine, Magikarp → Gyarados, Charmander → Charmeleon → Charizard.
+  - **Speed and combat:**
+    - Ready and Spent work as in v3.
+    - **Guards (section 16):** a Defence or Special Defence guard protects its side's other Pokémon in the same Location, and its Player Character against attackers in its Location.
+  - **Recognition:** 1 per damage to the enemy Player Character and +2 per Pokémon defeated; 100 wins.
+  - **The AI:** greedy, one move ahead, through the same engine actions.
+  - **The interface:**
+    - Both Recognition totals with progress to 100.
+    - Base Energy, available Exert with its maximum, and each Exhaust point's recovery Round.
+    - Hand, Deck, Discard and Released counts for both players.
+    - Board Pokémon show their Level, art, Attack, Speed icon and Strength, with full details on hover.
+    - An Actions panel shows each action as available or why not.
+    - Unplayable hand cards say why on hover.
+    - Retain: select a card, then click Retain.
+  - **The demo deck so far:** 20 Pokémon cards, the same for both players:
+
+    | Series | Pokémon | Copies | Guard |
+    |---|---|---|---|
+    | Light | Ponyta | 4 | — |
+    | Light | Chinchou | 3 | Special Defence |
+    | Mid | Squirtle | 4 | Defence |
+    | Mid | Growlithe | 4 | — |
+    | Heavy | Magikarp | 3 | — |
+    | Heavy | Charmander | 2 | — |
+
+  - **Checks:**
+    - `node v4/tests/core.test.js` covers:
+      - setup: v4 stands alone, both players get the same deck, the mulligan;
+      - development Levels and snapshots;
+      - Retain and the draw reduction;
+      - Base Energy, Pass, Exert and Exhaust positions;
+      - Ready and the unmatched-Speed Pass;
+      - guards, Attack and trades;
+      - both Recognition sources, and winning at 100.
+    - `node v4/tools/layout.mjs` reports `layout: ok` at 1920×1080, 1366×768 and 1280×720.
+  - **Art:** all existing; none missing for F1.
