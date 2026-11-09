@@ -131,6 +131,14 @@ function check() {
     else if (cuts(el, 'x') && el.scrollWidth > el.clientWidth + 2) out.push(`${name(el)} cuts off its content sideways (${el.scrollWidth}px in ${el.clientWidth}px)`);
     else if (getComputedStyle(el).textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth + 1) out.push(`${name(el)} is cut short with "…"`);
   }
+  // UX3: any element holding text whose content overflows its own box (where it doesn't scroll).
+  for (const el of scope.querySelectorAll('*')) {
+    if (!visible(el) || el.closest('svg')) continue;
+    if (![...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) continue;
+    const cs = getComputedStyle(el);
+    if (cs.display === 'inline' || cs.display === 'contents' || scrolls(el, 'x') || scrolls(el, 'y')) continue;
+    if (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1) out.push(`${name(el)}'s text overflows its box (${el.scrollWidth}×${el.scrollHeight} in ${el.clientWidth}×${el.clientHeight})`);
+  }
   return [...new Set(out)];
 }
 
@@ -140,6 +148,19 @@ function check() {
 const settle = (p, ms = 400) => p.waitForTimeout(ms);
 const v4 = (p, fn, arg) => p.evaluate(fn, arg);
 const to = (p, round) => v4(p, (r) => window.__v4.fastForward(r), round);
+const centerOf = (p, sel) => p.evaluate((q) => { const r = document.querySelector(q).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }, sel);
+// UX3: move the pointer over an element (previews follow the pointer), or drag between two.
+async function hover(p, sel) { const c = await centerOf(p, sel); await p.mouse.move(c.x - 20, c.y - 20); await p.mouse.move(c.x, c.y, { steps: 3 }); await settle(p, 150); }
+async function drag(p, from, toSel, release = true) {
+  const a = await centerOf(p, from);
+  await p.mouse.move(a.x, a.y);
+  await p.mouse.down();
+  await p.mouse.move(a.x + 20, a.y - 30, { steps: 3 });
+  const b = await centerOf(p, toSel);
+  await p.mouse.move(b.x, b.y, { steps: 6 });
+  if (release) await p.mouse.up();
+  await settle(p, 150);
+}
 const SCENARIOS = {
   mulligan: async () => {},
   round1: async (p) => { await to(p, 1); },
@@ -250,6 +271,38 @@ const SCENARIOS = {
     await to(p, 6);
     await v4(p, () => window.__v4.set((s, ui) => { ui.drawer = 'log'; }));
   },
+  // UX3: an attack preview with a hit-back (hovering a Ready target), a Command drag over a target, the
+  // mode picker, a Location placement preview, the key list and a confirmation.
+  'attack-preview': async (p) => {
+    await to(p, 4);
+    await v4(p, () => window.__v4.set((s, ui) => {
+      for (const w of ['player', 'ai']) s.players[w].row = s.players[w].row.map(() => null);
+      s.locations = [];
+      const mk = (id, name, at, sp, a, st) => ({ id, cardType: 'Pokémon', name, art: id, series: 'Mid', type: 'Fire', attackType: at, speed: sp, strengthType: 'Hitpoints', level: 6, cost: 3, attack: a, strength: st, currentStrength: st, spent: false, uid: `x${name}`, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, text: '' });
+      s.players.player.row[2] = mk('charizard', 'Charizard', 'Special', 'Swift', 8, 9);
+      s.players.ai.row[4] = mk('gyarados', 'Gyarados', 'Physical', 'Swift', 9, 7);
+      ui.select = { kind: 'attack', from: 2 };
+    }));
+    await hover(p, '.v4-row.opponent .v4-space[data-space="4"]');
+  },
+  'command-drag': async (p) => {
+    await to(p, 4);
+    await v4(p, () => { const L = window.__v4; L.set((s) => { s.players.player.baseEnergy = 9; if (!s.players.ai.row.some(Boolean)) s.players.ai.row[4] = { ...s.players.player.row.find(Boolean), uid: 'enemy' }; }); L.giveCard('ember'); });
+    const uid = await v4(p, () => window.__v4.state.players.player.hand.at(-1).uid);
+    const enemy = await v4(p, () => window.__v4.state.players.ai.row.findIndex(Boolean));
+    await drag(p, `.v4-hand [data-uid="${uid}"]`, `.v4-row.opponent .v4-space[data-space="${enemy}"]`, false);
+  },
+  'mode-picker': async (p) => {
+    await to(p, 4);
+    await v4(p, () => { const L = window.__v4; L.set((s) => { s.players.player.baseEnergy = 9; if (!s.players.ai.row.some(Boolean)) s.players.ai.row[4] = { ...s.players.player.row.find(Boolean), uid: 'enemy' }; }); const uid = L.giveCard('ember'); L.set((s, ui) => { const sp = s.players.ai.row.findIndex(Boolean); ui.select = { kind: 'hand', uid }; ui.picker = { uid, target: { who: 'ai', space: sp }, modes: ['adapt', 'strat'], x: 700 + sp * 60, y: 300 }; }); });
+  },
+  'place-preview': async (p) => {
+    await to(p, 3);
+    await v4(p, () => { const L = window.__v4; L.set((s) => { s.locations = []; }); const uid = L.giveCard('mt-ember'); L.set((s, ui) => { ui.select = { kind: 'hand', uid }; }); });
+    await hover(p, '.v4-row.player .v4-space[data-space="3"]');
+  },
+  keys: async (p) => { await to(p, 3); await v4(p, () => window.__v4.set((s, ui) => { ui.keys = true; })); },
+  confirm: async (p) => { await to(p, 3); await v4(p, () => window.__v4.set((s, ui) => { ui.confirm = { kind: 'pass', text: 'End turn with 3 Energy unused?', action: { type: 'pass', who: 'player' }, dontAsk: false }; })); },
   'big-hand': async (p) => { await to(p, 6); await v4(p, () => { for (let i = 0; i < 6; i++) window.__v4.give('charmander', 7); }); },
 };
 

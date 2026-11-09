@@ -30,10 +30,10 @@
 // per Retained card; Round 1: draw 7 then a mulligan, as in v1), Battle (alternating turns, one
 // action each: Summon, Attack, Retain, Pass; two Passes in a row end it), Supper (the hand is
 // discarded except Retained cards). Initiative switches each Round.
-import { RULES, SPEEDS, levelFor } from '../rules.js?v=202611091725';
-import { nextRandom, shuffle } from './random.js?v=202611091725';
-import { newEnergy, refreshEnergy, canPay, payCost, availableExert } from './energy.js?v=202611091725';
-import { DEMO_DECK, cardAtRound, pokemonAt, pathDef, locationDef, WEATHER_BRACKETS, FAVOURS, MODE_NAMES, ITEMS, BAG_SIZE } from './cards.js?v=202611091725';
+import { RULES, SPEEDS, levelFor } from '../rules.js?v=202611091758';
+import { nextRandom, shuffle } from './random.js?v=202611091758';
+import { newEnergy, refreshEnergy, canPay, payCost, availableExert } from './energy.js?v=202611091758';
+import { DEMO_DECK, cardAtRound, pokemonAt, pathDef, locationDef, WEATHER_BRACKETS, FAVOURS, MODE_NAMES, ITEMS, BAG_SIZE } from './cards.js?v=202611091758';
 
 export const PLAYERS = ['player', 'ai'];
 export const NAMES = { player: 'You', ai: 'The Opponent' };
@@ -539,7 +539,7 @@ function commit(s, pending) {
   const foe = opponentOf(pending.who);
   if (reactOptions(s, foe).length) {
     s.reactWindow = { reactor: foe, pending };
-    emit(s, 'reactWindow', { reactor: foe, type: pending.type });
+    emit(s, 'reactWindow', { reactor: foe, action: pending.type });   // (UX3: not "type", which named the event itself)
     return;
   }
   resolvePending(s, pending);
@@ -670,7 +670,7 @@ function checkItemTarget(s, who, item, target) {
   return { who, space: target.space };
 }
 // Using an Item: a Held Item attaches to the Pokémon; a Consumed Item resolves, then goes to the PokéMart.
-function applyItem(s, who, item, t) {
+export function applyItem(s, who, item, t) {
   const c = s.players[who].row[t.space];
   emit(s, 'itemUsed', { who, id: item.id, space: t.space });
   if (item.itemType === 'Held') {
@@ -786,7 +786,7 @@ export function syncBonuses(s) {
 
 function heal(card, n) { card.currentStrength = Math.min(card.strength, card.currentStrength + n); }
 
-function runOps(s, who, ops) {
+export function runOps(s, who, ops) {
   const foe = opponentOf(who);
   for (const o of ops) {
     if (s.phase === 'gameOver') return;

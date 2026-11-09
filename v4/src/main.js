@@ -2,12 +2,13 @@
 // Pokémon Legends v4 — entry point (F1): you against the AI, on a fixed 1920×1080 stage scaled
 // to fit the window. ?seed=123 replays the same shuffle and AI choices; ?autoplay lets the AI play
 // both sides; ?debug exposes window.__v4 for the layout check (v4/tools/layout.mjs).
-import { createGame, applyAction, actor, commandModesFor, commandTargets } from './engine/game.js?v=202611091725';
-import { chooseAction } from './ai/ai.js?v=202611091725';
-import { renderMatch, reactOpen } from './ui/board.js?v=202611091725';
-import { pokemonAt, cardAtRound } from './engine/cards.js?v=202611091725';
+import { createGame, applyAction, actor, energyLeft, playReason } from './engine/game.js?v=202611091758';
+import { chooseAction } from './ai/ai.js?v=202611091758';
+import { renderMatch, reactOpen } from './ui/board.js?v=202611091758';
+import { pokemonAt, cardAtRound } from './engine/cards.js?v=202611091758';
+import { setupInteraction } from './ui/interact.js?v=202611091758';
 
-export const BUILD = 'UX2 — the new layout, HUD and card faces; Objective targets 8/5, stronger Partners';
+export const BUILD = 'UX3 — drag and drop, targeting arrows and previews, keyboard, confirmations';
 
 const STAGE = { width: 1920, height: 1080 };
 const stage = document.getElementById('stage');
@@ -41,9 +42,11 @@ function setReactTimer(v) {
 }
 
 const ctx = { build: BUILD, autoplay, act, redraw, newMatch, setReactTimer, reactTimer: loadReactTimer() };
+let interaction = null;
 function redraw() {
   syncReactClock();
   renderMatch(root, state, ui, ctx);
+  interaction?.refresh();
 }
 
 // UX1: the React window's countdown belongs to the interface, not the engine. When the human
@@ -66,25 +69,40 @@ function syncReactClock() {
   }, ms);
 }
 
-// UX1 keys in the React window: Space reacts when there's exactly one option with one target; Esc
-// lets it happen.
-addEventListener('keydown', (e) => {
-  // UX2: L opens and closes the log drawer (the only new key in this stage).
-  if ((e.key === 'l' || e.key === 'L') && state && !e.ctrlKey && !e.metaKey && !e.altKey && !(e.target instanceof HTMLSelectElement)) {
-    ui.drawer = ui.drawer === 'log' ? null : 'log';
-    redraw();
-    return;
-  }
-  if (!state || autoplay || !reactOpen(state, ui)) return;
-  if (e.key === 'Escape') { e.preventDefault(); act({ type: 'decline', who: 'player' }); return; }
-  if (e.key === ' ' || e.code === 'Space') {
-    e.preventDefault();
-    const opts = state.players.player.hand.filter((c) => commandModesFor(state, 'player', c.uid).length);
-    if (opts.length !== 1) return;
-    const targets = commandTargets(state, 'player', opts[0]);
-    if (targets.length === 1) act({ type: 'react', who: 'player', uid: opts[0].uid, target: targets[0] });
-  }
-});
+// UX3: confirmations, only where a mistake is costly (ending a turn with Energy unused and a playable
+// card, Releasing cards for a Supporter, Retaining your last card). Each has "Don't ask again", kept in
+// localStorage (inside try/catch).
+const askKey = (kind) => `v4.ask.${kind}`;
+const skipAsk = (kind) => { try { return localStorage.getItem(askKey(kind)) === 'no'; } catch { return false; } };
+function confirmThen(kind, text, action) {
+  if (skipAsk(kind)) return act(action);
+  ui.confirm = { kind, text, action, dontAsk: false };
+  redraw();
+}
+ctx.confirmYes = () => {
+  const c = ui.confirm;
+  if (!c) return;
+  if (c.dontAsk) { try { localStorage.setItem(askKey(c.kind), 'no'); } catch { /* storage unavailable: ask again next time */ } }
+  ui.confirm = null;
+  act(c.action);
+};
+ctx.confirmNo = () => { ui.confirm = null; redraw(); };
+ctx.endTurn = () => {
+  if (!state || state.phase !== 'battle' || state.turn !== 'player' || state.reactWindow || ui.locked) return;
+  const me = state.players.player;
+  const left = energyLeft(me);
+  const playable = me.hand.some((c) => !playReason(state, 'player', c));
+  const action = { type: 'pass', who: 'player' };
+  if (left > 0 && playable) confirmThen('pass', `End turn with ${left} Energy unused?`, action);
+  else act(action);
+};
+ctx.retain = (uid) => {
+  const me = state.players.player;
+  const action = { type: 'retain', who: 'player', uid };
+  if (me.hand.length === 1) confirmThen('retain', 'Retain your last card in hand? You draw one fewer next Breakfast.', action);
+  else act(action);
+};
+ctx.release = (action, n) => confirmThen('release', `Release ${n} card${n === 1 ? '' : 's'}? Released cards leave the match.`, action);
 
 function newMatch() {
   match += 1;
@@ -92,7 +110,7 @@ function newMatch() {
   let k = seed;
   aiRng = params.has('seed') ? () => { k = (k * 9301 + 49297) % 233280; return k / 233280; } : Math.random;
   state = createGame(seed);
-  Object.assign(ui, { select: null, ask: null, locked: false, seenTournament: null, drawer: null, martSeen: null });
+  Object.assign(ui, { select: null, ask: null, locked: false, seenTournament: null, drawer: null, martSeen: null, drag: null, picker: null, confirm: null, keys: false, focus: null, hover: null });
   redraw();
   aiLoop(match);
 }
@@ -105,6 +123,9 @@ function act(action) {
   }
   ui.select = null;
   ui.ask = null;
+  ui.picker = null;
+  ui.focus = null;
+  ui.drag = null;
   redraw();
   aiLoop(match);
 }
@@ -163,4 +184,6 @@ if (params.has('debug')) {
   };
 }
 
+// UX3: the targeting arrow, previews, drag and drop and the keyboard.
+interaction = setupInteraction({ stage, ui, ctx, getState: () => state });
 newMatch();

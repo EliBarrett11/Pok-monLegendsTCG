@@ -15,7 +15,7 @@ Plain HTML, CSS and JavaScript modules: no build step and relative paths only. I
 | `v4/src/engine/` | Game rules and state (`game.js`), cards (`cards.js`), Energy (`energy.js`), random numbers. **No DOM code.** |
 | `v4/src/ai/` | The simple AI: greedy, one move ahead, through the engine's actions |
 | `v4/src/ui/` | The interface (v3's look), coded icons |
-| `v4/tests/` | `node v4/tests/core.test.js`, `locations.test.js`, `commands.test.js`, `items.test.js`, `tournament.test.js`, `ux1.test.js` and `ux2.test.js` (focused rule tests; no match simulations) |
+| `v4/tests/` | `node v4/tests/core.test.js`, `locations.test.js`, `commands.test.js`, `items.test.js`, `tournament.test.js`, `ux1.test.js`, `ux2.test.js` and `ux3.test.js` (focused rule tests; no match simulations) |
 | `v4/tools/` | `node v4/tools/layout.mjs` (the nothing-clipped check); `node v4/tools/stamp.mjs` (cache-busting: run before each commit) |
 
 **Reused (copied, with the source noted in each file):**
@@ -464,3 +464,56 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
       - the log drawer by click and by L, and the PokéMart drawer.
 
       There were no errors, and the UX1 React window check still passes.
+
+- **UX3 — interaction (drag and drop, targeting arrows with previews, keyboard, confirmations) and UX2 polish** (`docs/v4-ux-plan.md` 3.4; the mockup's arrow and preview).
+  - **Result previews** (`src/engine/preview.js`, pure). Each one plays the action on a copy of the state with the engine's own functions, so it can never disagree with the result.
+    - **`attackPreview(s, who, from, target)`** returns:
+      - the damage, and the target's Strength before and after;
+      - a defeat and its rewards (Recognition after the Tournament's ×1.5, and $), or Recognition from damage to a Player Character;
+      - the hit-back from a Ready target: its damage, the attacker's Strength after, a defeat, and the opponent's rewards;
+      - the parts of the attack number (base Attack, Location, Weather, Held Item, "until Supper", Sun 2 for Physical), which always add up to the engine's damage.
+    - **`effectPreview(s, who, card, mode, target)`** does the same for every Command mode, Items and Trainer Commands. Damage and heals show before → after, plus defeats and rewards. Effects with no number (such as "Draw 2 cards") give a sentence.
+  - **Targeting arrows and previews** (`src/ui/interact.js`, on a layer above the board and below dialogs):
+    - **The arrow** is curved, glowing and dotted, from the attacker or the hand, Bag or React card to the pointer. It turns red and snaps onto a legal target.
+    - **The preview panel** sits beside the target: the title, stat icons with before → after, the breakdown ("9 = 8 Attack + 1 Mt. Ember"), gain chips ("Defeats it · +2 Recognition", "+$4"), and a hit-back line when the target is Ready.
+    - **Illegal places** show their reason, such as "Guarded by Arcanine".
+    - **Summoning and placing a Location:** the legal lanes glow, and hovering shows the cost (with the Route 119 discount), or the Location's outline over the lanes it would cover.
+  - **Drag and drop** (pointer events, no library):
+    - **From the hand:** a Pokémon to an empty space; a Location to a lane on either row (that lane is its start); a Command or Item to a legal target; a Supporter or Trainer Command to anywhere on the board.
+    - **From the board:** a Ready Pokémon to an enemy Pokémon or the Opponent's Recognition ring.
+    - **From the Bag:** an Item to one of your Pokémon.
+    - **While dragging,** the card follows the pointer at 85% size and legal drops glow.
+    - **A Command with two playable modes** opens a mode picker at the drop, showing each mode with its effect and cost.
+    - **Cancelling:** an illegal drop, Esc or right-click cancels, and the card glides back. Nothing is committed before a legal drop.
+    - Clicking works as before; every click, drop and Enter goes through the same flow (`src/ui/flows.js`).
+  - **Keyboard:**
+    - **Space:** End turn. **1–9:** select a hand card. **A:** select an attacker; press again for the next one. **R:** Retain the selected card.
+    - **Tab / Shift+Tab:** cycle legal targets or spaces, with the preview and a focus ring. **Enter:** confirm.
+    - **Esc or right-click:** cancel. **L:** the log. **?:** the key list.
+    - Keys do nothing under a dialog with its own keys: the React window, the mulligan, the Release choice, the Tournament banner, a confirmation or the key list. Those keep their own keys (Enter or Esc where they have them).
+    - The key hint at the bottom-right and END TURN's Space keycap are updated.
+  - **Confirmations,** each with "Don't ask again" (kept in localStorage inside try/catch):
+    - "End turn with N Energy unused?", when you have Energy and a playable card;
+    - "Release N cards? Released cards leave the match.";
+    - Retaining your last card.
+  - **Polish:**
+    - The log ticker's lines are trimmed in JS to fit.
+    - The Weather chip's lines fit, including in the Tournament.
+    - The Round panel's Tournament chips fit.
+    - The opponent's pile counts sit inside the piles, clear of the captions.
+    - Tall display numbers no longer overflow their boxes.
+    - Text selection is off while dragging.
+  - **An engine bug the new tests found:** the React-window event put `type: pending.type` in its data, which overwrote the event's own type. So a React window was logged as an "attack" event, and an earlier test of "no window" passed trivially. It's renamed `action`.
+  - **The layout check** now also fails when any text overflows its own box. It has new scenarios: an attack preview with a hit-back, a Command drag over a target, the mode picker, a Location placement preview, the key list and a confirmation.
+  - **Checks:**
+    - **`node v4/tests/ux3.test.js`:** 220 random legal attacks from AI-played matches (fixed seeds) agree with `applyAction`. It compares damage, both Strengths, defeats, Recognition and $ for both players, with Location, Weather, Held Item, Tournament, hit-back, Player Character and defeat cases all covered. 63 effect cases (every Command mode, every Item, both Trainer Commands, and a Tournament defeat) agree with the real results.
+    - All eight test files pass.
+    - The layout check is ok at all three sizes.
+    - **The Playwright browser check:**
+      - drags to summon, to place a Location, to attack (a Pokémon and the ring), to play a Command through the mode picker, and to use Items from the hand and the Bag;
+      - Esc and right-click cancel a drag;
+      - one turn with keys only (1, Tab, Enter; A, Tab, Enter; Space with its confirmation);
+      - each confirmation and its "Don't ask again";
+      - the key list.
+
+      No page errors.
