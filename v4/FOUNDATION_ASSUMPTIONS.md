@@ -75,3 +75,64 @@ Decisions made where `docs/v4-foundation-spec.md` (and its section 16) doesn't g
    - A tie, including an empty Location, gives nothing.
    - Who placed the Location doesn't matter. The Default Location is never scored.
 8. **The demo deck:** the 20 Pokémon plus one of each Location, 24 cards, the same list for both players.
+
+## F3: Command Cards and Supporters
+
+1. **Eligible actions and the React window ✱:**
+   - Three actions can be reacted to: an attack, a summon, and a Command Card played as Adapt. Pass, Retain, Place Location, Supporters, Strats and Reacts can't.
+   - The acting player commits the action first, and its cost is paid then:
+     - **Summon:** the Energy is paid and the card leaves the hand.
+     - **Adapt:** the Energy is paid and the card leaves the hand.
+     - **Attack:** it has no cost to pay.
+   - A React window then opens for the other player only if they hold a Command Card whose React they can pay for and that has a target. Otherwise the action resolves at once.
+   - In the window, that player either Reacts with one card or lets it happen. Then the committed action resolves, and the acting player's turn ends.
+2. **React timing ✱:**
+   - The React's weaker effect resolves fully before the committed action, which then resolves against the new state.
+   - **The committed action fizzles** (cost still paid) if:
+     - the attacker is gone;
+     - the attacked Pokémon is gone, or is now guarded;
+     - the Adapt's target is gone.
+   - A fizzled attack still makes the attacker Spent. A fizzled Adapt card goes to the Discard Pile.
+   - A summon can't fizzle: the React can't fill its space. The summoned Pokémon arrives after the React, Spent as usual.
+   - A React doesn't use the reacting player's turn, and nothing can be reacted to in turn. There's no stack: at most one React per committed action.
+   - React Energy comes from the same pool as everything else (Base Energy, then Exert).
+3. **Strat timing ✱:**
+   - Paid and targeted when played; this is the turn's action. It is not eligible for React.
+   - It resolves at the start of its owner's next turn, after the opponent's turn. If the Battle Phase ends first, it resolves at Supper, before dominance is scored.
+   - Several pending Strats resolve in the order they were played.
+   - It fizzles if its target Pokémon is gone, even if another Pokémon now stands in that space. The cost stays paid.
+   - A resolved or fizzled Strat card goes to its owner's Discard Pile.
+   - X Attack's "+Attack until Supper" lasts until that Round's Supper. So an X Attack Strat that resolves at Supper has no effect.
+4. **Command targets:**
+   - Commands target Pokémon only, never a Player Character.
+   - Guards don't apply to Commands (section 16 makes them about attacks).
+   - A Command that defeats a Pokémon gives its player the usual +2 Recognition.
+   - Rock Slide hits each enemy Pokémon in its target's Location; the Default Location counts as one.
+5. **The four Command Cards ✱:** placeholder values. React is always cheaper than Adapt, and Strat dearer:
+
+   | Card | Target | Adapt | React | Strat |
+   |---|---|---|---|---|
+   | Ember | an enemy Pokémon | 2: 3 damage | 1: 2 damage | 3: 5 damage |
+   | Recover | one of yours | 2: heal 4 | 1: heal 2 | 3: heal 8 |
+   | X Attack | one of yours | 2: +2 Attack until Supper | 1: +1 | 3: +4 |
+   | Rock Slide | an enemy Pokémon | 3: 1 damage to each enemy Pokémon in its Location | 2: 1 damage to it | 4: 2 damage to each in its Location |
+
+6. **Supporters ✱:**
+   - A Battle Phase action costing no Energy, with no limit per Round. Released cards are chosen by the player.
+   - It needs that many other cards in hand; the Supporter can't Release itself as its cost. It is Released after its effect.
+   - Released cards go to the Released Pile and are never reshuffled (as in v2).
+   - The Favour is met if any Released card meets its condition. It gives the enhanced effect and **+1 Recognition**, a starting value (`perFavour` in `v4/src/rules.js`).
+7. **The three Supporters ✱:** placeholder values, adapted from v2's Supporters and Favours:
+
+   | Supporter | Release | Effect | Favour: Release… | Enhanced |
+   |---|---|---|---|---|
+   | Nurse Joy | 1 | heal each of your Pokémon 2 | a Water Pokémon | heal 4 |
+   | Professor Oak | 1 | put the first Pokémon card in your Draw Pile into your hand | a Location | 2 Pokémon cards |
+   | Brock | 2 | +1 Strength (kept) to each of your Pokémon | a Pokémon of Level 4+ | +2 |
+
+   Oak's search doesn't reshuffle and finds what's there; the Draw Pile is already shuffled.
+8. **The demo deck:** 20 Pokémon, the four Locations, and one of each Command Card and Supporter: 31 cards, the same list for both players.
+9. **AI:**
+   - It judges a move as if the player lets it happen.
+   - It values a pending Strat as 70% resolved.
+   - It Releases its least useful cards, or a card that meets the Favour when it can.

@@ -257,3 +257,29 @@ button { font-family: inherit; }
 .k-location { border: 3px solid var(--loc); }
 .k-location .v4-htext { bottom: 6px; }
 .k-location .v4-cost { background: radial-gradient(circle at 35% 30%, #b0f0c0, #2a8a50); }
+
+/* ===== v4 (F3): Command Cards, the React window, pending Strats, Supporters' Release and Favour ===== */
+.k-command { border-color: #e06a4a; }
+.k-command .v4-htext { bottom: 6px; }
+.v4-modes p { margin: 1px 0 0; color: var(--cream); }
+.v4-modes b { display: inline-block; min-width: 54px; color: var(--brass-light); }
+.v4-hbody .fav, .v4-release .fav { color: #ffd76a; }
+.v4-hcard.reactable { border-color: #ff9a6a; box-shadow: 0 0 16px 5px rgba(255, 140, 90, 0.75), 0 8px 18px rgba(0, 0, 0, 0.6); }
+.v4-space.committed::before { border: 2px dashed #ff9a6a !important; box-shadow: 0 0 14px 4px rgba(255, 140, 90, 0.6); }
+.v4-space.committed .v4-card { box-shadow: 0 0 18px 6px rgba(255, 140, 90, 0.8); }
+.v4-strats { position: absolute; z-index: 3; left: 4px; right: 4px; top: 56px; display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
+.v4-strat { padding: 1px 6px; border-radius: 6px; font-size: 12px; font-weight: 800; color: #fff; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.v4-strat.player { background: rgba(40, 110, 200, 0.92); border: 1px solid var(--you); }
+.v4-strat.ai { background: rgba(190, 90, 30, 0.92); border: 1px solid var(--opp); }
+.v4-stratlist p { margin: 2px 0; font-size: 12px; line-height: 1.25; }
+.v4-stratlist p.player b { color: var(--you); }
+.v4-stratlist p.ai b { color: var(--opp); }
+.v4-piles p b { color: var(--cream); font-weight: 800; }
+.v4-release p { margin: 0 0 8px; font-size: 16px; }
+.v4-release .v4-mini button { position: relative; }
+.v4-release .v4-mini button.meets { outline: 2px solid #ffd76a; outline-offset: 1px; }
+.v4-release .v4-mini button em { position: absolute; left: 4px; top: 4px; padding: 0 5px; border-radius: 4px; font-style: normal; font-size: 12px; font-weight: 800; color: #fff; background: #c83a2a; }
+.v4-release .v4-mini button i { width: auto; height: auto; border: 0; position: absolute; right: 4px; top: 4px; padding: 0 5px; border-radius: 4px; font-style: normal; font-size: 12px; font-weight: 800; color: var(--ink); background: #ffd76a; }
+.v4-release .v4-mini button.on { filter: none; }
+.v4-relsum { font-size: 15px; }
+.v4-buttons button:disabled { opacity: 0.45; cursor: default; }

@@ -161,6 +161,45 @@ const SCENARIOS = {
     await to(p, 3);
     await v4(p, () => { const L = window.__v4; L.set((s) => { s.locations = []; }); L.place('ai', 'lake-of-rage', 3); const uid = L.giveLocation('mt-ember'); L.set((s, ui) => { ui.select = { kind: 'hand', uid }; }); });
   },
+  // F3: the Command mode chooser, a React window, pending Strats, the Supporter Release screen.
+  command: async (p) => {
+    await to(p, 4);
+    await v4(p, () => { const L = window.__v4; const uid = L.giveCard('rock-slide'); L.set((s, ui) => { ui.select = { kind: 'hand', uid }; }); });
+  },
+  react: async (p) => {
+    await to(p, 4);
+    await v4(p, () => {
+      const L = window.__v4;
+      L.giveCard('recover');
+      L.giveCard('ember');
+      L.set((s) => {
+        s.reactWindow = null;
+        s.players.player.baseEnergy = 5;
+        const from = s.players.ai.row.findIndex((c) => c);
+        const to = s.players.player.row.findIndex((c) => c);
+        if (from >= 0 && to >= 0) {
+          s.reactWindow = { reactor: 'player', pending: { type: 'attack', who: 'ai', from, target: { kind: 'pokemon', space: to }, attackerUid: s.players.ai.row[from].uid, targetUid: s.players.player.row[to].uid, text: `The Opponent's ${s.players.ai.row[from].name} is attacking your ${s.players.player.row[to].name}` } };
+        }
+      });
+    });
+  },
+  strats: async (p) => {
+    await to(p, 5);
+    await v4(p, () => {
+      const L = window.__v4;
+      L.set((s) => {
+        const ai = s.players.ai.row.findIndex((c) => c);
+        const me = s.players.player.row.findIndex((c) => c);
+        const mk = (id) => ({ id, name: id === 'ember' ? 'Ember' : 'Recover', cardType: 'Command', art: id, target: id === 'ember' ? 'enemy' : 'own', modes: { adapt: { cost: 2, op: id === 'ember' ? 'damage' : 'heal', amount: 3 }, react: { cost: 1, op: 'damage', amount: 2 }, strat: { cost: 3, op: id === 'ember' ? 'damage' : 'heal', amount: 5 } } });
+        if (ai >= 0) s.strats.push({ uid: 's1', owner: 'player', card: mk('ember'), target: { who: 'ai', space: ai, uid: s.players.ai.row[ai].uid }, targetName: s.players.ai.row[ai].name, playedRound: s.round });
+        if (me >= 0) s.strats.push({ uid: 's2', owner: 'ai', card: mk('ember'), target: { who: 'player', space: me, uid: s.players.player.row[me].uid }, targetName: s.players.player.row[me].name, playedRound: s.round });
+      });
+    });
+  },
+  supporter: async (p) => {
+    await to(p, 3);
+    await v4(p, () => { const L = window.__v4; const uid = L.giveCard('brock'); L.set((s, ui) => { ui.select = { kind: 'supporter', uid, release: [s.players.player.hand[0].uid] }; }); });
+  },
   'big-hand': async (p) => { await to(p, 6); await v4(p, () => { for (let i = 0; i < 6; i++) window.__v4.give('charmander', 7); }); },
 };
 

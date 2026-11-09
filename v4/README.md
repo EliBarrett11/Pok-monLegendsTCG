@@ -15,7 +15,7 @@ Plain HTML, CSS and JavaScript modules: no build step and relative paths only. I
 | `v4/src/engine/` | Game rules and state (`game.js`), cards (`cards.js`), Energy (`energy.js`), random numbers. **No DOM code.** |
 | `v4/src/ai/` | The simple AI: greedy, one move ahead, through the engine's actions |
 | `v4/src/ui/` | The interface (v3's look), coded icons |
-| `v4/tests/` | `node v4/tests/core.test.js` and `node v4/tests/locations.test.js` (focused rule tests; no match simulations) |
+| `v4/tests/` | `node v4/tests/core.test.js`, `locations.test.js` and `commands.test.js` (focused rule tests; no match simulations) |
 | `v4/tools/` | `node v4/tools/layout.mjs` (the nothing-clipped check); `node v4/tools/stamp.mjs` (cache-busting: run before each commit) |
 
 **Reused (copied, with the source noted in each file):**
@@ -29,6 +29,7 @@ Plain HTML, CSS and JavaScript modules: no build step and relative paths only. I
 | v3 | `v3/src/ai/ai.js` | Adapted |
 | v3 | `v3/tools/layout.mjs` and `stamp.mjs` | Adapted |
 | v2 | `v2/src/engine/game.js`: `locationStarts` (where a Location fits) and `syncPassives` (keeping stat bonuses in step), now `locationStarts` and `syncBonuses` in `v4/src/engine/game.js` | Adapted (F2) |
+| v2 | `v2/src/engine/game.js`: `playSupporter`, `supporterPlayable` and `favourMet`; `v2/src/engine/cardtypes.js`: `FAVOURS` (three conditions) and the Supporter shape | Adapted (F3): no targets, no Trainer Points; the Favour gives Recognition |
 
 The rules for Ready, the unmatched-Speed Pass and trades follow v3's engine.
 
@@ -137,3 +138,63 @@ The rules for Ready, the unmatched-Speed Pass and trades follow v3's engine.
     - `core.test.js` still passes.
     - `layout.mjs` reports ok at all three sizes, with two new scenarios: placed Locations and choosing where to place one.
   - **Art:** all existing (cerulean-cape, mt-ember, lake-of-rage, route-119); none missing.
+
+- **F3 — Command Cards and Supporters (step 3 of 5).**
+  - **Command Cards:** three ways to play, each with its own Energy cost:
+    - **Adapt** (a Battle Phase action): the standard effect, now.
+    - **React:** cheaper and weaker.
+      - It's played in response to the opponent committing an attack, a summon or an Adapt, and resolves before that action.
+      - The window opens only if you can afford a React that has a target.
+      - The committed action then resolves; it may fizzle, and its cost stays paid.
+      - A React doesn't use a turn and can't be reacted to.
+    - **Strat** (a Battle Phase action): dearer and stronger. Paid and targeted now; it resolves at the start of your next turn (or at Supper if the Battle Phase ends first), and fizzles if its target is gone.
+  - **The four Command Cards:**
+
+    | Card | Target | Adapt | React | Strat |
+    |---|---|---|---|---|
+    | Ember | an enemy Pokémon | 2 Energy: 3 damage | 1: 2 damage | 3: 5 damage |
+    | Recover | one of yours | 2: heal 4 | 1: heal 2 | 3: heal 8 |
+    | X Attack | one of yours | 2: +2 Attack until Supper | 1: +1 | 3: +4 |
+    | Rock Slide | an enemy Pokémon | 3: 1 damage to each enemy Pokémon in its Location | 2: 1 damage to it | 4: 2 damage to each |
+
+  - **Supporters** (a Battle Phase action, no Energy):
+    - Release N other cards from hand. They go to the Released Pile for good and are never reshuffled. Then the Supporter is Released too.
+    - **Favour:** if a Released card meets the condition, the enhanced effect applies and you earn +1 Recognition.
+
+    | Supporter | Release | Effect | Favour: Release… | Enhanced |
+    |---|---|---|---|---|
+    | Nurse Joy | 1 | heal your Pokémon 2 | a Water Pokémon | heal 4 |
+    | Professor Oak | 1 | search 1 Pokémon card | a Location | search 2 |
+    | Brock | 2 | +1 Strength to your Pokémon | a Pokémon of Level 4+ | +2 |
+
+  - **The demo deck:** 31 cards, the same for both players: the 20 Pokémon, the 4 Locations, the 4 Command Cards and the 3 Supporters.
+  - **The AI:**
+    - It plays Adapt and Strat.
+    - It Reacts to the player when that helps, for example defeating an attacker before its attack.
+    - It plays Supporters, Releasing its least useful cards or one that meets the Favour.
+  - **The interface:**
+    - **Command cards** show all three modes with their costs. Selecting one offers Adapt and Strat buttons, with costs and reasons when unaffordable. The targets then glow.
+    - **The React window:**
+      - The prompt bar describes the committed action, which is outlined on the board.
+      - Command cards you can React with glow orange.
+      - Pick one and a target, or press **Let it happen**.
+      - While the Opponent decides on a React, you see that too.
+    - **Pending Strats** show as badges on their target (blue for yours, orange for theirs), and in a Pending Strats panel with the effect.
+    - **The Supporter screen:**
+      - It marks which cards will be Released and which meet the Favour (★).
+      - It says whether the Favour is met.
+      - It enables the button only at the right count.
+    - Released Pile counts are shown for both players, with the cards listed on hover.
+    - The Actions panel includes Command and Supporter.
+  - **Checks:**
+    - `node v4/tests/commands.test.js` covers:
+      - each Command mode;
+      - React: the window opens only when affordable, resolves before the committed action (an attack, a summon or an Adapt), can make it fizzle with its cost still paid, uses no turn, and can't be reacted to;
+      - Strat: resolves after the opponent's next turn or at Supper, and fizzles when its target is gone;
+      - Supporters: Release is permanent and never reshuffled, the Supporter is Released too, and the Favour gives the enhanced effect and Recognition;
+      - unaffordable or unavailable options are refused, with the reason;
+      - the AI's React, Adapt and Strat choices.
+    - `core.test.js` and `locations.test.js` still pass.
+    - `layout.mjs` reports ok at all three sizes, with new scenarios: the Command chooser, a React window, pending Strats and the Supporter screen.
+    - A browser click-through of Adapt, a Supporter and a React to a real AI attack showed no errors.
+  - **Art:** all existing (ember, recover, x-attack, rock-slide, nurse-joy, professor-oak, brock); none missing.

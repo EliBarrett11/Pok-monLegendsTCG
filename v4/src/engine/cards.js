@@ -4,7 +4,7 @@
 //   forms: [{ name, art, from, speed? }] — the form from that Level up to the next form's Level.
 //   stats: { level: [Attack, Strength] } for every Level of the series.
 //   guard: 'Defence' | 'Special Defence' | null. ability: (level) → { text, onSummon } or null.
-import { SERIES_RANGE, levelFor, costFor } from '../rules.js?v=202611091145';
+import { SERIES_RANGE, levelFor, costFor } from '../rules.js?v=202611091159';
 
 const op = (name, amount) => ({ op: name, amount });
 const path = (spec) => ({ guard: null, ability: () => null, ...spec });
@@ -72,14 +72,72 @@ export const WEATHER_BRACKETS = [
   { type: 'Sun', at: 4, kind: 'attack', amount: 1, text: 'every Pokémon has +1 Attack' },
 ];
 
+// --- Command Cards (F3, section 4B): three ways to play, each with its own Energy cost.
+//   Adapt: standard cost and effect, at once. React: lower cost, weaker effect, in response to an
+//   eligible opponent action, before it resolves. Strat: higher cost, stronger effect, after the
+//   opponent's next turn.
+//   target: 'enemy' (an enemy Pokémon) · 'own' (one of your Pokémon).
+//   ops: 'damage' (N to the target) · 'heal' (N, not above its Strength) · 'attackUp' (+N Attack
+//        until Supper) · 'damageLocation' (N to each enemy Pokémon in the target's Location).
+const mode = (cost, op, amount) => ({ cost, op, amount });
+const command = (id, name, target, adapt, react, strat) => ({ id, name, cardType: 'Command', art: id, target, modes: { adapt, react, strat } });
+export const COMMANDS = [
+  command('ember', 'Ember', 'enemy', mode(2, 'damage', 3), mode(1, 'damage', 2), mode(3, 'damage', 5)),
+  command('recover', 'Recover', 'own', mode(2, 'heal', 4), mode(1, 'heal', 2), mode(3, 'heal', 8)),
+  command('x-attack', 'X Attack', 'own', mode(2, 'attackUp', 2), mode(1, 'attackUp', 1), mode(3, 'attackUp', 4)),
+  command('rock-slide', 'Rock Slide', 'enemy', mode(3, 'damageLocation', 1), mode(2, 'damage', 1), mode(4, 'damageLocation', 2)),
+];
+export const commandDef = (id) => COMMANDS.find((c) => c.id === id);
+export const MODES = ['adapt', 'react', 'strat'];
+export const MODE_NAMES = { adapt: 'Adapt', react: 'React', strat: 'Strat' };
+// A mode's effect in words.
+export function modeText(card, m) {
+  const { op, amount } = card.modes[m];
+  const t = card.target === 'enemy' ? 'an enemy Pokémon' : 'one of your Pokémon';
+  if (op === 'damage') return `${amount} damage to ${t}`;
+  if (op === 'heal') return `heal ${t} ${amount}`;
+  if (op === 'attackUp') return `+${amount} Attack to ${t} until Supper`;
+  if (op === 'damageLocation') return `${amount} damage to each enemy Pokémon in a target's Location`;
+  return op;
+}
+
+// --- Supporter Cards (F3, section 4D; adapted from v2's Supporters and Favours): no Energy; Release
+// N other cards from hand (permanently), then the Supporter itself is Released. Favour: if a
+// Released card meets the condition, the enhanced effect applies and the player earns Recognition.
+//   ops: 'healAll' (each of your Pokémon) · 'search' (N Pokémon cards from your Draw Pile into your
+//        hand) · 'strengthAll' (+N Strength, kept, to each of your Pokémon)
+// Copied from v2/src/engine/cardtypes.js (FAVOURS), only the conditions v4 uses.
+export const FAVOURS = {
+  water: { text: 'a Water Pokémon', test: (c) => c.cardType === 'Pokémon' && c.type === 'Water' },
+  location: { text: 'a Location', test: (c) => c.cardType === 'Location' },
+  bigPokemon: { text: 'a Pokémon of Level 4 or more', test: (c) => c.cardType === 'Pokémon' && c.level >= 4 },
+};
+const supporter = (id, name, release, effect, favour) => ({ id, name, cardType: 'Supporter', art: id, release, effect, favour });
+export const SUPPORTERS = [
+  supporter('nurse-joy', 'Nurse Joy', 1, { op: 'healAll', amount: 2 }, { condition: 'water', op: 'healAll', amount: 4 }),
+  supporter('professor-oak', 'Professor Oak', 1, { op: 'search', amount: 1 }, { condition: 'location', op: 'search', amount: 2 }),
+  supporter('brock', 'Brock', 2, { op: 'strengthAll', amount: 1 }, { condition: 'bigPokemon', op: 'strengthAll', amount: 2 }),
+];
+export const supporterDef = (id) => SUPPORTERS.find((c) => c.id === id);
+export function effectText({ op, amount }) {
+  if (op === 'healAll') return `heal each of your Pokémon ${amount}`;
+  if (op === 'search') return `put ${amount === 1 ? 'a Pokémon card' : `${amount} Pokémon cards`} from your Draw Pile into your hand`;
+  if (op === 'strengthAll') return `+${amount} Strength to each of your Pokémon (kept)`;
+  return op;
+}
+
 // A card at a Round (off the battlefield, a Pokémon's Level follows the Round).
-export const cardAtRound = (id, round) => (locationDef(id) ? structuredClone(locationDef(id)) : pokemonAt(id, levelFor(pathDef(id).series, round)));
+const fixedDef = (id) => locationDef(id) ?? commandDef(id) ?? supporterDef(id);
+export const cardAtRound = (id, round) => (fixedDef(id) ? structuredClone(fixedDef(id)) : pokemonAt(id, levelFor(pathDef(id).series, round)));
 
 // The demo deck so far, the same for both players: Pokémon (F1: Light, Mid and Heavy, a Defence
-// guard (Squirtle) and a Special Defence guard (Chinchou)) and one of each Location (F2).
+// guard (Squirtle) and a Special Defence guard (Chinchou)), one of each Location (F2), and one of
+// each Command Card and Supporter (F3).
 export const DEMO_DECK = [
   'cerulean-cape', 'mt-ember', 'lake-of-rage', 'route-119',
   ...Array(4).fill('ponyta'), ...Array(3).fill('chinchou'),
   ...Array(4).fill('squirtle'), ...Array(4).fill('growlithe'),
   ...Array(3).fill('magikarp'), ...Array(2).fill('charmander'),
+  // F3: Command Cards and Supporters.
+  'ember', 'recover', 'x-attack', 'rock-slide', 'nurse-joy', 'professor-oak', 'brock',
 ];

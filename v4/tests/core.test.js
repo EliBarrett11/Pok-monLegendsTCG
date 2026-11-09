@@ -14,7 +14,15 @@ const mon = (id, level, extra = {}) => { const c = pokemonAt(id, level); return 
 const battle = (seed = 1) => {
   let s = createGame(seed);
   s = applyAction(s, { type: 'mulligan', who: 'player', cards: [] });
-  return applyAction(s, { type: 'mulligan', who: 'ai', cards: [] });
+  s = applyAction(s, { type: 'mulligan', who: 'ai', cards: [] });
+  // F3: keep these F1 rule checks free of React windows: Command Cards go to the Draw Pile's end.
+  for (const w of ['player', 'ai']) {
+    const p = s.players[w];
+    const cmd = [...p.hand, ...p.drawPile].filter((c) => c.cardType === 'Command');
+    p.hand = p.hand.filter((c) => c.cardType !== 'Command');
+    p.drawPile = [...p.drawPile.filter((c) => c.cardType !== 'Command'), ...cmd];
+  }
+  return s;
 };
 const pass = (s) => applyAction(s, { type: 'pass', who: s.turn });
 const nextRound = (s) => { const r = s.round; while (s.round === r && s.phase !== 'gameOver') s = pass(s); return s; };
@@ -78,7 +86,7 @@ const clear = (s) => { for (const w of ['player', 'ai']) s.players[w].row = s.pl
   const onBoard = s.players.player.row[4];
   assert.equal(onBoard.level, 2);
   assert.ok(onBoard.spent, 'it arrives Spent');
-  const inDeck = s.players.player.drawPile[0];
+  const inDeck = s.players.player.drawPile.find((c) => c.cardType === 'Pokémon');
   const before = inDeck.level;
   s = nextRound(s);
   s = nextRound(s);

@@ -7,6 +7,11 @@
 // Pokémon in it and Weather counters of one type; Weather counts combine across placed Locations
 // into brackets for both players; at Supper the player with more total Strength in a Location
 // dominates it and earns Recognition.
+// F3: Command Cards (Adapt now; React in response to an opponent's attack, summon or Adapt, before
+// it resolves; Strat after the opponent's next turn) and Supporters (Release cards from hand
+// permanently; an optional Favour). Attacks, summons and Adapts are committed first: if the
+// opponent has an affordable React, a React window opens (s.reactWindow) and the committed action
+// resolves after it (it may fizzle). Pending Strats are in s.strats.
 // The Player Character sits outside the battlefield: no Health, no space; damage to it gives the
 // attacker's player Recognition. 100 Recognition wins.
 //
@@ -15,10 +20,10 @@
 // per Retained card; Round 1: draw 7 then a mulligan, as in v1), Battle (alternating turns, one
 // action each: Summon, Attack, Retain, Pass; two Passes in a row end it), Supper (the hand is
 // discarded except Retained cards). Initiative switches each Round.
-import { RULES, SPEEDS, levelFor } from '../rules.js?v=202611091145';
-import { nextRandom, shuffle } from './random.js?v=202611091145';
-import { newEnergy, refreshEnergy, canPay, payCost, availableExert } from './energy.js?v=202611091145';
-import { DEMO_DECK, cardAtRound, pokemonAt, pathDef, locationDef, WEATHER_BRACKETS } from './cards.js?v=202611091145';
+import { RULES, SPEEDS, levelFor } from '../rules.js?v=202611091159';
+import { nextRandom, shuffle } from './random.js?v=202611091159';
+import { newEnergy, refreshEnergy, canPay, payCost, availableExert } from './energy.js?v=202611091159';
+import { DEMO_DECK, cardAtRound, pokemonAt, pathDef, locationDef, WEATHER_BRACKETS, FAVOURS, MODE_NAMES } from './cards.js?v=202611091159';
 
 export const PLAYERS = ['player', 'ai'];
 export const NAMES = { player: 'You', ai: 'The Opponent' };
@@ -30,7 +35,7 @@ const POSS = { player: 'Your', ai: 'The Opponent\'s' };
 export function createGame(seed = Date.now(), { decks = { player: DEMO_DECK, ai: DEMO_DECK } } = {}) {
   const s = {
     seed, rng: seed >>> 0, round: 1, phase: 'mulligan', turn: null, initiative: null, passesInARow: 0,
-    players: {}, locations: [], winner: null, result: null, log: [], events: [],
+    players: {}, locations: [], strats: [], reactWindow: null, winner: null, result: null, log: [], events: [],
   };
   for (const who of PLAYERS) {
     s.players[who] = {
@@ -127,6 +132,22 @@ export const summonable = (s, who) => (emptySpaces(s, who).length ? s.players[wh
 export const retainable = (s, who) => (canPay(s.players[who], RULES.retainCost) ? s.players[who].hand.filter((c) => !c.retained) : []);
 export const energyLeft = (p) => p.baseEnergy + availableExert(p);
 
+// --- Command Cards and Supporters (F3) ---
+// A Command's targets: { who, space } of a Pokémon (an enemy one or one of yours, per card).
+export function commandTargets(s, who, card) {
+  const side = card.target === 'enemy' ? opponentOf(who) : who;
+  return pokemonOf(s, side).map(({ space }) => ({ who: side, space }));
+}
+export const canCommand = (s, who, card, mode) => card.cardType === 'Command' && canPay(s.players[who], card.modes[mode].cost) && commandTargets(s, who, card).length > 0;
+export const playableCommands = (s, who, mode) => s.players[who].hand.filter((c) => canCommand(s, who, c, mode));
+// React: only the other player, only during a React window opened by an eligible action.
+export const reactOptions = (s, who) => playableCommands(s, who, 'react');
+// Supporters: enough other cards in hand to Release (adapted from v2's supporterPlayable).
+export const supporterPlayable = (s, who, card) => card.cardType === 'Supporter' && s.players[who].hand.length - 1 >= card.release;
+export const playableSupporters = (s, who) => s.players[who].hand.filter((c) => supporterPlayable(s, who, c));
+// The Favour: met if a Released card meets the Supporter's condition (copied from v2's favourMet).
+export const favourMet = (card, released) => !!card.favour && released.some((c) => FAVOURS[card.favour.condition].test(c));
+
 // Passing while your fastest Active Pokémon are faster than all of the opponent's makes them Spent.
 export const passEndsPhase = (s) => s.passesInARow >= 1;
 export function passSpends(s, who) {
@@ -139,10 +160,26 @@ export function passSpends(s, who) {
 }
 
 // Why an action can't be taken now (null when it can). For the interface.
-export function whyNot(s, who, action, card) {
+export function whyNot(s, who, action, card, mode) {
   const p = s.players[who];
-  if (s.phase !== 'battle' || s.turn !== who) return 'Not your turn';
+  if (action === 'react') {
+    if (!s.reactWindow || s.reactWindow.reactor !== who) return 'React only in response to an opponent\'s attack, summon or Adapt';
+    mode = 'react';
+    action = 'command';
+  } else {
+    if (s.reactWindow) return s.reactWindow.reactor === who ? 'React or let it happen first' : 'Waiting for the other player\'s React';
+    if (s.phase !== 'battle' || s.turn !== who) return 'Not your turn';
+  }
   switch (action) {
+    case 'command': {
+      if (mode === 'react' && !s.reactWindow) return 'React only in response to an opponent\'s attack, summon or Adapt';
+      const cost = card.modes[mode].cost;
+      if (!canPay(p, cost)) return `${MODE_NAMES[mode]} needs ${cost} Energy · you have ${energyLeft(p)}`;
+      if (!commandTargets(s, who, card).length) return card.target === 'enemy' ? 'No target: no enemy Pokémon' : 'No target: none of your Pokémon';
+      return null;
+    }
+    case 'supporter':
+      return supporterPlayable(s, who, card) ? null : `Needs ${card.release} other card${card.release === 1 ? '' : 's'} in hand to Release`;
     case 'summon':
       if (card.cardType === 'Location') return locationStarts(s, card).length ? null : `No room: needs ${card.width} adjacent free lanes`;
       if (!emptySpaces(s, who).length) return 'No empty space on your side';
@@ -158,14 +195,27 @@ export function whyNot(s, who, action, card) {
   }
 }
 
+// Can this hand card be played now in some way? null, or the reason (for the interface and AI).
+export function playReason(s, who, card) {
+  if (card.cardType === 'Command') {
+    const adapt = whyNot(s, who, 'command', card, 'adapt');
+    return adapt && whyNot(s, who, 'command', card, 'strat') ? adapt : null;
+  }
+  return whyNot(s, who, card.cardType === 'Supporter' ? 'supporter' : 'summon', card);
+}
+
 export function legalActions(s, who) {
   if (s.phase === 'gameOver') return [];
   if (s.phase === 'mulligan') return s.players[who].mulliganed ? [] : ['mulligan'];
+  if (s.reactWindow) return s.reactWindow.reactor === who ? ['decline', ...(reactOptions(s, who).length ? ['react'] : [])] : [];
   if (s.phase !== 'battle' || s.turn !== who) return [];
-  return ['pass', ...(summonable(s, who).length ? ['summon'] : []), ...(placeable(s, who).length ? ['placeLocation'] : []), ...(attackers(s, who).length ? ['attack'] : []), ...(retainable(s, who).length ? ['retain'] : [])];
+  return ['pass', ...(summonable(s, who).length ? ['summon'] : []), ...(placeable(s, who).length ? ['placeLocation'] : []),
+    ...(playableCommands(s, who, 'adapt').length || playableCommands(s, who, 'strat').length ? ['command'] : []),
+    ...(playableSupporters(s, who).length ? ['supporter'] : []), ...(attackers(s, who).length ? ['attack'] : []), ...(retainable(s, who).length ? ['retain'] : [])];
 }
 export function actor(s) {
   if (s.phase === 'mulligan') return PLAYERS.find((w) => !s.players[w].mulliganed) ?? null;
+  if (s.reactWindow) return s.reactWindow.reactor;
   return s.phase === 'battle' ? s.turn : null;
 }
 
@@ -205,10 +255,85 @@ const ACTIONS = {
     const paid = payCost(p, cost, s.round);
     p.hand = p.hand.filter((c) => c !== card);
     const { retained, ...snap } = card;
-    p.row[space] = { ...snap, currentStrength: card.strength, spent: true, summonedRound: s.round, bonusAttack: 0, bonusStrength: 0 };
-    emit(s, 'summoned', { who, space, name: card.name, level: card.level, cost, exert: paid.fromExert });
     log(s, `${NAMES[who]} summoned ${card.name} (Level ${card.level}) into lane ${space + 1} for ${cost} Energy${paid.fromExert ? ` (${paid.fromExert} Exert)` : ''}.`);
-    if (card.onSummon) runOps(s, who, card.onSummon);
+    commit(s, { type: 'summon', who, card: snap, space, cost, text: `${NAMES[who]} ${who === 'player' ? 'are' : 'is'} summoning ${card.name} (Level ${card.level}) into lane ${space + 1}` });
+  },
+
+  // Play a Command Card (F3): Adapt (committed now, so the opponent may React) or Strat (paid and
+  // targeted now; it resolves after the opponent's next turn). React is its own action, below.
+  command(s, { who, uid, mode, target }) {
+    const p = s.players[who];
+    const card = p.hand.find((c) => c.uid === uid);
+    if (!card || card.cardType !== 'Command') throw new Error('Choose a Command Card from your hand');
+    if (!['adapt', 'strat'].includes(mode)) throw new Error(mode === 'react' ? 'React only in response to an opponent\'s action' : 'Choose Adapt or Strat');
+    const why = whyNot(s, who, 'command', card, mode);
+    if (why) throw new Error(`${card.name}: ${why}`);
+    const t = checkTarget(s, who, card, target);
+    const { cost } = card.modes[mode];
+    payCost(p, cost, s.round);
+    p.hand = p.hand.filter((c) => c !== card);
+    const { retained, ...plain } = card;
+    const on = s.players[t.who].row[t.space];
+    if (mode === 'strat') {
+      s.strats.push({ uid: `strat-${uid}`, owner: who, card: plain, target: t, targetName: on.name, playedRound: s.round });
+      emit(s, 'strat', { who, id: card.id, target: t });
+      log(s, `${NAMES[who]} played ${card.name} as a Strat (${cost} Energy) on ${on.name}: it resolves after ${who === 'player' ? 'the Opponent\'s' : 'your'} next turn.`);
+      return endTurn(s, who, false);
+    }
+    log(s, `${NAMES[who]} played ${card.name} (Adapt, ${cost} Energy) on ${on.name}.`);
+    commit(s, { type: 'command', who, card: plain, target: t, text: `${NAMES[who]} ${who === 'player' ? 'are' : 'is'} playing ${card.name} (Adapt: ${cardModeText(card, 'adapt')}) on ${on.name}` });
+  },
+
+  // React (F3): during a React window, pay the React cost; its weaker effect resolves now, then the
+  // committed action resolves. It doesn't use a turn, and it can't be reacted to (no stack).
+  react(s, { who, uid, target }) {
+    const w = s.reactWindow;
+    const p = s.players[who];
+    const card = p.hand.find((c) => c.uid === uid);
+    if (!card || card.cardType !== 'Command') throw new Error('Choose a Command Card from your hand');
+    const why = whyNot(s, who, 'react', card);
+    if (why) throw new Error(`${card.name}: ${why}`);
+    const t = checkTarget(s, who, card, target);
+    const { cost } = card.modes.react;
+    payCost(p, cost, s.round);
+    p.hand = p.hand.filter((c) => c !== card);
+    const { retained, ...plain } = card;
+    emit(s, 'react', { who, id: card.id, target: t });
+    log(s, `${NAMES[who]} Reacted with ${card.name} (${cost} Energy) on ${s.players[t.who].row[t.space].name}.`);
+    applyCommand(s, who, plain, 'react', t);
+    p.discard.push(plain);
+    s.reactWindow = null;
+    resolvePending(s, w.pending);
+  },
+
+  // Let it happen: no React; the committed action resolves.
+  decline(s, { who }) {
+    const w = s.reactWindow;
+    s.reactWindow = null;
+    emit(s, 'decline', { who });
+    resolvePending(s, w.pending);
+  },
+
+  // Play a Supporter (F3; adapted from v2's playSupporter): no Energy. Release exactly its number
+  // of other cards from hand (permanently: to the Released Pile, never reshuffled), then its effect
+  // (enhanced if a Released card meets the Favour, which also earns Recognition), then the Supporter
+  // itself is Released.
+  supporter(s, { who, uid, release = [] }) {
+    const p = s.players[who];
+    const card = p.hand.find((c) => c.uid === uid);
+    if (!card || card.cardType !== 'Supporter') throw new Error('Choose a Supporter from your hand');
+    if (release.length !== card.release || new Set(release).size !== release.length) throw new Error(`${card.name}: Release exactly ${card.release} other card${card.release === 1 ? '' : 's'}`);
+    const paid = release.map((r) => p.hand.find((c) => c.uid === r && c !== card));
+    if (paid.some((c) => !c)) throw new Error('Release cards from your hand (not the Supporter itself)');
+    const favour = favourMet(card, paid);
+    p.hand = p.hand.filter((c) => c !== card && !paid.includes(c));
+    p.released.push(...paid.map(({ retained, ...c }) => c));
+    emit(s, 'supporter', { who, id: card.id, released: paid.map((c) => c.name), favour });
+    log(s, `${NAMES[who]} played ${card.name}, Releasing ${paid.map((c) => c.name).join(' and ')}${favour ? ` (Favour: ${FAVOURS[card.favour.condition].text})` : ''}.`);
+    runSupporter(s, who, favour ? card.favour : card.effect);
+    const { retained, ...plain } = card;
+    p.released.push(plain);
+    if (favour) gainRecognition(s, who, RULES.perFavour, `${card.name}'s Favour`);
     endTurn(s, who, false);
   },
 
@@ -236,26 +361,10 @@ const ACTIONS = {
     const a = p.row[from];
     if (!a || !isReady(s, a)) throw new Error('Choose one of your Ready Pokémon');
     if (!legalTargets(s, who, from).some((t) => t.kind === target?.kind && t.space === target.space)) throw new Error('That target is guarded or not there');
-    const hit = damageOf(s, a);
-    if (target.kind === 'player') {
-      a.spent = true;
-      emit(s, 'attack', { who, from, target, amount: hit });
-      log(s, `${POSS[who]} ${a.name} attacked ${who === 'player' ? 'the Opponent' : 'you'} for ${hit}.`);
-      gainRecognition(s, who, hit * RULES.perDamageToPlayer, `${a.name}'s attack`);
-      return endTurn(s, who, false);
-    }
-    const d = s.players[foe].row[target.space];
-    const trades = isReady(s, d);
-    const back = trades ? damageOf(s, d) : 0;
-    d.currentStrength -= hit;
-    if (trades) a.currentStrength -= back;
-    a.spent = true;
-    if (trades) d.spent = true;
-    emit(s, 'attack', { who, from, target, amount: hit, back });
-    log(s, `${POSS[who]} ${a.name} attacked ${d.name} for ${hit}${trades ? `; ${d.name} was Ready and hit back for ${back}` : ''}.`);
-    if (d.currentStrength <= 0) defeat(s, foe, target.space, who);
-    if (a.currentStrength <= 0) defeat(s, who, from, foe);
-    endTurn(s, who, false);
+    const d = target.kind === 'pokemon' ? s.players[foe].row[target.space] : null;
+    log(s, `${POSS[who]} ${a.name} attacks ${d ? d.name : (who === 'player' ? 'the Opponent' : 'you')}.`);
+    commit(s, { type: 'attack', who, from, target, attackerUid: a.uid, targetUid: d?.uid ?? null,
+      text: `${POSS[who]} ${a.name} is attacking ${d ? `${who === 'player' ? 'the Opponent\'s' : 'your'} ${d.name}` : (who === 'player' ? 'the Opponent' : 'you')}` });
   },
 
   // Retain: pay 1 Energy to keep a card in hand through Supper; draw one fewer next Breakfast.
@@ -285,6 +394,138 @@ const ACTIONS = {
     endTurn(s, who, true);
   },
 };
+
+// --- Committing and resolving (F3) ----------------------------------------------------------------
+// An eligible action (attack, summon, Command Adapt) is committed: its cost is paid. If the other
+// player has an affordable React with a target, a React window opens; otherwise it resolves now.
+function commit(s, pending) {
+  const foe = opponentOf(pending.who);
+  if (reactOptions(s, foe).length) {
+    s.reactWindow = { reactor: foe, pending };
+    emit(s, 'reactWindow', { reactor: foe, type: pending.type });
+    return;
+  }
+  resolvePending(s, pending);
+}
+
+function resolvePending(s, pending) {
+  if (s.phase === 'gameOver') return;
+  RESOLVE[pending.type](s, pending);
+  endTurn(s, pending.who, false);
+}
+
+const fizzle = (s, who, what, why) => { emit(s, 'fizzled', { who, what }); log(s, `${what} fizzled: ${why}.`); };
+
+const RESOLVE = {
+  // The summoned Pokémon arrives (Spent), a snapshot at its Level; then its On Summon ability.
+  summon(s, { who, card, space }) {
+    const p = s.players[who];
+    if (p.row[space]) { p.discard.push(card); return fizzle(s, who, `${POSS[who]} ${card.name}`, 'its space is taken'); }
+    p.row[space] = { ...card, currentStrength: card.strength, spent: true, summonedRound: s.round, bonusAttack: 0, bonusStrength: 0, tempAttack: 0 };
+    emit(s, 'summoned', { who, space, name: card.name, level: card.level });
+    syncBonuses(s);
+    if (card.onSummon) runOps(s, who, card.onSummon);
+  },
+
+  // The attack: the attacker and target must still be there (and the target still legal). A Ready
+  // target hits back (a trade); both become Spent. If it fizzles, the attacker is still Spent.
+  attack(s, { who, from, target, attackerUid, targetUid }) {
+    const foe = opponentOf(who);
+    const a = s.players[who].row[from];
+    if (!a || a.uid !== attackerUid) return fizzle(s, who, `${POSS[who]} attack`, 'the attacker is gone');
+    const d = target.kind === 'pokemon' ? s.players[foe].row[target.space] : null;
+    if (target.kind === 'pokemon' && (!d || d.uid !== targetUid)) { a.spent = true; return fizzle(s, who, `${POSS[who]} ${a.name}'s attack`, 'its target is gone'); }
+    if (!legalTargets(s, who, from).some((t) => t.kind === target.kind && t.space === target.space)) { a.spent = true; return fizzle(s, who, `${POSS[who]} ${a.name}'s attack`, 'its target is guarded now'); }
+    const hit = damageOf(s, a);
+    if (target.kind === 'player') {
+      a.spent = true;
+      emit(s, 'attack', { who, from, target, amount: hit });
+      log(s, `${POSS[who]} ${a.name} attacked ${who === 'player' ? 'the Opponent' : 'you'} for ${hit}.`);
+      return gainRecognition(s, who, hit * RULES.perDamageToPlayer, `${a.name}'s attack`);
+    }
+    const trades = isReady(s, d);
+    const back = trades ? damageOf(s, d) : 0;
+    d.currentStrength -= hit;
+    if (trades) a.currentStrength -= back;
+    a.spent = true;
+    if (trades) d.spent = true;
+    emit(s, 'attack', { who, from, target, amount: hit, back });
+    log(s, `${POSS[who]} ${a.name} attacked ${d.name} for ${hit}${trades ? `; ${d.name} was Ready and hit back for ${back}` : ''}.`);
+    if (d.currentStrength <= 0) defeat(s, foe, target.space, who);
+    if (a.currentStrength <= 0) defeat(s, who, from, foe);
+  },
+
+  // A Command's Adapt: its effect (or it fizzles if the target is gone); the card is discarded.
+  command(s, { who, card, target }) {
+    applyCommand(s, who, card, 'adapt', target);
+    s.players[who].discard.push(card);
+  },
+};
+
+// A Command target: { who, space } of a Pokémon on the right side; remembers that Pokémon's uid so
+// a later resolution can tell if it's gone.
+function checkTarget(s, who, card, target) {
+  if (!commandTargets(s, who, card).some((t) => t.who === target?.who && t.space === target.space)) {
+    throw new Error(`${card.name}: choose ${card.target === 'enemy' ? 'an enemy Pokémon' : 'one of your Pokémon'}`);
+  }
+  return { who: target.who, space: target.space, uid: s.players[target.who].row[target.space].uid };
+}
+const cardModeText = (card, m) => {
+  const { op, amount } = card.modes[m];
+  return { damage: `${amount} damage`, heal: `heal ${amount}`, attackUp: `+${amount} Attack until Supper`, damageLocation: `${amount} damage to each enemy Pokémon in that Location` }[op];
+};
+
+// A Command's effect in a mode. Returns false if it fizzles (its target is gone).
+export function applyCommand(s, who, card, mode, target) {
+  const { op, amount } = card.modes[mode];
+  const c = s.players[target.who].row[target.space];
+  if (!c || (target.uid && c.uid !== target.uid)) { fizzle(s, who, `${POSS[who]} ${card.name}`, 'its target is gone'); return false; }
+  emit(s, 'commandResolved', { who, id: card.id, mode, target });
+  if (op === 'damage') hurt(s, target.who, target.space, amount, who);
+  else if (op === 'heal') heal(c, amount);
+  else if (op === 'attackUp') { c.attack += amount; c.tempAttack = (c.tempAttack ?? 0) + amount; }
+  else if (op === 'damageLocation') {
+    const loc = locationOf(s, target.space);
+    for (const { space } of pokemonOf(s, target.who).filter((x) => locationOf(s, x.space) === loc)) hurt(s, target.who, space, amount, who);
+  } else throw new Error(`Unknown op ${op}`);
+  log(s, `${card.name} (${MODE_NAMES[mode]}): ${cardModeText(card, mode)} on ${c.name}.`);
+  return true;
+}
+function hurt(s, side, space, n, by) {
+  const card = s.players[side].row[space];
+  if (!card) return;
+  card.currentStrength -= n;
+  if (card.currentStrength <= 0) defeat(s, side, space, by);
+}
+
+// Pending Strats resolve (in the order played): the owner's at the start of their next turn, or
+// everyone's at Supper if the Battle Phase ends first. A Strat whose target is gone fizzles.
+export function resolveStrats(s, owner = null) {
+  const due = s.strats.filter((x) => !owner || x.owner === owner);
+  s.strats = s.strats.filter((x) => !due.includes(x));
+  for (const x of due) {
+    if (s.phase === 'gameOver') return;
+    log(s, `${POSS[x.owner]} Strat resolves: ${x.card.name}.`);
+    applyCommand(s, x.owner, x.card, 'strat', x.target);
+    s.players[x.owner].discard.push(x.card);
+  }
+}
+
+// A Supporter's effect.
+function runSupporter(s, who, { op, amount }) {
+  const p = s.players[who];
+  if (op === 'healAll') for (const { card } of pokemonOf(s, who)) heal(card, amount);
+  else if (op === 'strengthAll') for (const { card } of pokemonOf(s, who)) { card.strength += amount; card.currentStrength += amount; }
+  else if (op === 'search') {
+    for (let i = 0; i < amount; i++) {
+      const at = p.drawPile.findIndex((c) => c.cardType === 'Pokémon');
+      if (at < 0) break;
+      const [c] = p.drawPile.splice(at, 1);
+      p.hand.push(c);
+      log(s, `${NAMES[who]} searched for ${who === 'player' ? c.name : 'a Pokémon card'}.`);
+    }
+  } else throw new Error(`Unknown op ${op}`);
+}
 
 // An attack's damage: its Attack, +1 for a Physical attack in Sun 2.
 export const damageOf = (s, card) => card.attack + (card.attackType === 'Physical' ? activeBrackets(s).filter((b) => b.kind === 'physical').reduce((n, b) => n + b.amount, 0) : 0);
@@ -346,6 +587,8 @@ function endTurn(s, who, passed) {
   s.passesInARow = passed ? s.passesInARow + 1 : 0;
   if (s.passesInARow >= 2) return supper(s);
   s.turn = opponentOf(who);
+  // F3: the new player's pending Strats resolve now (after the opponent's turn).
+  if (s.strats.some((x) => x.owner === s.turn)) resolveStrats(s, s.turn);
 }
 
 // --- Recognition and winning ------------------------------------------------------------------------
@@ -394,6 +637,9 @@ function draw(s, who, n) {
 function supper(s) {
   emit(s, 'supper', { round: s.round });
   log(s, `Round ${s.round} · Supper.`);
+  // F3: Strats still pending resolve first (the Battle Phase ended before their owner's next turn).
+  resolveStrats(s);
+  if (s.phase === 'gameOver') return;
   // Dominance: for each placed Location, the player with more total Strength there earns Recognition.
   for (const l of [...s.locations]) {
     const d = dominantOf(s, l);
@@ -414,6 +660,8 @@ function supper(s) {
     log(s, `${l.name} leaves: its lanes are the Default Location again.`);
   }
   syncBonuses(s);
+  // F3: "+Attack until Supper" ends.
+  for (const who of PLAYERS) for (const { card } of pokemonOf(s, who)) { card.attack -= card.tempAttack ?? 0; card.tempAttack = 0; }
   for (const who of PLAYERS) {
     const p = s.players[who];
     const kept = p.hand.filter((c) => c.retained);
