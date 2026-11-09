@@ -1,0 +1,241 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:wght@400;500;700;800&family=Cinzel:wght@600;700;800&display=swap">
+<style>
+:root{--cream:#f4e7c9;--muted:#c9b08a;--brass-l:#f6dd9a;--brass:#d1a95a;--brass-m:#a87c35;--brass-d:#6b4a1c;--you:#5aaaff;--opp:#ff8a3a;--red:#ff5a4a;
+--panel:linear-gradient(rgba(62,38,18,.94),rgba(28,16,8,.96));--disp:'Cinzel',Georgia,serif;--text:'Alegreya Sans',system-ui,sans-serif}
+*{box-sizing:border-box;margin:0}
+body{width:1920px;height:1080px;overflow:hidden;font-family:var(--text);color:var(--cream);
+ background:radial-gradient(ellipse at 50% 40%,#3a2412 0%,#1a0e06 70%,#0e0703 100%)}
+.abs{position:absolute}
+.panel{background:var(--panel);border:1.5px solid var(--brass-d);border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.5),inset 0 1px 0 rgba(246,221,154,.12)}
+.lbl{font-family:var(--disp);font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--brass);font-size:13px}
+svg.i{width:1em;height:1em;vertical-align:-.12em}
+/* prompt bar */
+#prompt{left:24px;top:14px;width:1872px;height:52px;display:flex;align-items:center;gap:16px;padding:0 10px 0 12px;border-color:var(--brass);
+ background:linear-gradient(90deg,rgba(120,84,28,.95),rgba(62,38,18,.95) 40%)}
+.tag{font-family:var(--disp);font-weight:800;font-size:14px;letter-spacing:.12em;background:linear-gradient(var(--brass-l),var(--brass));color:#2a1a0c;padding:6px 12px;border-radius:7px}
+#prompt .txt{font-size:21px;flex:1}
+.btn{font-family:var(--disp);font-weight:700;font-size:15px;color:var(--brass-l);padding:8px 16px;border-radius:8px;border:1.5px solid var(--brass-m);background:rgba(30,17,8,.7)}
+.key{display:inline-block;font-family:var(--text);font-size:12px;font-weight:700;color:var(--muted);border:1px solid var(--brass-d);border-radius:4px;padding:0 5px;margin-left:6px;vertical-align:1px}
+/* player HUDs */
+.hud{display:flex;align-items:center;gap:14px;padding:8px 14px}
+.ring{position:relative;width:86px;height:86px;flex:none}
+.ring svg{position:absolute;inset:0;transform:rotate(-90deg)}
+.ring .n{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--disp);font-weight:800;font-size:30px;line-height:1}
+.ring .n small{font-family:var(--text);font-size:11px;font-weight:500;color:var(--muted);letter-spacing:.04em;margin-top:3px}
+.who{font-family:var(--disp);font-weight:800;font-size:17px;letter-spacing:.1em}
+.purse{display:inline-flex;align-items:center;gap:4px;font-weight:800;font-size:17px;color:#ffe08a;background:rgba(0,0,0,.35);border:1px solid #8a6a20;border-radius:20px;padding:1px 10px}
+.bag{display:flex;gap:4px;margin-top:6px}
+.bag div{width:30px;height:30px;border-radius:6px;border:1px dashed rgba(209,169,90,.4);background-size:cover;background-position:center}
+.bag div.f{border:1.5px solid var(--brass-m)}
+.trk{display:flex;flex-direction:column;gap:5px}
+.tr{display:flex;align-items:center;gap:8px;width:304px;height:38px;padding:3px 8px 3px 3px;border-radius:8px;background:rgba(0,0,0,.32);border:1px solid var(--brass-d)}
+.tr .a{width:32px;height:32px;border-radius:6px;background-size:cover;background-position:top}
+.tr .t{flex:1;line-height:1.05}
+.tr .t b{font-size:14px}.tr .t small{display:block;font-size:12px;color:var(--muted);white-space:nowrap}
+.pips{display:flex;gap:3px}.pips i{width:8px;height:8px;border-radius:50%;border:1.5px solid var(--brass);display:block}.pips i.on{background:var(--brass-l)}
+.tr .p{width:28px;height:28px;border-radius:50%;background-size:cover;border:1.5px solid var(--brass-m)}
+.tr.done{border-color:#4caf6a;background:rgba(40,90,50,.28)}
+.tick{width:20px;height:20px;border-radius:50%;background:#4caf6a;color:#06200e;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center}
+/* board */
+#board{left:24px;top:180px;width:1580px;height:584px;border-radius:16px;border:2px solid var(--brass-d);
+ background:linear-gradient(rgba(20,10,4,.45),rgba(20,10,4,.6)),url(../../assets/ui/board-mat.jpg) center/cover;box-shadow:inset 0 0 60px rgba(0,0,0,.7),0 10px 30px rgba(0,0,0,.6)}
+.slot{position:absolute;width:156px;height:212px;border-radius:10px;border:1.5px dashed rgba(209,169,90,.18)}
+.pk{position:absolute;width:156px;height:212px;border-radius:10px;background-size:cover;background-position:center;border:2px solid #5a3d18;box-shadow:0 6px 14px rgba(0,0,0,.6);overflow:hidden}
+.pk .lv{position:absolute;left:6px;top:6px;font-family:var(--disp);font-weight:800;font-size:13px;background:rgba(20,10,4,.82);border:1px solid var(--brass-m);color:var(--brass-l);padding:1px 7px;border-radius:6px}
+.pk .chip{position:absolute;right:6px;top:6px;font-size:12px;font-weight:800;background:rgba(20,10,4,.82);border:1px solid #5a7aa8;color:#bcd6ff;padding:1px 6px;border-radius:6px}
+.pk .chip.partner{border-color:var(--brass);color:var(--brass-l)}
+.pk .held{position:absolute;right:6px;top:32px;width:26px;height:26px;border-radius:50%;background-size:cover;border:1.5px solid #ffe08a}
+.st{position:absolute;left:0;right:0;bottom:0;height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;background:linear-gradient(transparent,rgba(10,5,2,.92) 40%);font-weight:800;font-size:22px}
+.st span{color:var(--cream)}.st .str.hurt{color:var(--red)}
+.c-pa{color:#ff9a5a}.c-sa{color:#d9a6ff}.c-hp{color:#ff7a8a}.c-def{color:#d6dde8}.c-sdef{color:#6fe0ff}
+.st .i,.st2 .i{filter:drop-shadow(0 0 3px rgba(0,0,0,.9))}
+.st .spd{color:#7ee0a0;font-size:17px}
+.pk.spent{filter:grayscale(.75) brightness(.55);transform:rotate(-6deg)}
+.pk.ready{border-color:#ffd56a;box-shadow:0 0 0 2px #ffd56a,0 0 26px 8px rgba(255,200,80,.75),0 0 60px 14px rgba(255,170,40,.35)}
+.pk.target{box-shadow:0 0 0 3px var(--red),0 0 24px 6px rgba(255,80,60,.7)}
+.pk.legal{box-shadow:0 0 0 2px rgba(255,120,100,.8),0 0 14px 2px rgba(255,90,70,.4)}
+.pk.dim{filter:brightness(.45) grayscale(.4)}
+.lock{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:12px;font-weight:700;text-align:center;background:rgba(10,5,2,.85);border:1px solid var(--brass-d);border-radius:6px;padding:3px 7px;color:var(--muted);white-space:nowrap}
+.ln{position:absolute;font-family:var(--disp);font-size:13px;color:rgba(209,169,90,.35);font-weight:700}
+/* Locations band */
+.lcol{position:absolute;border-radius:14px;border:2.5px solid;background-size:cover;background-position:center;box-shadow:inset 0 0 50px rgba(0,0,0,.65),0 0 22px rgba(0,0,0,.6)}
+.lcol::after{content:'';position:absolute;inset:0;border-radius:12px;background:linear-gradient(rgba(10,5,2,.18),rgba(10,5,2,.05) 40%,rgba(10,5,2,.05) 60%,rgba(10,5,2,.18))}
+.loc{position:absolute;height:96px;border-radius:10px;overflow:hidden;border:1.5px solid;display:flex;z-index:2;backdrop-filter:blur(2px)}
+.loc .body{flex:1;padding:7px 14px;background:rgba(14,8,3,.8)}
+.loc h3{font-family:var(--disp);font-weight:800;font-size:19px;letter-spacing:.04em}
+.loc .pas{font-size:15px;margin-top:2px}
+.loc .row2{display:flex;gap:10px;align-items:center;margin-top:7px;font-size:13px;color:var(--muted)}
+.dur{display:flex;gap:3px}.dur i{width:16px;height:6px;border-radius:3px;background:var(--brass-l);display:block}.dur i.off{background:rgba(255,255,255,.15)}
+.wx{font-weight:800;padding:0 7px;border-radius:10px;font-size:13px}
+.wx.sun{background:rgba(255,160,40,.25);color:#ffc067;border:1px solid #a86a20}
+.wx.rain{background:rgba(70,140,255,.22);color:#9cc4ff;border:1px solid #3a6aa8}
+.dom{position:absolute;right:10px;top:8px;font-size:12px;color:#ddd;background:rgba(10,5,2,.85);border:1px solid rgba(209,169,90,.4);border-radius:10px;padding:1px 9px}
+.dom .bar{position:absolute;left:0;right:0;bottom:0;height:7px;background:var(--opp);overflow:hidden}
+.dom .bar i{display:block;height:100%;background:var(--you)}
+.dom b{font-size:15px}
+/* arrow + preview */
+#arrow{left:0;top:0;width:1920px;height:1080px;pointer-events:none;z-index:4}
+.pv{left:820px;top:96px;width:330px;padding:10px 14px;border-color:var(--red);z-index:5}
+.pv .h{font-family:var(--disp);font-weight:800;font-size:16px}
+.pv .m{font-size:22px;font-weight:800;margin:4px 0}
+.pv .m s{color:var(--muted);text-decoration:none}
+.pv .k{color:#ffd08a;font-weight:800}
+.pv .g{display:flex;gap:8px;margin-top:4px}
+.gain{font-weight:800;font-size:14px;border-radius:12px;padding:1px 9px}
+.gain.r{background:rgba(90,170,255,.2);color:#bcd6ff;border:1px solid #3a6aa8}
+.gain.d{background:rgba(255,224,138,.15);color:#ffe08a;border:1px solid #8a6a20}
+/* right column */
+.col{left:1620px;width:276px}
+#round{top:76px;height:94px;padding:10px 14px}
+#round .r{font-family:var(--disp);font-weight:800;font-size:24px}
+.phase{display:inline-block;margin-top:4px;font-weight:800;font-size:13px;background:linear-gradient(var(--brass-l),var(--brass));color:#2a1a0c;border-radius:6px;padding:1px 8px}
+#wxg{top:180px;height:80px;padding:9px 14px}
+#energy{top:270px;height:236px;padding:14px;text-align:center;border:2px solid #4f86d8;background:radial-gradient(ellipse at 50% 30%,#2f63b8,#173a78 60%,#0f2550);box-shadow:0 0 28px rgba(80,150,255,.35),0 6px 18px rgba(0,0,0,.6)}
+#energy .big{font-family:var(--disp);font-weight:800;font-size:84px;line-height:.95;text-shadow:0 0 18px rgba(140,200,255,.8)}
+#energy .of{font-size:18px;color:#cfe2ff;font-weight:700}
+.dia{display:flex;justify-content:center;gap:7px;margin:10px 0 4px}
+.dia i{width:16px;height:16px;transform:rotate(45deg);border:2px solid #ffc67a;display:block}
+.dia i.on{background:#ffb04a;box-shadow:0 0 8px #ffb04a}.dia i.ex{border-color:#6a7a98;background:#2a3550}
+#energy small{display:block;font-size:13px;color:#cfe2ff}
+#pass{top:516px;height:82px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:12px;border:2px solid var(--brass);background:linear-gradient(#c79a48,#8a5f22);box-shadow:0 0 18px rgba(255,200,100,.35),0 6px 16px rgba(0,0,0,.6);color:#2a1a0c}
+#pass b{font-family:var(--disp);font-weight:800;font-size:24px;letter-spacing:.06em}
+#pass small{font-size:14px;font-weight:700}
+#mart{top:608px;height:58px;display:flex;align-items:center;gap:12px;padding:0 12px}
+#mart .ic{width:40px;height:40px;border-radius:8px;background:url(../../assets/ui/pokemart.jpg) center/cover;border:1px solid var(--brass-m)}
+.badge{margin-left:auto;background:#e0453a;color:#fff;font-weight:800;font-size:13px;border-radius:12px;padding:2px 9px}
+#log{top:676px;height:88px;padding:8px 12px;font-size:13.5px;line-height:1.3}
+#log div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#log .y{color:#9cc4ff}#log .o{color:#ffb27a}
+/* hand */
+.hc{position:absolute;width:182px;height:254px;border-radius:12px;overflow:hidden;background:#1c1007;border:2px solid #6b4a1c;box-shadow:0 10px 22px rgba(0,0,0,.7)}
+.hc .art{height:132px;background-size:cover;background-position:center}
+.hc .cost{position:absolute;left:7px;top:7px;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:800;font-size:19px;background:radial-gradient(#4f8fe8,#1d4ea0);border:2px solid #bcd6ff;box-shadow:0 2px 6px rgba(0,0,0,.6)}
+.hc .cost.money{background:radial-gradient(#f0c850,#a07a18);border-color:#ffe9a0;color:#2a1a0c;font-size:16px}
+.hc .cost.no{background:radial-gradient(#d84a3a,#7a1a10);border-color:#ffb0a0}
+.hc .lv{position:absolute;left:7px;top:46px;font-family:var(--disp);font-weight:800;font-size:13px;background:rgba(20,10,4,.85);border:1px solid var(--brass-m);color:var(--brass-l);padding:1px 7px;border-radius:6px}
+.hc .nm{padding:6px 10px 0;font-family:var(--disp);font-weight:800;font-size:17px;display:flex;align-items:center;gap:6px}
+.ty{display:inline-flex;width:18px;height:18px;border-radius:50%;align-items:center;justify-content:center;font-size:11px}
+.ty.fire{background:#e8642a}.ty.water{background:#3a86e8}.ty.elec{background:#e8c02a;color:#2a1a0c}
+.hc .rule{padding:2px 10px;font-size:14px;line-height:1.2;color:#ead9b5}
+.hc .st2{position:absolute;left:0;right:0;bottom:0;height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-weight:800;font-size:19px;border-top:1px solid rgba(209,169,90,.25)}
+.hc.ok{border-color:#ffd56a;box-shadow:0 0 0 1px #ffd56a,0 0 14px rgba(255,200,80,.45),0 10px 22px rgba(0,0,0,.7)}
+.hc.no{filter:brightness(.55) saturate(.6)}
+.mode{display:flex;align-items:center;gap:6px;margin:5px 10px 0;padding:3px 7px;border-radius:7px;font-size:13px;white-space:nowrap;font-weight:700;background:rgba(0,0,0,.35);border:1px solid var(--brass-d)}
+.mode b{font-family:var(--disp);font-size:12px;letter-spacing:.06em;color:var(--brass-l)}
+.mode .c{margin-left:auto;color:#9cc4ff;font-weight:800}
+.ctype{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:0 10px;font-weight:700}
+/* piles */
+.pile{position:absolute;width:92px;height:128px;border-radius:9px;background:url(../../assets/ui/card-back.jpg) center/cover;border:2px solid var(--brass-d);box-shadow:3px 3px 0 #2a1a0c,6px 6px 0 #1a0e06,0 10px 20px rgba(0,0,0,.6)}
+.pile .c{position:absolute;left:50%;bottom:-12px;transform:translateX(-50%);font-weight:800;font-size:15px;background:#1a0e06;border:1px solid var(--brass-m);border-radius:10px;padding:0 9px}
+.pile.disc{background-image:url(../../assets/cards/ember.jpg);filter:brightness(.7)}
+.pcap{position:absolute;font-size:12px;color:var(--muted);text-align:center;width:92px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.oback{position:absolute;width:46px;height:64px;border-radius:5px;background:url(../../assets/ui/card-back.jpg) center/cover;border:1px solid var(--brass-d);box-shadow:0 3px 8px rgba(0,0,0,.6)}
+</style></head><body>
+<div id="app"></div>
+<script>
+const A = (n) => `url(../../assets/cards/${n}.jpg)`;
+const STAT = {
+ pa:'<svg class="i" viewBox="0 0 24 24"><path d="M4 15C6 10 9 6 15 3M8 19c2.5-5 6-9 12-12M12 22c2-4 5-7 9-9" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg>',
+ sa:'<svg class="i" viewBox="0 0 24 24"><path d="M12 1.5l2.4 8.1L22.5 12l-8.1 2.4L12 22.5l-2.4-8.1L1.5 12l8.1-2.4z" fill="currentColor"/><circle cx="19" cy="5" r="2" fill="currentColor"/></svg>',
+ hp:'<svg class="i" viewBox="0 0 24 24"><path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z" fill="currentColor"/></svg>',
+ def:'<svg class="i" viewBox="0 0 24 24"><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z" fill="currentColor"/><path d="M12 5v14" stroke="rgba(0,0,0,.45)" stroke-width="2"/></svg>',
+ sdef:'<svg class="i" viewBox="0 0 24 24"><path d="M12 2l8.6 5v10L12 22l-8.6-5V7z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><path d="M12 7.5l1.4 3.1 3.1 1.4-3.1 1.4L12 16.5l-1.4-3.1L7.5 12l3.1-1.4z" fill="currentColor"/></svg>',
+};
+const I = {
+ atk:'<svg class="i" viewBox="0 0 24 24"><path d="M5 19L17 7M17 7l2-4-4 2zM4 16l4 4M6 14l4 4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+ str:'<svg class="i" viewBox="0 0 24 24"><path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z" fill="currentColor"/></svg>',
+ guard:'<svg class="i" viewBox="0 0 24 24"><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z" fill="currentColor"/></svg>',
+ en:'<svg class="i" viewBox="0 0 24 24"><path d="M13 2L5 14h6l-1 8 8-12h-6z" fill="currentColor"/></svg>',
+ sp:(n)=>`<svg class="i" viewBox="0 0 ${6+n*6} 24" style="width:${(6+n*6)/24}em">${Array.from({length:n},(_,k)=>`<path d="M${3+k*6} 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>`).join('')}</svg>`,
+ fire:'<svg class="i" viewBox="0 0 24 24"><path d="M12 2c1 4 5 6 5 11a5 5 0 0 1-10 0c0-3 2-4 2-7 2 1 3 3 3 5 1-2 0-6 0-9z" fill="#fff"/></svg>',
+ water:'<svg class="i" viewBox="0 0 24 24"><path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z" fill="#fff"/></svg>',
+ elec:'<svg class="i" viewBox="0 0 24 24"><path d="M13 2L5 14h6l-1 8 8-12h-6z" fill="#2a1a0c"/></svg>',
+ phys:'<svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg>',
+};
+let h = '';
+const el = (html) => (h += html);
+const ring = (v, col) => { const C = 2*Math.PI*37; return `<div class="ring"><svg width="86" height="86"><circle cx="43" cy="43" r="37" fill="rgba(0,0,0,.45)" stroke="rgba(255,255,255,.1)" stroke-width="8"/><circle cx="43" cy="43" r="37" fill="none" stroke="${col}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${C*v/100} ${C}"/></svg><div class="n">${v}<small>of 100</small></div></div>`; };
+const tr = (art, name, goal, prog, need, partner, done) => `<div class="tr ${done?'done':''}"><div class="a" style="background-image:${A(art)}"></div><div class="t"><b>${name}</b><small>${goal}</small></div>${done?'<div class="tick">✓</div>':`<div class="pips">${Array.from({length:need},(_,k)=>`<i class="${k<prog?'on':''}"></i>`).join('')}</div>`}<div class="p" style="background-image:${A(partner)}"></div></div>`;
+const bag = (items) => `<div class="bag">${Array.from({length:6},(_,k)=>items[k]?`<div class="f" style="background-image:${A(items[k])}"></div>`:'<div></div>').join('')}</div>`;
+
+// prompt bar
+el(`<div id="prompt" class="abs panel"><span class="tag">YOUR TURN · ATTACK</span><span class="txt">Choose a target for <b>Charizard</b> — drag to it or click it. Highlighted Pokémon can be attacked.</span><span class="btn">Cancel<span class="key">Esc</span></span></div>`);
+
+// opponent HUD
+el(`<div class="abs panel hud" style="left:24px;top:76px;width:680px;height:96px">${ring(52,'var(--opp)')}<div><div class="who" style="color:var(--opp)">OPPONENT</div><div style="margin-top:4px"><span class="purse">$ 5</span></div>${bag(['potion','charcoal'])}</div><div class="trk" style="margin-left:auto">${tr('misty','Misty','Defeat 8 Pokémon',3,8,'starmie',false)}${tr('blaine','Blaine','Dominate 5 times',1,5,'ninetales',false)}</div></div>`);
+for (let k=0;k<6;k++) el(`<div class="oback" style="left:${720+k*30}px;top:${92+Math.abs(k-2.5)*3}px;transform:rotate(${(k-2.5)*4}deg)"></div>`);
+el(`<div class="abs" style="left:930px;top:110px;font-size:14px;color:var(--muted);font-weight:700">6 in hand</div>`);
+el(`<div class="pile" style="left:1340px;top:84px;width:56px;height:78px"><span class="c" style="font-size:12px">14</span></div><div class="pcap" style="left:1322px;top:166px">Deck</div>`);
+el(`<div class="pile disc" style="left:1430px;top:84px;width:56px;height:78px;background-image:${A('potion')}"><span class="c" style="font-size:12px">9</span></div><div class="pcap" style="left:1412px;top:166px">Discard</div>`);
+
+// board
+el(`<div id="board" class="abs"></div>`);
+const BX = 24+14, LW = 172.4, top1 = 180+22, top2 = 180+584-22-212;
+const lx = (i) => BX + i*LW + (LW-156)/2;
+const loc = (start, width, art, name, col, pas, left, total, wx, you, opp) => {
+  const L = BX + start*LW + 4, W = width*LW - 8;
+  el(`<div class="lcol" style="left:${BX+start*LW+3}px;top:${180+9}px;width:${width*LW-6}px;height:${584-18}px;border-color:${col};background-image:${A(art)}"></div>`);
+  el(`<div class="loc" style="left:${L+6}px;top:${180+244}px;width:${W-12}px;border-color:${col}"><div class="body"><h3 style="color:${col}">${name}</h3><div class="pas">${pas}</div><div class="row2"><span class="dur">${Array.from({length:total},(_,k)=>`<i class="${k<left?'':'off'}"></i>`).join('')}</span>${left} left<span class="wx ${wx[0]}">${wx[1]}</span></div><div class="dom"><b style="color:var(--you)">${you}</b> <span style="opacity:.7">vs</span> <b style="color:var(--opp)">${opp}</b></div></div><div class="bar" style="position:absolute;left:0;right:0;bottom:0;height:7px;background:var(--opp)"><i style="display:block;height:100%;width:${100*you/(you+opp)}%;background:var(--you)"></i></div></div>`);
+};
+loc(1,3,'mt-ember','Mt. Ember','#f39a4a','Pokémon here have +1 Attack',2,3,['sun','☀ +2 Sun'],16,3);
+loc(5,2,'cerulean-cape','Cerulean Cape','#6ab0ff','+1 Strength here',1,3,['rain','☂ +1 Rain'],14,6);
+for (let i=0;i<9;i++){ el(`<div class="slot" style="left:${lx(i)}px;top:${top1}px"></div><div class="slot" style="left:${lx(i)}px;top:${top2}px"></div>`); }
+const pk = (i, top, o) => el(`<div class="pk ${o.cls||''}" style="left:${lx(i)}px;top:${top}px;background-image:${A(o.art)}"><span class="lv">${o.partner?'★':'Lv '+o.lv}</span>${o.chip?`<span class="chip ${o.partner?'partner':''}">${o.chip}</span>`:''}${o.held?`<span class="held" style="background-image:${A(o.held)}"></span>`:''}<div class="st"><span><span class="c-${o.at}">${STAT[o.at]}</span> ${o.a}</span><span class="spd">${I.sp(o.s)}</span><span class="str ${o.hurt?'hurt':''}"><span class="c-${o.gt}">${STAT[o.gt]}</span> ${o.str}</span></div>${o.lock?`<div class="lock">${o.lock}</div>`:''}</div>`);
+// opponent row
+pk(1,top1,{art:'arcanine',lv:6,a:6,s:3,str:7,cls:'legal',at:'pa',gt:'def'});
+pk(2,top1,{art:'growlithe',lv:4,a:3,s:3,str:3,at:'pa',gt:'hp',cls:'spent dim',lock:'Guarded by Arcanine'});
+pk(4,top1,{art:'gyarados',lv:8,a:9,s:2,str:'7',hurt:1,cls:'target',at:'pa',gt:'hp'});
+pk(7,top1,{art:'lanturn',lv:6,a:5,s:3,str:6,cls:'legal',at:'sa',gt:'sdef'});
+pk(8,top1,{art:'ponyta',lv:5,a:3,s:3,str:4,at:'pa',gt:'hp',cls:'spent legal'});
+// your row
+pk(0,top2,{art:'charmander',lv:5,a:3,s:2,str:4,at:'sa',gt:'hp',cls:'spent'});
+pk(2,top2,{art:'charizard',lv:7,a:9,s:3,str:9,at:'sa',gt:'hp',cls:'ready',held:'charcoal'});
+pk(3,top2,{art:'wartortle',lv:5,a:4,s:2,str:7,at:'sa',gt:'def'});
+pk(5,top2,{art:'lanturn',lv:6,a:5,s:3,str:'5',hurt:1,cls:'ready',at:'sa',gt:'sdef'});
+pk(6,top2,{art:'chinchou',lv:4,a:2,s:3,str:3,at:'sa',gt:'sdef',cls:'spent'});
+pk(7,top2,{art:'rapidash',lv:6,a:6,s:3,str:5,at:'pa',gt:'hp'});
+// Locations: Mt. Ember lanes 2–4, Cerulean Cape lanes 6–7 (1-based)
+
+// arrow from Charizard (your lane 3) to Gyarados (opp lane 5)
+const sx = lx(2)+78, sy = top2+14, tx = lx(4)+78, ty = top1+206;
+el(`<svg id="arrow" class="abs"><defs><linearGradient id="g" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#ffd56a"/><stop offset="1" stop-color="#ff5a3a"/></linearGradient><marker id="m" markerUnits="userSpaceOnUse" markerWidth="30" markerHeight="30" refX="15" refY="15" orient="auto"><path d="M2,4 L28,15 L2,26 L9,15 z" fill="#ff5a3a"/></marker><filter id="gl"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<path d="M${sx},${sy} Q${sx+40},${(sy+ty)/2-40} ${tx},${ty}" stroke="url(#g)" stroke-width="9" fill="none" stroke-linecap="round" stroke-dasharray="2 16" filter="url(#gl)"/><path d="M${tx-14},${ty+34} L${tx},${ty+4}" stroke="none" fill="none" marker-end="url(#m)"/>
+</svg>`);
+// preview
+el(`<div class="abs panel pv" style="left:${lx(5)+4}px;top:226px"><div class="h">Charizard attacks Gyarados</div><div class="m"><span class="c-sa">${STAT.sa}</span> 9 → <span class="c-hp">${STAT.hp}</span> <s>7</s> → 0</div><div style="font-size:14px;color:var(--muted)">9 = 8 Attack + 1 Mt. Ember</div><div class="g" style="margin-top:8px"><span class="gain r">Defeats it · +2 Recognition</span><span class="gain d">+$4</span></div></div>`);
+
+// right column
+el(`<div id="round" class="abs panel col"><div class="lbl">Round</div><div class="r">5 <span style="font-size:15px;color:var(--muted);font-family:var(--text);font-weight:500">· Tournament at Round 10 or 70</span></div><span class="phase">BATTLE · YOUR TURN</span></div>`);
+el(`<div id="wxg" class="abs panel col"><div class="lbl">Weather</div><div style="font-size:15px;margin-top:3px"><span class="wx sun">☀ Sun 2</span> Physical +1 damage</div><div style="font-size:13px;color:var(--muted);margin-top:2px">At Sun 4: all Pokémon +1 Attack</div></div>`);
+el(`<div id="energy" class="abs col"><div class="lbl" style="color:#bcd6ff">${I.en} Energy</div><div class="big">3</div><div class="of">of 5 this turn</div><div class="dia"><i class="on"></i><i class="ex"></i><i class="ex"></i></div><small>Exert 1 of 3 ready</small><small style="opacity:.75">2 Exhausted · back in Rounds 6, 7</small></div>`);
+el(`<div id="pass" class="abs col"><b>END TURN</b><small>Pass · +1 Base Energy<span class="key" style="color:#2a1a0c;border-color:#2a1a0c">Space</span></small></div>`);
+el(`<div id="mart" class="abs panel col"><div class="ic"></div><div><div class="who" style="font-size:15px">PokéMart</div><div style="font-size:13px;color:var(--muted)">You have $6</div></div><span class="badge">3 new</span></div>`);
+el(`<div id="log" class="abs panel col"><div class="o">${STAT.pa} Arcanine attacked your Lanturn for 6</div><div class="y">${I.str} You summoned Charizard (Lv 7) · 4 Energy</div><div class="o">✦ Your Blaine: 2 of 5 dominations</div><div style="color:var(--brass);font-weight:700;margin-top:2px">Open log <span class="key">L</span></div></div>`);
+
+// your HUD
+el(`<div class="abs panel hud" style="left:24px;top:790px;width:420px;height:232px;flex-direction:column;align-items:flex-start;gap:8px;padding:14px 16px"><div style="display:flex;gap:14px;align-items:center">${ring(46,'var(--you)')}<div><div class="who" style="color:var(--you)">YOU</div><div style="margin-top:4px"><span class="purse">$ 6</span></div>${bag(['oran-berry','potion','mystic-water'])}</div></div><div class="lbl" style="font-size:11.5px;margin-top:2px">Trainer Objectives</div><div class="trk">${tr('misty','Misty','Defeat 8 Pokémon',2,8,'starmie',false)}${tr('blaine','Blaine','Dominate 5 times',2,5,'ninetales',false)}</div></div>`);
+
+// hand
+const hc = (o) => `<div class="hc ${o.cls||''}" style="left:${o.x}px;top:${o.y}px;transform:rotate(${o.r}deg)"><div class="art" style="background-image:${A(o.art)}"></div>${o.lv?`<span class="lv">Lv ${o.lv}</span>`:''}${o.cost===null?'':`<span class="cost ${o.cc||''}">${o.cost}</span>`}<div class="nm">${o.ty?`<span class="ty ${o.ty}">${I[o.ty]}</span>`:''}${o.name}</div>${o.kind?`<div class="ctype">${o.kind}</div>`:''}${o.rule?`<div class="rule">${o.rule}</div>`:''}${o.modes||''}${o.stats?`<div class="st2">${o.stats}</div>`:''}</div>`;
+const stats = (a,s,st,at,gt) => `<span><span class="c-${at}">${STAT[at]}</span> ${a}</span><span style="color:#7ee0a0;font-size:15px">${I.sp(s)}</span><span><span class="c-${gt}">${STAT[gt]}</span> ${st}</span>`;
+const mode = (n, txt, c) => `<div class="mode"><b>${n}</b> ${txt}<span class="c">${I.en}${c}</span></div>`;
+const cards = [
+ {art:'rapidash',name:'Rapidash',lv:5,cost:2,ty:'fire',rule:'',stats:stats(5,3,5,'pa','hp'),cls:'ok'},
+ {art:'squirtle',name:'Squirtle',lv:3,cost:1,ty:'water',rule:'',stats:stats(2,2,4,'sa','def'),cls:'ok'},
+ {art:'ember',name:'Ember',cost:2,kind:'Command',modes:mode('ADAPT','2 dmg',2)+mode('STRAT','4 dmg',3),cls:'ok'},
+ {art:'misty',name:'Misty',cost:2,kind:'Trainer Command',rule:'Draw 2 cards',cls:'ok'},
+ {art:'potion',name:'Potion',cost:'$2',cc:'money',kind:'Item · Consumed',rule:'Heal one of your Pokémon 3',cls:'ok'},
+ {art:'lake-of-rage',name:'Lake of Rage',cost:null,kind:'Location · 2 lanes',rule:'Pokémon here heal 2 at Breakfast',cls:'ok'},
+ {art:'blastoise',name:'Blastoise',lv:8,cost:4,cc:'no',ty:'water',rule:'',stats:stats(7,1,10,'sa','def'),cls:'no'},
+];
+cards.forEach((c,k)=>{ const mid=3; c.x = 452 + k*142; c.y = 806 + Math.abs(k-mid)*Math.abs(k-mid)*1.6; c.r = (k-mid)*1.3; el(hc(c)); });
+el(`<div class="abs" style="left:1100px;top:1046px;width:260px;text-align:right;font-size:13px;color:var(--muted)"></div>`);
+// piles (yours)
+el(`<div class="pile" style="left:1520px;top:820px"><span class="c">11</span></div><div class="pcap" style="left:1520px;top:968px">Deck</div>`);
+el(`<div class="pile disc" style="left:1640px;top:820px"><span class="c">15</span></div><div class="pcap" style="left:1640px;top:968px">Discard</div>`);
+el(`<div class="abs" style="left:1760px;top:832px;width:136px;font-size:13px;line-height:1.35;color:var(--muted)"><div class="lbl" style="font-size:11px">Keys</div><span class="key" style="margin:0">1–7</span> card<br><span class="key" style="margin:0">A</span> attack <span class="key">R</span> retain<br><span class="key" style="margin:0">C</span> Codex <span class="key">?</span> help</div>`);
+el(`<div class="abs" style="left:1520px;top:1000px;width:376px;font-size:13px;color:var(--muted)">Released 7 · Retained 0 · right-click any card to inspect</div>`);
+document.getElementById('app').innerHTML = h;
+</script></body></html>

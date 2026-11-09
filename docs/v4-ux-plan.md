@@ -270,8 +270,8 @@ I review each report and screenshot before writing the next prompt.
 | Stage | Contents | Depends on |
 |---|---|---|
 | **UX1: Rules and React** ✅ | Elliott's changes 2a, 2b and 2c. The React window with its banner, options, timer and default. Recognition capped at 100. Tests for all of it | Done: commit 3ba8b7c |
-| **UX2: Layout and HUD** | The new layout (3.1): prompt bar, portraits with Recognition rings, Trainer trackers, Bag slots, PokéMart drawer, piles, log drawer, the Weather chip and Location contributions. The Actions panel is removed | Elliott's approval of the mockup `docs/design/v4-ux2-layout-mockup.jpg` |
-| **UX3: Cards and interaction** | Hand and board card faces (3.3), drag and drop, targeting arrows with result previews, hover reasons, Ready/Spent states, Cancel, confirmations, keyboard | UX2 |
+| **UX2: Layout, HUD and card faces** | The approved mockup: the new layout (3.1), full-size Location tiles, the five stat icons, hand and board card faces (3.3), Ready/Spent states. Also Elliott's Objective targets and Partner stats. The Actions panel is removed | Approved 9 November 2026. Prompt in section 7 |
+| **UX3: Interaction** | Drag and drop, targeting arrows with result previews, hover reasons, Cancel, confirmations, keyboard (3.4) | UX2 |
 | **UX4: Motion and VFX** | Port v2's presenter, particles and WebGL layer. AI pacing, speed settings, click to skip, phase banners and the Breakfast/Supper summaries, the Recognition ring animation, Partner and Tournament moments, low motion | UX3 |
 | **UX5: Learning and flow** | Port the Codex, explain and glossary. First-match tips, title screen, mulligan screen, end screen with match summary, settings, resume, colourblind and text size, and a final polish and layout pass | UX4 |
 | **UX6: Sound** | Free CC0 sound effects (and music, only if a good free track is found), volume settings and mute | UX5, plus my listen-tested file list |
@@ -355,15 +355,112 @@ Settled 9 November 2026:
   - **8 / 5: Round 6.** About 93% of Mistys and 68% of Blaines complete.
   - **10 / 6: Round 7.**
 
-  Proposed: **Misty "Defeat 8 enemy Pokémon"** and **Blaine "Dominate a Location 5 times"** (each Location dominated at a Supper counts once). These are starting values for Elliott to confirm.
+  **Approved:** **Misty "Defeat 8 enemy Pokémon"** and **Blaine "Dominate a Location 5 times"** (each Location dominated at a Supper counts once, and so does dominating the Tournament).
 - **Q6, settled with changes (9 November 2026):**
   - **Locations are full board tiles again.** A Location's art covers its lanes on both sides, from the opponent's row to yours. The Location plate (name, passive, Rounds left, Weather added, Strength on each side) sits across the middle.
   - **The Attack icon and the guard tags are replaced** by five stat icons, one each for Physical Attack, Special Attack, Hitpoints, Defence and Special Defence (`docs/design/v4-stat-icons.jpg`). Each Pokémon shows its attack icon beside Attack and its Strength icon beside Strength, so the "Def" and "Sp.Def" tags go.
   - **Location cards in the hand show no cost,** since they are always free.
 
-Open:
-- **Q7:** the Partners are weak for a mid-to-late reward. Today each is Level 5 with Attack 4–5 and Strength 6, below a Level 7 Charizard (Attack 8, Strength 9). Proposed starting values:
+- **Q7, approved:** the Partners were weak for a mid-to-late reward. Today each is Level 5 with Attack 4–5 and Strength 6, below a Level 7 Charizard (Attack 8, Strength 9). Proposed starting values:
   - **Starmie:** Swift, Special, Attack 8, Hitpoints 10. On Summon: draw 2 (unchanged).
   - **Ninetales:** Steady, Special, Attack 9, Hitpoints 11. On Summon: 2 damage to each enemy Pokémon (up from 1).
   - Both count as cost 4 when defeated (Level 8).
-- **Q8:** approve the revised UX2 mockup and the stat icons.
+- **Q8, approved:** the revised UX2 mockup and the stat icons.
+
+None open.
+
+---
+
+## 7. Prompt UX2 (ready to send)
+
+> **v4 UX2: Objective targets, stronger Partners, and the new layout, HUD and card faces**
+>
+> Work only in `v4/` (plus the shared `assets/`, read only). First read:
+> - `docs/v4-ux-plan.md`, sections 2b, 3.1, 3.3 and 6 (Q5–Q8);
+> - the approved mockup image `docs/design/v4-ux2-layout-mockup.jpg` and its page source `docs/design/v4-ux2-layout-mockup.html`. Use the source for sizes, colours and SVG paths;
+> - the stat icon sheet `docs/design/v4-stat-icons.jpg` and `.html`.
+>
+> The mockup is the target. Match it closely at 1920×1080. Keep the engine DOM-free. The AI still plays only through `applyAction`. Don't change any rule or number except those in part A. Every action that works today must still work after this stage, by clicking, even where its button has moved. Drag and drop, targeting arrows and keyboard shortcuts beyond UX1's come in UX3, so don't build them now.
+>
+> **A. Numbers Elliott has approved** (`src/engine/cards.js` and `src/rules.js`):
+> - **Misty's Objective:** `need: 8`, text "Defeat 8 enemy Pokémon".
+> - **Blaine's Objective:** `need: 5`, text "Dominate a Location 5 times". The counting stays as it is: each Location dominated at a Supper counts 1, and dominating the Tournament counts 1.
+> - **Starmie (Partner):** Level 8, Swift, Special, Hitpoints, Attack 8, Strength 10, cost 4. On Summon: draw 2 (unchanged).
+> - **Ninetales (Partner):** Level 8, Steady, Special, Hitpoints, Attack 9, Strength 11, cost 4. On Summon: 2 damage to each enemy Pokémon (up from 1).
+> - **A defeated Partner** gives its opponent $4, through its cost as today.
+>
+> Update `FOUNDATION_ASSUMPTIONS.md` and any tests that relied on the old values.
+>
+> **B. The layout** (a fixed 1920×1080 stage, as now). Build it as in the mockup:
+>
+> 1. **Prompt bar** across the top. It's the only place for step text and action buttons (Adapt, Strat, Command, Retain, Cancel and so on), with the status tag on the left.
+> 2. **Opponent HUD** at the top-left:
+>    - a Recognition ring with the number inside, shown capped at 100;
+>    - the PokéDollar purse;
+>    - 6 Bag slots;
+>    - two Trainer Objective trackers. Each has the Trainer's art, name and short goal, a progress pip for each step (filled as progress is made), and the Partner's thumbnail. A completed tracker turns green with a tick.
+>
+>    Add a small line for the opponent's Energy and Exert, which today is in the panel being removed. The opponent's hand shows as card backs with a count. Their Deck and Discard piles sit to the right, with counts.
+> 3. **The board**: 9 lanes, two rows.
+>    - **Locations are full board tiles:** the Location's art covers all its lanes on both sides, from the top row to the bottom row, with a border in the Location's colour. Pokémon stand on the art.
+>    - **The Location plate** sits across the middle band and shows:
+>      - name and passive;
+>      - Rounds left as pips plus "N left";
+>      - the Weather it adds (e.g. "+2 Sun");
+>      - Strength on each side, as "16 vs 3" and a two-colour bar along the plate's bottom edge.
+>    - **During the Tournament,** one tile covers all 9 lanes with the Tournament's plate (×1.5, dominance +3).
+>    - **Lanes with no Location** are plain board mat. Remove the "Default Location" label.
+> 4. **Board cards:**
+>    - **Contents:** the art, a Level chip (★ for a Partner, with a "Partner" chip), the Held Item as a small round chip, and a bottom bar with: the attack icon and Attack, the Speed chevrons, and the Strength icon and current Strength (red when damaged).
+>    - **Remove** the "Def" and "Sp.Def" tags.
+>    - **Ready:** a strong gold glow that pulses gently, as a CSS animation. Respect `prefers-reduced-motion` by making it static.
+>    - **Spent:** greyed and rotated −6°.
+> 5. **The five stat icons:** add them to `src/ui/icons.js` as inline SVG, copying the paths from `docs/design/v4-stat-icons.html`:
+>    - Physical Attack: orange claw slashes;
+>    - Special Attack: a violet burst;
+>    - Hitpoints: a pink heart;
+>    - Defence: a silver shield;
+>    - Special Defence: a cyan hexagon barrier.
+>
+>    Export pure helpers `attackIcon(card)` (by `attackType`) and `strengthIcon(card)` (by `strengthType`). They must have no DOM use, so tests can import them. Use them everywhere a Pokémon's Attack or Strength is shown: board, hand, React window, previews, log and detail text. The old Attack icon is retired.
+> 6. **Right-hand column**, top to bottom:
+>    - **Round,** with the phase tag and a hint of when the Tournament comes ("Tournament at Round 10 or 70").
+>    - **A Weather chip** with the current totals, the active bracket's effect and the next bracket. Weather totals are shared across the board, so there's one chip. Remove the old bracket list.
+>    - **The Energy tile:** Energy left this turn in a large number, "of N this turn", Exert diamonds (ready, used or Exhausted) and the Exhaust return Rounds.
+>    - **END TURN:** Pass, "+1 Base Energy", Space.
+>    - **A PokéMart button** with a "N new" badge after each Breakfast. It opens a drawer or panel showing the 3 Items with Buy buttons, keeping all of today's buying behaviour and reasons. Closing it hides it.
+>    - **A log ticker** with the last 3 lines and "Open log (L)", which opens a full log drawer. L is the only new key in this stage.
+> 7. **Your HUD** at the bottom-left: a Recognition ring, the purse, 6 Bag slots (clicking a Bag Item uses it as today) and your two Objective trackers.
+> 8. **The hand** at the bottom centre. Cards are 182×254, fanned and overlapping.
+>    - **Cost** sits at the top-left:
+>      - a blue Energy gem;
+>      - a gold $ gem for Items;
+>      - a red gem when you can't afford it;
+>      - **no cost element at all on Location cards**, since they're free.
+>    - **Level** goes under the cost.
+>    - **Pokémon cards:** the Type as a small coloured icon before the name; one rules line only if the card has one; and a stats bar with the new icons.
+>    - **Other cards** show a kind line instead ("Command", "Item · Consumed", "Location · 2 lanes", "Trainer Command").
+>    - **Commands** show only the modes from `commandModesFor`, as chips (e.g. "ADAPT 2 dmg ⚡2").
+>    - **Playable cards** have a gold edge. Unplayable ones are dimmed, with the reason as a hover tooltip.
+>    - **Hovering** lifts a card and brings it to the front.
+> 9. **Bottom-right:** your Deck and Discard piles with counts, a small key hint, and a line with Released and Retained counts.
+> 10. **Removed:** the Actions panel, the You/Opponent pile-count panel, the strip under the board, the Weather bracket list and the "Default Location" label. Nothing they showed may be lost. Each fact must now be on the HUD, a pile, a tooltip or the prompt bar.
+> 11. **Kept working in the new layout:** the UX1 React window (banner, large React cards, timer, keys), the mulligan, the end screen, the Supporter Release choice, and Item targeting. Restyling the mulligan and end screen comes in UX5, so here they only need to fit.
+>
+> **C. Tests and checks:**
+> - **`node v4/tests/ux2.test.js`** checks:
+>   - the new Objective targets and texts;
+>   - the new Partner stats, On Summon effects and the $4 defeat value;
+>   - that Blaine's Objective counts one per dominated Location at a Supper;
+>   - that `attackIcon` and `strengthIcon` return the right icon for all 2 attack types and 3 Strength types;
+>   - that a Location card's hand render has no cost element, and no rendered text contains Light, Mid or Heavy (use the render helpers' output strings).
+> - **All existing tests pass.**
+> - **The layout check:** update `v4/tools/layout.mjs` for the new class names, add scenarios for the PokéMart drawer open and the log drawer open, and run it at all three sizes. Nothing may be clipped, covered or off-screen.
+> - **Screenshots at 1920×1080:** a mid-match board with two Locations, an attack target choice, the React window, the Tournament, the PokéMart drawer and the log drawer. Compare the mid-match board against the mockup and fix any visible differences in layout or style.
+>
+> **D. Finish:** bump the `?v=` stamp, commit and push to `main`, add a README build-log entry, and report:
+> - what changed;
+> - test and layout results;
+> - the screenshot paths;
+> - anything that differs from the mockup, and why;
+> - any decision this prompt didn't settle.
