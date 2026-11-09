@@ -270,8 +270,8 @@ I review each report and screenshot before writing the next prompt.
 | Stage | Contents | Depends on |
 |---|---|---|
 | **UX1: Rules and React** ✅ | Elliott's changes 2a, 2b and 2c. The React window with its banner, options, timer and default. Recognition capped at 100. Tests for all of it | Done: commit 3ba8b7c |
-| **UX2: Layout, HUD and card faces** | The approved mockup: the new layout (3.1), full-size Location tiles, the five stat icons, hand and board card faces (3.3), Ready/Spent states. Also Elliott's Objective targets and Partner stats. The Actions panel is removed | Approved 9 November 2026. Prompt in section 7 |
-| **UX3: Interaction** | Drag and drop, targeting arrows with result previews, hover reasons, Cancel, confirmations, keyboard (3.4) | UX2 |
+| **UX2: Layout, HUD and card faces** ✅ | The approved mockup: the new layout (3.1), full-size Location tiles, the five stat icons, hand and board card faces (3.3), Ready/Spent states. Also Elliott's Objective targets and Partner stats. The Actions panel is removed | Done: commit 7b022aa |
+| **UX3: Interaction** | Drag and drop, targeting arrows with result previews, hover reasons, Cancel, confirmations, keyboard (3.4), plus the UX2 polish list | Prompt in section 8 |
 | **UX4: Motion and VFX** | Port v2's presenter, particles and WebGL layer. AI pacing, speed settings, click to skip, phase banners and the Breakfast/Supper summaries, the Recognition ring animation, Partner and Tournament moments, low motion | UX3 |
 | **UX5: Learning and flow** | Port the Codex, explain and glossary. First-match tips, title screen, mulligan screen, end screen with match summary, settings, resume, colourblind and text size, and a final polish and layout pass | UX4 |
 | **UX6: Sound** | Free CC0 sound effects (and music, only if a good free track is found), volume settings and mute | UX5, plus my listen-tested file list |
@@ -463,4 +463,92 @@ None open.
 > - test and layout results;
 > - the screenshot paths;
 > - anything that differs from the mockup, and why;
+> - any decision this prompt didn't settle.
+
+---
+
+## 8. Prompt UX3 (ready to send)
+
+> **v4 UX3: interaction (drag and drop, targeting arrows with previews, keyboard, confirmations) and UX2 polish**
+>
+> Work only in `v4/`. First read `docs/v4-ux-plan.md` section 3.4, and look at the mockup `docs/design/v4-ux2-layout-mockup.jpg`, which shows the targeting arrow and preview. Don't change any rule or number. Keep the engine DOM-free, with any new engine code pure. The AI still plays only through `applyAction`. Every way of playing that works by clicking today must keep working; drag and keys are added alongside.
+>
+> **A. Result previews** (pure engine helpers in a new `src/engine/preview.js`, with no DOM use, so they can be tested):
+> - **`attackPreview(s, who, from, target)`** returns:
+>   - the damage;
+>   - the target's Strength before and after;
+>   - whether it's defeated, and the rewards: Recognition after the Tournament's ×1.5, and $;
+>   - Recognition from damage to a Player Character;
+>   - **the hit-back:** if the target is Ready it hits back, so the attacker's damage taken, its Strength after, and whether it's defeated, with the opponent's rewards;
+>   - **where the attack number comes from,** as parts (e.g. `[{ label: 'Attack', n: 8 }, { label: 'Mt. Ember', n: 1 }]`): base Attack, Location, Weather, Held Item, "until Supper" effects.
+>
+>   It must use the same functions the engine uses to resolve an attack, so the preview can never disagree with the result.
+> - **`effectPreview(s, who, card, mode, target)`** does the same for Commands (each mode), Items and Trainer Commands. Damage and heal show before and after, plus any defeat and its rewards. Effects with no number (e.g. draw 2) return a plain sentence.
+>
+> **B. Targeting arrows and previews:**
+> - **When a choice needs a target** (an attack, a Command, an Item, a React target, a Bag Item), draw a curved, glowing, dotted arrow from the source to the pointer, as in the mockup. The source is the attacker, or the hand or Bag card. It's an SVG layer above the board and below dialogs. The arrow turns red and snaps to a legal target on hover.
+> - **Hovering a legal target** shows a preview panel beside it, as in the mockup:
+>   - the title (e.g. "Charizard attacks Gyarados");
+>   - the stat icons with before → after;
+>   - the breakdown line (e.g. "9 = 8 Attack + 1 Mt. Ember");
+>   - gain chips (e.g. "Defeats it · +2 Recognition", "+$4");
+>   - when the target is Ready, a line "Gyarados hits back: 9 → Charizard 9 → 0 (defeated)".
+> - **Hovering an illegal space or Pokémon** shows its reason (e.g. "Guarded by Arcanine").
+> - **Summoning and placing a Location:** legal lanes glow. Hovering one shows the cost there, including the Route 119 discount. For a Location, its outline over the lanes it would cover.
+>
+> **C. Drag and drop** (pointer events, no library):
+> - **Dragging a hand card:**
+>   - a Pokémon → a legal empty space (summon);
+>   - a Location → a lane, which sets its start;
+>   - a Command, Item or Trainer Command with a target → a legal target;
+>   - a card with no target (Supporter, draw effects) → anywhere on the board.
+>
+>   While dragging, the card follows the pointer at a slightly smaller size. Legal drops glow, and illegal ones show their reason on hover.
+> - **Dragging a Ready board Pokémon** to an enemy Pokémon or the enemy Recognition ring attacks. Dragging a Bag Item works like a hand Item.
+> - **Command modes:** if more than one mode is available, dropping shows a small mode picker at the drop point. Each option shows its mode, effect and cost.
+> - **Dropping somewhere illegal,** or pressing Esc or right-click, cancels and the card glides back. Nothing is committed until a legal drop, or the final click in the click flow.
+>
+> **D. Keyboard:**
+> - **Space** = End turn.
+> - **1–9** = select a hand card.
+> - **A** = attack mode. It selects the first attacker; A again cycles through them.
+> - **R** = Retain the selected card.
+> - **Tab / Shift+Tab** cycle legal targets or spaces, showing the preview.
+> - **Enter** confirms.
+> - **Esc** or right-click cancels a choice in progress.
+> - **L** = log (already built).
+> - **? opens a key-list overlay.**
+>
+> Keys never act while a dialog with its own keys is open (React window, mulligan, Release, the Tournament banner), except that dialog's own keys. Update the key hint at the bottom-right to list the main keys, and show "Space" on END TURN as in the mockup.
+>
+> **E. Confirmations** (only these, each with a "Don't ask again" box saved in localStorage inside try/catch):
+> - **Ending your turn** while you have Energy left and at least one playable card: "End turn with 3 Energy unused?"
+> - **Releasing cards** for a Supporter: "Release 2 cards? Released cards leave the match."
+> - **Retaining your last card in hand.**
+>
+> **F. Polish from the UX2 review:**
+> - **Log ticker:** the lines run past the panel's right edge. Fit every line inside the panel, trimming with "…" in JS if needed.
+> - **Weather chip:** the third line is cut off at the bottom. During the Tournament, its text spills out of the chip.
+> - **Round panel:** during the Tournament, the "TOURNAMENT" chip pokes out past the panel's right edge.
+> - **Opponent's piles:** the count badges sit on top of the "DECK" and "DISCARD" labels.
+> - **Layout check:** extend `tools/layout.mjs` to fail when any text element's content overflows its own box (`scrollWidth > clientWidth + 1` or `scrollHeight > clientHeight + 1`, where it doesn't scroll), so this kind of fault is caught in future.
+>
+> **G. Tests and checks:**
+> - **`node v4/tests/ux3.test.js`** checks `attackPreview` against the real result. Play out at least 200 random legal attacks from AI-played matches with a fixed seed, and for each compare the preview with the state after `applyAction`: damage, both Strengths, defeats, Recognition and $. Include Location, Weather, Held Item and Tournament cases. Do the same for `effectPreview` on every Command mode and every Item in the deck.
+> - **All existing tests pass.**
+> - **A browser check (Playwright)** that:
+>   - drags to summon, place a Location, attack, play a Command with the mode picker, and use an Item;
+>   - drives one full turn with keys only;
+>   - triggers each confirmation and its "Don't ask again";
+>   - cancels a drag with Esc.
+>
+>   No page errors.
+> - **The layout check** at all three sizes, including the new overflow rule, plus scenarios for an attack preview with a hit-back, a drag in progress, the mode picker, the key overlay and a confirmation.
+> - **Screenshots at 1920×1080:** an attack preview with a hit-back, a Command drag over a target, the mode picker, a Location placement preview, and the key overlay.
+>
+> **H. Finish:** bump the `?v=` stamp, commit and push to `main`, add a README build-log entry, and report:
+> - what changed;
+> - test and layout results;
+> - the screenshot paths;
+> - anything that differs from this prompt, and why;
 > - any decision this prompt didn't settle.
