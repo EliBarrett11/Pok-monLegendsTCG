@@ -283,3 +283,44 @@ button { font-family: inherit; }
 .v4-release .v4-mini button.on { filter: none; }
 .v4-relsum { font-size: 15px; }
 .v4-buttons button:disabled { opacity: 0.45; cursor: default; }
+
+/* ===== v4 (F4): PokéDollars, Trainer areas, the PokéMart and Inventory Bags, Item and Trainer cards ===== */
+.v4-pc.ai { top: 84px; }
+.v4-dollars { position: absolute; top: 8px; right: 10px; padding: 0 8px; border-radius: 10px; font-family: var(--font-text); font-style: normal; font-weight: 800; font-size: 16px; color: var(--ink); background: linear-gradient(#ffe89a, #d8a53a); }
+.v4-trainers { position: absolute; left: 24px; width: 200px; height: 144px; padding: 6px 8px; overflow: hidden; }
+.v4-trainers.ai { top: 292px; border-color: var(--opp); }
+.v4-trainers.player { top: 696px; border-color: var(--you); }
+.v4-trainers .v4-label { font-size: 13px; }
+.v4-tr { display: flex; gap: 6px; align-items: center; margin-top: 4px; cursor: help; }
+.v4-tr i { flex-shrink: 0; width: 34px; height: 46px; border-radius: 5px; background: #2a1a0c center / cover; border: 1px solid var(--brass-mid); }
+.v4-tr p { margin: 0; font-size: 11px; line-height: 1.2; color: var(--cream-muted); }
+.v4-tr p b { color: var(--cream); font-size: 12px; }
+.v4-prog { display: inline-block; padding: 0 5px; border-radius: 4px; font-weight: 800; color: var(--ink); background: #a8e88a; }
+.v4-wait { margin: 4px 0 0; font-size: 12px; font-weight: 800; color: #ffd76a; }
+.v4-none { margin: 4px 0 0; font-size: 12px; color: var(--cream-muted); }
+.v4-strip { position: absolute; left: 240px; top: 732px; width: 1380px; height: 80px; display: flex; gap: 12px; }
+.v4-strip > div { padding: 3px 10px; border-radius: 10px; border: 2px solid var(--brass-mid); background: var(--panel); }
+.v4-strip .v4-label { font-size: 12px; line-height: 1.2; }
+.v4-mart { flex: 0 0 690px; }
+.v4-mrow, .v4-brow { display: flex; gap: 8px; margin-top: 3px; }
+.v4-mitem { position: relative; width: 216px; height: 52px; display: flex; align-items: center; gap: 6px; cursor: help; }
+.v4-mitem i { flex-shrink: 0; width: 38px; height: 50px; border-radius: 5px; background: #2a1a0c center / cover; border: 1px solid var(--brass-mid); }
+.v4-mitem p { flex: 1; min-width: 0; margin: 0; font-size: 12px; line-height: 1.25; color: var(--cream-muted); white-space: nowrap; overflow: hidden; }
+.v4-mitem p b { color: var(--cream); font-size: 13px; }
+.v4-mitem button { flex-shrink: 0; cursor: pointer; padding: 3px 10px; border-radius: 7px; font-family: var(--font-display); font-weight: 800; font-size: 14px; color: var(--ink); background: linear-gradient(#ffe89a, #d8a53a); border: 1px solid var(--brass-dark); }
+.v4-mitem button:disabled { opacity: 0.4; cursor: help; }
+.v4-mitem.sold p { color: var(--cream-muted); font-style: italic; }
+.v4-bag { flex: 1; }
+.v4-bslot { flex-shrink: 0; width: 38px; height: 50px; border-radius: 5px; border: 1.5px dashed rgba(240, 205, 150, 0.3); background: rgba(20, 10, 4, 0.4) center / cover; }
+.v4-bslot.full { border: 1.5px solid var(--brass-mid); cursor: help; }
+.v4-bslot.usable { cursor: pointer; border-color: #ffe08a; box-shadow: 0 0 10px 3px rgba(255, 215, 110, 0.7); }
+.v4-bag.opp .v4-bslot { width: 30px; height: 40px; }
+.v4-cost.dollar { min-width: 34px; color: var(--ink); background: radial-gradient(circle at 35% 30%, #fff2b0, #d8a53a); }
+.k-item { border-color: #d8a53a; }
+.k-item .v4-htext, .k-trainer .v4-htext { bottom: 6px; }
+.k-trainer { border-color: #5ad0a0; }
+.v4-mon.partner { border-color: #ffd76a; box-shadow: 0 0 14px 4px rgba(255, 215, 110, 0.55), 0 8px 18px rgba(0, 0, 0, 0.6); }
+.v4-strat.held { background: rgba(120, 90, 20, 0.92); border: 1px solid #ffd76a; }
+/* F4: the hand's box stops above the PokéMart strip; only the cards take clicks. */
+.v4-hand { height: 262px; pointer-events: none; }
+.v4-slot { pointer-events: auto; }

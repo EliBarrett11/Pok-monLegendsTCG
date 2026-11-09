@@ -136,3 +136,60 @@ Decisions made where `docs/v4-foundation-spec.md` (and its section 16) doesn't g
    - It judges a move as if the player lets it happen.
    - It values a pending Strat as 70% resolved.
    - It Releases its least useful cards, or a card that meets the Favour when it can.
+
+## F4: Items and Trainers
+
+1. **PokéDollars ✱:**
+   - +$1 at each Breakfast, including Round 1.
+   - When a Pokémon is defeated, its opponent gains its Energy cost at its Level, at least $1, whatever caused the defeat. A Partner counts as costing 3.
+   - PokéDollars carry between Rounds. They are shown on each Player Character.
+2. **Purchase Item ✱:**
+   - A Battle Phase action that uses the turn. It is not eligible for React.
+   - You buy one Item from your hand or the PokéMart, then use it at once (choosing a target) or store it in your Inventory Bag (6 spaces, as in v1).
+   - There's no v1-style "In Delivery" wait: a stored Item can be used from your next turn.
+   - A sold PokéMart slot stays empty until the next Breakfast.
+   - An unbought Item in hand is discarded at Supper like any card. Bag Items stay through Supper.
+3. **Items ✱:**
+   - Every Item targets one of your Pokémon in play.
+   - **Held:** it attaches, one Held Item per Pokémon, and gives its bonus while held. It is lost when that Pokémon is defeated.
+   - **Consumed:** it resolves, then leaves play.
+   - Used Consumed Items and lost Held Items go to the PokéMart's pool, including copies that came from a deck (as in v1). So the pool can hold more than one copy of an Item.
+4. **The six Items ✱:** placeholder values. Potion, Charcoal and Choice Band are in the demo deck; Oran Berry, Mystic Water and Leftovers are only in the PokéMart.
+
+   | Item | Price | Type | Effect |
+   |---|---|---|---|
+   | Potion | $2 | Consumed | heal 3 |
+   | Oran Berry | $1 | Consumed | heal 2 |
+   | Choice Band | $2 | Consumed | +2 Attack until Supper |
+   | Charcoal | $2 | Held | +1 Attack |
+   | Mystic Water | $2 | Held | +2 Strength |
+   | Leftovers | $3 | Held | heal 1 at each Breakfast |
+
+5. **The PokéMart:**
+   - One shared pool with one copy of each of the six Items, separate from the decks.
+   - At each Breakfast, including Round 1, unsold Items go back to the pool and 3 random Items from the pool go on sale.
+6. **Breakfast order (added):** after Exhaust and Energy, $1 is added and Spent Pokémon become Active. Then heals happen (Location, Rain, Leftovers), cards take their Level, the draw happens, the PokéMart refreshes, and waiting Partners arrive.
+7. **Trainer Objective ✱:**
+   - A Battle Phase action costing 1 Energy. The Trainer goes to your Trainer area beside your Player Character.
+   - It counts only what happens after it's played. It stays until completed, with no limit on how many you have.
+   - **On completion:**
+     - The Partner arrives in your first empty space (leftmost), Spent, as a summoned snapshot.
+     - Its On Summon resolves.
+     - You gain +2 Recognition (`perObjective` in `v4/src/rules.js`, a starting value).
+     - The Trainer card goes to your Discard Pile.
+   - If no space is free, the Partner waits. It arrives as soon as a space frees, checked after every action and at Breakfast.
+   - A defeated Partner goes to the Released Pile; it isn't a deck card.
+8. **Trainer Command:** a separate Battle Phase action with its own Energy cost. It resolves at once, then the card is discarded. It isn't eligible for React.
+9. **The two Trainers ✱:** placeholder values.
+
+   | Trainer | Objective (1 Energy) | Partner | Partner On Summon | Trainer Command |
+   |---|---|---|---|---|
+   | Misty | Defeat 2 enemy Pokémon | Starmie (Water, Special, Swift; Attack 4, Strength 6) | draw 2 cards | 1 Energy: draw 2 cards |
+   | Blaine | Dominate a Location at Supper | Ninetales (Fire, Special, Steady; Attack 5, Strength 6) | 1 damage to each enemy Pokémon | 2 Energy: 1 damage to each enemy Pokémon |
+
+10. **The demo deck:** 36 cards, the same list for both players: 20 Pokémon, 4 Locations, 4 Command Cards, 3 Supporters, 3 Items and 2 Trainers.
+11. **AI values:**
+    - PokéDollars count a little.
+    - Bag Items count by price.
+    - A Trainer in play counts by its progress.
+    - An unbought Item in hand counts less than other cards, because it would be discarded at Supper.

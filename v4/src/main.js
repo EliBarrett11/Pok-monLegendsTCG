@@ -2,12 +2,12 @@
 // Pokémon Legends v4 — entry point (F1): you against the AI, on a fixed 1920×1080 stage scaled
 // to fit the window. ?seed=123 replays the same shuffle and AI choices; ?autoplay lets the AI play
 // both sides; ?debug exposes window.__v4 for the layout check (v4/tools/layout.mjs).
-import { createGame, applyAction, actor } from './engine/game.js?v=202611091159';
-import { chooseAction } from './ai/ai.js?v=202611091159';
-import { renderMatch } from './ui/board.js?v=202611091159';
-import { pokemonAt, cardAtRound } from './engine/cards.js?v=202611091159';
+import { createGame, applyAction, actor } from './engine/game.js?v=202611091219';
+import { chooseAction } from './ai/ai.js?v=202611091219';
+import { renderMatch } from './ui/board.js?v=202611091219';
+import { pokemonAt, cardAtRound } from './engine/cards.js?v=202611091219';
 
-export const BUILD = 'F3 — v4 foundation: Command Cards and Supporters';
+export const BUILD = 'F4 — v4 foundation: Items and Trainers';
 
 const STAGE = { width: 1920, height: 1080 };
 const stage = document.getElementById('stage');

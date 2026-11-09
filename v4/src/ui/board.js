@@ -7,14 +7,18 @@
 // the log); the hand. Board Pokémon show art, Level, Attack, the Speed icon and Strength (full
 // details on hover). F3: Command Cards (the mode chooser, targets, the React window with the
 // committed action, pending Strats on their targets) and Supporters (the Release and Favour screen).
-import { RULES } from '../rules.js?v=202611091159';
+// F4: PokéDollars on each Player Character, the Trainer areas (objectives, progress, waiting
+// Partners), the strip under the battlefield (the PokéMart and both Inventory Bags), Item and
+// Trainer cards, Held Items and Partners on the battlefield.
+import { RULES } from '../rules.js?v=202611091219';
 import {
   isReady, legalTargets, attackers, summonable, emptySpaces, whyNot, passEndsPhase, passSpends, availableExert, energyLeft,
   playerGuard, guardOf, placeable, locationStarts, weatherTotals, activeBrackets, dominantOf, strengthIn, locationAt,
   actor, commandTargets, playableCommands, playableSupporters, playReason, favourMet,
-} from '../engine/game.js?v=202611091159';
-import { WEATHER_BRACKETS, MODES, MODE_NAMES, FAVOURS, modeText, effectText } from '../engine/cards.js?v=202611091159';
-import { icon, speedIcon } from './icons.js?v=202611091159';
+  itemTargets, buyReason, buyableFromHand, buyableFromMart, usableFromBag, playableTrainers, trainerReason,
+} from '../engine/game.js?v=202611091219';
+import { WEATHER_BRACKETS, MODES, MODE_NAMES, FAVOURS, modeText, effectText, BAG_SIZE } from '../engine/cards.js?v=202611091219';
+import { icon, speedIcon } from './icons.js?v=202611091219';
 
 const ASSETS = '../assets';
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
@@ -32,7 +36,12 @@ const shortMode = (c, m) => { const { op, amount } = c.modes[m]; return { damage
 // A Supporter effect, short (for the card face; the full text is on hover).
 const shortEffect = ({ op, amount }) => ({ healAll: `Heal yours ${amount}`, search: `Search ${amount} Pokémon`, strengthAll: `+${amount} Strength to yours` }[op]);
 const shortFavour = { water: 'Water', location: 'Location', bigPokemon: 'Lv 4+ Pokémon' };
-const detail = (c) => (isCmd(c) ? cmdDetail(c) : isSup(c) ? supDetail(c) : isLoc(c) ? locDetail(c) : `${c.name} · Level ${c.level} (${c.series}) · ${c.type} · ${c.speed} · ${c.attackType} · Attack ${c.attack} · Strength ${c.currentStrength ?? c.strength}/${c.strength}${c.strengthType !== 'Hitpoints' ? ` · ${c.strengthType} guard` : ''} · cost ${c.cost}${c.text ? ` · ${c.text}` : ''}${bonusText(c) ? ` · includes ${bonusText(c)} from Location/Weather` : ''}`);
+const isItem = (c) => c?.cardType === 'Item';
+const isTrainer = (c) => c?.cardType === 'Trainer';
+const itemDetail = (c) => `${c.name} · Item · ${c.itemType} · $${c.price} · ${c.text}${c.itemType === 'Held' ? ' (one Held Item per Pokémon; lost when it is defeated)' : ' (then it goes to the PokéMart)'}`;
+const partnerText = (pc) => `${pc.name} (${pc.type} · ${pc.attackType} · ${pc.speed} · Attack ${pc.attack} · Strength ${pc.strength}${pc.text ? ` · ${pc.text}` : ''})`;
+const trainerDetail = (c) => `${c.name} · Trainer · Objective (${c.objectiveCost} Energy): ${c.objective.text}; it stays in your Trainer area until done; then its Partner ${partnerText(c.partner)} arrives and you earn +${RULES.perObjective} Recognition · or Trainer Command (${c.command.cost} Energy): ${c.command.text}, then discarded`;
+const detail = (c) => (isItem(c) ? itemDetail(c) : isTrainer(c) ? trainerDetail(c) : isCmd(c) ? cmdDetail(c) : isSup(c) ? supDetail(c) : isLoc(c) ? locDetail(c) : `${c.name} · Level ${c.level} (${c.series}) · ${c.type} · ${c.speed} · ${c.attackType} · Attack ${c.attack} · Strength ${c.currentStrength ?? c.strength}/${c.strength}${c.strengthType !== 'Hitpoints' ? ` · ${c.strengthType} guard` : ''} · cost ${c.cost}${c.text ? ` · ${c.text}` : ''}${c.held ? ` · holds ${c.held.name} (${c.held.text})` : ''}${c.partner ? ` · ${c.trainer}'s Partner` : ''}${bonusText(c) ? ` · includes ${bonusText(c)} from Location/Weather` : ''}`);
 const stats = (c, str = c.currentStrength ?? c.strength) => `<div class="v4-stats"><span class="atk">${icon('attack')}${c.attack}</span>${speedIcon(c.speed)}<span class="str">${icon('strength')}${str}</span></div>`;
 const guardTag = (c) => (c.strengthType !== 'Hitpoints' ? `<span class="v4-guard">${icon('guard')}${c.strengthType === 'Defence' ? 'Def' : 'Sp.Def'}</span>` : '');
 
@@ -40,14 +49,31 @@ function boardCard(s, c, who, space, cls) {
   const ready = s.phase === 'battle' && isReady(s, c);
   // Pending Strats aimed at this Pokémon (both players').
   const strats = s.strats.filter((x) => x.target.who === who && x.target.space === space && x.target.uid === c.uid);
-  const badges = strats.map((x) => `<span class="v4-strat ${x.owner}" title="${esc(`${x.owner === 'player' ? 'Your' : 'The Opponent\'s'} Strat: ${x.card.name} (${modeText(x.card, 'strat')}), after ${x.owner === 'player' ? 'the Opponent\'s' : 'your'} next turn`)}">⏳ ${esc(x.card.name)}</span>`).join('');
-  return `<div class="v4-card v4-mon${ready ? ' ready' : ''}${c.spent ? ' spent' : ''}${c.currentStrength < c.strength ? ' hurt' : ''} ${cls}" data-who="${who}" data-space="${space}" title="${esc(`${detail(c)}${ready ? ' · Ready' : c.spent ? ' · Spent' : ' · Active'}`)}">
+  const held = c.held ? `<span class="v4-strat held" title="${esc(`Holds ${c.held.name}: ${c.held.text}`)}">◆ ${esc(c.held.name)}</span>` : '';
+  const badges = held + strats.map((x) => `<span class="v4-strat ${x.owner}" title="${esc(`${x.owner === 'player' ? 'Your' : 'The Opponent\'s'} Strat: ${x.card.name} (${modeText(x.card, 'strat')}), after ${x.owner === 'player' ? 'the Opponent\'s' : 'your'} next turn`)}">⏳ ${esc(x.card.name)}</span>`).join('');
+  return `<div class="v4-card v4-mon${c.partner ? ' partner' : ''}${ready ? ' ready' : ''}${c.spent ? ' spent' : ''}${c.currentStrength < c.strength ? ' hurt' : ''} ${cls}" data-who="${who}" data-space="${space}" title="${esc(`${detail(c)}${ready ? ' · Ready' : c.spent ? ' · Spent' : ' · Active'}`)}">
     <div class="v4-art" style="background-image: url('${art(c)}')"></div>
-    <span class="v4-lv">Lv ${c.level}</span>${guardTag(c)}${stats(c)}${badges ? `<div class="v4-strats">${badges}</div>` : ''}
+    <span class="v4-lv">${c.partner ? '★ Partner' : `Lv ${c.level}`}</span>${guardTag(c)}${stats(c)}${badges ? `<div class="v4-strats">${badges}</div>` : ''}
   </div>`;
 }
 
 function handCard(s, c, cls, tip) {
+  if (isItem(c)) {
+    return `<div class="v4-card v4-hcard k-item ${cls}" data-uid="${c.uid}" title="${esc(tip)}">
+    <div class="v4-art" style="background-image: url('${art(c)}')"></div>
+    <span class="v4-cost dollar">$${c.price}</span>
+    <div class="v4-htext"><b class="v4-hname">${esc(c.name)}</b><small class="v4-hline">Item · ${c.itemType}</small>
+      <div class="v4-hbody"><p class="ok">${esc(c.text)}</p>${c.retained ? '<p class="ret">Retained</p>' : ''}</div></div>
+  </div>`;
+  }
+  if (isTrainer(c)) {
+    return `<div class="v4-card v4-hcard k-trainer ${cls}" data-uid="${c.uid}" title="${esc(tip)}">
+    <div class="v4-art" style="background-image: url('${art(c)}')"></div>
+    <span class="v4-cost">${c.objectiveCost}</span>
+    <div class="v4-htext"><b class="v4-hname">${esc(c.name)}</b><small class="v4-hline">Trainer · Partner ${esc(c.partner.name)}</small>
+      <div class="v4-hbody v4-modes"><p><b>Obj. ${c.objectiveCost}</b> ${esc(c.objective.text)}</p><p><b>Cmd ${c.command.cost}</b> ${esc(c.command.text)}</p>${c.retained ? '<p class="ret">Retained</p>' : ''}</div></div>
+  </div>`;
+  }
   if (isCmd(c)) {
     return `<div class="v4-card v4-hcard k-command ${cls}" data-uid="${c.uid}" title="${esc(tip)}">
     <div class="v4-art" style="background-image: url('${art(c)}')"></div>
@@ -104,6 +130,17 @@ export function promptFor(s, ui, ctx = {}) {
     const m = ui.select.mode;
     return { tag: `${c.name} · ${MODE_NAMES[m]} · ${c.modes[m].cost} Energy`, text: `${esc(modeText(c, m))}: choose <b>a glowing target</b>.${m === 'strat' ? ' It resolves after the Opponent\'s next turn (or at Supper); if the target is gone by then, it fizzles.' : ' The Opponent may React first.'}`, gold: true, buttons: [{ action: 'cancel', label: 'Cancel' }] };
   }
+  if (ui.select?.kind === 'buy') {
+    const c = selItem(s, ui.select);
+    const use = buyReason(s, 'player', c, 'use');
+    const store = buyReason(s, 'player', c, 'store');
+    return { tag: `${c.name} · $${c.price} · ${c.itemType}`, text: `PokéMart: ${esc(c.text)}. Buy it, then use it now or store it in your Bag.`, gold: true,
+      buttons: [{ action: 'buy-use', label: 'Buy & use now', disabled: !!use, tip: use }, { action: 'buy-store', label: 'Buy & store in Bag', disabled: !!store, tip: store }, { action: 'cancel', label: 'Cancel' }] };
+  }
+  if (ui.select?.kind === 'item') {
+    const c = selItem(s, ui.select);
+    return { tag: `${c.name} · ${ui.select.from === 'bag' ? 'from your Bag' : `$${c.price}`}`, text: `${esc(c.text)}: choose <b>a glowing Pokémon</b> of yours.`, gold: true, buttons: [{ action: 'cancel', label: 'Cancel' }] };
+  }
   if (ui.select?.kind === 'supporter') {
     const c = me.hand.find((x) => x.uid === ui.select.uid);
     return { tag: `${c.name} · Release ${c.release}`, text: 'Choose the cards to Release below.', gold: true, buttons: [{ action: 'cancel', label: 'Cancel' }] };
@@ -111,6 +148,18 @@ export function promptFor(s, ui, ctx = {}) {
   if (ui.select?.kind === 'hand') {
     const c = me.hand.find((x) => x.uid === ui.select.uid);
     const retainBtn = { action: 'retain', label: 'Retain (1 Energy)', disabled: !!whyNot(s, 'player', 'retain', c), tip: whyNot(s, 'player', 'retain', c) };
+    if (isItem(c)) {
+      const use = buyReason(s, 'player', c, 'use');
+      const store = buyReason(s, 'player', c, 'store');
+      return { tag: `${c.name} · $${c.price} · ${c.itemType}`, text: `${esc(c.text)}. Buy it with PokéDollars, then use it now or store it in your Bag; unbought, it's discarded at Supper.`, gold: true,
+        buttons: [{ action: 'buy-use', label: 'Buy & use now', disabled: !!use, tip: use }, { action: 'buy-store', label: 'Buy & store', disabled: !!store, tip: store }, retainBtn, { action: 'cancel', label: 'Cancel' }] };
+    }
+    if (isTrainer(c)) {
+      const o = trainerReason(s, 'player', c, 'objective');
+      const k = trainerReason(s, 'player', c, 'command');
+      return { tag: `${c.name} · Trainer`, text: `<b>Objective</b>: ${esc(c.objective.text)} → ${esc(c.partner.name)} arrives, +${RULES.perObjective} Recognition. <b>Command</b>: ${esc(c.command.text)}.`, gold: true,
+        buttons: [{ action: 'tr-objective', label: `Objective · ${c.objectiveCost} Energy`, disabled: !!o, tip: o }, { action: 'tr-command', label: `Command · ${c.command.cost} Energy`, disabled: !!k, tip: k }, retainBtn, { action: 'cancel', label: 'Cancel' }] };
+    }
     if (isCmd(c)) {
       const modeBtn = (m) => { const why = whyNot(s, 'player', 'command', c, m); return { action: `mode-${m}`, label: `${MODE_NAMES[m]} · ${c.modes[m].cost} Energy`, disabled: !!why, tip: why ?? modeText(c, m) }; };
       return { tag: `${c.name} · Command`, text: '<b>Adapt</b> resolves now; <b>Strat</b> after the Opponent\'s next turn. <b>React</b> only in reply to their attack, summon or Adapt.', gold: true,
@@ -144,6 +193,9 @@ export function promptFor(s, ui, ctx = {}) {
     if (placeable(s, 'player').length) opts.push('place a <b>Location</b>');
     if (playableCommands(s, 'player', 'adapt').length || playableCommands(s, 'player', 'strat').length) opts.push('play a <b>Command</b>');
     if (playableSupporters(s, 'player').length) opts.push('a <b>Supporter</b>');
+    if (buyableFromHand(s, 'player').length || buyableFromMart(s, 'player').length) opts.push('buy an <b>Item</b>');
+    if (usableFromBag(s, 'player').length) opts.push('use a <b>Bag</b> Item');
+    if (playableTrainers(s, 'player', 'objective').length || playableTrainers(s, 'player', 'command').length) opts.push('a <b>Trainer</b>');
     if (me.hand.some((c) => !c.retained) && energyLeft(me) >= RULES.retainCost) opts.push('<b>Retain</b> a card');
     const pass = passEndsPhase(s) ? '<b>Pass</b> to end the Battle Phase' : `<b>Pass</b> for +1 Base Energy${passSpends(s, 'player').length ? ' (your fastest Pokémon become Spent)' : ''}`;
     return { tag: `Round ${s.round} · your turn`, text: opts.length ? `${opts.join(', ').replace(/^./, (x) => x.toUpperCase())} — or ${pass}.` : `Only ${pass}: nothing else is possible now (see Actions).` };
@@ -156,10 +208,48 @@ function character(s, who, ui) {
   const p = s.players[who];
   const target = ui.select?.kind === 'attack' && who === 'ai' && legalTargets(s, 'player', ui.select.from).some((t) => t.kind === 'player');
   return `<button class="v4-pc ${who}${target ? ' target' : ''}" data-pc="${who}" title="${esc(`${who === 'player' ? 'Your' : 'The Opponent\'s'} Player Character: no Health. Damage to it gives the attacker's player 1 Recognition per point. ${RULES.win} Recognition wins.`)}">
+    <em class="v4-dollars" title="PokéDollars: $${RULES.dollarsPerRound} each Breakfast, more for each enemy Pokémon defeated; kept between Rounds">$${p.dollars}</em>
     <small>${who === 'player' ? 'You' : 'Opponent'}</small><b>${p.recognition}</b><span>Recognition of ${RULES.win}</span>
     <div class="v4-bar"><i style="width: ${Math.min(100, p.recognition)}%"></i></div>
   </button>`;
 }
+
+// The Trainer area beside each Player Character: Trainers working on their Objectives, and Partners
+// waiting for a free space.
+function trainerArea(s, who) {
+  const p = s.players[who];
+  const rows = p.trainers.map((t) => `<div class="v4-tr" title="${esc(`${t.name}: ${t.objective.text} (${t.progress}/${t.objective.need}). Then ${partnerText(t.card.partner)} arrives, +${RULES.perObjective} Recognition.`)}">
+      <i style="background-image: url('${art(t.card)}')"></i><p><b>${esc(t.name)}</b> → ${esc(t.card.partner.name)}<br>${esc(t.objective.text)} <span class="v4-prog">${t.progress}/${t.objective.need}</span></p></div>`);
+  const waits = p.waiting.map((c) => `<p class="v4-wait">★ ${esc(c.name)} waits for a free space</p>`);
+  return `<section class="v4-panel v4-trainers ${who}"><div class="v4-label">Trainers</div>${rows.join('')}${waits.join('')}${rows.length || waits.length ? '' : '<p class="v4-none">No Trainer in play</p>'}</section>`;
+}
+
+// The strip under the battlefield: the PokéMart (3 Items with prices and Buy) and both Inventory Bags.
+function shopStrip(s, ui) {
+  const me = s.players.player;
+  const myTurn = s.phase === 'battle' && s.turn === 'player' && !ui.locked && !s.reactWindow;
+  const mart = s.mart.onSale.map((c, slot) => {
+    if (!c) return '<div class="v4-mitem sold"><p>Sold</p></div>';
+    const why = !myTurn ? (s.phase === 'battle' ? 'Not your turn' : 'Not the Battle Phase') : buyReason(s, 'player', c);
+    return `<div class="v4-mitem" title="${esc(itemDetail(c))}"><i style="background-image: url('${art(c)}')"></i><p><b>${esc(c.name)}</b><br>$${c.price} · ${c.itemType}</p>
+      <button data-buy="${slot}"${why ? ` disabled title="${esc(why)}"` : ''}>Buy</button></div>`;
+  }).join('');
+  const bag = (who) => {
+    const p = s.players[who];
+    return Array.from({ length: BAG_SIZE }, (_, i) => {
+      const c = p.bag[i];
+      if (!c) return '<span class="v4-bslot"></span>';
+      const ok = who === 'player' && myTurn && !ui.select && itemTargets(s, 'player', c).length;
+      return `<span class="v4-bslot full${ok ? ' usable' : ''}"${who === 'player' ? ` data-bag="${c.uid}"` : ''} style="background-image: url('${art(c)}')" title="${esc(`${itemDetail(c)}${who === 'player' && !ok && myTurn ? ` · ${whyNot(s, 'player', 'useItem', c) ?? ''}` : ''}`)}"></span>`;
+    }).join('');
+  };
+  return `<section class="v4-strip">
+    <div class="v4-mart"><div class="v4-label">PokéMart</div><div class="v4-mrow">${mart}</div></div>
+    <div class="v4-bag"><div class="v4-label">Your Bag ${me.bag.length}/${BAG_SIZE}</div><div class="v4-brow">${bag('player')}</div></div>
+    <div class="v4-bag opp"><div class="v4-label">Opponent's Bag ${s.players.ai.bag.length}/${BAG_SIZE}</div><div class="v4-brow">${bag('ai')}</div></div>
+  </section>`;
+}
+const selItem = (s, sel) => (sel.from === 'mart' ? s.mart.onSale[sel.slot] : sel.from === 'bag' ? s.players.player.bag.find((c) => c.uid === sel.uid) : s.players.player.hand.find((c) => c.uid === sel.uid));
 
 // --- The battlefield -------------------------------------------------------------------------------------------
 function battlefield(s, ui) {
@@ -167,6 +257,7 @@ function battlefield(s, ui) {
   const selCard = ui.select?.kind === 'hand' ? s.players.player.hand.find((c) => c.uid === ui.select.uid) : null;
   if (selCard && (isLoc(selCard) || selCard.cardType === 'Pokémon') && !whyNot(s, 'player', 'summon', selCard)) for (const i of isLoc(selCard) ? locationStarts(s, selCard) : emptySpaces(s, 'player')) targets.add(`player:${i}`);
   if (ui.select?.kind === 'attack') for (const t of legalTargets(s, 'player', ui.select.from)) if (t.kind === 'pokemon') targets.add(`ai:${t.space}`);
+  if (ui.select?.kind === 'item') for (const t of itemTargets(s, 'player', selItem(s, ui.select))) targets.add(`player:${t.space}`);
   if (['command', 'react'].includes(ui.select?.kind)) for (const t of commandTargets(s, 'player', s.players.player.hand.find((c) => c.uid === ui.select.uid))) targets.add(`${t.who}:${t.space}`);
   // The committed action during a React window.
   const pend = s.reactWindow?.pending;
@@ -235,6 +326,10 @@ function side(s, ui, ctx) {
     ['Place Location', reason() ?? (placeable(s, 'player').length ? null : !me.hand.some(isLoc) ? 'No Location in hand' : 'No room: not enough adjacent free lanes')],
     ['Command', reason() ?? (playableCommands(s, 'player', 'adapt').length || playableCommands(s, 'player', 'strat').length ? null : !me.hand.some(isCmd) ? 'No Command Card in hand' : playReason(s, 'player', me.hand.find(isCmd)))],
     ['Supporter', reason() ?? (playableSupporters(s, 'player').length ? null : !me.hand.some(isSup) ? 'No Supporter in hand' : playReason(s, 'player', me.hand.find(isSup)))],
+    ['Purchase Item', reason() ?? (buyableFromHand(s, 'player').length || buyableFromMart(s, 'player').length ? null : !me.hand.some(isItem) && !s.mart.onSale.some(Boolean) ? 'No Item in hand or the PokéMart' : `No Item you can buy and use or store ($${me.dollars})`)],
+    ['Inventory Item', reason() ?? (usableFromBag(s, 'player').length ? null : !me.bag.length ? 'Your Bag is empty' : whyNot(s, 'player', 'useItem', me.bag[0]))],
+    ['Trainer Objective', reason() ?? (playableTrainers(s, 'player', 'objective').length ? null : !me.hand.some(isTrainer) ? 'No Trainer in hand' : trainerReason(s, 'player', me.hand.find(isTrainer), 'objective'))],
+    ['Trainer Command', reason() ?? (playableTrainers(s, 'player', 'command').length ? null : !me.hand.some(isTrainer) ? 'No Trainer in hand' : trainerReason(s, 'player', me.hand.find(isTrainer), 'command'))],
     ['Attack', reason() ?? whyNot(s, 'player', 'attack')],
     ['Retain', reason() ?? (!me.hand.some((c) => !c.retained) ? 'No card to Retain' : energyLeft(me) < RULES.retainCost ? 'Needs 1 Energy' : null)],
     ['Pass', reason()],
@@ -327,8 +422,9 @@ export function renderMatch(root, s, ui, ctx) {
   const p = promptFor(s, ui, ctx);
   root.innerHTML = `<div class="v4-table${ui.select ? ' choosing' : ''}">
     <div class="v4-prompt${p.gold ? ' gold' : ''}"><span class="v4-tag">${esc(p.tag)}</span><span class="v4-ptext">${p.text}</span>${(p.buttons ?? []).map((b) => `<button data-action="${b.action}"${b.disabled ? ' disabled' : ''}${b.tip ? ` title="${esc(b.tip)}"` : ''}>${esc(b.label)}</button>`).join('')}</div>
-    ${character(s, 'ai', ui)}${character(s, 'player', ui)}
+    ${character(s, 'ai', ui)}${character(s, 'player', ui)}${trainerArea(s, 'ai')}${trainerArea(s, 'player')}
     ${battlefield(s, ui)}
+    ${shopStrip(s, ui)}
     ${side(s, ui, ctx)}
     ${hand(s, ui)}
     ${dialogs(s, ui)}
@@ -353,6 +449,13 @@ function wire(root, s, ui, ctx) {
   on('[data-action="pass"]', () => ctx.act({ type: 'pass', who: 'player' }));
   on('.v4-hand .v4-card', (el) => { ui.select = ui.select?.uid === el.dataset.uid ? null : { kind: 'hand', uid: el.dataset.uid }; ctx.redraw(); });
   on('[data-action="retain"]', () => ctx.act({ type: 'retain', who: 'player', uid: ui.select.uid }));
+  on('[data-buy]', (el) => { ui.select = { kind: 'buy', from: 'mart', slot: Number(el.dataset.buy) }; ctx.redraw(); });
+  on('[data-bag].usable', (el) => { ui.select = { kind: 'item', from: 'bag', uid: el.dataset.bag }; ctx.redraw(); });
+  const src = () => (ui.select.kind === 'buy' ? { from: 'mart', slot: ui.select.slot } : { from: 'hand', uid: ui.select.uid });
+  on('[data-action="buy-use"]', () => { ui.select = { kind: 'item', ...src() }; ctx.redraw(); });
+  on('[data-action="buy-store"]', () => ctx.act({ type: 'buyItem', who: 'player', ...src(), then: 'store' }));
+  on('[data-action="tr-objective"]', () => ctx.act({ type: 'trainerObjective', who: 'player', uid: ui.select.uid }));
+  on('[data-action="tr-command"]', () => ctx.act({ type: 'trainerCommand', who: 'player', uid: ui.select.uid }));
   on('[data-action="mode-adapt"]', () => { ui.select = { kind: 'command', uid: ui.select.uid, mode: 'adapt' }; ctx.redraw(); });
   on('[data-action="mode-strat"]', () => { ui.select = { kind: 'command', uid: ui.select.uid, mode: 'strat' }; ctx.redraw(); });
   on('[data-action="play-supporter"]', () => { ui.select = { kind: 'supporter', uid: ui.select.uid, release: [] }; ctx.redraw(); });
@@ -368,6 +471,10 @@ function wire(root, s, ui, ctx) {
     const who = el.dataset.who;
     const space = Number(el.dataset.space);
     const k = ui.select?.kind;
+    if (k === 'item') {
+      if (ui.select.from === 'bag') return ctx.act({ type: 'useItem', who: 'player', uid: ui.select.uid, target: { space } });
+      return ctx.act({ type: 'buyItem', who: 'player', from: ui.select.from, uid: ui.select.uid, slot: ui.select.slot, then: 'use', target: { space } });
+    }
     if (k === 'command') return ctx.act({ type: 'command', who: 'player', uid: ui.select.uid, mode: ui.select.mode, target: { who, space } });
     if (k === 'attack') return ctx.act({ type: 'attack', who: 'player', from: ui.select.from, target: { kind: 'pokemon', space } });
     const c = s.players.player.hand.find((x) => x.uid === ui.select.uid);

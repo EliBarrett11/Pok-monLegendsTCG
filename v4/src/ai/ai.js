@@ -1,10 +1,12 @@
 // v4's simple AI (F1; F2 adds Locations and dominance; F3 Command Cards in all three modes,
-// including Reacting to the player, and Supporters): a greedy one-move AI like v2's and v3's (adapted from v3/src/ai/ai.js).
+// including Reacting to the player, and Supporters; F4 Items (buy from hand or the PokéMart, use
+// now or store, use from the Bag) and Trainers (Objective or Trainer Command)): a greedy one-move AI like v2's and v3's (adapted from v3/src/ai/ai.js).
 // It plays only through the engine's actions: it tries each legal move on a copy of the state,
 // scores the result, and plays the best (Pass when nothing beats it).
-import { RULES } from '../rules.js?v=202611091159';
+import { RULES } from '../rules.js?v=202611091219';
 import { applyAction, legalActions, opponentOf, summonable, emptySpaces, attackers, legalTargets, retainable, pokemonOf, isReady, energyLeft, placeable, locationStarts, dominantOf, summonCost,
-  playableCommands, commandTargets, reactOptions, playableSupporters, favourMet, resolveStrats } from '../engine/game.js?v=202611091159';
+  playableCommands, commandTargets, reactOptions, playableSupporters, favourMet, resolveStrats,
+  buyableFromHand, buyableFromMart, usableFromBag, itemTargets, buyReason, playableTrainers } from '../engine/game.js?v=202611091219';
 
 // Pending Strats count at a discount: the state as if they had resolved, blended with as it is.
 export function evaluate(s, who) {
@@ -19,7 +21,12 @@ function evaluateNow(s, who) {
   if (s.phase === 'gameOver') return s.winner === who ? 1e6 : -1e6;
   const side = (w) => {
     const p = s.players[w];
-    let v = p.recognition * 1.6 + p.hand.length * 0.5;
+    // Cards in hand (an unbought Item counts less: it's discarded at Supper unless bought).
+    let v = p.recognition * 1.6 + p.hand.reduce((n, c) => n + (c.cardType === 'Item' ? 0.2 : 0.5), 0);
+    // F4: PokéDollars, Items in the Bag, Trainers working on their Objectives, waiting Partners.
+    v += p.dollars * 0.3 + p.bag.reduce((n, c) => n + 0.25 + c.price * 0.4, 0);
+    for (const tr of p.trainers) v += 2 + (2 * tr.progress) / tr.objective.need;
+    v += p.waiting.length * 3;
     for (const { card } of pokemonOf(s, w)) v += card.attack * 0.9 + card.currentStrength * 0.45 + (isReady(s, card) ? 0.5 : 0);
     return v;
   };
@@ -74,6 +81,19 @@ export function moves(s, who) {
       for (const start of locationStarts(s, c)) out.push({ type: 'placeLocation', who, uid: c.uid, start });
     }
   }
+  // Items: buy from hand or the PokéMart (use now on each target, or store); use from the Bag.
+  if (legal.includes('buyItem')) {
+    const buys = [...dedupe(buyableFromHand(s, who)).map((c) => ({ item: c, src: { from: 'hand', uid: c.uid } })),
+      ...buyableFromMart(s, who).map((slot) => ({ item: s.mart.onSale[slot], src: { from: 'mart', slot } }))];
+    for (const { item, src } of buys) {
+      if (!buyReason(s, who, item, 'store')) out.push({ type: 'buyItem', who, ...src, then: 'store' });
+      if (!buyReason(s, who, item, 'use')) for (const target of itemTargets(s, who, item)) out.push({ type: 'buyItem', who, ...src, then: 'use', target });
+    }
+  }
+  if (legal.includes('useItem')) for (const c of dedupe(usableFromBag(s, who))) for (const target of itemTargets(s, who, c)) out.push({ type: 'useItem', who, uid: c.uid, target });
+  // Trainers: as an Objective, or as a Trainer Command.
+  if (legal.includes('trainerObjective')) for (const c of dedupe(playableTrainers(s, who, 'objective'))) out.push({ type: 'trainerObjective', who, uid: c.uid });
+  if (legal.includes('trainerCommand')) for (const c of dedupe(playableTrainers(s, who, 'command'))) out.push({ type: 'trainerCommand', who, uid: c.uid });
   if (legal.includes('attack')) for (const from of attackers(s, who)) for (const target of legalTargets(s, who, from)) out.push({ type: 'attack', who, from, target });
   // Retain: only the strongest card, and only when there's Energy to spare.
   if (legal.includes('retain') && energyLeft(p) > 1) {

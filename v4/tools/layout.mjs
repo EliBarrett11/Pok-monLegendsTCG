@@ -200,6 +200,35 @@ const SCENARIOS = {
     await to(p, 3);
     await v4(p, () => { const L = window.__v4; const uid = L.giveCard('brock'); L.set((s, ui) => { ui.select = { kind: 'supporter', uid, release: [s.players.player.hand[0].uid] }; }); });
   },
+  // F4: Items, the PokéMart and Bags, Trainer areas, a Partner, the buy and Trainer choosers.
+  items: async (p) => {
+    await to(p, 5);
+    await v4(p, () => {
+      const L = window.__v4;
+      L.giveCard('potion');
+      L.giveCard('misty');
+      L.set((s) => {
+        const mk = (id, name, price, itemType, text) => ({ id, name, cardType: 'Item', art: id, price, itemType, op: 'heal', amount: 1, text, uid: `bag-${id}-${Math.random()}` });
+        s.players.player.bag = [mk('leftovers', 'Leftovers', 3, 'Held', 'Held: heal 1 at each Breakfast'), mk('oran-berry', 'Oran Berry', 1, 'Consumed', 'Heal 2'), mk('charcoal', 'Charcoal', 2, 'Held', 'Held: +1 Attack')];
+        s.players.ai.bag = [mk('potion', 'Potion', 2, 'Consumed', 'Heal 3'), mk('mystic-water', 'Mystic Water', 2, 'Held', 'Held: +2 Strength')];
+        s.players.player.dollars = 4;
+        const tr = (who, id, name, partner, text, need, progress) => ({ uid: `tr-${id}`, name, card: { id, name, art: id, partner: { name: partner, type: 'Water', attackType: 'Special', speed: 'Swift', attack: 4, strength: 6, text: '' } }, objective: { kind: 'defeat', need, text }, progress });
+        s.players.player.trainers = [tr('player', 'misty', 'Misty', 'Starmie', 'Defeat 2 enemy Pokémon', 2, 1), tr('player', 'blaine', 'Blaine', 'Ninetales', 'Dominate a Location at Supper', 1, 0)];
+        s.players.ai.trainers = [tr('ai', 'blaine', 'Blaine', 'Ninetales', 'Dominate a Location at Supper', 1, 0)];
+        s.players.ai.waiting = [{ name: 'Starmie' }];
+        const sp = s.players.player.row.findIndex((c) => c);
+        if (sp >= 0) Object.assign(s.players.player.row[sp], { partner: true, trainer: 'Misty', held: { name: 'Charcoal', text: 'Held: +1 Attack' } });
+      });
+    });
+  },
+  'buy-item': async (p) => {
+    await to(p, 4);
+    await v4(p, () => window.__v4.set((s, ui) => { s.players.player.dollars = 9; ui.select = { kind: 'buy', from: 'mart', slot: 0 }; }));
+  },
+  trainer: async (p) => {
+    await to(p, 4);
+    await v4(p, () => { const L = window.__v4; const uid = L.giveCard('blaine'); L.set((s, ui) => { ui.select = { kind: 'hand', uid }; }); });
+  },
   'big-hand': async (p) => { await to(p, 6); await v4(p, () => { for (let i = 0; i < 6; i++) window.__v4.give('charmander', 7); }); },
 };
 

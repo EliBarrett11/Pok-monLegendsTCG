@@ -4,7 +4,7 @@
 //   forms: [{ name, art, from, speed? }] — the form from that Level up to the next form's Level.
 //   stats: { level: [Attack, Strength] } for every Level of the series.
 //   guard: 'Defence' | 'Special Defence' | null. ability: (level) → { text, onSummon } or null.
-import { SERIES_RANGE, levelFor, costFor } from '../rules.js?v=202611091159';
+import { SERIES_RANGE, levelFor, costFor } from '../rules.js?v=202611091219';
 
 const op = (name, amount) => ({ op: name, amount });
 const path = (spec) => ({ guard: null, ability: () => null, ...spec });
@@ -126,13 +126,50 @@ export function effectText({ op, amount }) {
   return op;
 }
 
+// --- Item Cards (F4, section 4E; the shape follows v1's Items): a PokéDollar price; Held (attaches
+// to one of your Pokémon in play, one Item each) or Consumed (resolves, then goes to the PokéMart).
+// Every Item targets one of your Pokémon.
+//   Consumed ops: 'heal' (N) · 'attackUp' (+N Attack until Supper)
+//   Held ops:     'attack' (+N Attack) · 'strength' (+N Strength) · 'healBreakfast' (heal N at Breakfast)
+const item = (id, name, price, itemType, op, amount, text) => ({ id, name, cardType: 'Item', art: id, price, itemType, op, amount, text });
+export const ITEMS = [
+  item('potion', 'Potion', 2, 'Consumed', 'heal', 3, 'Heal one of your Pokémon 3'),
+  item('oran-berry', 'Oran Berry', 1, 'Consumed', 'heal', 2, 'Heal one of your Pokémon 2'),
+  item('choice-band', 'Choice Band', 2, 'Consumed', 'attackUp', 2, 'One of your Pokémon has +2 Attack until Supper'),
+  item('charcoal', 'Charcoal', 2, 'Held', 'attack', 1, 'Held: +1 Attack'),
+  item('mystic-water', 'Mystic Water', 2, 'Held', 'strength', 2, 'Held: +2 Strength'),
+  item('leftovers', 'Leftovers', 3, 'Held', 'healBreakfast', 1, 'Held: heal 1 at each Breakfast'),
+];
+export const itemDef = (id) => ITEMS.find((c) => c.id === id);
+export const BAG_SIZE = 6;   // the Inventory Bag (v1: src/engine/game.js BAG_SIZE)
+
+// --- Trainer Cards (F4, section 4F; Partners as in v2's printed Partner cards): two ways to play.
+//   Objective: costs objectiveCost Energy; goes to the Trainer area and is tracked from then on.
+//     kinds: 'defeat' (defeat N enemy Pokémon) · 'dominate' (dominate a Location at Supper, N times).
+//     On completion: its Partner arrives (an empty space; else it waits), its On Summon resolves,
+//     +Recognition, and the Trainer goes to the Discard Pile.
+//   Command: costs command.cost Energy; resolves at once (ops as Pokémon abilities: 'draw', 'damageAll').
+const partner = (spec) => ({ cardType: 'Pokémon', series: 'Partner', strengthType: 'Hitpoints', partner: true, ...spec });
+const trainer = (id, name, objectiveCost, objective, partnerCard, command) => ({ id, name, cardType: 'Trainer', art: id, objectiveCost, objective, partner: partnerCard, command });
+export const TRAINERS = [
+  trainer('misty', 'Misty', 1, { kind: 'defeat', need: 2, text: 'Defeat 2 enemy Pokémon' },
+    partner({ id: 'starmie', name: 'Starmie', art: 'starmie', type: 'Water', attackType: 'Special', speed: 'Swift', level: 5, cost: 3, attack: 4, strength: 6,
+      text: 'On Summon: draw 2 cards', onSummon: [{ op: 'draw', amount: 2 }] }),
+    { cost: 1, ops: [{ op: 'draw', amount: 2 }], text: 'Draw 2 cards' }),
+  trainer('blaine', 'Blaine', 1, { kind: 'dominate', need: 1, text: 'Dominate a Location at Supper' },
+    partner({ id: 'ninetales', name: 'Ninetales', art: 'ninetales', type: 'Fire', attackType: 'Special', speed: 'Steady', level: 5, cost: 3, attack: 5, strength: 6,
+      text: 'On Summon: 1 damage to each enemy Pokémon', onSummon: [{ op: 'damageAll', amount: 1 }] }),
+    { cost: 2, ops: [{ op: 'damageAll', amount: 1 }], text: '1 damage to each enemy Pokémon' }),
+];
+export const trainerDef = (id) => TRAINERS.find((c) => c.id === id);
+
 // A card at a Round (off the battlefield, a Pokémon's Level follows the Round).
-const fixedDef = (id) => locationDef(id) ?? commandDef(id) ?? supporterDef(id);
+const fixedDef = (id) => locationDef(id) ?? commandDef(id) ?? supporterDef(id) ?? itemDef(id) ?? trainerDef(id);
 export const cardAtRound = (id, round) => (fixedDef(id) ? structuredClone(fixedDef(id)) : pokemonAt(id, levelFor(pathDef(id).series, round)));
 
 // The demo deck so far, the same for both players: Pokémon (F1: Light, Mid and Heavy, a Defence
 // guard (Squirtle) and a Special Defence guard (Chinchou)), one of each Location (F2), and one of
-// each Command Card and Supporter (F3).
+// each Command Card and Supporter (F3), three Items and two Trainers (F4).
 export const DEMO_DECK = [
   'cerulean-cape', 'mt-ember', 'lake-of-rage', 'route-119',
   ...Array(4).fill('ponyta'), ...Array(3).fill('chinchou'),
@@ -140,4 +177,6 @@ export const DEMO_DECK = [
   ...Array(3).fill('magikarp'), ...Array(2).fill('charmander'),
   // F3: Command Cards and Supporters.
   'ember', 'recover', 'x-attack', 'rock-slide', 'nurse-joy', 'professor-oak', 'brock',
+  // F4: Items (the other three are only in the PokéMart) and Trainers.
+  'potion', 'charcoal', 'choice-band', 'misty', 'blaine',
 ];

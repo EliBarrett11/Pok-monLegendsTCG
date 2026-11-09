@@ -15,7 +15,7 @@ Plain HTML, CSS and JavaScript modules: no build step and relative paths only. I
 | `v4/src/engine/` | Game rules and state (`game.js`), cards (`cards.js`), Energy (`energy.js`), random numbers. **No DOM code.** |
 | `v4/src/ai/` | The simple AI: greedy, one move ahead, through the engine's actions |
 | `v4/src/ui/` | The interface (v3's look), coded icons |
-| `v4/tests/` | `node v4/tests/core.test.js`, `locations.test.js` and `commands.test.js` (focused rule tests; no match simulations) |
+| `v4/tests/` | `node v4/tests/core.test.js`, `locations.test.js`, `commands.test.js` and `items.test.js` (focused rule tests; no match simulations) |
 | `v4/tools/` | `node v4/tools/layout.mjs` (the nothing-clipped check); `node v4/tools/stamp.mjs` (cache-busting: run before each commit) |
 
 **Reused (copied, with the source noted in each file):**
@@ -30,6 +30,8 @@ Plain HTML, CSS and JavaScript modules: no build step and relative paths only. I
 | v3 | `v3/tools/layout.mjs` and `stamp.mjs` | Adapted |
 | v2 | `v2/src/engine/game.js`: `locationStarts` (where a Location fits) and `syncPassives` (keeping stat bonuses in step), now `locationStarts` and `syncBonuses` in `v4/src/engine/game.js` | Adapted (F2) |
 | v2 | `v2/src/engine/game.js`: `playSupporter`, `supporterPlayable` and `favourMet`; `v2/src/engine/cardtypes.js`: `FAVOURS` (three conditions) and the Supporter shape | Adapted (F3): no targets, no Trainer Points; the Favour gives Recognition |
+| v1 | `src/engine/game.js`: Open Bag's buy-from-hand and buy-from-PokéMart, `BAG_SIZE` (6), Consumed Items going to the PokéMart | Adapted (F4): a separate Purchase Item action; no In Delivery wait |
+| v2 | `v2/src/engine/game.js`: `unlockTier` / `partnerInto` and the waiting-Partner list; printed Partner cards | Adapted (F4): Partners come from Trainer Objectives |
 
 The rules for Ready, the unmatched-Speed Pass and trades follow v3's engine.
 
@@ -198,3 +200,70 @@ The rules for Ready, the unmatched-Speed Pass and trades follow v3's engine.
     - `layout.mjs` reports ok at all three sizes, with new scenarios: the Command chooser, a React window, pending Strats and the Supporter screen.
     - A browser click-through of Adapt, a Supporter and a React to a real AI attack showed no errors.
   - **Art:** all existing (ember, recover, x-attack, rock-slide, nurse-joy, professor-oak, brock); none missing.
+
+- **F4 — Items and Trainers (step 4 of 5).**
+  - **PokéDollars:**
+    - +$1 at each Breakfast.
+    - When an enemy Pokémon is defeated, its Energy cost at its Level (at least $1).
+    - Carried between Rounds, and shown on both Player Characters.
+  - **Items:** each has a price and is **Held** (attaches to one of your Pokémon, one each, lost when it is defeated) or **Consumed** (resolves, then goes to the PokéMart).
+
+    | Item | Price | Type | Effect | Where |
+    |---|---|---|---|---|
+    | Potion | $2 | Consumed | heal 3 | deck and PokéMart |
+    | Choice Band | $2 | Consumed | +2 Attack until Supper | deck and PokéMart |
+    | Charcoal | $2 | Held | +1 Attack | deck and PokéMart |
+    | Oran Berry | $1 | Consumed | heal 2 | PokéMart only |
+    | Mystic Water | $2 | Held | +2 Strength | PokéMart only |
+    | Leftovers | $3 | Held | heal 1 at each Breakfast | PokéMart only |
+
+  - **Purchase Item** (a Battle Phase action):
+    - Buy an Item from your hand or the PokéMart.
+    - Then use it now, or store it in your Inventory Bag (6 spaces).
+    - An unbought Item in hand is discarded at Supper.
+  - **Play Inventory Item** (a Battle Phase action): use an Item from your Bag.
+  - **The PokéMart:**
+    - One shared pool with one copy of each Item.
+    - At each Breakfast, unsold Items go back and 3 random Items go on sale.
+    - Used and lost Items return to the pool.
+  - **Trainer Cards**, two ways:
+    - **Trainer Objective** (1 Energy):
+      - It goes to your Trainer area and is tracked from then on; it isn't discarded at Supper.
+      - **On completion:** its Partner arrives in your first empty space (or waits for one), its On Summon resolves, you earn +2 Recognition, and the Trainer is discarded.
+    - **Trainer Command** (its own cost): resolves at once, then it's discarded.
+  - **The two Trainers:**
+
+    | Trainer | Objective | Partner (On Summon) | Trainer Command |
+    |---|---|---|---|
+    | Misty | Defeat 2 enemy Pokémon | Starmie (draw 2) | 1 Energy: draw 2 cards |
+    | Blaine | Dominate a Location at Supper | Ninetales (1 damage to each enemy Pokémon) | 2 Energy: 1 damage to each enemy Pokémon |
+
+  - **The demo deck:** 36 cards, the same for both players. Potion, Charcoal, Choice Band, Misty and Blaine are added.
+  - **The AI:**
+    - It buys Items from hand and the PokéMart, and uses them at once or stores them.
+    - It uses Bag Items.
+    - It plays Trainers as Objectives and as Trainer Commands.
+  - **The interface:**
+    - **PokéDollars:** a gold chip on each Player Character.
+    - **Trainer areas** beside the Player Characters show each Trainer, its Objective, its progress (e.g. 1/2) and its Partner, plus any Partner waiting for a space.
+    - **Partners** on the battlefield are marked ★ Partner, with a gold frame. Held Items show as a ◆ badge on their Pokémon.
+    - **A strip under the battlefield** holds the PokéMart (3 Items with prices and Buy buttons, disabled with a reason on hover) and both Inventory Bags.
+    - **Buying** offers *Buy & use now* or *Buy & store*, with reasons when unavailable. Usable Bag Items glow.
+    - **Trainer cards** offer Objective and Command buttons with costs and reasons.
+    - The Actions panel adds Purchase Item, Inventory Item, Trainer Objective and Trainer Command.
+  - **Checks:**
+    - `node v4/tests/items.test.js` covers:
+      - income and defeat rewards;
+      - buying from hand and from the PokéMart, used now or stored;
+      - the Bag limit and playing from the Bag;
+      - the PokéMart showing 3 each Breakfast, with unsold, used and lost Items returning to the pool;
+      - Held and Consumed;
+      - an unbought Item discarded at Supper;
+      - Trainer Objective progress and completion, the Partner's arrival (including waiting for a free space), its On Summon and the Recognition;
+      - Trainer Commands;
+      - refusals with reasons;
+      - the AI buying, using, and playing Trainers both ways.
+    - The earlier tests still pass.
+    - `layout.mjs` reports ok at all three sizes, with new scenarios: Items, Bags and Trainer areas; the buy chooser; the Trainer chooser.
+    - A browser click-through showed no errors. It bought from the PokéMart and used it, bought from hand and stored it, used an Item from the Bag, and played a Trainer Objective and a Trainer Command.
+  - **Art:** all existing (potion, oran-berry, choice-band, charcoal, mystic-water, leftovers, misty, starmie, blaine, ninetales); none missing.

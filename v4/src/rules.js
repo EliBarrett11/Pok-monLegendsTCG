@@ -10,6 +10,9 @@ export const RULES = {
   passEnergy: 1,          // Pass: +1 Base Energy (not the Pass that ends the Battle Phase)
   perDominance: 1,        // Recognition at Supper for dominating a placed Location (starting value)
   perFavour: 1,           // Recognition for completing a Supporter's Favour (starting value)
+  perObjective: 2,        // Recognition for completing a Trainer Objective (starting value)
+  dollarsPerRound: 1,     // PokéDollars at each Breakfast
+  martSize: 3,            // Items for sale in the PokéMart each Round
 };
 // The three development series (section 4A): Level range.
 export const SERIES_RANGE = { Light: [1, 6], Mid: [2, 7], Heavy: [3, 8] };
