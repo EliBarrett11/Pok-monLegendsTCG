@@ -4,7 +4,7 @@
 //   forms: [{ name, art, from, speed? }] — the form from that Level up to the next form's Level.
 //   stats: { level: [Attack, Strength] } for every Level of the series.
 //   guard: 'Defence' | 'Special Defence' | null. ability: (level) → { text, onSummon } or null.
-import { SERIES_RANGE, levelFor, costFor } from '../rules.js?v=202611091610';
+import { SERIES_RANGE, levelFor, costFor } from '../rules.js?v=202611091725';
 
 const op = (name, amount) => ({ op: name, amount });
 const path = (spec) => ({ guard: null, ability: () => null, ...spec });
@@ -153,13 +153,14 @@ export const BAG_SIZE = 6;   // the Inventory Bag (v1: src/engine/game.js BAG_SI
 const partner = (spec) => ({ cardType: 'Pokémon', series: 'Partner', strengthType: 'Hitpoints', partner: true, ...spec });
 const trainer = (id, name, objective, partnerCard, command) => ({ id, name, cardType: 'Trainer', art: id, objective, partner: partnerCard, command });
 export const TRAINERS = [
-  trainer('misty', 'Misty', { kind: 'defeat', need: 2, text: 'Defeat 2 enemy Pokémon' },
-    partner({ id: 'starmie', name: 'Starmie', art: 'starmie', type: 'Water', attackType: 'Special', speed: 'Swift', level: 5, cost: 3, attack: 4, strength: 6,
+  // UX2 (Elliott, Q5 and Q7): Objective targets 8 and 5; stronger Level 8 Partners (cost 4: $4 when defeated).
+  trainer('misty', 'Misty', { kind: 'defeat', need: 8, text: 'Defeat 8 enemy Pokémon', short: 'Defeat 8 Pokémon' },
+    partner({ id: 'starmie', name: 'Starmie', art: 'starmie', type: 'Water', attackType: 'Special', speed: 'Swift', level: 8, cost: 4, attack: 8, strength: 10,
       text: 'On Summon: draw 2 cards', onSummon: [{ op: 'draw', amount: 2 }] }),
     { cost: 1, ops: [{ op: 'draw', amount: 2 }], text: 'Draw 2 cards' }),
-  trainer('blaine', 'Blaine', { kind: 'dominate', need: 1, text: 'Dominate a Location at Supper' },
-    partner({ id: 'ninetales', name: 'Ninetales', art: 'ninetales', type: 'Fire', attackType: 'Special', speed: 'Steady', level: 5, cost: 3, attack: 5, strength: 6,
-      text: 'On Summon: 1 damage to each enemy Pokémon', onSummon: [{ op: 'damageAll', amount: 1 }] }),
+  trainer('blaine', 'Blaine', { kind: 'dominate', need: 5, text: 'Dominate a Location 5 times', short: 'Dominate 5 times' },
+    partner({ id: 'ninetales', name: 'Ninetales', art: 'ninetales', type: 'Fire', attackType: 'Special', speed: 'Steady', level: 8, cost: 4, attack: 9, strength: 11,
+      text: 'On Summon: 2 damage to each enemy Pokémon', onSummon: [{ op: 'damageAll', amount: 2 }] }),
     { cost: 2, ops: [{ op: 'damageAll', amount: 1 }], text: '1 damage to each enemy Pokémon' }),
 ];
 export const trainerDef = (id) => TRAINERS.find((c) => c.id === id);

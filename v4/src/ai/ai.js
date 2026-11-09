@@ -3,10 +3,10 @@
 // now or store, use from the Bag) and Trainer Commands; UX1: Objectives are tracked from setup, modes come from commandModesFor): a greedy one-move AI like v2's and v3's (adapted from v3/src/ai/ai.js).
 // It plays only through the engine's actions: it tries each legal move on a copy of the state,
 // scores the result, and plays the best (Pass when nothing beats it).
-import { RULES } from '../rules.js?v=202611091610';
+import { RULES } from '../rules.js?v=202611091725';
 import { applyAction, legalActions, opponentOf, summonable, emptySpaces, attackers, legalTargets, retainable, pokemonOf, isReady, energyLeft, placeable, locationStarts, dominantOf, summonCost,
   commandModesFor, commandTargets, playableSupporters, favourMet, resolveStrats,
-  buyableFromHand, buyableFromMart, usableFromBag, itemTargets, buyReason, playableTrainers, tournamentDominant, boosted } from '../engine/game.js?v=202611091610';
+  buyableFromHand, buyableFromMart, usableFromBag, itemTargets, buyReason, playableTrainers, tournamentDominant, boosted } from '../engine/game.js?v=202611091725';
 
 // Pending Strats count at a discount: the state as if they had resolved, blended with as it is.
 export function evaluate(s, who) {

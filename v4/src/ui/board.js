@@ -1,129 +1,112 @@
-// Drawing a v4 match (F1; F2 adds Locations), in v3's "necessary information only" look: the prompt
-// bar; both Player Characters outside the battlefield (Recognition 0–100); the 9-lane battlefield
-// (placed Locations as bold tiles over their lanes with a compact panel: name, Weather, who
-// dominates and what it gives at Supper, Rounds left; the passive on hover; the rest is the
-// Default Location); the side panel (Round, Base Energy and Exert with Exhaust, Weather counts and
-// active brackets, Pass, the actions with the reasons they're unavailable, pending Strats, piles,
-// the log); the hand. Board Pokémon show art, Level, Attack, the Speed icon and Strength (full
-// details on hover). F3: Command Cards (the mode chooser, targets, the React window with the
-// committed action, pending Strats on their targets) and Supporters (the Release and Favour screen).
-// F4: PokéDollars on each Player Character, the Trainer areas (objectives, progress, waiting
-// Partners), the strip under the battlefield (the PokéMart and both Inventory Bags), Item and
-// Trainer cards, Held Items and Partners on the battlefield.
-// UX1: Trainer Objective trackers from setup (ticked when complete), Command modes by situation
-// (commandModesFor), the React window (a banner with the committed action, an arrow, large React
-// options, a countdown bar driven by main.js), no series shown, Recognition shown capped at 100.
-// F5: the Pokémon League Tournament: a banner when it begins, its tile across all 9 lanes (its passive
-// and dominance), no Weather, and the Round panel's Tournament chip.
-import { RULES } from '../rules.js?v=202611091610';
+// Drawing a v4 match. UX2: the approved layout (docs/design/v4-ux2-layout-mockup.jpg and .html), on a
+// fixed 1920×1080 stage:
+//   the prompt bar (the only place for step text and action buttons); the opponent's HUD (Recognition
+//   ring, purse, Energy line, Bag, Objective trackers), hand backs and piles; the board (9 lanes, two
+//   rows; Locations as full tiles under the Pokémon with a plate across the middle; the Tournament as
+//   one tile); the right column (Round, Weather chip, Energy tile, END TURN, the PokéMart button and
+//   drawer, the log ticker and drawer); your HUD; the fanned hand; your piles and key hints.
+// Earlier stages, kept: F1–F5's actions and screens (Commands, React windows, Strats, Supporters,
+// Items, Trainers, the Tournament), UX1's Objective trackers, commandModesFor, the React window and
+// timer (main.js), no series shown, Recognition shown capped at 100.
+import { RULES } from '../rules.js?v=202611091725';
 import {
   isReady, legalTargets, attackers, summonable, emptySpaces, whyNot, passEndsPhase, passSpends, availableExert, energyLeft,
-  playerGuard, guardOf, placeable, locationStarts, weatherTotals, activeBrackets, dominantOf, strengthIn, locationAt,
-  actor, commandTargets, playableCommands, playableSupporters, playReason, favourMet,
+  playerGuard, guardOf, placeable, locationStarts, weatherTotals, activeBrackets, dominantOf, strengthIn,
+  actor, commandTargets, playableSupporters, playReason, favourMet,
   commandModesFor, damageOf,
   itemTargets, buyReason, tournamentDominant, tournamentStrength, boosted, buyableFromHand, buyableFromMart, usableFromBag, playableTrainers, trainerReason,
-} from '../engine/game.js?v=202611091610';
-import { WEATHER_BRACKETS, MODES, MODE_NAMES, FAVOURS, modeText, effectText, BAG_SIZE } from '../engine/cards.js?v=202611091610';
-import { icon, speedIcon } from './icons.js?v=202611091610';
+} from '../engine/game.js?v=202611091725';
+import { WEATHER_BRACKETS, MODES, MODE_NAMES, FAVOURS, modeText, effectText, BAG_SIZE, PATHS, TRAINERS } from '../engine/cards.js?v=202611091725';
+import { baseEnergyFor, EXERT_LIMIT } from '../engine/energy.js?v=202611091725';
+import { icon, speedIcon, attackIcon, strengthIcon, typeIcon, STAT_NAMES, attackKey, strengthKey } from './icons.js?v=202611091725';
 
 const ASSETS = '../assets';
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const art = (c) => `${ASSETS}/cards/${c.art}.jpg`;
-const COL = 150;
+const UI_ART = (n) => `${ASSETS}/ui/${n}.jpg`;
 
+// --- Geometry (from the mockup) ---------------------------------------------------------------------
+// The board: left 24, top 180, 1580×584. Lanes are 172.4 wide from x 14; cards are 156×212; the rows
+// sit 22 from the top and the bottom. Coordinates below are relative to the board.
+const BOARD = { left: 24, top: 180, w: 1580, h: 584 };
+const LW = 172.4;
+const laneX = (i) => 14 + i * LW + (LW - 156) / 2;
+const ROW_TOP = { ai: 22, player: BOARD.h - 22 - 212 };
+const tileX = (start) => 14 + start * LW;
+
+// --- Card text (titles and tooltips; no series anywhere) ------------------------------------------------
 const isLoc = (c) => c?.cardType === 'Location';
-const locDetail = (c) => `${c.name} · Location · covers ${c.width} adjacent lanes on both sides · stays ${c.rounds} Rounds · no Energy · ${c.passive.text} · Weather: ${c.weather.count} ${c.weather.type}`;
-const bonusText = (c) => [c.bonusAttack ? `+${c.bonusAttack} Attack` : '', c.bonusStrength ? `+${c.bonusStrength} Strength` : ''].filter(Boolean).join(', ');
 const isCmd = (c) => c?.cardType === 'Command';
 const isSup = (c) => c?.cardType === 'Supporter';
-const cmdDetail = (c) => `${c.name} · Command Card · ${MODES.map((m) => `${MODE_NAMES[m]} (${c.modes[m].cost} Energy): ${modeText(c, m)}`).join(' · ')} · Adapt resolves now; React only in reply to the opponent's attack, summon or Adapt, before it; Strat after the opponent's next turn`;
-const supDetail = (c) => `${c.name} · Supporter · no Energy · Release ${c.release} other card${c.release === 1 ? '' : 's'} from hand (permanently), then this card · ${effectText(c.effect)} · Favour (Release ${FAVOURS[c.favour.condition].text}): ${effectText(c.favour)}, +${RULES.perFavour} Recognition`;
-const shortMode = (c, m) => { const { op, amount } = c.modes[m]; return { damage: `${amount} damage`, heal: `heal ${amount}`, attackUp: `+${amount} Attack`, damageLocation: `${amount} to each there` }[op]; };
-// A Supporter effect, short (for the card face; the full text is on hover).
-const shortEffect = ({ op, amount }) => ({ healAll: `Heal yours ${amount}`, search: `Search ${amount} Pokémon`, strengthAll: `+${amount} Strength to yours` }[op]);
-const shortFavour = { water: 'Water', location: 'Location', bigPokemon: 'Lv 4+ Pokémon' };
 const isItem = (c) => c?.cardType === 'Item';
 const isTrainer = (c) => c?.cardType === 'Trainer';
+const isMon = (c) => c?.cardType === 'Pokémon';
+const statWords = (c) => `${STAT_NAMES[attackKey(c)]} ${c.attack} · ${STAT_NAMES[strengthKey(c)]} ${c.currentStrength ?? c.strength}/${c.strength}${c.strengthType === 'Defence' ? ' (guards against Physical)' : c.strengthType === 'Special Defence' ? ' (guards against Special)' : ''}`;
+const locDetail = (c) => `${c.name} · Location · covers ${c.width} adjacent lanes on both sides · stays ${c.rounds} Rounds · no Energy · ${c.passive.text} · Weather: +${c.weather.count} ${c.weather.type}`;
+const bonusText = (c) => [c.bonusAttack ? `+${c.bonusAttack} Attack` : '', c.bonusStrength ? `+${c.bonusStrength} Strength` : ''].filter(Boolean).join(', ');
+const cmdDetail = (c) => `${c.name} · Command Card · ${MODES.map((m) => `${MODE_NAMES[m]} (${c.modes[m].cost} Energy): ${modeText(c, m)}`).join(' · ')} · Adapt resolves now; React only in reply to the opponent's attack, summon or Adapt, before it; Strat after the opponent's next turn`;
+const supDetail = (c) => `${c.name} · Supporter · no Energy · Release ${c.release} other card${c.release === 1 ? '' : 's'} from hand (permanently), then this card · ${effectText(c.effect)} · Favour (Release ${FAVOURS[c.favour.condition].text}): ${effectText(c.favour)}, +${RULES.perFavour} Recognition`;
+const shortMode = (c, m) => { const { op, amount } = c.modes[m]; return { damage: `${amount} dmg`, heal: `heal ${amount}`, attackUp: `+${amount} Atk`, damageLocation: `${amount} each there` }[op]; };
+const longMode = (c, m) => { const { op, amount } = c.modes[m]; return { damage: `${amount} damage`, heal: `heal ${amount}`, attackUp: `+${amount} Attack`, damageLocation: `${amount} damage to each there` }[op]; };
+const shortEffect = ({ op, amount }) => ({ healAll: `Heal each of yours ${amount}`, search: `Search ${amount} Pokémon`, strengthAll: `+${amount} Strength to yours` }[op]);
+const shortFavour = { water: 'Water', location: 'Location', bigPokemon: 'Lv 4+ Pokémon' };
 const itemDetail = (c) => `${c.name} · Item · ${c.itemType} · $${c.price} · ${c.text}${c.itemType === 'Held' ? ' (one Held Item per Pokémon; lost when it is defeated)' : ' (then it goes to the PokéMart)'}`;
-const partnerText = (pc) => `${pc.name} (${pc.type} · ${pc.attackType} · ${pc.speed} · Attack ${pc.attack} · Strength ${pc.strength}${pc.text ? ` · ${pc.text}` : ''})`;
-const trainerDetail = (c) => `${c.name} · Trainer · played only as its Trainer Command (${c.command.cost} Energy): ${c.command.text}, then discarded (it keeps cycling) · its Objective (${c.objective.text}) is tracked in your Trainer area from the start; when it completes, this card leaves the deck, its Partner ${partnerText(c.partner)} arrives and you earn +${RULES.perObjective} Recognition`;
-const detail = (c) => (isItem(c) ? itemDetail(c) : isTrainer(c) ? trainerDetail(c) : isCmd(c) ? cmdDetail(c) : isSup(c) ? supDetail(c) : isLoc(c) ? locDetail(c) : `${c.name} · Level ${c.level} · ${c.type} · ${c.speed} · ${c.attackType} · Attack ${c.attack} · Strength ${c.currentStrength ?? c.strength}/${c.strength}${c.strengthType !== 'Hitpoints' ? ` · ${c.strengthType} guard` : ''} · cost ${c.cost}${c.text ? ` · ${c.text}` : ''}${c.held ? ` · holds ${c.held.name} (${c.held.text})` : ''}${c.partner ? ` · ${c.trainer}'s Partner` : ''}${bonusText(c) ? ` · includes ${bonusText(c)} from Location/Weather` : ''}`);
-const stats = (c, str = c.currentStrength ?? c.strength) => `<div class="v4-stats"><span class="atk">${icon('attack')}${c.attack}</span>${speedIcon(c.speed)}<span class="str">${icon('strength')}${str}</span></div>`;
-const guardTag = (c) => (c.strengthType !== 'Hitpoints' ? `<span class="v4-guard">${icon('guard')}${c.strengthType === 'Defence' ? 'Def' : 'Sp.Def'}</span>` : '');
+const partnerText = (pc) => `${pc.name} (Level ${pc.level} · ${pc.type} · ${pc.speed} · ${statWords(pc)}${pc.text ? ` · ${pc.text}` : ''})`;
+const trainerDetail = (c) => `${c.name} · Trainer · played only as its Trainer Command (${c.command.cost} Energy): ${c.command.text}, then discarded (it keeps cycling) · its Objective (${c.objective.text}) is tracked from the start; when it completes, this card leaves the deck, its Partner ${partnerText(c.partner)} arrives and you earn +${RULES.perObjective} Recognition`;
+const detail = (c) => (isItem(c) ? itemDetail(c) : isTrainer(c) ? trainerDetail(c) : isCmd(c) ? cmdDetail(c) : isSup(c) ? supDetail(c) : isLoc(c) ? locDetail(c)
+  : `${c.name} · Level ${c.level} · ${c.type} · ${c.speed} · ${statWords(c)} · cost ${c.cost}${c.text ? ` · ${c.text}` : ''}${c.held ? ` · holds ${c.held.name} (${c.held.text})` : ''}${c.partner ? ` · ${c.trainer}'s Partner` : ''}${bonusText(c) ? ` · includes ${bonusText(c)} from Location, Weather or Item` : ''}`);
+const statBar = (c, str = c.currentStrength ?? c.strength) => `<div class="v4-st"><span>${attackIcon(c)} ${c.attack}</span>${speedIcon(c.speed)}<span class="str${str < c.strength ? ' hurt' : ''}">${strengthIcon(c)} ${str}</span></div>`;
+const weatherIcon = (type) => (type === 'Rain' ? '☂' : '☀');
+const whose = (w) => (w === 'player' ? 'your' : 'the Opponent\'s');
+const Whose = (w) => (w === 'player' ? 'Your' : 'The Opponent\'s');
+const opponentName = (who) => (who === 'player' ? 'ai' : 'player');
 
-function boardCard(s, c, who, space, cls) {
+// --- Board cards ------------------------------------------------------------------------------------------
+function boardCard(s, c, who, space, cls = '') {
   const ready = s.phase === 'battle' && isReady(s, c);
-  // Pending Strats aimed at this Pokémon (both players').
   const strats = s.strats.filter((x) => x.target.who === who && x.target.space === space && x.target.uid === c.uid);
-  const held = c.held ? `<span class="v4-strat held" title="${esc(`Holds ${c.held.name}: ${c.held.text}`)}">◆ ${esc(c.held.name)}</span>` : '';
-  const badges = held + strats.map((x) => `<span class="v4-strat ${x.owner}" title="${esc(`${x.owner === 'player' ? 'Your' : 'The Opponent\'s'} Strat: ${x.card.name} (${modeText(x.card, 'strat')}), after ${x.owner === 'player' ? 'the Opponent\'s' : 'your'} next turn`)}">⏳ ${esc(x.card.name)}</span>`).join('');
-  return `<div class="v4-card v4-mon${c.partner ? ' partner' : ''}${ready ? ' ready' : ''}${c.spent ? ' spent' : ''}${c.currentStrength < c.strength ? ' hurt' : ''} ${cls}" data-who="${who}" data-space="${space}" title="${esc(`${detail(c)}${ready ? ' · Ready' : c.spent ? ' · Spent' : ' · Active'}`)}">
-    <div class="v4-art" style="background-image: url('${art(c)}')"></div>
-    <span class="v4-lv">${c.partner ? '★ Partner' : `Lv ${c.level}`}</span>${guardTag(c)}${stats(c)}${badges ? `<div class="v4-strats">${badges}</div>` : ''}
+  const badges = strats.map((x) => `<span class="v4-strat ${x.owner}" title="${esc(`${Whose(x.owner)} Strat: ${x.card.name} (${modeText(x.card, 'strat')}), after ${x.owner === 'player' ? 'the Opponent\'s' : 'your'} next turn`)}">⏳ ${esc(x.card.name)}</span>`).join('');
+  return `<div class="v4-card v4-mon${c.partner ? ' partner' : ''}${ready ? ' ready' : ''}${c.spent ? ' spent' : ''} ${cls}" data-who="${who}" data-space="${space}" style="background-image: url('${art(c)}')" title="${esc(`${detail(c)}${ready ? ' · Ready' : c.spent ? ' · Spent' : ' · Active'}`)}">
+    <span class="v4-lv">${c.partner ? '★' : `Lv ${c.level}`}</span>${c.partner ? '<span class="v4-chip2 partner">Partner</span>' : ''}
+    ${c.held ? `<span class="v4-held" style="background-image: url('${art(c.held)}')" title="${esc(`Holds ${c.held.name}: ${c.held.text}`)}"></span>` : ''}
+    ${badges ? `<div class="v4-strats">${badges}</div>` : ''}${statBar(c)}
   </div>`;
 }
 
-function handCard(s, c, cls, tip) {
-  if (isItem(c)) {
-    return `<div class="v4-card v4-hcard k-item ${cls}" data-uid="${c.uid}" title="${esc(tip)}">
-    <div class="v4-art" style="background-image: url('${art(c)}')"></div>
-    <span class="v4-cost dollar">$${c.price}</span>
-    <div class="v4-htext"><b class="v4-hname">${esc(c.name)}</b><small class="v4-hline">Item · ${c.itemType}</small>
-      <div class="v4-hbody"><p class="ok">${esc(c.text)}</p>${c.retained ? '<p class="ret">Retained</p>' : ''}</div></div>
-  </div>`;
+// --- Hand cards (182×254): cost gem, Level, name with Type, one rules line or a kind line, stats ---------------
+export function renderHandCard(s, c, cls = '', tip = detail(c)) {
+  const me = s.players.player;
+  let gem = '';
+  if (isMon(c)) gem = `<span class="v4-gem${energyLeft(me) < c.cost ? ' no' : ''}">${c.cost}</span>`;
+  else if (isItem(c)) gem = `<span class="v4-gem money${me.dollars < c.price ? ' no' : ''}">$${c.price}</span>`;
+  else if (isTrainer(c)) gem = `<span class="v4-gem${energyLeft(me) < c.command.cost ? ' no' : ''}">${c.command.cost}</span>`;
+  else if (isCmd(c)) {
+    const m = commandModesFor(s, 'player', c.uid)[0];
+    const cost = m?.cost ?? c.modes.adapt.cost;
+    gem = `<span class="v4-gem${energyLeft(me) < cost ? ' no' : ''}">${cost}</span>`;
   }
-  if (isTrainer(c)) {
-    return `<div class="v4-card v4-hcard k-trainer ${cls}" data-uid="${c.uid}" title="${esc(tip)}">
-    <div class="v4-art" style="background-image: url('${art(c)}')"></div>
-    <span class="v4-cost">${c.command.cost}</span>
-    <div class="v4-htext"><b class="v4-hname">${esc(c.name)}</b><small class="v4-hline">Trainer · Command</small>
-      <div class="v4-hbody v4-modes"><p><b>Cmd ${c.command.cost}</b> ${esc(c.command.text)}</p><p class="v4-trnote">Objective: see your Trainer area</p>${c.retained ? '<p class="ret">Retained</p>' : ''}</div></div>
-  </div>`;
-  }
-  if (isCmd(c)) {
-    // UX1: only the modes that apply now (commandModesFor); none off your turn (quietly dimmed).
+  // Locations and Supporters cost no Energy: no gem.
+  let body = '';
+  if (isMon(c)) body = `${c.text ? `<div class="v4-rule">${esc(c.text)}</div>` : ''}${statBar(c, c.strength)}`;
+  else if (isCmd(c)) {
     const modes = commandModesFor(s, 'player', c.uid);
-    return `<div class="v4-card v4-hcard k-command${modes.length ? '' : ' quiet'} ${cls}" data-uid="${c.uid}" title="${esc(tip)}">
-    <div class="v4-art" style="background-image: url('${art(c)}')"></div>
-    <span class="v4-cost">${modes[0]?.cost ?? c.modes.adapt.cost}</span>
-    <div class="v4-htext"><b class="v4-hname">${esc(c.name)}</b><small class="v4-hline">Command · ${c.target === 'enemy' ? 'enemy Pokémon' : 'your Pokémon'}</small>
-      <div class="v4-hbody v4-modes">${modes.map((m) => `<p class="${m.reason ? 'off' : ''}"${m.reason ? ` title="${esc(m.reason)}"` : ''}><b>${MODE_NAMES[m.mode]} ${m.cost}</b> ${esc(shortMode(c, m.mode))}</p>`).join('')}${c.retained ? '<p class="ret">Retained</p>' : ''}</div></div>
-  </div>`;
-  }
-  if (isSup(c)) {
-    return `<div class="v4-card v4-hcard k-supporter ${cls}" data-uid="${c.uid}" title="${esc(tip)}">
-    <div class="v4-art" style="background-image: url('${art(c)}')"></div>
-    <span class="v4-cost sup">0</span>
-    <div class="v4-htext"><b class="v4-hname">${esc(c.name)}</b><small class="v4-hline">Supporter · Release ${c.release}</small>
-      <div class="v4-hbody"><p class="ok">${esc(shortEffect(c.effect))}</p><p class="fav">★ ${esc(shortFavour[c.favour.condition])}: ${esc(shortEffect(c.favour))}</p>${c.retained ? '<p class="ret">Retained</p>' : ''}</div></div>
-  </div>`;
-  }
-  if (isLoc(c)) {
-    return `<div class="v4-card v4-hcard k-location ${cls}" data-uid="${c.uid}" title="${esc(tip)}" style="--loc: ${c.color}">
-    <div class="v4-art" style="background-image: url('${art(c)}')"></div>
-    <span class="v4-cost">0</span>
-    <div class="v4-htext"><b class="v4-hname">${esc(c.name)}</b><small class="v4-hline">${esc(`Location · ${c.width} lanes · ${c.rounds} Rounds`)}</small>
-      <div class="v4-hbody"><p class="ok">${esc(c.passive.text)}</p><p>${weatherIcon(c.weather.type)} ${c.weather.count} ${c.weather.type}</p>${c.retained ? '<p class="ret">Retained</p>' : ''}</div></div>
-  </div>`;
-  }
-  return `<div class="v4-card v4-hcard k-pokemon ${cls}" data-uid="${c.uid}" title="${esc(tip)}">
-    <div class="v4-art" style="background-image: url('${art(c)}')"></div>
-    <span class="v4-lv">Lv ${c.level}</span><span class="v4-cost">${c.cost}</span>
-    <div class="v4-htext"><b class="v4-hname">${esc(c.name)}</b><small class="v4-hline">${esc(`${c.type} · ${c.attackType}${c.strengthType !== 'Hitpoints' ? ` · ${c.strengthType === 'Defence' ? 'Def' : 'Sp.Def'} guard` : ''}`)}</small>
-      <div class="v4-hbody">${c.text ? `<p class="ok">${esc(c.text)}</p>` : ''}${c.retained ? '<p class="ret">Retained</p>' : ''}</div></div>
-    ${stats(c, c.strength)}
+    body = `<div class="v4-kind">Command</div>${modes.map((m) => `<div class="v4-mode${m.reason ? ' off' : ''}"${m.reason ? ` title="${esc(m.reason)}"` : ''}><b>${MODE_NAMES[m.mode].toUpperCase()}</b> ${esc(shortMode(c, m.mode))}<span class="c">${icon('energy')}${m.cost}</span></div>`).join('')}`;
+  } else if (isTrainer(c)) body = `<div class="v4-kind">Trainer Command</div><div class="v4-rule">${esc(c.command.text)}</div>`;
+  else if (isItem(c)) body = `<div class="v4-kind">Item · ${c.itemType}</div><div class="v4-rule">${esc(c.text)}</div>`;
+  else if (isLoc(c)) body = `<div class="v4-kind">Location · ${c.width} lanes</div><div class="v4-rule">${esc(c.passive.text)}</div><div class="v4-sub">${c.rounds} Rounds · +${c.weather.count} ${c.weather.type}</div>`;
+  else if (isSup(c)) body = `<div class="v4-kind">Supporter · Release ${c.release}</div><div class="v4-rule">${esc(shortEffect(c.effect))}</div><div class="v4-sub fav">★ ${esc(shortFavour[c.favour.condition])}: ${esc(shortEffect(c.favour))}</div>`;
+  return `<div class="v4-card v4-hcard k-${String(c.cardType).toLowerCase().replace('é', 'e')} ${cls}" data-uid="${c.uid}" title="${esc(tip)}">
+    <div class="v4-art" style="background-image: url('${art(c)}')"></div>${gem}${isMon(c) ? `<span class="v4-lv">Lv ${c.level}</span>` : ''}
+    <div class="v4-nm">${isMon(c) ? typeIcon(c.type) : ''}${esc(c.name)}</div>${body}${c.retained ? '<span class="v4-ret">Retained</span>' : ''}
   </div>`;
 }
-
-const weatherIcon = (type) => (type === 'Rain' ? '🌧' : '☀');
-const bracketText = (b) => `${b.type} ${b.at}+: ${b.text}`;
 
 // --- The prompt bar ------------------------------------------------------------------------------------
 export function promptFor(s, ui, ctx = {}) {
   const me = s.players.player;
   if (s.phase === 'gameOver') return { tag: s.winner === 'player' ? 'Champion!' : 'Defeat', text: esc(s.log.at(-1)) };
   if (s.phase === 'mulligan') return { tag: 'Round 1 · Mulligan', text: me.mulliganed ? 'The Opponent is choosing…' : 'Choose any cards to put back into your Discard Pile; you draw as many.', gold: !me.mulliganed };
-  // The React window (F3).
+  // The React window (UX1).
   if (s.reactWindow) {
     const w = s.reactWindow;
     if (w.reactor !== 'player' || ui.locked) return { tag: 'React?', text: `${esc(w.pending.text)}. The Opponent may React first…` };
@@ -156,124 +139,148 @@ export function promptFor(s, ui, ctx = {}) {
   if (ui.select?.kind === 'hand') {
     const c = me.hand.find((x) => x.uid === ui.select.uid);
     const retainBtn = { action: 'retain', label: 'Retain (1 Energy)', disabled: !!whyNot(s, 'player', 'retain', c), tip: whyNot(s, 'player', 'retain', c) };
+    const cancel = { action: 'cancel', label: 'Cancel' };
     if (isItem(c)) {
       const use = buyReason(s, 'player', c, 'use');
       const store = buyReason(s, 'player', c, 'store');
-      return { tag: `${c.name} · $${c.price} · ${c.itemType}`, text: `${esc(c.text)}. Buy it with PokéDollars, then use it now or store it in your Bag; unbought, it's discarded at Supper.`, gold: true,
-        buttons: [{ action: 'buy-use', label: 'Buy & use now', disabled: !!use, tip: use }, { action: 'buy-store', label: 'Buy & store', disabled: !!store, tip: store }, retainBtn, { action: 'cancel', label: 'Cancel' }] };
+      return { tag: `${c.name} · $${c.price} · ${c.itemType}`, text: `${esc(c.text)}. Buy it, then use it now or store it in your Bag; unbought, it's discarded at Supper.`, gold: true,
+        buttons: [{ action: 'buy-use', label: 'Buy & use now', disabled: !!use, tip: use }, { action: 'buy-store', label: 'Buy & store', disabled: !!store, tip: store }, retainBtn, cancel] };
     }
     if (isTrainer(c)) {
       const k = trainerReason(s, 'player', c);
-      return { tag: `${c.name} · Trainer Command`, text: `<b>Command</b>: ${esc(c.command.text)}. It then goes to your Discard Pile and keeps cycling; its Objective is tracked in your Trainer area either way.`, gold: true,
-        buttons: [{ action: 'tr-command', label: `Command · ${c.command.cost} Energy`, disabled: !!k, tip: k }, retainBtn, { action: 'cancel', label: 'Cancel' }] };
+      return { tag: `${c.name} · Trainer Command`, text: `<b>Command</b>: ${esc(c.command.text)}. It then goes to your Discard Pile and keeps cycling; its Objective is tracked either way.`, gold: true,
+        buttons: [{ action: 'tr-command', label: `Command · ${c.command.cost} Energy`, disabled: !!k, tip: k }, retainBtn, cancel] };
     }
     if (isCmd(c)) {
-      // UX1: the buttons are the modes commandModesFor shows on your turn (Adapt; Strat if affordable).
       const modes = commandModesFor(s, 'player', c.uid);
       const modeBtn = (m) => ({ action: `mode-${m.mode}`, label: `${MODE_NAMES[m.mode]} · ${m.cost} Energy`, disabled: !!m.reason, tip: m.reason ?? modeText(c, m.mode) });
       return { tag: `${c.name} · Command`, text: `<b>Adapt</b> resolves now${modes.some((m) => m.mode === 'strat') ? '; <b>Strat</b> after the Opponent\'s next turn' : ''}.`, gold: true,
-        buttons: [...modes.map(modeBtn), retainBtn, { action: 'cancel', label: 'Cancel' }] };
+        buttons: [...modes.map(modeBtn), retainBtn, cancel] };
     }
     if (isSup(c)) {
       const why = whyNot(s, 'player', 'supporter', c);
       return { tag: `${c.name} · Supporter`, text: `No Energy: Release ${c.release} other card${c.release === 1 ? '' : 's'} from your hand for good, then ${esc(c.name)} too. ${esc(effectText(c.effect))}.`, gold: true,
-        buttons: [{ action: 'play-supporter', label: `Play (Release ${c.release})`, disabled: !!why, tip: why }, retainBtn, { action: 'cancel', label: 'Cancel' }] };
+        buttons: [{ action: 'play-supporter', label: `Play (Release ${c.release})`, disabled: !!why, tip: why }, retainBtn, cancel] };
     }
     if (isLoc(c)) {
       const why = whyNot(s, 'player', 'summon', c);
       return { tag: `${c.name} · Location · ${c.width} lanes`, text: `${why ? `Place: ${esc(why)}.` : `Place it (no Energy): click <b>a glowing lane</b>; it covers that lane and the ${c.width - 1} to its right, on both sides, for ${c.rounds} Rounds.`} Or <b>Retain</b> it.`, gold: true,
-        buttons: [retainBtn, { action: 'cancel', label: 'Cancel' }] };
+        buttons: [retainBtn, cancel] };
     }
     const why = whyNot(s, 'player', 'summon', c);
-    return { tag: `${c.name} · Lv ${c.level} · ${c.cost} Energy`, text: `${why ? `Summon: ${esc(why)}.` : 'Summon: click <b>a glowing space</b> on your side.'} Or <b>Retain</b> it (1 Energy): it stays in your hand through Supper, and you draw one fewer next Breakfast.`, gold: true,
-      buttons: [{ action: 'retain', label: 'Retain (1 Energy)', disabled: !!whyNot(s, 'player', 'retain', c), tip: whyNot(s, 'player', 'retain', c) }, { action: 'cancel', label: 'Cancel' }] };
+    return { tag: `${c.name} · Lv ${c.level} · ${c.cost} Energy`, text: `${why ? `Summon: ${esc(why)}.` : 'Summon: click <b>a glowing space</b> on your side.'} Or <b>Retain</b> it (1 Energy): it stays in your hand through Supper; you draw one fewer next Breakfast.`, gold: true,
+      buttons: [retainBtn, cancel] };
   }
   if (ui.select?.kind === 'attack') {
     const c = me.row[ui.select.from];
     const pl = legalTargets(s, 'player', ui.select.from).some((t) => t.kind === 'player');
     const g = playerGuard(s, 'player', ui.select.from, 'ai');
-    return { tag: `Attack · ${c.name} · ${c.attack}`, text: `Choose <b>a glowing target</b>: an enemy Pokémon${pl ? ' or the Opponent (their panel)' : ` (the Opponent is guarded by ${esc(g?.card.name)})`}. A Ready target hits back.`, gold: true, buttons: [{ action: 'cancel', label: 'Cancel' }] };
+    return { tag: 'Your turn · Attack', text: `Choose a target for <b>${esc(c.name)}</b> (${damageOf(s, c)} damage): a highlighted Pokémon${pl ? ' or the Opponent (their Recognition ring)' : ` (the Opponent is guarded by ${esc(g?.card.name)})`}. A Ready target hits back.`, gold: true, buttons: [{ action: 'cancel', label: 'Cancel' }] };
   }
   if (s.phase === 'battle' && s.turn === 'player' && !ui.locked) {
     const opts = [];
     const atk = attackers(s, 'player').map((sp) => me.row[sp].name);
-    if (atk.length) opts.push(`<b>Attack</b> with ${[...new Set(atk)].map((n) => `<b>${esc(n)}</b>`).join(' or ')} (Ready)`);
-    if (summonable(s, 'player').length) opts.push('summon a glowing Pokémon');
+    if (atk.length) opts.push(`<b>Attack</b> with ${[...new Set(atk)].map((n) => `<b>${esc(n)}</b>`).join(' or ')}`);
+    if (summonable(s, 'player').length) opts.push('summon');
     if (placeable(s, 'player').length) opts.push('place a <b>Location</b>');
-    if (playableCommands(s, 'player', 'adapt').length || playableCommands(s, 'player', 'strat').length) opts.push('play a <b>Command</b>');
+    if (me.hand.some((c) => isCmd(c) && commandModesFor(s, 'player', c.uid).some((m) => !m.reason))) opts.push('play a <b>Command</b>');
     if (playableSupporters(s, 'player').length) opts.push('a <b>Supporter</b>');
     if (buyableFromHand(s, 'player').length || buyableFromMart(s, 'player').length) opts.push('buy an <b>Item</b>');
     if (usableFromBag(s, 'player').length) opts.push('use a <b>Bag</b> Item');
     if (playableTrainers(s, 'player').length) opts.push('a <b>Trainer Command</b>');
-    if (me.hand.some((c) => !c.retained) && energyLeft(me) >= RULES.retainCost) opts.push('<b>Retain</b> a card');
-    const pass = passEndsPhase(s) ? '<b>Pass</b> to end the Battle Phase' : `<b>Pass</b> for +1 Base Energy${passSpends(s, 'player').length ? ' (your fastest Pokémon become Spent)' : ''}`;
-    return { tag: `Round ${s.round} · your turn`, text: opts.length ? `${opts.join(', ').replace(/^./, (x) => x.toUpperCase())} — or ${pass}.` : `Only ${pass}: nothing else is possible now (see Actions).` };
+    if (me.hand.some((c) => !c.retained) && energyLeft(me) >= RULES.retainCost) opts.push('<b>Retain</b>');
+    const pass = passEndsPhase(s) ? '<b>End turn</b> to end the Battle Phase' : `<b>End turn</b> (+1 Base Energy${passSpends(s, 'player').length ? '; your fastest Pokémon become Spent' : ''})`;
+    return { tag: `Round ${s.round} · your turn`, text: opts.length ? `${opts.join(', ').replace(/^./, (x) => x.toUpperCase())} — or ${pass}.` : `Only ${pass}: nothing else is possible now.` };
   }
-  return { tag: `Round ${s.round}`, text: ctx.autoplay ? 'Autoplay: the AI plays both sides.' : 'The Opponent is choosing…' };
+  return { tag: `Round ${s.round}`, text: ctx.autoplay ? 'Autoplay: the AI plays both sides.' : 'The Opponent is thinking…' };
 }
 
-// --- Player Characters (outside the battlefield) -------------------------------------------------------------
-function character(s, who, ui) {
-  const p = s.players[who];
-  const target = ui.select?.kind === 'attack' && who === 'ai' && legalTargets(s, 'player', ui.select.from).some((t) => t.kind === 'player');
-  return `<button class="v4-pc ${who}${target ? ' target' : ''}" data-pc="${who}" title="${esc(`${who === 'player' ? 'Your' : 'The Opponent\'s'} Player Character: no Health. Damage to it gives the attacker's player 1 Recognition per point. ${RULES.win} Recognition wins.`)}">
-    <em class="v4-dollars" title="PokéDollars: $${RULES.dollarsPerRound} each Breakfast, more for each enemy Pokémon defeated; kept between Rounds">$${p.dollars}</em>
-    <small>${who === 'player' ? 'You' : 'Opponent'}</small><b>${Math.min(RULES.win, p.recognition)}</b><span>Recognition of ${RULES.win}</span>
-    <div class="v4-bar"><i style="width: ${Math.min(100, p.recognition)}%"></i></div>
-  </button>`;
-}
-
-// The Trainer area beside each Player Character: Trainers working on their Objectives, and Partners
-// waiting for a free space.
-function trainerArea(s, who) {
-  const p = s.players[who];
-  // UX1: one tracker per Trainer card in the deck, from match setup; ticked when complete.
-  const rows = p.trainers.map((t) => {
-    const prog = `${Math.min(t.progress, t.objective.need)}/${t.objective.need}`;
-    const tip = t.complete ? `${t.name}: Objective complete (${t.objective.text}). ${t.card.partner.name} arrived; the card has left the deck.` : `${t.name}: ${t.objective.text} (${prog}). When it completes, the ${t.name} card leaves the deck, ${partnerText(t.card.partner)} arrives, and +${RULES.perObjective} Recognition.`;
-    return `<div class="v4-tr${t.complete ? ' done' : ''}" title="${esc(tip)}">
-      <i style="background-image: url('${art(t.card)}')"></i><p><b>${esc(t.name)}</b> → ${esc(t.card.partner.name)}<br>${esc(t.objective.text)} ${t.complete ? '<span class="v4-prog done">✓</span>' : `<span class="v4-prog">${prog}</span>`}</p></div>`;
-  });
-  const waits = p.waiting.map((c) => `<p class="v4-wait">★ ${esc(c.name)} waits for a free space</p>`);
-  return `<section class="v4-panel v4-trainers ${who}"><div class="v4-label">Trainer Objectives</div>${rows.join('')}${waits.join('')}${rows.length || waits.length ? '' : '<p class="v4-none">No Trainer in the deck</p>'}</section>`;
-}
-
-// The strip under the battlefield: the PokéMart (3 Items with prices and Buy) and both Inventory Bags.
-function shopStrip(s, ui) {
+// Every Battle Phase action with whether it's available now and why not (the old Actions panel, now the
+// prompt bar's hover tooltip).
+function actionsTip(s, ui) {
   const me = s.players.player;
-  const myTurn = s.phase === 'battle' && s.turn === 'player' && !ui.locked && !s.reactWindow;
-  const mart = s.mart.onSale.map((c, slot) => {
-    if (!c) return '<div class="v4-mitem sold"><p>Sold</p></div>';
-    const why = !myTurn ? (s.phase === 'battle' ? 'Not your turn' : 'Not the Battle Phase') : buyReason(s, 'player', c);
-    return `<div class="v4-mitem" title="${esc(itemDetail(c))}"><i style="background-image: url('${art(c)}')"></i><p><b>${esc(c.name)}</b><br>$${c.price} · ${c.itemType}</p>
-      <button data-buy="${slot}"${why ? ` disabled title="${esc(why)}"` : ''}>Buy</button></div>`;
-  }).join('');
-  const bag = (who) => {
-    const p = s.players[who];
-    return Array.from({ length: BAG_SIZE }, (_, i) => {
-      const c = p.bag[i];
-      if (!c) return '<span class="v4-bslot"></span>';
-      const ok = who === 'player' && myTurn && !ui.select && itemTargets(s, 'player', c).length;
-      return `<span class="v4-bslot full${ok ? ' usable' : ''}"${who === 'player' ? ` data-bag="${c.uid}"` : ''} style="background-image: url('${art(c)}')" title="${esc(`${itemDetail(c)}${who === 'player' && !ok && myTurn ? ` · ${whyNot(s, 'player', 'useItem', c) ?? ''}` : ''}`)}"></span>`;
-    }).join('');
-  };
-  return `<section class="v4-strip">
-    <div class="v4-mart"><div class="v4-label">PokéMart</div><div class="v4-mrow">${mart}</div></div>
-    <div class="v4-bag"><div class="v4-label">Your Bag ${me.bag.length}/${BAG_SIZE}</div><div class="v4-brow">${bag('player')}</div></div>
-    <div class="v4-bag opp"><div class="v4-label">Opponent's Bag ${s.players.ai.bag.length}/${BAG_SIZE}</div><div class="v4-brow">${bag('ai')}</div></div>
-  </section>`;
+  const reason = () => (s.phase !== 'battle' ? 'not the Battle Phase' : s.reactWindow ? 'a React window is open' : s.turn !== 'player' ? 'not your turn' : null);
+  const rows = [
+    ['Summon', reason() ?? (summonable(s, 'player').length ? null : !emptySpaces(s, 'player').length ? 'no empty space on your side' : `no Pokémon you can pay for (${energyLeft(me)} Energy)`)],
+    ['Place Location', reason() ?? (placeable(s, 'player').length ? null : !me.hand.some(isLoc) ? 'no Location in hand' : playReason(s, 'player', me.hand.find(isLoc)))],
+    ['Command', reason() ?? (me.hand.some((c) => isCmd(c) && commandModesFor(s, 'player', c.uid).some((m) => !m.reason)) ? null : !me.hand.some(isCmd) ? 'no Command Card in hand' : playReason(s, 'player', me.hand.find(isCmd)))],
+    ['Supporter', reason() ?? (playableSupporters(s, 'player').length ? null : !me.hand.some(isSup) ? 'no Supporter in hand' : playReason(s, 'player', me.hand.find(isSup)))],
+    ['Purchase Item', reason() ?? (buyableFromHand(s, 'player').length || buyableFromMart(s, 'player').length ? null : !me.hand.some(isItem) && !s.mart.onSale.some(Boolean) ? 'no Item in hand or the PokéMart' : `no Item you can buy and use or store ($${me.dollars})`)],
+    ['Play Inventory Item', reason() ?? (usableFromBag(s, 'player').length ? null : !me.bag.length ? 'your Bag is empty' : whyNot(s, 'player', 'useItem', me.bag[0]))],
+    ['Trainer Command', reason() ?? (playableTrainers(s, 'player').length ? null : !me.hand.some(isTrainer) ? 'no Trainer in hand' : trainerReason(s, 'player', me.hand.find(isTrainer)))],
+    ['Attack', reason() ?? whyNot(s, 'player', 'attack')],
+    ['Retain', reason() ?? (!me.hand.some((c) => !c.retained) ? 'no card to Retain' : energyLeft(me) < RULES.retainCost ? 'needs 1 Energy' : null)],
+    ['Pass (End turn)', reason()],
+  ];
+  return rows.map(([n, why]) => `${n}: ${why ? why.replace(/^./, (x) => x.toLowerCase()) : 'available'}`).join('\n');
 }
-const selItem = (s, sel) => (sel.from === 'mart' ? s.mart.onSale[sel.slot] : sel.from === 'bag' ? s.players.player.bag.find((c) => c.uid === sel.uid) : s.players.player.hand.find((c) => c.uid === sel.uid));
 
-// --- The battlefield -------------------------------------------------------------------------------------------
-function battlefield(s, ui) {
+// --- HUDs -------------------------------------------------------------------------------------------------
+function ring(s, who, ui) {
+  const p = s.players[who];
+  const v = Math.min(RULES.win, p.recognition);
+  const C = 2 * Math.PI * 37;
+  const target = who === 'ai' && ui.select?.kind === 'attack' && legalTargets(s, 'player', ui.select.from).some((t) => t.kind === 'player');
+  const tip = `${who === 'player' ? 'Your' : 'The Opponent\'s'} Recognition: ${p.recognition} (shown up to ${RULES.win}). The Player Character has no Health: damage to it gives the attacker's player 1 Recognition per point. ${RULES.win} wins.${target ? ' Click to attack the Opponent.' : ''}`;
+  return `<button class="v4-ring ${who}${target ? ' target' : ''}" data-pc="${who}" title="${esc(tip)}"><svg width="86" height="86" aria-hidden="true"><circle cx="43" cy="43" r="37" fill="rgba(0,0,0,.45)" stroke="rgba(255,255,255,.1)" stroke-width="8"/><circle cx="43" cy="43" r="37" fill="none" stroke="var(--${who === 'player' ? 'you' : 'opp'})" stroke-width="8" stroke-linecap="round" stroke-dasharray="${(C * v) / 100} ${C}"/></svg><span class="n"><b>${v}</b><small>of ${RULES.win}</small></span></button>`;
+}
+const purse = (p) => `<span class="v4-purse" title="PokéDollars: $${RULES.dollarsPerRound} each Breakfast, more for each enemy Pokémon defeated (its cost); kept between Rounds">$ ${p.dollars}</span>`;
+function bag(s, who, ui) {
+  const p = s.players[who];
+  const myTurn = s.phase === 'battle' && s.turn === 'player' && !ui.locked && !s.reactWindow;
+  return `<div class="v4-bag" title="${who === 'player' ? 'Your' : 'The Opponent\'s'} Inventory Bag: ${p.bag.length} of ${BAG_SIZE}">${Array.from({ length: BAG_SIZE }, (_, i) => {
+    const c = p.bag[i];
+    if (!c) return '<span class="v4-bslot"></span>';
+    const ok = who === 'player' && myTurn && !ui.select && itemTargets(s, 'player', c).length;
+    const why = who === 'player' && myTurn && !ok ? ` · ${whyNot(s, 'player', 'useItem', c) ?? ''}` : '';
+    return `<span class="v4-bslot full${ok ? ' usable' : ''}"${who === 'player' ? ` data-bag="${c.uid}"` : ''} style="background-image: url('${art(c)}')" title="${esc(`${itemDetail(c)}${ok ? ' · click to use' : why}`)}"></span>`;
+  }).join('')}</div>`;
+}
+function tracker(s, who, t) {
+  const p = s.players[who];
+  const need = t.objective.need;
+  const prog = Math.min(t.progress, need);
+  const waiting = t.complete && p.waiting.some((c) => c.trainer === t.name);
+  const tip = t.complete ? `${t.name}: Objective complete (${t.objective.text}). ${waiting ? `${t.card.partner.name} waits for a free space.` : `${t.card.partner.name} arrived; the card has left the deck.`}` : `${t.name}: ${t.objective.text} (${prog} of ${need}). When it completes, the ${t.name} card leaves the deck, ${partnerText(t.card.partner)} arrives, and +${RULES.perObjective} Recognition.`;
+  return `<div class="v4-tr${t.complete ? ' done' : ''}" title="${esc(tip)}"><span class="a" style="background-image: url('${art(t.card)}')"></span>
+    <span class="t"><b>${esc(t.name)}</b><small>${esc(waiting ? `${t.card.partner.name} waits for a space` : (t.objective.short ?? t.objective.text))}</small></span>
+    ${t.complete ? '<span class="tick">✓</span>' : `<span class="pips">${Array.from({ length: need }, (_, k) => `<i class="${k < prog ? 'on' : ''}"></i>`).join('')}</span>`}
+    <span class="pt" style="background-image: url('${art(t.card.partner)}')"></span></div>`;
+}
+const trackers = (s, who) => s.players[who].trainers.map((t) => tracker(s, who, t)).join('') || '<p class="v4-none">No Trainer in the deck</p>';
+
+function oppHud(s, ui) {
+  const foe = s.players.ai;
+  return `<section class="v4-panel v4-hud opp">${ring(s, 'ai', ui)}
+    <div class="v4-hudmid"><div class="v4-who">OPPONENT</div><div class="v4-hudline">${purse(foe)}<span class="v4-oen" title="The Opponent's Energy now: Base Energy ${foe.baseEnergy}, Exert ${availableExert(foe)} of ${foe.exertMax} ready">${icon('energy')} ${foe.baseEnergy} · Exert ${availableExert(foe)}/${foe.exertMax}</span></div>${bag(s, 'ai', ui)}</div>
+    <div class="v4-trk">${trackers(s, 'ai')}</div></section>`;
+}
+function oppHandAndPiles(s) {
+  const foe = s.players.ai;
+  const n = foe.hand.length;
+  const shown = Math.min(n, 8);
+  const backs = Array.from({ length: shown }, (_, k) => `<span class="v4-oback" style="left: ${720 + k * 30}px; top: ${92 + Math.abs(k - (shown - 1) / 2) * 3}px; transform: rotate(${(k - (shown - 1) / 2) * 4}deg)"></span>`).join('');
+  const top = foe.discard.at(-1);
+  return `${backs}<p class="v4-ohand" style="left: ${720 + 46 + Math.max(shown - 1, 0) * 30 + 14}px" title="The Opponent's hand: ${n} card${n === 1 ? '' : 's'} (hidden)">${n} in hand<br><small>Released ${foe.released.length}</small></p>
+    <div class="v4-pile small" style="left: 1340px; top: 84px" title="The Opponent's Draw Pile: ${foe.drawPile.length}"><span class="c">${foe.drawPile.length}</span></div><p class="v4-pcap small" style="left: 1322px; top: 166px">Deck</p>
+    <div class="v4-pile small disc" style="left: 1430px; top: 84px${top ? `; background-image: url('${art(top)}')` : ''}" title="The Opponent's Discard Pile: ${foe.discard.length}${top ? ` (top: ${top.name})` : ''}"><span class="c">${foe.discard.length}</span></div><p class="v4-pcap small" style="left: 1412px; top: 166px">Discard</p>`;
+}
+function youHud(s, ui) {
+  const me = s.players.player;
+  return `<section class="v4-panel v4-hud you"><div class="v4-hudtop">${ring(s, 'player', ui)}<div><div class="v4-who">YOU</div><div class="v4-hudline">${purse(me)}</div>${bag(s, 'player', ui)}</div></div>
+    <div class="v4-lbl">Trainer Objectives</div><div class="v4-trk">${trackers(s, 'player')}</div></section>`;
+}
+
+// --- The board -------------------------------------------------------------------------------------------
+function board(s, ui) {
   const targets = new Set();
   const selCard = ui.select?.kind === 'hand' ? s.players.player.hand.find((c) => c.uid === ui.select.uid) : null;
-  if (selCard && (isLoc(selCard) || selCard.cardType === 'Pokémon') && !whyNot(s, 'player', 'summon', selCard)) for (const i of isLoc(selCard) ? locationStarts(s, selCard) : emptySpaces(s, 'player')) targets.add(`player:${i}`);
-  if (ui.select?.kind === 'attack') for (const t of legalTargets(s, 'player', ui.select.from)) if (t.kind === 'pokemon') targets.add(`ai:${t.space}`);
+  if (selCard && (isLoc(selCard) || isMon(selCard)) && !whyNot(s, 'player', 'summon', selCard)) for (const i of isLoc(selCard) ? locationStarts(s, selCard) : emptySpaces(s, 'player')) targets.add(`player:${i}`);
+  const attackLegal = new Set();
+  if (ui.select?.kind === 'attack') for (const t of legalTargets(s, 'player', ui.select.from)) if (t.kind === 'pokemon') attackLegal.add(`ai:${t.space}`);
   if (ui.select?.kind === 'item') for (const t of itemTargets(s, 'player', selItem(s, ui.select))) targets.add(`player:${t.space}`);
   if (['command', 'react'].includes(ui.select?.kind)) for (const t of commandTargets(s, 'player', s.players.player.hand.find((c) => c.uid === ui.select.uid))) targets.add(`${t.who}:${t.space}`);
-  // The committed action during a React window.
+  for (const k of attackLegal) targets.add(k);
   const pend = s.reactWindow?.pending;
   const committed = new Set();
   if (pend?.type === 'attack') { committed.add(`${pend.who}:${pend.from}`); if (pend.target.kind === 'pokemon') committed.add(`${opponentName(pend.who)}:${pend.target.space}`); }
@@ -282,39 +289,68 @@ function battlefield(s, ui) {
   const incoming = pend?.type === 'summon' ? pend : null;
   const myTurn = s.phase === 'battle' && s.turn === 'player' && !ui.locked && !s.reactWindow;
   const canAttack = new Set(myTurn && !ui.select ? attackers(s, 'player') : []);
+  const attacker = ui.select?.kind === 'attack' ? s.players.player.row[ui.select.from] : null;
   const row = (who) => Array.from({ length: RULES.lanes }, (_, i) => {
     const c = s.players[who].row[i];
-    const t = targets.has(`${who}:${i}`);
-    const guarded = ui.select?.kind === 'attack' && who === 'ai' && c && guardOf(s, 'ai', i, s.players.player.row[ui.select.from].attackType);
-    return `<div class="v4-space${t ? ' target' : ''}${committed.has(`${who}:${i}`) ? ' committed' : ''}${ui.select?.kind === 'attack' && who === 'player' && ui.select.from === i ? ' attacking' : ''}" style="left: ${i * COL}px" data-who="${who}" data-space="${i}"${guarded ? ` title="${esc(`Guarded by ${guarded.card.name}`)}"` : ''}>${c ? boardCard(s, c, who, i, canAttack.has(i) && who === 'player' ? 'can-attack' : '') : incoming && incoming.who === who && incoming.space === i ? boardCard(s, { ...incoming.card, currentStrength: incoming.card.strength, spent: true }, who, i, 'incoming') : `<span class="v4-num">${i + 1}</span>`}</div>`;
+    const key = `${who}:${i}`;
+    const guard = attacker && who === 'ai' && c && !attackLegal.has(key) ? guardOf(s, 'ai', i, attacker.attackType) : null;
+    const cls = [targets.has(key) ? 'target' : '', attackLegal.has(key) ? 'legal' : '', committed.has(key) ? 'committed' : '', ui.select?.kind === 'attack' && who === 'player' && ui.select.from === i ? 'attacking' : ''].filter(Boolean).join(' ');
+    let inner = '';
+    if (c) inner = boardCard(s, c, who, i, [canAttack.has(i) && who === 'player' ? 'can-attack' : '', guard ? 'dim' : ''].join(' ')) + (guard ? `<span class="v4-lock">Guarded by ${esc(guard.card.name)}</span>` : '');
+    else if (incoming && incoming.who === who && incoming.space === i) inner = boardCard(s, { ...incoming.card, currentStrength: incoming.card.strength, spent: true }, who, i, 'incoming');
+    return `<div class="v4-space ${cls}" style="left: ${laneX(i).toFixed(1)}px" data-who="${who}" data-space="${i}"${guard ? ` title="${esc(`Guarded by ${guard.card.name}`)}"` : ''}>${inner}</div>`;
   }).join('');
   return `<section class="v4-board">
-    <div class="v4-mat"></div>
-    ${defaultLabel(s)}
-    <div class="v4-grid">${s.tournament ? tournamentTile(s) : ''}${s.locations.map((l) => locationTile(s, l)).join('')}<div class="v4-row opponent">${row('ai')}</div><div class="v4-row player">${row('player')}</div>${reactArrow(s)}</div>
+    ${s.tournament ? tournamentTile(s) : s.locations.map((l) => locationTile(s, l)).join('')}
+    <div class="v4-row opponent">${row('ai')}</div><div class="v4-row player">${row('player')}</div>${reactArrow(s)}
   </section>`;
 }
 
-const opponentName = (who) => (who === 'player' ? 'ai' : 'player');
+// A Location: its art over all its lanes on both sides (a border in its colour), with a plate across
+// the middle band: name and passive; Rounds left as pips plus "N left"; the Weather it adds; Strength on
+// each side and a two-colour bar along the bottom edge.
+function plate(you, opp, color, title, passive, row2, tip) {
+  const total = you + opp;
+  return `<div class="v4-plate" style="border-color: ${color}" title="${esc(tip)}"><h3 style="color: ${color}">${title}</h3><p class="pas">${passive}</p><div class="row2">${row2}</div>
+    <span class="v4-vs"><b class="you">${you}</b> vs <b class="opp">${opp}</b></span><span class="v4-sbar"><i style="width: ${total ? (100 * you) / total : 50}%"></i></span></div>`;
+}
+function locationTile(s, l) {
+  const d = dominantOf(s, l);
+  const you = strengthIn(s, l, 'player');
+  const opp = strengthIn(s, l, 'ai');
+  const tip = `${l.name} (placed by ${l.owner === 'player' ? 'you' : 'the Opponent'}) · ${l.passive.text} · Weather: +${l.weather.count} ${l.weather.type} · Strength here: you ${you}, the Opponent ${opp} · ${d ? `${d === 'player' ? 'you dominate' : 'the Opponent dominates'}: +${RULES.perDominance} Recognition at Supper` : 'a tie: nothing at Supper'} · ${l.roundsLeft} Round${l.roundsLeft === 1 ? '' : 's'} left`;
+  const total = l.card?.rounds ?? Math.max(l.roundsLeft, 3);
+  const row2 = `<span class="dur">${Array.from({ length: total }, (_, k) => `<i class="${k < l.roundsLeft ? '' : 'off'}"></i>`).join('')}</span>${l.roundsLeft} left<span class="wx ${l.weather.type.toLowerCase()}">${weatherIcon(l.weather.type)} +${l.weather.count} ${l.weather.type}</span>`;
+  const x = tileX(l.start);
+  const w = l.width * LW;
+  return `<div class="v4-ltile" style="left: ${(x + 3).toFixed(1)}px; width: ${(w - 6).toFixed(1)}px; border-color: ${l.color}; background-image: url('${art(l)}')" title="${esc(tip)}"></div>
+    <div class="v4-lplate" style="left: ${(x + 10).toFixed(1)}px; width: ${(w - 20).toFixed(1)}px">${plate(you, opp, l.color, esc(l.name), esc(l.passive.text), row2, tip)}</div>`;
+}
+// The Pokémon League Tournament: one tile over all 9 lanes (no art yet: a gold frame).
+function tournamentTile(s) {
+  const d = tournamentDominant(s);
+  const you = tournamentStrength(s, 'player');
+  const opp = tournamentStrength(s, 'ai');
+  const gain = boosted(s, RULES.perTournamentDominance);
+  const tip = `The Pokémon League Tournament (since Round ${s.tournament.startedRound}: ${s.tournament.reason}). It covers the whole battlefield. Passive: all Recognition earned ×1.5, rounded up. At each Supper, more total current Strength dominates it: +${RULES.perTournamentDominance} Recognition (+${gain} with the passive). Ties give nothing. No Locations or Weather. ${d ? `${d === 'player' ? 'You dominate' : 'The Opponent dominates'} now.` : 'A tie now.'}`;
+  return `<div class="v4-ltile tournament" style="left: ${(tileX(0) + 3).toFixed(1)}px; width: ${(RULES.lanes * LW - 6).toFixed(1)}px" title="${esc(tip)}"></div>
+    <div class="v4-lplate tournament" style="left: ${(tileX(3) - 40).toFixed(1)}px; width: ${(3 * LW + 80).toFixed(1)}px">${plate(you, opp, '#f6c64a', '🏆 Pokémon League Tournament', `Recognition ×1.5 · dominance +${RULES.perTournamentDominance} (+${gain})`, `since Round ${s.tournament.startedRound} · no Locations or Weather`, tip)}</div>`;
+}
 
-// --- The React window (UX1) ---------------------------------------------------------------------------------
-// Grid coordinates (the battlefield grid; the Player Characters sit to its left).
-const ROW_Y = { ai: 134, player: 504 };
-const PC_AT = { ai: { x: -22, y: 100 }, player: { x: -22, y: 504 } };   // the panel's right edge
-const spaceAt = (who, space) => ({ x: space * COL + 75, y: ROW_Y[who] });
-// An arrow from the attacker (or, for an Adapt, from the banner in the middle) to its target.
+// --- The React window (UX1) --------------------------------------------------------------------------------
+// Board coordinates; the Recognition rings stand for the Player Characters.
+const spaceAt = (who, space) => ({ x: laneX(space) + 78, y: ROW_TOP[who] + 106 });
+const PC_AT = { ai: { x: 24 + 14 + 86 - BOARD.left, y: 76 + 48 - BOARD.top }, player: { x: 24 + 16 + 86 - BOARD.left, y: 790 + 14 + 43 - BOARD.top } };
 function reactArrow(s) {
   const p = s.reactWindow?.pending;
   if (!p || p.type === 'summon') return '';
-  const from = p.type === 'attack' ? spaceAt(p.who, p.from) : { x: 675, y: 320 };
+  const from = p.type === 'attack' ? spaceAt(p.who, p.from) : { x: BOARD.w / 2, y: BOARD.h / 2 };
   const to = p.type === 'attack' ? (p.target.kind === 'player' ? PC_AT[opponentName(p.who)] : spaceAt(opponentName(p.who), p.target.space)) : spaceAt(p.target.who, p.target.space);
-  const mx = (from.x + to.x) / 2;
-  const my = Math.min(from.y, to.y) + Math.abs(from.y - to.y) / 2 - 60;
-  return `<svg class="v4-arrow" viewBox="0 0 1350 640" width="1350" height="640"><defs><marker id="v4-ah" markerWidth="10" markerHeight="10" refX="6" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ff8a3a"/></marker></defs>
-    <path d="M${from.x},${from.y} Q${mx},${my} ${to.x},${to.y}" fill="none" stroke="#ff8a3a" stroke-width="7" stroke-linecap="round" stroke-dasharray="16 10" marker-end="url(#v4-ah)"/></svg>`;
+  const mx = (from.x + to.x) / 2 + 40;
+  const my = (from.y + to.y) / 2 - 40;
+  return `<svg class="v4-arrow" viewBox="0 0 ${BOARD.w} ${BOARD.h}" width="${BOARD.w}" height="${BOARD.h}" aria-hidden="true"><defs><linearGradient id="v4-ag" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#ffd56a"/><stop offset="1" stop-color="#ff5a3a"/></linearGradient><marker id="v4-ah" markerUnits="userSpaceOnUse" markerWidth="30" markerHeight="30" refX="15" refY="15" orient="auto"><path d="M2,4 L28,15 L2,26 L9,15 z" fill="#ff5a3a"/></marker></defs>
+    <path d="M${from.x.toFixed(0)},${from.y.toFixed(0)} Q${mx.toFixed(0)},${my.toFixed(0)} ${to.x.toFixed(0)},${to.y.toFixed(0)}" stroke="url(#v4-ag)" stroke-width="9" fill="none" stroke-linecap="round" stroke-dasharray="2 16" marker-end="url(#v4-ah)"/></svg>`;
 }
-const whose = (s, w) => (w === 'player' ? 'your' : 'the Opponent\'s');
-const Whose = (s, w) => (w === 'player' ? 'Your' : 'The Opponent\'s');
 // The committed action in one plain sentence, e.g. "The Opponent's Gyarados is attacking your Charizard for 9."
 export function reactSentence(s) {
   const p = s.reactWindow?.pending;
@@ -323,24 +359,24 @@ export function reactSentence(s) {
   if (p.type === 'attack') {
     const a = s.players[p.who].row[p.from];
     const n = damageOf(s, a);
-    if (p.target.kind === 'player') return `${Whose(s, p.who)} ${a.name} is attacking ${foe === 'player' ? 'you' : 'the Opponent'} for ${n}.`;
-    return `${Whose(s, p.who)} ${a.name} is attacking ${whose(s, foe)} ${s.players[foe].row[p.target.space].name} for ${n}.`;
+    if (p.target.kind === 'player') return `${Whose(p.who)} ${a.name} is attacking ${foe === 'player' ? 'you' : 'the Opponent'} for ${n}.`;
+    return `${Whose(p.who)} ${a.name} is attacking ${whose(foe)} ${s.players[foe].row[p.target.space].name} for ${n}.`;
   }
   if (p.type === 'summon') return `${p.who === 'player' ? 'You are' : 'The Opponent is'} summoning ${p.card.name} (Level ${p.card.level}) into lane ${p.space + 1}.`;
   const on = s.players[p.target.who].row[p.target.space];
-  return `${p.who === 'player' ? 'You are' : 'The Opponent is'} playing ${p.card.name} (Adapt): ${shortMode(p.card, 'adapt')} on ${whose(s, p.target.who)} ${on.name}.`;
+  return `${p.who === 'player' ? 'You are' : 'The Opponent is'} playing ${p.card.name} (Adapt): ${longMode(p.card, 'adapt')} on ${whose(p.target.who)} ${on.name}.`;
 }
 // A React card's effect in plain words, aimed at the actual target when there's only one.
 export function reactEffect(s, card, targets) {
   const { op, amount } = card.modes.react;
-  const tgt = targets.length === 1 ? `${whose(s, targets[0].who)} ${s.players[targets[0].who].row[targets[0].space].name}` : (card.target === 'enemy' ? 'an enemy Pokémon (choose)' : 'one of your Pokémon (choose)');
+  const tgt = targets.length === 1 ? `${whose(targets[0].who)} ${s.players[targets[0].who].row[targets[0].space].name}` : (card.target === 'enemy' ? 'an enemy Pokémon (choose)' : 'one of your Pokémon (choose)');
   const what = s.reactWindow?.pending.type === 'attack' ? 'the attack' : s.reactWindow?.pending.type === 'summon' ? 'the summon' : 'their Command';
   const verb = { damage: `${amount} damage to ${tgt}`, heal: `Heal ${amount} on ${tgt}`, attackUp: `+${amount} Attack to ${tgt} until Supper`, damageLocation: `${amount} damage to each enemy Pokémon in the Location of ${tgt}` }[op];
   return `${verb.charAt(0).toUpperCase()}${verb.slice(1)}, before ${what}.`;
 }
 // Whether the player's React window is showing (not behind the Tournament banner).
 export const reactOpen = (s, ui) => s.phase === 'battle' && s.reactWindow?.reactor === 'player' && !ui.locked && !(s.tournament && ui.seenTournament !== s.tournament.startedRound);
-function reactOverlay(s, ui, ctx) {
+function reactOverlay(s, ui) {
   if (!reactOpen(s, ui)) return '';
   const me = s.players.player;
   const opts = me.hand.filter((c) => commandModesFor(s, 'player', c.uid).length);
@@ -361,139 +397,125 @@ function reactOverlay(s, ui, ctx) {
     <div class="v4-ropts">${cards}</div>`;
 }
 
-// A placed Location: a bold tile behind its lanes (both rows) with a compact panel between the rows.
-function locationTile(s, l) {
-  const d = dominantOf(s, l);
-  const you = strengthIn(s, l, 'player');
-  const opp = strengthIn(s, l, 'ai');
-  const dom = d ? `<span class="${d}">${d === 'player' ? 'You dominate' : 'Opponent dominates'}</span> · +${RULES.perDominance} at Supper` : `<span>${you || opp ? 'Tied' : 'No one'}</span> · nothing at Supper`;
-  const tip = `${l.name} (placed by ${l.owner === 'player' ? 'you' : 'the Opponent'}) · ${l.passive.text} · Weather: ${l.weather.count} ${l.weather.type} · Strength here: you ${you}, Opponent ${opp} · ${l.roundsLeft} Round${l.roundsLeft === 1 ? '' : 's'} left`;
-  return `<div class="v4-loc" style="left: ${l.start * COL}px; width: ${l.width * COL}px; --loc: ${l.color}" title="${esc(tip)}">
-    <div class="v4-loc-art" style="background-image: url('${art(l)}')"></div>
-    <div class="v4-loc-panel" title="${esc(tip)}">
-      <b>${esc(l.name)}</b>
-      <p>${weatherIcon(l.weather.type)} ${l.weather.count} ${l.weather.type} · ${l.roundsLeft} Round${l.roundsLeft === 1 ? '' : 's'} left</p>
-      <p class="v4-dom">${dom} <small>(${you}–${opp})</small></p>
-    </div>
-  </div>`;
+// --- The right column ----------------------------------------------------------------------------------------
+function roundBox(s) {
+  const phase = s.phase === 'battle' ? `BATTLE · ${s.turn === 'player' ? 'YOUR TURN' : 'THEIR TURN'}` : s.phase === 'mulligan' ? 'MULLIGAN' : 'MATCH OVER';
+  const when = s.tournament ? `· Tournament since Round ${s.tournament.startedRound}` : `· Tournament at Round ${RULES.tournamentRound} or ${RULES.tournamentRecognition}`;
+  return `<section class="v4-panel v4-col v4-round" title="${esc(s.tournament ? 'The Pokémon League Tournament: all Recognition ×1.5' : `The Pokémon League Tournament begins at Breakfast in Round ${RULES.tournamentRound}, or at the first Breakfast where either player has ${RULES.tournamentRecognition}+ Recognition`)}"><div class="v4-lbl">Round</div>
+    <div class="r">${s.round} <small>${when}</small></div><div class="v4-phases"><span class="v4-phase">${phase}</span>${s.tournament ? '<span class="v4-phase gold">🏆 TOURNAMENT</span>' : ''}</div></section>`;
 }
-
-// F5: the Pokémon League Tournament across all 9 lanes (no art yet: a plain gold frame).
-function tournamentTile(s) {
-  const d = tournamentDominant(s);
-  const you = tournamentStrength(s, 'player');
-  const opp = tournamentStrength(s, 'ai');
-  const gain = boosted(s, RULES.perTournamentDominance);
-  const dom = d ? `<span class="${d}">${d === 'player' ? 'You dominate' : 'Opponent dominates'}</span> · +${gain} at Supper` : `<span>${you || opp ? 'Tied' : 'No one'}</span> · nothing at Supper`;
-  const tip = `The Pokémon League Tournament (since Round ${s.tournament.startedRound}: ${s.tournament.reason}). It covers the whole battlefield. Passive: all Recognition earned is increased by half, rounded up. At each Supper, the player whose Pokémon have the greater total current Strength dominates it: +${RULES.perTournamentDominance} Recognition (+${gain} with the passive). Ties give nothing. No Locations or Weather. 100 Recognition wins.`;
-  return `<div class="v4-loc v4-tournament" style="left: 0; width: ${RULES.lanes * COL}px; --loc: #f6c64a" title="${esc(tip)}">
-    <div class="v4-loc-panel v4-tpanel" title="${esc(tip)}">
-      <b>🏆 Pokémon League Tournament</b>
-      <p>All Recognition +50% (rounded up) · no Locations or Weather · since Round ${s.tournament.startedRound}</p>
-      <p class="v4-dom">${dom} <small>(Strength ${you}–${opp})</small></p>
-    </div>
-  </div>`;
-}
-
-// The Default Location's label, over its widest run of lanes (hidden when no lane is Default).
-function defaultLabel(s) {
-  if (s.tournament) return '';
-  let best = null;
-  for (let i = 0; i < RULES.lanes;) {
-    if (locationAt(s, i)) { i++; continue; }
-    let j = i;
-    while (j < RULES.lanes && !locationAt(s, j)) j++;
-    if (!best || j - i > best.w) best = { start: i, w: j - i };
-    i = j;
-  }
-  if (!best) return '';
-  return `<div class="v4-default" style="left: ${14 + (best.start + best.w / 2) * COL}px"><b>Default Location</b>${best.w >= 3 ? '<small>no passive, Weather or dominance</small>' : ''}</div>`;
-}
-
-// --- The side panel ---------------------------------------------------------------------------------------------
-function side(s, ui, ctx) {
-  const me = s.players.player;
-  const foe = s.players.ai;
-  const myTurn = s.phase === 'battle' && s.turn === 'player' && !ui.locked && !ui.select && !s.reactWindow;
-  const ex = availableExert(me);
-  const exhaust = me.exhaust.map((x) => `<li>Exhaust · position ${x.position} · back in Round ${x.recoversRound}</li>`).join('');
-  const reason = (a) => (s.phase !== 'battle' ? 'Not the Battle Phase' : s.reactWindow ? 'A React window is open' : s.turn !== 'player' ? 'Not your turn' : null);
-  const actions = [
-    ['Summon', reason() ?? (summonable(s, 'player').length ? null : !emptySpaces(s, 'player').length ? 'No empty space on your side' : `No Pokémon you can pay for (${energyLeft(me)} Energy)`)],
-    ['Place Location', reason() ?? (placeable(s, 'player').length ? null : !me.hand.some(isLoc) ? 'No Location in hand' : 'No room: not enough adjacent free lanes')],
-    ['Command', reason() ?? (playableCommands(s, 'player', 'adapt').length || playableCommands(s, 'player', 'strat').length ? null : !me.hand.some(isCmd) ? 'No Command Card in hand' : playReason(s, 'player', me.hand.find(isCmd)))],
-    ['Supporter', reason() ?? (playableSupporters(s, 'player').length ? null : !me.hand.some(isSup) ? 'No Supporter in hand' : playReason(s, 'player', me.hand.find(isSup)))],
-    ['Purchase Item', reason() ?? (buyableFromHand(s, 'player').length || buyableFromMart(s, 'player').length ? null : !me.hand.some(isItem) && !s.mart.onSale.some(Boolean) ? 'No Item in hand or the PokéMart' : `No Item you can buy and use or store ($${me.dollars})`)],
-    ['Inventory Item', reason() ?? (usableFromBag(s, 'player').length ? null : !me.bag.length ? 'Your Bag is empty' : whyNot(s, 'player', 'useItem', me.bag[0]))],
-    ['Trainer Command', reason() ?? (playableTrainers(s, 'player').length ? null : !me.hand.some(isTrainer) ? 'No Trainer in hand' : trainerReason(s, 'player', me.hand.find(isTrainer)))],
-    ['Attack', reason() ?? whyNot(s, 'player', 'attack')],
-    ['Retain', reason() ?? (!me.hand.some((c) => !c.retained) ? 'No card to Retain' : energyLeft(me) < RULES.retainCost ? 'Needs 1 Energy' : null)],
-    ['Pass', reason()],
-  ];
-  return `<aside class="v4-side">
-    <section class="v4-panel"><div class="v4-label">Round ${s.round}</div>${s.tournament ? '<span class="v4-chip live" title="The Pokémon League Tournament: all Recognition +50%">🏆 Tournament</span> ' : ''}<span class="v4-chip">${s.phase === 'battle' ? `Battle · ${s.turn === 'player' ? 'your turn' : 'their turn'}` : s.phase === 'mulligan' ? 'Mulligan' : 'Match over'}</span></section>
-    <section class="v4-panel v4-energy">
-      <div class="v4-label">${icon('energy')} Base Energy</div><b>${me.baseEnergy}</b>
-      <div class="v4-exert"><span>Exert <b>${ex}</b> / ${me.exertMax}</span><span class="v4-exert-dots">${Array.from({ length: me.exertMax }, (_, i) => `<i class="${i < ex ? 'on' : ''}"></i>`).join('')}</span></div>
-      ${exhaust ? `<ul class="v4-exhaust">${exhaust}</ul>` : '<p class="v4-small">Exert covers what Base Energy can\'t; each point spent is Exhausted for 2–4 Rounds.</p>'}
-    </section>
-    ${weatherPanel(s)}
-    <button class="v4-pass" data-action="pass"${myTurn ? '' : ' disabled'}>Pass <small>${passEndsPhase(s) ? '(ends the Battle Phase)' : '(+1 Base Energy)'}</small></button>
-    <section class="v4-panel v4-actions"><div class="v4-label">Actions</div>${actions.map(([n, why]) => `<p class="${why ? 'off' : 'on'}"><b>${n}</b>${why ? ` · ${esc(why)}` : ' · available'}</p>`).join('')}</section>
-    ${stratPanel(s)}
-    <section class="v4-panel v4-piles">
-      <div class="v4-label">You</div><p>Hand ${me.hand.length} · Deck ${me.drawPile.length} · Discard ${me.discard.length} · <b title="${esc(`Released (for good, never reshuffled): ${me.released.map((c) => c.name).join(', ') || 'none'}`)}">Released ${me.released.length}</b></p>
-      <div class="v4-label">Opponent</div><p>Hand ${foe.hand.length} · Deck ${foe.drawPile.length} · Discard ${foe.discard.length} · <b title="${esc(`Released: ${foe.released.map((c) => c.name).join(', ') || 'none'}`)}">Released ${foe.released.length}</b> · Energy ${foe.baseEnergy} + Exert ${availableExert(foe)}</p>
-    </section>
-    <section class="v4-panel v4-log"><div class="v4-label">Log</div>${s.log.slice(-7).map((l) => `<p>${esc(l)}</p>`).join('')}</section>
-    <div class="v4-build"><p>${esc(ctx.build)}</p><p class="v4-setting"><label>React timer <select data-setting="reactTimer">${[5, 8, 12, 20].map((n) => `<option value="${n}"${(ctx.reactTimer ?? 5) === n ? ' selected' : ''}>${n} s</option>`).join('')}</select></label></p><p><a href="../v3/">v3</a> · <a href="../v2/">v2</a> · <a href="../">v1</a> · <button class="v4-link" data-action="new">New match</button></p></div>
-  </aside>`;
-}
-
-// Pending Strats (both players'), with their targets.
-function stratPanel(s) {
-  if (!s.strats.length) return '';
-  return `<section class="v4-panel v4-stratlist"><div class="v4-label">Pending Strats</div>${s.strats.map((x) => {
-    const lane = x.target.space + 1;
-    return `<p class="${x.owner}" title="${esc(`${modeText(x.card, 'strat')}. Resolves after ${x.owner === 'player' ? 'the Opponent\'s' : 'your'} next turn, or at Supper; fizzles if the target is gone.`)}">⏳ <b>${x.owner === 'player' ? 'Your' : 'Their'} ${esc(x.card.name)}</b> → ${esc(x.targetName)} (lane ${lane}) · ${esc(shortMode(x.card, 'strat'))}</p>`;
-  }).join('')}</section>`;
-}
-
-// Weather: combined counts across placed Locations, and which brackets are active (both players).
-function weatherPanel(s) {
-  if (s.tournament) return '<section class="v4-panel v4-weather"><div class="v4-label">Weather</div><p class="off">None: the Pokémon League Tournament replaced every Location (and its Weather).</p></section>';
+// Short bracket effects for the Weather chip (the full table is on hover).
+const BRACKET_SHORT = { healAll: 'all heal 1 at Breakfast', strength: 'all Pokémon +1 Strength', physical: 'Physical +1 damage', attack: 'all Pokémon +1 Attack' };
+function weatherChip(s) {
+  const all = WEATHER_BRACKETS.map((b) => `${b.type} ${b.at}+: ${b.text}`).join('\n');
+  if (s.tournament) return `<section class="v4-panel v4-col v4-wx" title="${esc(all)}"><div class="v4-lbl">Weather</div><p>None during the Tournament</p><p class="sub">It replaced every Location (and its Weather)</p></section>`;
   const t = weatherTotals(s);
-  const on = new Set(activeBrackets(s));
-  return `<section class="v4-panel v4-weather"><div class="v4-label">Weather</div>
-    <p class="v4-wcount">${weatherIcon('Rain')} Rain <b>${t.Rain}</b> · ${weatherIcon('Sun')} Sun <b>${t.Sun}</b></p>
-    ${WEATHER_BRACKETS.map((b) => `<p class="${[...on].some((x) => x.type === b.type && x.at === b.at) ? 'on' : 'off'}" title="${esc(`${b.type} ${b.at} or more (all placed Locations combined): ${b.text}. Applies to both players.`)}">${esc(bracketText(b))}</p>`).join('')}
-  </section>`;
+  const on = activeBrackets(s);
+  const chips = ['Sun', 'Rain'].filter((k) => t[k]).map((k) => `<span class="wx ${k.toLowerCase()}">${weatherIcon(k)} ${k} ${t[k]}</span>`).join(' ');
+  // The strongest active bracket of each type.
+  const top = ['Sun', 'Rain'].map((k) => on.filter((b) => b.type === k).at(-1)).filter(Boolean);
+  const effects = top.map((b) => BRACKET_SHORT[b.kind]).join('; ');
+  const next = WEATHER_BRACKETS.filter((b) => t[b.type] < b.at).sort((a, b) => (a.at - t[a.type]) - (b.at - t[b.type]))[0];
+  return `<section class="v4-panel v4-col v4-wx" title="${esc(`Weather counts add up across placed Locations; brackets apply to both players.\n${all}`)}"><div class="v4-lbl">Weather</div>
+    <p>${chips || 'None'} ${esc(effects || (chips ? 'no bracket yet' : ''))}</p>${next ? `<p class="sub">At ${next.type} ${next.at}: ${BRACKET_SHORT[next.kind]}</p>` : ''}</section>`;
+}
+function energyTile(s) {
+  const me = s.players.player;
+  const ex = availableExert(me);
+  const of = Math.max(baseEnergyFor(s.round), me.baseEnergy);
+  const dia = Array.from({ length: EXERT_LIMIT }, (_, i) => `<i class="${i < ex ? 'on' : i < me.exertMax ? 'ex' : 'lock'}"></i>`).join('');
+  const back = [...me.exhaust].sort((a, b) => a.recoversRound - b.recoversRound).map((x) => x.recoversRound);
+  return `<section class="v4-col v4-energy" title="${esc(`Base Energy left: ${me.baseEnergy} (the Round's Base Energy is ${baseEnergyFor(s.round)}; each Pass adds 1). Exert covers what Base Energy can't; each point spent is Exhausted for 2–4 Rounds.`)}">
+    <div class="v4-lbl">${icon('energy')} Energy</div><div class="big">${me.baseEnergy}</div><div class="of">of ${of} this turn</div>
+    <div class="dia">${dia}</div><small>Exert ${ex} of ${me.exertMax} ready</small>${back.length ? `<small class="dim">${back.length} Exhausted · back in Round${back.length === 1 ? '' : 's'} ${back.join(', ')}</small>` : ''}</section>`;
+}
+function endTurn(s, ui) {
+  const myTurn = s.phase === 'battle' && s.turn === 'player' && !ui.locked && !ui.select && !s.reactWindow;
+  return `<button class="v4-col v4-pass" data-action="pass"${myTurn ? '' : ' disabled'} title="${esc(myTurn ? (passEndsPhase(s) ? 'Pass: the Opponent passed too, so this ends the Battle Phase.' : `Pass: +1 Base Energy${passSpends(s, 'player').length ? '; your fastest Pokémon become Spent (unmatched Speed)' : ''}.`) : 'Not your turn')}"><b>END TURN</b><small>${passEndsPhase(s) ? 'Pass · ends the Battle Phase' : 'Pass · +1 Base Energy'}</small></button>`;
+}
+function martButton(s, ui) {
+  const fresh = ui.martSeen !== s.round ? s.mart.onSale.filter(Boolean).length : 0;
+  return `<button class="v4-panel v4-col v4-martbtn" data-action="open-mart" title="Open the PokéMart: ${s.mart.onSale.filter(Boolean).map((c) => `${c.name} $${c.price}`).join(', ') || 'sold out'}"><span class="ic" style="background-image: url('${UI_ART('pokemart')}')"></span><span><b>PokéMart</b><small>You have $${s.players.player.dollars}</small></span>${fresh ? `<span class="v4-badge">${fresh} new</span>` : ''}</button>`;
+}
+// The log ticker and drawer. Lines are coloured by whose they are; an attack line gets its attacker's
+// attack icon; long lines are shortened in the ticker (the full line is on hover and in the drawer).
+const NAME_INFO = new Map([
+  ...PATHS.flatMap((p) => p.forms.map((f) => [f.name, { attackType: p.attackType }])),
+  ...TRAINERS.map((t) => [t.partner.name, { attackType: t.partner.attackType }]),
+]);
+function logLine(line, short) {
+  const cls = /^(You|Your)\b/.test(line) ? 'y' : /^The Opponent/.test(line) ? 'o' : '';
+  const m = line.match(/([A-Z][\w.'é -]*?) attacked /);
+  const who = m && [...NAME_INFO.keys()].find((n) => m[1].endsWith(n));
+  const ic = who ? attackIcon({ attackType: NAME_INFO.get(who).attackType }) : '';
+  const text = short && line.length > 46 ? `${line.slice(0, 44).trimEnd()}…` : line;
+  return `<p class="${cls}" title="${esc(line)}">${ic}${esc(text)}</p>`;
+}
+function logTicker(s) {
+  return `<button class="v4-panel v4-col v4-ticker" data-action="open-log" title="Open the full log (L)">${s.log.slice(-3).map((l) => logLine(l, true)).join('')}<span class="open">Open log <span class="key">L</span></span></button>`;
 }
 
+// --- Drawers -----------------------------------------------------------------------------------------------
+function martDrawer(s, ui) {
+  if (ui.drawer !== 'mart') return '';
+  const myTurn = s.phase === 'battle' && s.turn === 'player' && !ui.locked && !s.reactWindow;
+  const rows = s.mart.onSale.map((c, slot) => {
+    if (!c) return '<div class="v4-mrow sold"><p>Sold · new stock at Breakfast</p></div>';
+    const why = !myTurn ? (s.phase === 'battle' ? 'Not your turn' : 'Not the Battle Phase') : buyReason(s, 'player', c);
+    return `<div class="v4-mrow" title="${esc(itemDetail(c))}"><span class="a" style="background-image: url('${art(c)}')"></span><p><b>${esc(c.name)}</b> <span class="price">$${c.price}</span><br><small>${c.itemType} · ${esc(c.text)}</small></p>
+      <button data-buy="${slot}"${why ? ` disabled title="${esc(why)}"` : ''}>Buy</button></div>`;
+  }).join('');
+  return `<section class="v4-panel v4-drawer mart" role="dialog"><header><b>PokéMart</b><small>You have $${s.players.player.dollars} · 3 Items each Breakfast · bought Items are used now or stored in your Bag</small><button data-action="close-drawer">Close</button></header>${rows}</section>`;
+}
+function logDrawer(s, ui, ctx) {
+  if (ui.drawer !== 'log') return '';
+  return `<section class="v4-panel v4-drawer log" role="dialog"><header><b>Log</b><small>${esc(ctx.build)}</small><button data-action="close-drawer">Close <span class="key">L</span></button></header>
+    <div class="v4-loglist">${s.log.map((l) => logLine(l, false)).join('')}</div>
+    <footer><a href="../v3/">v3</a> · <a href="../v2/">v2</a> · <a href="../">v1</a> · <button class="v4-link" data-action="new">New match</button></footer></section>`;
+}
+
+// --- Your hand, piles and key hints ----------------------------------------------------------------------------
+// The fan: cards drop at most 14 px and tilt at most 4° at the edges, so a full hand stays on screen.
+const HAND = { left: 448, right: 1500, top: 800 };
 function hand(s, ui) {
   const me = s.players.player;
   const myTurn = s.phase === 'battle' && s.turn === 'player' && !ui.locked && !s.reactWindow;
   const reacting = s.reactWindow?.reactor === 'player' && !ui.locked;
   const n = me.hand.length;
-  const W = 1590;
-  const CW = 156;
-  const step = n > 1 ? Math.min(CW + 4, (W - CW) / (n - 1)) : 0;
-  const start = (W - (CW + step * (n - 1))) / 2;
-  return `<div class="v4-hand">${me.hand.map((c, i) => {
+  const W = HAND.right - HAND.left;
+  const step = n > 1 ? Math.min(142, (W - 182) / (n - 1)) : 0;
+  const total = 182 + step * (n - 1);
+  const x0 = (HAND.left + HAND.right) / 2 - total / 2;
+  const mid = (n - 1) / 2;
+  return `<div class="v4-hand">${me.hand.map((c, k) => {
     const why = reacting ? (isCmd(c) && commandModesFor(s, 'player', c.uid).length ? null : isCmd(c) ? whyNot(s, 'player', 'react', c) : 'Only a Command Card can React') : myTurn ? playReason(s, 'player', c) : null;
-    const cls = [myTurn || reacting ? (why ? 'dim' : reacting ? 'playable reactable' : 'playable') : '', ui.select?.uid === c.uid ? 'sel' : ''].join(' ');
-    return `<div class="v4-slot${ui.select?.uid === c.uid ? ' picked' : ''}" style="left: ${Math.round(start + step * i)}px">${handCard(s, c, `${cls} selectable`, `${detail(c)}${why ? ` · ${why}` : ''}`)}</div>`;
+    const cls = [myTurn || reacting ? (why ? 'no' : reacting ? 'ok reactable' : 'ok') : '', 'selectable'].join(' ');
+    const d = k - mid;
+    const picked = ui.select?.uid === c.uid;
+    const drop = Math.min(14, d * d * 1.6 * (step / 142));
+    const tilt = Math.max(-4, Math.min(4, d * 1.3));
+    return `<div class="v4-slot${picked ? ' picked' : ''}" style="left: ${Math.round(x0 + step * k)}px; top: ${Math.round(HAND.top + drop)}px; --r: ${tilt.toFixed(2)}deg; z-index: ${k + 1}">${renderHandCard(s, c, cls, `${detail(c)}${why ? ` · ${why}` : ''}`)}</div>`;
   }).join('')}</div>`;
 }
+function myPiles(s, ctx) {
+  const me = s.players.player;
+  const top = me.discard.at(-1);
+  const retained = me.hand.filter((c) => c.retained).length;
+  return `<div class="v4-pile" style="left: 1520px; top: 820px" title="Your Draw Pile: ${me.drawPile.length}"><span class="c">${me.drawPile.length}</span></div><p class="v4-pcap" style="left: 1520px; top: 962px">Deck</p>
+    <div class="v4-pile disc" style="left: 1640px; top: 820px${top ? `; background-image: url('${art(top)}')` : ''}" title="Your Discard Pile: ${me.discard.length}${top ? ` (top: ${top.name})` : ''}"><span class="c">${me.discard.length}</span></div><p class="v4-pcap" style="left: 1640px; top: 962px">Discard</p>
+    <div class="v4-keys"><div class="v4-lbl">Keys</div><p><span class="key">L</span> log</p><p><span class="key">Esc</span> let it happen</p><p><span class="key">Space</span> React (one option)</p>
+      <label title="How long a React window waits before letting the action happen">React <select data-setting="reactTimer">${[5, 8, 12, 20].map((v) => `<option value="${v}"${(ctx.reactTimer ?? 5) === v ? ' selected' : ''}>${v} s</option>`).join('')}</select></label></div>
+    <p class="v4-relline" title="${esc(`Released (for good, never reshuffled): ${me.released.map((c) => c.name).join(', ') || 'none'}. Retained cards stay in your hand through Supper; you draw one fewer per card.`)}">Released ${me.released.length} · Retained ${retained} · hover any card for its details</p>`;
+}
 
+// --- Dialogs (kept from earlier stages; restyled in UX5) -----------------------------------------------------------
 function dialogs(s, ui) {
   const me = s.players.player;
   if (s.phase === 'gameOver') return `<div class="v4-ask" role="dialog"><div class="v4-panel v4-over"><h2>${s.winner === 'player' ? 'Pokémon League Champion!' : 'Defeat'}</h2><p>${esc(s.log.at(-1))}</p><p>Round ${s.round} · You ${Math.min(RULES.win, me.recognition)} · Opponent ${Math.min(RULES.win, s.players.ai.recognition)}</p><p class="v4-small">Totals earned: you ${me.recognition}, the Opponent ${s.players.ai.recognition}.</p><button data-action="new">New match</button></div></div>`;
-  // F5: the banner when the Tournament begins (once).
   if (s.tournament && ui.seenTournament !== s.tournament.startedRound && s.phase === 'battle') {
     return `<div class="v4-ask" role="dialog"><div class="v4-panel v4-wide v4-tbanner"><h2>🏆 The Pokémon League Tournament begins!</h2>
       <p>${esc(s.tournament.reason === `Round ${RULES.tournamentRound}` ? `Round ${RULES.tournamentRound} has arrived.` : `A player has reached ${RULES.tournamentRecognition} Recognition.`)} Every Location is removed; the Tournament covers the whole battlefield, and your Pokémon stay where they are.</p>
-      <p><b>Passive:</b> all Recognition earned is increased by half (rounded up). <b>Dominance:</b> at each Supper, more total Strength on the battlefield earns +${RULES.perTournamentDominance} (+${boosted(s, RULES.perTournamentDominance)}). No Locations or Weather from now on. First to ${RULES.win} Recognition is the Pokémon League Champion.</p>
+      <p><b>Passive:</b> all Recognition earned ×1.5 (rounded up). <b>Dominance:</b> at each Supper, more total Strength on the battlefield earns +${RULES.perTournamentDominance} (+${boosted(s, RULES.perTournamentDominance)}). No Locations or Weather from now on. First to ${RULES.win} Recognition is the Pokémon League Champion.</p>
       <div class="v4-buttons"><button data-action="tournament-ok">To the Tournament</button></div></div></div>`;
   }
   if (ui.select?.kind === 'supporter') {
@@ -508,7 +530,7 @@ function dialogs(s, ui) {
       <div class="v4-mini">${others.map((c) => {
         const meets = cond.test(c);
         const on = chosen.includes(c.uid);
-        return `<button class="${on ? 'on' : ''}${meets ? ' meets' : ''}" data-rel="${c.uid}" style="background-image: url('${art(c)}')" title="${esc(detail(c))}">${on ? '<em>Release</em>' : ''}${meets ? '<i>★ Favour</i>' : ''}<span>${esc(c.name)}${c.cardType === 'Pokémon' ? ` L${c.level}` : ''}</span></button>`;
+        return `<button class="${on ? 'on' : ''}${meets ? ' meets' : ''}" data-rel="${c.uid}" style="background-image: url('${art(c)}')" title="${esc(detail(c))}">${on ? '<em>Release</em>' : ''}${meets ? '<i>★ Favour</i>' : ''}<span>${esc(c.name)}${isMon(c) ? ` L${c.level}` : ''}</span></button>`;
       }).join('')}</div>
       <p class="v4-relsum">${chosen.length} of ${sup.release} chosen · ${fav ? '<b class="fav">★ Favour met: the enhanced effect and Recognition</b>' : 'Favour not met'}</p>
       <div class="v4-buttons"><button data-action="sup-done"${chosen.length === sup.release ? '' : ' disabled'}>Release ${sup.release} and play ${esc(sup.name)}</button><button data-action="cancel">Cancel</button></div></div></div>`;
@@ -516,22 +538,27 @@ function dialogs(s, ui) {
   if (s.phase === 'mulligan' && !me.mulliganed && !ui.locked) {
     const chosen = ui.mull ?? [];
     return `<div class="v4-ask" role="dialog"><div class="v4-panel v4-wide"><p><b>Round 1 · Mulligan</b>: choose any cards to put into your Discard Pile; you draw as many new ones.</p>
-      <div class="v4-mini">${me.hand.map((c) => `<button class="${chosen.includes(c.uid) ? 'on' : ''}" data-mull="${c.uid}" style="background-image: url('${art(c)}')" title="${esc(detail(c))}"><span>${esc(c.name)}${c.cardType === 'Pokémon' ? ` L${c.level}` : ''}</span></button>`).join('')}</div>
+      <div class="v4-mini">${me.hand.map((c) => `<button class="${chosen.includes(c.uid) ? 'on' : ''}" data-mull="${c.uid}" style="background-image: url('${art(c)}')" title="${esc(detail(c))}"><span>${esc(c.name)}${isMon(c) ? ` L${c.level}` : ''}</span></button>`).join('')}</div>
       <div class="v4-buttons"><button data-action="mull-done">${chosen.length ? `Put back ${chosen.length} and draw ${chosen.length}` : 'Keep this hand'}</button></div></div></div>`;
   }
   return '';
 }
 
+const selItem = (s, sel) => (sel.from === 'mart' ? s.mart.onSale[sel.slot] : sel.from === 'bag' ? s.players.player.bag.find((c) => c.uid === sel.uid) : s.players.player.hand.find((c) => c.uid === sel.uid));
+
+// --- The whole screen ---------------------------------------------------------------------------------------------
 export function renderMatch(root, s, ui, ctx) {
   const p = promptFor(s, ui, ctx);
   root.innerHTML = `<div class="v4-table${ui.select ? ' choosing' : ''}${reactOpen(s, ui) ? ' reacting' : ''}">
-    <div class="v4-prompt${p.gold ? ' gold' : ''}"><span class="v4-tag">${esc(p.tag)}</span><span class="v4-ptext">${p.text}</span>${(p.buttons ?? []).map((b) => `<button data-action="${b.action}"${b.disabled ? ' disabled' : ''}${b.tip ? ` title="${esc(b.tip)}"` : ''}>${esc(b.label)}</button>`).join('')}</div>
-    ${character(s, 'ai', ui)}${character(s, 'player', ui)}${trainerArea(s, 'ai')}${trainerArea(s, 'player')}
-    ${battlefield(s, ui)}
-    ${shopStrip(s, ui)}
-    ${side(s, ui, ctx)}
+    <div class="v4-prompt${p.gold ? ' gold' : ''}"><span class="v4-tag">${esc(p.tag)}</span><span class="v4-ptext" title="${esc(actionsTip(s, ui))}">${p.text}</span>${(p.buttons ?? []).map((b) => `<button data-action="${b.action}"${b.disabled ? ' disabled' : ''}${b.tip ? ` title="${esc(b.tip)}"` : ''}>${esc(b.label)}</button>`).join('')}</div>
+    ${oppHud(s, ui)}${oppHandAndPiles(s)}
+    ${board(s, ui)}
+    ${roundBox(s)}${weatherChip(s)}${energyTile(s)}${endTurn(s, ui)}${martButton(s, ui)}${logTicker(s)}
+    ${youHud(s, ui)}
     ${hand(s, ui)}
-    ${reactOverlay(s, ui, ctx)}
+    ${myPiles(s, ctx)}
+    ${martDrawer(s, ui)}${logDrawer(s, ui, ctx)}
+    ${reactOverlay(s, ui)}
     ${dialogs(s, ui)}
   </div>`;
   wire(root, s, ui, ctx);
@@ -545,10 +572,12 @@ function wire(root, s, ui, ctx) {
   on('[data-action="tournament-ok"]', () => { ui.seenTournament = s.tournament.startedRound; ctx.redraw(); });
   root.querySelectorAll('[data-setting="reactTimer"]').forEach((el) => el.addEventListener('change', () => ctx.setReactTimer(Number(el.value))));
   on('[data-action="mull-done"]', () => { const cards = ui.mull ?? []; ui.mull = []; ctx.act({ type: 'mulligan', who: 'player', cards }); });
+  // The drawers open and close at any time (buying only on your turn).
+  on('[data-action="open-mart"]', () => { ui.drawer = ui.drawer === 'mart' ? null : 'mart'; ui.martSeen = s.round; ctx.redraw(); });
+  on('[data-action="open-log"]', () => { ui.drawer = ui.drawer === 'log' ? null : 'log'; ctx.redraw(); });
+  on('[data-action="close-drawer"]', () => { ui.drawer = null; ctx.redraw(); });
   if (actor(s) !== 'player' || s.phase === 'mulligan' || ui.locked) return;
-  // The React window: pick a Command card to React with, or let it happen.
-  // UX1: the React window pauses everything else: React (a card, then a target if it has several) or
-  // let it happen. The countdown and the keys are in main.js.
+  // UX1: the React window pauses everything else.
   if (s.reactWindow) {
     on('[data-action="decline"]', () => ctx.act({ type: 'decline', who: 'player' }));
     on('[data-react]', (el) => {
@@ -564,7 +593,7 @@ function wire(root, s, ui, ctx) {
   on('[data-action="pass"]', () => ctx.act({ type: 'pass', who: 'player' }));
   on('.v4-hand .v4-card', (el) => { ui.select = ui.select?.uid === el.dataset.uid ? null : { kind: 'hand', uid: el.dataset.uid }; ctx.redraw(); });
   on('[data-action="retain"]', () => ctx.act({ type: 'retain', who: 'player', uid: ui.select.uid }));
-  on('[data-buy]', (el) => { ui.select = { kind: 'buy', from: 'mart', slot: Number(el.dataset.buy) }; ctx.redraw(); });
+  on('[data-buy]', (el) => { ui.select = { kind: 'buy', from: 'mart', slot: Number(el.dataset.buy) }; ui.drawer = null; ctx.redraw(); });
   on('[data-bag].usable', (el) => { ui.select = { kind: 'item', from: 'bag', uid: el.dataset.bag }; ctx.redraw(); });
   const src = () => (ui.select.kind === 'buy' ? { from: 'mart', slot: ui.select.slot } : { from: 'hand', uid: ui.select.uid });
   on('[data-action="buy-use"]', () => { ui.select = { kind: 'item', ...src() }; ctx.redraw(); });
@@ -596,5 +625,5 @@ function wire(root, s, ui, ctx) {
     return ctx.act({ type: 'summon', who: 'player', uid: c.uid, space });
   });
   on('.v4-row.player .v4-card.can-attack', (el) => { ui.select = { kind: 'attack', from: Number(el.dataset.space) }; ctx.redraw(); });
-  on('.v4-pc.target', () => ctx.act({ type: 'attack', who: 'player', from: ui.select.from, target: { kind: 'player' } }));
+  on('.v4-ring.target', () => ctx.act({ type: 'attack', who: 'player', from: ui.select.from, target: { kind: 'player' } }));
 }

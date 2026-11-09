@@ -75,7 +75,7 @@ for (const where of ['drawPile', 'hand', 'discard']) {
   if (where === 'hand') c.retained = true;   // Retained or not, it's taken
   p[where].push(c);
   assert.equal(deckCount(p), 40);
-  tr.progress = 1;
+  tr.progress = tr.objective.need - 1;   // one defeat short
   p.row[0] = mon('growlithe', 7, { spent: false });
   s.players.ai.row[3] = mon('ponyta', 1, { currentStrength: 1 });
   const rec = p.recognition;
@@ -83,7 +83,7 @@ for (const where of ['drawPile', 'hand', 'discard']) {
   const q = s.players.player;
   const done = q.trainers.find((t) => t.name === 'Misty');
   assert.ok(done.complete, `complete (${where})`);
-  assert.equal(done.progress, 2);
+  assert.equal(done.progress, done.objective.need);
   assert.ok(!PILES.some((k) => q[k].some((x) => x.uid === tr.cardUid)), `the card left the ${where}`);
   assert.equal(deckCount(q), 39, 'the deck total drops to 39');
   assert.equal(q.row[1].name, 'Starmie', 'the Partner arrives in the first free space');
@@ -95,7 +95,7 @@ for (const where of ['drawPile', 'hand', 'discard']) {
   s.turn = 'player';
   s.players.ai.row[4] = mon('ponyta', 1, { currentStrength: 1 });
   s = applyAction(s, { type: 'attack', who: 'player', from: 0, target: { kind: 'pokemon', space: 4 } });
-  assert.equal(s.players.player.trainers.find((t) => t.name === 'Misty').progress, 2);
+  assert.equal(s.players.player.trainers.find((t) => t.name === 'Misty').progress, s.players.player.trainers.find((t) => t.name === 'Misty').objective.need);
   assert.equal(s.players.player.row.filter((x) => x?.name === 'Starmie').length, 1, 'no second Partner');
 }
 

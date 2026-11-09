@@ -2,12 +2,12 @@
 // Pokémon Legends v4 — entry point (F1): you against the AI, on a fixed 1920×1080 stage scaled
 // to fit the window. ?seed=123 replays the same shuffle and AI choices; ?autoplay lets the AI play
 // both sides; ?debug exposes window.__v4 for the layout check (v4/tools/layout.mjs).
-import { createGame, applyAction, actor, commandModesFor, commandTargets } from './engine/game.js?v=202611091610';
-import { chooseAction } from './ai/ai.js?v=202611091610';
-import { renderMatch, reactOpen } from './ui/board.js?v=202611091610';
-import { pokemonAt, cardAtRound } from './engine/cards.js?v=202611091610';
+import { createGame, applyAction, actor, commandModesFor, commandTargets } from './engine/game.js?v=202611091725';
+import { chooseAction } from './ai/ai.js?v=202611091725';
+import { renderMatch, reactOpen } from './ui/board.js?v=202611091725';
+import { pokemonAt, cardAtRound } from './engine/cards.js?v=202611091725';
 
-export const BUILD = 'UX1 — Objectives from the start, Command modes, the React window';
+export const BUILD = 'UX2 — the new layout, HUD and card faces; Objective targets 8/5, stronger Partners';
 
 const STAGE = { width: 1920, height: 1080 };
 const stage = document.getElementById('stage');
@@ -69,6 +69,12 @@ function syncReactClock() {
 // UX1 keys in the React window: Space reacts when there's exactly one option with one target; Esc
 // lets it happen.
 addEventListener('keydown', (e) => {
+  // UX2: L opens and closes the log drawer (the only new key in this stage).
+  if ((e.key === 'l' || e.key === 'L') && state && !e.ctrlKey && !e.metaKey && !e.altKey && !(e.target instanceof HTMLSelectElement)) {
+    ui.drawer = ui.drawer === 'log' ? null : 'log';
+    redraw();
+    return;
+  }
   if (!state || autoplay || !reactOpen(state, ui)) return;
   if (e.key === 'Escape') { e.preventDefault(); act({ type: 'decline', who: 'player' }); return; }
   if (e.key === ' ' || e.code === 'Space') {
@@ -86,7 +92,7 @@ function newMatch() {
   let k = seed;
   aiRng = params.has('seed') ? () => { k = (k * 9301 + 49297) % 233280; return k / 233280; } : Math.random;
   state = createGame(seed);
-  Object.assign(ui, { select: null, ask: null, locked: false, seenTournament: null });
+  Object.assign(ui, { select: null, ask: null, locked: false, seenTournament: null, drawer: null, martSeen: null });
   redraw();
   aiLoop(match);
 }

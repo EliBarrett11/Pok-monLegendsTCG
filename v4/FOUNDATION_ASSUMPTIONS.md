@@ -23,7 +23,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
 | Exert and Exhaust | v1 exactly: Exert maximum = Round (max 3); spent Exert is Exhausted for 2, 3 or 4 Rounds by position | Section 16 | No |
 | Starting Energy | Round 1: Base Energy 1, Exert maximum 1 | Follows from v1's rule | No |
 | PokéDollars per Round | +$1 at each Breakfast, including Round 1 | Spec "$1 per round" | No |
-| PokéDollars per defeat | The defeated Pokémon's Energy cost at its Level, at least $1, to its opponent, whatever caused it; a Partner counts as cost 3 | Ties the reward to what the Pokémon was worth, using a number that already exists | **Needed** |
+| PokéDollars per defeat | The defeated Pokémon's Energy cost at its Level, at least $1, to its opponent, whatever caused it; a Partner counts as cost 4 (UX2) | Ties the reward to what the Pokémon was worth, using a number that already exists | **Needed** |
 
 ## 2. Round structure and the round-start (Breakfast) order
 
@@ -265,10 +265,12 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
 
   | Trainer | Objective | Partner (On Summon) | Trainer Command |
   |---|---|---|---|
-  | Misty | Defeat 2 enemy Pokémon | Starmie (draw 2) | 1 Energy: draw 2 |
-  | Blaine | Dominate a Location at Supper (the Tournament counts) | Ninetales (1 damage to each enemy Pokémon) | 2 Energy: the same damage |
+  | Misty | Defeat 8 enemy Pokémon | Starmie, Level 8: Swift, Special Attack 8, Hitpoints 10 (On Summon: draw 2) | 1 Energy: draw 2 |
+  | Blaine | Dominate a Location 5 times (each Location dominated at a Supper counts 1; the Tournament counts 1) | Ninetales, Level 8: Steady, Special Attack 9, Hitpoints 11 (On Summon: 2 damage to each enemy Pokémon) | 2 Energy: 1 damage to each enemy Pokémon |
 
-  **Approval:** **Needed**.
+  - **Approval:** No (UX2, Elliott's Q5 and Q7).
+  - The targets 8 and 5 and the Level 8 Partners make an Objective a mid-to-late-game reward. Each Partner counts as cost 4, so defeating one gives its opponent $4.
+  - Blaine's Trainer Command keeps its 1 damage; only Ninetales's On Summon went up to 2.
 
 ## 11. The Pokémon League Tournament
 

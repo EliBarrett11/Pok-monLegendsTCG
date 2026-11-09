@@ -191,12 +191,13 @@ const stock = (s, id, slot = 0) => {
 
 // --- Trainer Objective (UX1: tracked from match setup): progress, completion, the Partner (and waiting for a space), Recognition --------------------
 {
-  // Misty: Defeat 2 enemy Pokémon.
+  // Misty: Defeat 8 enemy Pokémon (UX2). This test starts it 2 short.
   let s = battle();
   const misty = () => s.players.player.trainers.find((t) => t.name === 'Misty');
   s.players.player.row[0] = mon('growlithe', 7, { spent: false });
   s.players.player.drawPile = Array.from({ length: 5 }, () => card('ponyta'));
   assert.equal(misty().progress, 0, 'active from setup, progress 0');
+  misty().progress = 6;
   s = nextRound(s);
   assert.equal(s.players.player.trainers.length, 2, 'the trackers stay through Supper');
   for (const w of ['player', 'ai']) s.players[w].hand = [];
@@ -206,7 +207,7 @@ const stock = (s, id, slot = 0) => {
   s.passesInARow = 0;
   s.players.player.row[0].spent = false;
   s = applyAction(s, { type: 'attack', who: 'player', from: 0, target: { kind: 'pokemon', space: 4 } });
-  assert.equal(misty().progress, 1, 'progress: 1 of 2');
+  assert.equal(misty().progress, 7, 'progress: 7 of 8');
   s.turn = 'player';
   s.players.player.row[0].spent = false;
   s.players.player.drawPile = Array.from({ length: 4 }, () => card('ponyta'));
@@ -226,6 +227,7 @@ const stock = (s, id, slot = 0) => {
   for (let i = 0; i < 9; i++) s.players.player.row[i] = mon('squirtle', 4);
   s.players.ai.row[0] = mon('ponyta', 1);
   s = applyAction(s, { type: 'placeLocation', who: 'player', uid: give(s, 'player', 'cerulean-cape'), start: 0 });
+  s.players.player.trainers.find((t) => t.name === 'Blaine').progress = 4;   // UX2: 5 needed; 1 short
   s = nextRound(s);
   assert.ok(s.players.player.trainers.find((t) => t.name === 'Blaine').complete, 'Blaine: dominated a Location at Supper');
   assert.equal(s.players.player.waiting[0].name, 'Ninetales', 'no free space: it waits');
@@ -237,7 +239,7 @@ const stock = (s, id, slot = 0) => {
   s = applyAction(s, { type: 'attack', who: 'ai', from: 1, target: { kind: 'pokemon', space: 8 } });
   assert.equal(s.players.player.waiting.length, 0);
   assert.equal(s.players.player.row[8].name, 'Ninetales');
-  assert.equal(s.players.ai.row[0].currentStrength, aiStr - 1, 'On Summon: 1 damage to each enemy Pokémon');
+  assert.equal(s.players.ai.row[0].currentStrength, Math.max(0, aiStr - 2), 'On Summon: 2 damage to each enemy Pokémon');
 }
 
 // --- Trainer Command -----------------------------------------------------------------------------------------------------------

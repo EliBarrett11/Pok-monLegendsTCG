@@ -212,10 +212,10 @@ const SCENARIOS = {
         s.players.player.bag = [mk('leftovers', 'Leftovers', 3, 'Held', 'Held: heal 1 at each Breakfast'), mk('oran-berry', 'Oran Berry', 1, 'Consumed', 'Heal 2'), mk('charcoal', 'Charcoal', 2, 'Held', 'Held: +1 Attack')];
         s.players.ai.bag = [mk('potion', 'Potion', 2, 'Consumed', 'Heal 3'), mk('mystic-water', 'Mystic Water', 2, 'Held', 'Held: +2 Strength')];
         s.players.player.dollars = 4;
-        const tr = (who, id, name, partner, text, need, progress) => ({ uid: `tr-${id}`, name, card: { id, name, art: id, partner: { name: partner, type: 'Water', attackType: 'Special', speed: 'Swift', attack: 4, strength: 6, text: '' } }, objective: { kind: 'defeat', need, text }, progress });
-        s.players.player.trainers = [tr('player', 'misty', 'Misty', 'Starmie', 'Defeat 2 enemy Pokémon', 2, 1), tr('player', 'blaine', 'Blaine', 'Ninetales', 'Dominate a Location at Supper', 1, 0)];
-        s.players.ai.trainers = [tr('ai', 'blaine', 'Blaine', 'Ninetales', 'Dominate a Location at Supper', 1, 0)];
-        s.players.ai.waiting = [{ name: 'Starmie' }];
+        const tr = (who, id, name, partner, text, need, progress, complete = false) => ({ uid: `tr-${id}`, name, complete, card: { id, name, art: id, partner: { name: partner, art: partner.toLowerCase(), type: 'Water', attackType: 'Special', speed: 'Swift', strengthType: 'Hitpoints', level: 8, attack: 8, strength: 10, text: '' } }, objective: { kind: 'defeat', need, text, short: text }, progress });
+        s.players.player.trainers = [tr('player', 'misty', 'Misty', 'Starmie', 'Defeat 8 Pokémon', 8, 3), tr('player', 'blaine', 'Blaine', 'Ninetales', 'Dominate 5 times', 5, 1)];
+        s.players.ai.trainers = [tr('ai', 'misty', 'Misty', 'Starmie', 'Defeat 8 Pokémon', 8, 8, true), tr('ai', 'blaine', 'Blaine', 'Ninetales', 'Dominate 5 times', 5, 2)];
+        s.players.ai.waiting = [{ name: 'Starmie', trainer: 'Misty' }];
         const sp = s.players.player.row.findIndex((c) => c);
         if (sp >= 0) Object.assign(s.players.player.row[sp], { partner: true, trainer: 'Misty', held: { name: 'Charcoal', text: 'Held: +1 Attack' } });
       });
@@ -240,6 +240,15 @@ const SCENARIOS = {
     await v4(p, () => window.__v4.set((s) => { s.round = 9; }));
     await to(p, 10);
     await v4(p, () => window.__v4.set((s, ui) => { ui.seenTournament = s.tournament?.startedRound; const uid = s.players.player.hand.find((c) => c.cardType === 'Location')?.uid; if (uid) ui.select = { kind: 'hand', uid }; }));
+  },
+  // UX2: the PokéMart drawer and the log drawer.
+  'mart-drawer': async (p) => {
+    await to(p, 4);
+    await v4(p, () => window.__v4.set((s, ui) => { s.players.player.dollars = 4; ui.drawer = 'mart'; }));
+  },
+  'log-drawer': async (p) => {
+    await to(p, 6);
+    await v4(p, () => window.__v4.set((s, ui) => { ui.drawer = 'log'; }));
   },
   'big-hand': async (p) => { await to(p, 6); await v4(p, () => { for (let i = 0; i < 6; i++) window.__v4.give('charmander', 7); }); },
 };

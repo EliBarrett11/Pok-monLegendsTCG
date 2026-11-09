@@ -164,6 +164,7 @@ const place = (s, who, id, start) => { s.players[who].hand.push(card(id)); s.tur
   assert.deepEqual([s.players.player.recognition, s.players.ai.recognition], before);
   // It also counts as dominating a Location for Blaine's Objective.
   s = battle('player', { trainers: true });
+  s.players.player.trainers.find((t) => t.name === 'Blaine').progress = 4;   // UX2: 5 needed; 1 short
   s.tournament = { startedRound: 1, reason: 'test' };
   s.players.player.row[0] = mon('squirtle', 4);
   s = nextRound(s);

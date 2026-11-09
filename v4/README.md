@@ -15,7 +15,7 @@ Plain HTML, CSS and JavaScript modules: no build step and relative paths only. I
 | `v4/src/engine/` | Game rules and state (`game.js`), cards (`cards.js`), Energy (`energy.js`), random numbers. **No DOM code.** |
 | `v4/src/ai/` | The simple AI: greedy, one move ahead, through the engine's actions |
 | `v4/src/ui/` | The interface (v3's look), coded icons |
-| `v4/tests/` | `node v4/tests/core.test.js`, `locations.test.js`, `commands.test.js`, `items.test.js`, `tournament.test.js` and `ux1.test.js` (focused rule tests; no match simulations) |
+| `v4/tests/` | `node v4/tests/core.test.js`, `locations.test.js`, `commands.test.js`, `items.test.js`, `tournament.test.js`, `ux1.test.js` and `ux2.test.js` (focused rule tests; no match simulations) |
 | `v4/tools/` | `node v4/tools/layout.mjs` (the nothing-clipped check); `node v4/tools/stamp.mjs` (cache-busting: run before each commit) |
 
 **Reused (copied, with the source noted in each file):**
@@ -63,8 +63,8 @@ One simple, neutral deck that shows every approved feature (spec section 9). Car
 | Potion | Item, Consumed, $2 | 2 | an Item from the deck; use now or store |
 | Charcoal | Item, Held, $2 | 1 | a Held Item |
 | Choice Band | Item, Consumed, $2 | 1 | a temporary stat boost |
-| Misty | Trainer | 1 | Objective "Defeat 2 enemy Pokémon" → Starmie; Trainer Command: draw 2 |
-| Blaine | Trainer | 1 | Objective "Dominate a Location at Supper" → Ninetales; Trainer Command: 1 damage to each enemy Pokémon |
+| Misty | Trainer | 1 | Objective "Defeat 8 enemy Pokémon" → Starmie (Level 8); Trainer Command: draw 2 |
+| Blaine | Trainer | 1 | Objective "Dominate a Location 5 times" → Ninetales (Level 8); Trainer Command: 1 damage to each enemy Pokémon |
 
 **In total:** 20 Pokémon, 4 Locations, 6 Command Cards, 4 Supporters, 4 Items and 2 Trainers.
 
@@ -403,3 +403,64 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
     - The other five test files were updated where they used the Objective action, or where always-active Objectives would change what they check. They all pass.
     - `layout.mjs` is ok at all three sizes.
     - **A browser check of the real React window** (opened by an AI attack): the timer declines after 5 s, Esc lets it happen, Space reacts, a multi-target React highlights its targets, and the timer setting survives a reload. No errors.
+
+- **UX2 — Objective targets, stronger Partners, and the new layout, HUD and card faces** (`docs/v4-ux-plan.md` 2b, 3.1, 3.3, Q5–Q8; the mockup `docs/design/v4-ux2-layout-mockup.jpg`/`.html`; the stat icons `docs/design/v4-stat-icons`).
+  - **Numbers Elliott approved:**
+    - **Misty:** "Defeat 8 enemy Pokémon".
+    - **Blaine:** "Dominate a Location 5 times". Each Location dominated at a Supper counts 1, and so does the Tournament.
+    - **Starmie** (Partner): Level 8, Swift, Special Attack 8, Hitpoints 10, cost 4. On Summon: draw 2.
+    - **Ninetales** (Partner): Level 8, Steady, Special Attack 9, Hitpoints 11, cost 4. On Summon: 2 damage to each enemy Pokémon.
+    - A defeated Partner gives $4.
+  - **The layout** (a fixed 1920×1080 stage, matching the mockup):
+    - **The prompt bar:** the only place for step text and action buttons. Hover its text for every action and why it's unavailable (the old Actions panel).
+    - **The opponent's HUD:**
+      - a Recognition ring, capped at 100 on screen, which is also the attack target for the Player Character;
+      - purse, Energy and Exert line, and 6 Bag slots;
+      - two Objective trackers: art, name, short goal, one pip per step, the Partner's thumbnail, and green with a tick when complete;
+      - hand backs with a count, the Released count, and the Deck and Discard piles.
+    - **The board:**
+      - Locations are full tiles: art over all their lanes on both rows, a coloured border, Pokémon standing on the art.
+      - Each Location has a plate showing name, passive, Rounds-left pips, the Weather it adds, "N vs M" Strength, and a two-colour bar.
+      - The Tournament is one tile with its plate (×1.5, dominance +3).
+      - Empty lanes are plain mat, and the "Default Location" label is gone.
+    - **Board cards:**
+      - Level chip (★ and a Partner chip for Partners), a round Held Item chip, and a stat bar: attack icon and Attack, Speed chevrons, Strength icon and current Strength (red when damaged). No Def or Sp.Def tags.
+      - **Ready:** a pulsing gold glow, static under `prefers-reduced-motion`.
+      - **Spent:** greyed and tilted −6°.
+      - **Legal attack targets:** a red ring. A guarded Pokémon is dimmed and says "Guarded by X".
+    - **The five stat icons** live in `src/ui/icons.js`: Physical and Special Attack; Hitpoints, Defence and Special Defence. `attackIcon(card)` and `strengthIcon(card)` are pure helpers, used on board and hand cards and in the log. Tooltips name the stat in words.
+    - **The right column:**
+      - Round, with when the Tournament comes;
+      - one Weather chip: totals, the active bracket effect and the next bracket;
+      - the Energy tile: Base Energy left, "of N this turn", Exert diamonds (ready, Exhausted, locked) and return Rounds;
+      - END TURN;
+      - the PokéMart button with an "N new" badge after each Breakfast. It opens a drawer with the 3 Items and Buy buttons (same buying as before; reasons on hover).
+      - the log ticker: the last 3 lines, coloured by player, with attack icons. It and the L key open the full log drawer.
+    - **Your HUD:** ring, purse, Bag (click a usable Item to use it) and your two Objective trackers.
+    - **The hand:** 182×254 cards, fanned and overlapping, lifting to the front on hover.
+      - **Cost gem:** blue for Energy, gold $ for Items, red when unaffordable. Locations and Supporters have none.
+      - **Faces:** Pokémon show a Level chip, a Type icon before the name, one rules line and a stat bar. Other cards show a kind line. Commands show only the `commandModesFor` modes as chips.
+      - Playable cards have a gold edge; unplayable ones are dimmed, with the reason on hover.
+    - **Bottom-right:** your Deck and Discard piles, the key hints (with the React timer setting), and the Released and Retained counts.
+    - **Removed:** the Actions panel, the pile-count panel, the strip under the board, the Weather bracket list and the "Default Location" label. Their facts are now on the HUDs, piles, tooltips and the prompt bar.
+  - **Kept:** UX1's React window (banner, arrow, large React cards, timer, keys), the mulligan, the end screen, the Supporter Release choice, Item targeting and the Tournament banner.
+  - **Checks:**
+    - `node v4/tests/ux2.test.js` covers:
+      - the Objective targets and texts;
+      - the Partners' stats, On Summon and $4;
+      - Blaine's per-Location counting, including the Tournament;
+      - the five icons;
+      - no cost gem on a Location;
+      - no series in any rendered text.
+    - All seven test files pass. Earlier tests were updated where they assumed Objective targets of 2 and 1.
+    - `layout.mjs` is ok for all 19 scenarios at 1920×1080, 1366×768 and 1280×720, including the new PokéMart drawer and log drawer scenarios.
+    - **Browser click-through of every action in the new layout:**
+      - the mulligan and summon;
+      - attacking a Pokémon and the Player Character;
+      - Command Adapt and Strat;
+      - a Supporter Release and placing a Location;
+      - buying from the PokéMart drawer and from hand, and using a Bag Item;
+      - a Trainer Command, Retain and End turn;
+      - the log drawer by click and by L, and the PokéMart drawer.
+
+      There were no errors, and the UX1 React window check still passes.
