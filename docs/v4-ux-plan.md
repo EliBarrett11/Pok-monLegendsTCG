@@ -271,8 +271,8 @@ I review each report and screenshot before writing the next prompt.
 |---|---|---|
 | **UX1: Rules and React** ✅ | Elliott's changes 2a, 2b and 2c. The React window with its banner, options, timer and default. Recognition capped at 100. Tests for all of it | Done: commit 3ba8b7c |
 | **UX2: Layout, HUD and card faces** ✅ | The approved mockup: the new layout (3.1), full-size Location tiles, the five stat icons, hand and board card faces (3.3), Ready/Spent states. Also Elliott's Objective targets and Partner stats. The Actions panel is removed | Done: commit 7b022aa |
-| **UX3: Interaction** | Drag and drop, targeting arrows with result previews, hover reasons, Cancel, confirmations, keyboard (3.4), plus the UX2 polish list | Prompt in section 8 |
-| **UX4: Motion and VFX** | Port v2's presenter, particles and WebGL layer. AI pacing, speed settings, click to skip, phase banners and the Breakfast/Supper summaries, the Recognition ring animation, Partner and Tournament moments, low motion | UX3 |
+| **UX3: Interaction** ✅ | Drag and drop, targeting arrows with result previews, hover reasons, Cancel, confirmations, keyboard (3.4), plus the UX2 polish list | Done: commit d4a2523 |
+| **UX4: Motion and VFX** | Port the effects layer and presenter (3.5). Every engine event animated, AI pacing, speed settings, click to skip, phase banners and summaries, Recognition rings, Partner and Tournament moments, low motion, sound hooks for UX6 | Prompt in section 9 |
 | **UX5: Learning and flow** | Port the Codex, explain and glossary. First-match tips, title screen, mulligan screen, end screen with match summary, settings, resume, colourblind and text size, and a final polish and layout pass | UX4 |
 | **UX6: Sound** | Free CC0 sound effects (and music, only if a good free track is found), volume settings and mute | UX5, plus my listen-tested file list |
 
@@ -550,5 +550,130 @@ None open.
 > - what changed;
 > - test and layout results;
 > - the screenshot paths;
+> - anything that differs from this prompt, and why;
+> - any decision this prompt didn't settle.
+
+---
+
+## 9. Prompt UX4 (ready to send)
+
+> **v4 UX4: motion and visual effects (the presenter, effects layer, AI pacing, speed settings and phase moments)**
+>
+> Work only in `v4/` (plus the shared `assets/`, read only). First read:
+> - `docs/v4-ux-plan.md` section 3.5;
+> - `docs/vfx.md` (the agreed animation spec from v1/v2: clarity first, cards are the actors, weight, timing budgets, reduced motion, effects as data).
+>
+> Then study v2's working version: `v2/src/ui/present.js` (the presenter), `v2/src/ui/vfx/engine.js` (the WebGL layer), `v2/src/ui/vfx/library.js` and the root `src/ui/vfx/library.js` it builds on (timelines and presets), `v2/src/ui/particles.js` (the 2D fallback), `v2/src/ui/toasts.js`, and `v2/tests/vfx.test.js`.
+>
+> **Copy what you reuse into `v4/src/ui/`,** with a "Copied from …" header comment, as F1–F5 did. Don't import across versions, so later changes to v1 or v2 can't break v4.
+>
+> Don't change any rule or number. The engine stays DOM-free. You may add data fields to existing engine events, such as amounts, before/after Strength and a source, when a beat needs them, but never change what the engine does. The AI still plays only through `applyAction`.
+>
+> **A. The presenter** (`src/ui/present.js`):
+> - **How it plays:** after every action, by either player, it plays that action's events back one beat after another, then draws the new state. Use v2's approach: the action on the board as it was, then the new state, then arrivals.
+> - **Input:** it's locked while a beat plays, except for click-to-skip, which jumps to the end of the current action. The game state is never changed by the presenter.
+> - **Coverage:** every event type the engine emits must have a beat in an `EVENT_BEATS` table in `src/ui/vfx/library.js`, which is pure data with no DOM.
+> - **Fallback:** without WebGL, the 2D particles stand in, and every number, banner and card movement still plays.
+>
+> **B. The beats** (timings follow `docs/vfx.md`'s budgets at Normal speed):
+>
+> 1. **Attacks, chosen by Type + attack type.** v4 has five:
+>    - **Fire Physical:** Ponyta, Rapidash, Growlithe, Arcanine. Flame Wheel charge.
+>    - **Fire Special:** Charmander, Charmeleon, Charizard, Ninetales. Flamethrower.
+>    - **Water Physical:** Magikarp, Gyarados. Waterfall crash.
+>    - **Water Special:** Squirtle, Wartortle, Blastoise, Starmie. Hydro Pump jet.
+>    - **Electric Special:** Chinchou, Lanturn. Forked lightning.
+>
+>    Physical attacks make contact; Special attacks fire across. Add hit-stop, shake and bloom scaled by damage, and a damage number on the target. **A hit-back** plays a shorter version of the defender's own animation. **An attack on a Player Character** hits the Recognition ring. **A guard** being the reason a target was protected doesn't need a beat, since guards block targeting rather than damage.
+> 2. **Damage, heal and defeat:**
+>    - Strength numbers tick to the new value.
+>    - Heal shows green motes and "+N".
+>    - A defeat dissolves the card (v1's defeat timeline), then the +Recognition and +$ beats.
+> 3. **Command Cards:** the card rises to centre stage, flares, and resolves into its effect at the target.
+>    - **Ember** and **Rock Slide** use v1's Strategy animations.
+>    - **Recover** (heal) and **X Attack** (an Attack boost aura until Supper) are composed from the shared presets.
+>    - **Mode scale:** React is a quick version, Adapt the standard one, and Strat the big one.
+>    - **A Strat** is shown sealed: a glowing card back with an hourglass on the board edge of its owner's side, until it resolves at the start of their next turn or at Supper with the full animation.
+>    - **A React** plays inside the React window flow: the committed action is shown paused, the React's effect plays, then the action.
+> 4. **Summons:** the card drops into its space, with dust and a short glow. Its On Summon effect plays next (e.g. Magikarp's draw, or Charizard's 2 damage to each enemy, using its own attack animation aimed at each target).
+> 5. **Partner arrival:** a cinematic of about 2 s.
+>    - The Objective tracker bursts.
+>    - The Trainer's art sweeps across.
+>    - The Partner lands with a gold shockwave, then its On Summon.
+>
+>    **Objective progress:** the next pip fills with a pulse. **Completion:** the tracker turns green with a flare.
+> 6. **Recognition:** "+N" flies from its source (the defeated card, the Location plate or the tracker) to the ring, and the ring fills smoothly.
+>    - During the Tournament, show "+2 → +3" (×1.5) on the chip.
+>    - The ring flares at 50, 70 and 90.
+>    - The ring is still capped at 100 on screen.
+> 7. **PokéDollars:** coins fly to the purse, and the number ticks up. A purchase flies the Item from the PokéMart to the Bag or hand. Using an Item plays a small effect on its target (heal for Potion and Oran Berry, an aura for Held Items).
+> 8. **Supporters:** the Released cards burn away (v2's Release effect), then the Supporter's effect, then "Favour!" with its Recognition when it's a Favour.
+> 9. **Locations:** a new Location unfolds over its lanes (the art wipes in across both rows). Expiring Locations fold away. Retaining a card shows a small lock on it.
+>
+>    **Weather:** ambient Weather plays over the board while a bracket of 2 or more is active, cheap and low-density: light rain streaks for Rain, a warm shimmer and drifting motes for Sun. **When a bracket is reached,** briefly pulse the Weather chip.
+> 10. **Supper:**
+>     - pending Strats resolve;
+>     - then each Location's dominance: the winner's side of the plate glows, then +Recognition flies;
+>     - then Objective progress;
+>     - then Location countdowns;
+>     - then the hand slides away to the Discard Pile, with Retained cards staying.
+>
+>     **Breakfast:** a short summary strip, for example "Round 5 · +1 Energy · +$1 · 3 new Items · your Pokémon off the board gained a Level". Then the new hand deals in, one card at a time, quickly.
+> 11. **Banners:** "Round N", "Your turn" and "Opponent's turn". They're short, skippable and never block for more than about 0.8 s at Normal.
+> 12. **The Tournament:** a stadium sweep across all 9 lanes as the Locations are cleared, then the existing explanatory banner. Each Recognition ring is stamped "×1.5".
+> 13. **The end of the match:** the winner's ring fills to 100 and flares with "Champion". The existing end screen follows; restyling it is UX5.
+>
+> **C. AI pacing:**
+> - Before each AI action, a short "thinking" pause (about 0.5 s at Normal), with the prompt bar reading "The Opponent is thinking…".
+> - Then the prompt bar names the action in plain words (e.g. "The Opponent's Gyarados attacks your Charizard").
+> - For anything with a target, the UX3 targeting arrow is drawn from source to target for about 0.4 s before the beat plays, so the player always sees who did what to whom.
+>
+> **D. Speed and settings:**
+> - **The setting:** Slow / **Normal** / Fast / Instant (×1.5, ×1, ×0.5, none). Add a small control beside the React timer at the bottom-right, saved in localStorage inside try/catch. The full Settings screen is UX5.
+> - **Instant:** no animation at all; the new state is drawn at once.
+> - **Low motion:** a toggle beside it, which defaults on if the OS asks for reduced motion. It means far fewer particles, no shake, no screen-wide distortion and no ambient Weather; movement and numbers stay.
+> - **Autoplay and tests:** `?autoplay` uses Fast, and the layout tool and tests use Instant, so nothing slows them down.
+>
+> **E. Sound hooks for UX6:** the presenter calls `sfx(name, opts)` at each beat. Names include `attack-fire-physical`, `hit`, `defeat`, `heal`, `summon`, `partner`, `recognition`, `coins`, `command-adapt`, `command-strat`, `react`, `location-place`, `tournament`, `turn` and `victory`. Make it a no-op for now, in `src/ui/sound.js`.
+>
+> **F. Performance:**
+> - 60 fps at 1920×1080 on integrated graphics.
+> - The render loop runs only while effects are alive, plus the ambient Weather at low cost, which is paused while the tab is hidden.
+> - Load textures once from `assets/vfx/` using its `manifest.json`.
+> - Where a needed texture doesn't exist, use a procedural placeholder drawn in code and list it in your report, so Elliott can generate it.
+>
+> **G. Polish:** the log ticker trims lines to a fixed number of characters. When the web fonts fail to load and a wider fallback font is used, the lines overflow the panel (the layout check fails then). Trim by measured width instead (e.g. `canvas.measureText` or a binary search on the element), so it fits with any font.
+>
+> **H. Tests and checks:**
+> - **`node v4/tests/ux4.test.js`** checks:
+>   - every event type the engine emits has an `EVENT_BEATS` entry. Play 30 fixed-seed AI-vs-AI matches and collect every emitted event type;
+>   - every attack combination in the deck maps to an animation;
+>   - every Command card and mode, Supporter, Item and Trainer Command maps to a beat;
+>   - timelines stay within their `docs/vfx.md` budgets at Normal;
+>   - **the presenter can't affect the result:** a seeded match played through to the end gives an identical final state with the speed at Instant and at Normal. Run the presenter's planning step headless if the beats themselves need a DOM.
+> - **All existing tests pass.**
+> - **A browser check (Playwright)** that plays a seeded match at Normal for 3 Rounds:
+>   - no page errors;
+>   - frames keep up (report the average and worst frame time during a big beat);
+>   - click-to-skip works;
+>   - Instant draws at once;
+>   - low motion removes shake and ambient Weather;
+>   - the WebGL-off fallback (force it) still plays.
+> - **The layout check** at all three sizes, run at Instant.
+> - **Screenshots or short GIFs** (Playwright video, or frames stitched) at 1920×1080, mid-beat, of:
+>   - a Fire Special attack with a hit-back;
+>   - a defeat with Recognition flying;
+>   - a Strat resolving;
+>   - a Partner arrival;
+>   - the Tournament sweep;
+>   - Supper dominance;
+>   - the Breakfast strip;
+>   - an AI action with its arrow and the prompt bar naming it.
+>
+> **I. Finish:** bump the `?v=` stamp, commit and push to `main`, add a README build-log entry, and report:
+> - what changed;
+> - test, performance and layout results;
+> - the screenshot or GIF paths;
+> - any placeholder textures Elliott should generate;
 > - anything that differs from this prompt, and why;
 > - any decision this prompt didn't settle.
