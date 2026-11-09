@@ -152,6 +152,15 @@ const SCENARIOS = {
       if (sp >= 0) { for (const c of [...s.players.player.row, ...s.players.ai.row]) if (c) c.spent = true; s.players.player.row[sp].spent = false; ui.select = { kind: 'attack', from: sp }; }
     }));
   },
+  // F2: placed Locations (bold tiles, panels, Weather) and choosing where to place one.
+  locations: async (p) => {
+    await to(p, 4);
+    await v4(p, () => { const L = window.__v4; L.set((s) => { s.locations = []; }); L.place('player', 'cerulean-cape', 0); L.place('ai', 'mt-ember', 2); L.place('player', 'route-119', 5); });
+  },
+  'place-location': async (p) => {
+    await to(p, 3);
+    await v4(p, () => { const L = window.__v4; L.set((s) => { s.locations = []; }); L.place('ai', 'lake-of-rage', 3); const uid = L.giveLocation('mt-ember'); L.set((s, ui) => { ui.select = { kind: 'hand', uid }; }); });
+  },
   'big-hand': async (p) => { await to(p, 6); await v4(p, () => { for (let i = 0; i < 6; i++) window.__v4.give('charmander', 7); }); },
 };
 

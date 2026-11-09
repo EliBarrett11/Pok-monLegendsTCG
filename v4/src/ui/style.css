@@ -194,9 +194,6 @@ button { font-family: inherit; }
 .v4-bps button span { font-family: var(--font-text); font-size: 17px; }
 .v4-over h2 { margin: 0 0 8px; font-family: var(--font-display); font-size: 48px; color: var(--brass-light); }
 
-/* V3-1: a Location as a target (a chosen Location). */
-.v4-loc-panel.target { cursor: pointer; border-color: #ffe08a; box-shadow: 0 0 20px 6px rgba(255, 215, 110, 0.8); animation: v4-pulse 1.3s ease-in-out infinite; }
-.choosing .v4-loc-panel:not(.target) { filter: brightness(0.6); }
 
 /* ===== v4 (F1): Player Characters outside the battlefield; the 9-lane battlefield ===== */
 .v4-board { left: 240px; top: 84px; width: 1380px; height: 640px; }
@@ -237,3 +234,26 @@ button { font-family: inherit; }
 .v4-prompt button:disabled { opacity: 0.45; cursor: default; }
 .v4-mini button { cursor: pointer; }
 .v4-hline { white-space: normal; line-height: 1.2; }
+
+/* ===== v4 (F2): Locations as bold tiles over their lanes, the Weather panel, Location cards ===== */
+.v4-loc { position: absolute; top: 22px; height: 594px; border-radius: 16px; border: 4px solid var(--loc); box-shadow: 0 0 18px color-mix(in srgb, var(--loc) 70%, transparent), inset 0 0 0 2px rgba(0, 0, 0, 0.4); overflow: hidden; }
+.v4-loc-art { position: absolute; inset: 0; background-size: cover; background-position: center; filter: saturate(1.1) brightness(0.55); }
+.v4-loc::after { content: ''; position: absolute; inset: 0; background: linear-gradient(color-mix(in srgb, var(--loc) 22%, transparent), transparent 40%, transparent 60%, color-mix(in srgb, var(--loc) 22%, transparent)); pointer-events: none; }
+.v4-loc-panel { position: absolute; z-index: 1; left: 10px; right: 10px; top: 224px; height: 138px; padding: 8px 10px; display: flex; flex-direction: column; justify-content: center; gap: 3px; text-align: center; cursor: help;
+  border-radius: 10px; border: 2px solid var(--loc); background: rgba(20, 10, 4, 0.86); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6); }
+.v4-loc-panel b { font-family: var(--font-display); font-size: 21px; line-height: 1.1; color: #fff; text-shadow: 0 0 8px var(--loc); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v4-loc-panel p { margin: 0; font-size: 14px; line-height: 1.25; color: var(--cream); }
+.v4-loc-panel .v4-dom { font-size: 13px; color: var(--cream-muted); }
+.v4-dom span { font-weight: 800; color: var(--cream); }
+.v4-dom span.player { color: var(--you); }
+.v4-dom span.ai { color: var(--opp); }
+.v4-dom small { font-size: 12px; }
+.v4-default { white-space: nowrap; }
+.v4-weather p { margin: 1px 0; font-size: 12px; line-height: 1.25; }
+.v4-weather p.v4-wcount { font-size: 15px; margin-bottom: 3px; }
+.v4-weather p.v4-wcount b { color: #fff; font-size: 17px; }
+.v4-weather p.on { color: #a8e88a; font-weight: 700; }
+.v4-weather p.off { color: var(--cream-muted); opacity: 0.75; }
+.k-location { border: 3px solid var(--loc); }
+.k-location .v4-htext { bottom: 6px; }
+.k-location .v4-cost { background: radial-gradient(circle at 35% 30%, #b0f0c0, #2a8a50); }

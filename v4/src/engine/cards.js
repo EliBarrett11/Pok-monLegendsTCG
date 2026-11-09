@@ -4,7 +4,7 @@
 //   forms: [{ name, art, from, speed? }] — the form from that Level up to the next form's Level.
 //   stats: { level: [Attack, Strength] } for every Level of the series.
 //   guard: 'Defence' | 'Special Defence' | null. ability: (level) → { text, onSummon } or null.
-import { SERIES_RANGE, levelFor, costFor } from '../rules.js?v=202611091135';
+import { SERIES_RANGE, levelFor, costFor } from '../rules.js?v=202611091145';
 
 const op = (name, amount) => ({ op: name, amount });
 const path = (spec) => ({ guard: null, ability: () => null, ...spec });
@@ -50,12 +50,35 @@ export function pokemonAt(id, level) {
     text: ab?.text ?? '', onSummon: ab?.onSummon ?? null,
   };
 }
-// A card at a Round (off the battlefield, its Level follows the Round).
-export const cardAtRound = (id, round) => pokemonAt(id, levelFor(pathDef(id).series, round));
+// --- Location Cards (F2; adapted from v2's Locations): placed on 2–4 adjacent free lanes on both
+// sides, for a set number of Rounds. passive: on Pokémon in its lanes. weather: one type.
+//   passive kinds: 'strength' (+N Strength) · 'attack' (+N Attack) · 'heal' (heal N at Breakfast)
+//                  · 'discount' (summoning here costs N less, minimum 0)
+const location = (id, name, width, rounds, weather, color, passive) => ({ id, name, cardType: 'Location', art: id, width, rounds, weather, color, passive });
+export const LOCATIONS = [
+  location('cerulean-cape', 'Cerulean Cape', 2, 3, { type: 'Rain', count: 1 }, '#4a9ae8', { kind: 'strength', amount: 1, text: 'Pokémon here have +1 Strength' }),
+  location('mt-ember', 'Mt. Ember', 3, 3, { type: 'Sun', count: 2 }, '#f08a3a', { kind: 'attack', amount: 1, text: 'Pokémon here have +1 Attack' }),
+  location('lake-of-rage', 'Lake of Rage', 2, 2, { type: 'Sun', count: 1 }, '#3ab0c8', { kind: 'heal', amount: 2, text: 'Pokémon here heal 2 at Breakfast' }),
+  location('route-119', 'Route 119', 4, 2, { type: 'Rain', count: 2 }, '#3ab07a', { kind: 'discount', amount: 1, text: 'Summoning a Pokémon here costs 1 less (minimum 0)' }),
+];
+export const locationDef = (id) => LOCATIONS.find((l) => l.id === id);
 
-// The demo deck so far (F1: Pokémon only), the same for both players: Light, Mid and Heavy, a
-// Defence guard (Squirtle) and a Special Defence guard (Chinchou).
+// Weather (section 16): two types; counts combined across all placed Locations (both players');
+// brackets apply to both players.
+export const WEATHER_BRACKETS = [
+  { type: 'Rain', at: 2, kind: 'healAll', amount: 1, text: 'every Pokémon heals 1 at Breakfast' },
+  { type: 'Rain', at: 4, kind: 'strength', amount: 1, text: 'every Pokémon has +1 Strength' },
+  { type: 'Sun', at: 2, kind: 'physical', amount: 1, text: 'Physical attacks deal +1 damage' },
+  { type: 'Sun', at: 4, kind: 'attack', amount: 1, text: 'every Pokémon has +1 Attack' },
+];
+
+// A card at a Round (off the battlefield, a Pokémon's Level follows the Round).
+export const cardAtRound = (id, round) => (locationDef(id) ? structuredClone(locationDef(id)) : pokemonAt(id, levelFor(pathDef(id).series, round)));
+
+// The demo deck so far, the same for both players: Pokémon (F1: Light, Mid and Heavy, a Defence
+// guard (Squirtle) and a Special Defence guard (Chinchou)) and one of each Location (F2).
 export const DEMO_DECK = [
+  'cerulean-cape', 'mt-ember', 'lake-of-rage', 'route-119',
   ...Array(4).fill('ponyta'), ...Array(3).fill('chinchou'),
   ...Array(4).fill('squirtle'), ...Array(4).fill('growlithe'),
   ...Array(3).fill('magikarp'), ...Array(2).fill('charmander'),

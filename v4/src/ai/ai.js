@@ -1,7 +1,8 @@
-// v4's simple AI (F1): a greedy one-move AI like v2's and v3's (adapted from v3/src/ai/ai.js).
+// v4's simple AI (F1; F2 adds Locations and dominance): a greedy one-move AI like v2's and v3's (adapted from v3/src/ai/ai.js).
 // It plays only through the engine's actions: it tries each legal move on a copy of the state,
 // scores the result, and plays the best (Pass when nothing beats it).
-import { applyAction, legalActions, opponentOf, summonable, emptySpaces, attackers, legalTargets, retainable, pokemonOf, isReady, energyLeft } from '../engine/game.js?v=202611091135';
+import { RULES } from '../rules.js?v=202611091145';
+import { applyAction, legalActions, opponentOf, summonable, emptySpaces, attackers, legalTargets, retainable, pokemonOf, isReady, energyLeft, placeable, locationStarts, dominantOf, summonCost } from '../engine/game.js?v=202611091145';
 
 export function evaluate(s, who) {
   const foe = opponentOf(who);
@@ -13,7 +14,13 @@ export function evaluate(s, who) {
     return v;
   };
   const me = s.players[who];
-  return side(who) - side(foe) + (s.turn === who ? me.baseEnergy * 0.3 : 0) - me.exhaust.length * 0.6;
+  // Dominance: each Location dominated now is worth the Recognition it would give at each Supper left.
+  let dom = 0;
+  for (const l of s.locations) {
+    const d = dominantOf(s, l);
+    if (d) dom += (d === who ? 1 : -1) * RULES.perDominance * l.roundsLeft * 1.6 * 0.8;
+  }
+  return side(who) - side(foe) + dom + (s.turn === who ? me.baseEnergy * 0.3 : 0) - me.exhaust.length * 0.6;
 }
 
 export function moves(s, who) {
@@ -26,7 +33,15 @@ export function moves(s, who) {
     for (const c of summonable(s, who)) {
       if (seen.has(`${c.id}:${c.level}`)) continue;
       seen.add(`${c.id}:${c.level}`);
-      for (const space of emptySpaces(s, who)) out.push({ type: 'summon', who, uid: c.uid, space });
+      for (const space of emptySpaces(s, who)) if (summonCost(s, c, space) <= energyLeft(p)) out.push({ type: 'summon', who, uid: c.uid, space });
+    }
+  }
+  if (legal.includes('placeLocation')) {
+    const seen = new Set();
+    for (const c of placeable(s, who)) {
+      if (seen.has(c.id)) continue;
+      seen.add(c.id);
+      for (const start of locationStarts(s, c)) out.push({ type: 'placeLocation', who, uid: c.uid, start });
     }
   }
   if (legal.includes('attack')) for (const from of attackers(s, who)) for (const target of legalTargets(s, who, from)) out.push({ type: 'attack', who, from, target });

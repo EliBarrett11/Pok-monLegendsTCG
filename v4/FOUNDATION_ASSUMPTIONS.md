@@ -39,3 +39,39 @@ Decisions made where `docs/v4-foundation-spec.md` (and its section 16) doesn't g
    - +2 for defeating an enemy Pokémon, a starting value (both are in `v4/src/rules.js`).
    - 100 wins at once.
 10. **Trades:** as in v3. A Ready target hits back; both become Spent; a Pokémon at 0 Strength or less goes to its owner's Released Pile.
+
+## F2: Locations
+
+1. **Placing ✱:**
+   - Place Location is a Battle Phase action like the others: it uses the turn and costs no Energy (as in v2).
+   - It covers the chosen lane and the lanes to its right. It can't overlap another placed Location or run off the battlefield.
+   - Either player may place one. There's no limit beyond the free lanes, so at most 4 can be placed at once.
+   - A Location card can be Retained like any card. It has no Level.
+2. **Duration and removal ✱:**
+   - Rounds left count down at each Supper, after dominance is scored.
+   - A Location placed with 3 Rounds is scored at 3 Suppers and then removed. Placing it late in a Round still counts that Round.
+   - When removed, its card goes to its owner's Discard Pile, and its lanes are the Default Location again. Pokémon there stay where they are and lose its passive.
+3. **The four Locations ✱:** placeholder values, using the v1/v2 art:
+
+   | Location | Lanes | Rounds | Weather | Passive (on both players' Pokémon in it) |
+   |---|---|---|---|---|
+   | Cerulean Cape | 2 | 3 | 1 Rain | +1 Strength |
+   | Mt. Ember | 3 | 3 | 2 Sun | +1 Attack |
+   | Lake of Rage | 2 | 2 | 1 Sun | Heal 2 at Breakfast |
+   | Route 119 | 4 | 2 | 2 Rain | Summoning here costs 1 less (minimum 0) |
+
+4. **Passives apply to both players' Pokémon in the Location ✱:**
+   - +Strength raises both the maximum and the current Strength.
+   - When the bonus ends, the maximum drops back and current Strength is capped at it. Losing a bonus never defeats a Pokémon: at least 1 Strength is left.
+   - A Pokémon that is already there when the Location is placed gets the passive at once.
+5. **Weather brackets ✱:** placeholder values. Counts combine across all placed Locations. Each bracket applies to every Pokémon of both players while the count is at or above it:
+   - **Rain 2:** every Pokémon heals 1 at Breakfast.
+   - **Rain 4:** every Pokémon has +1 Strength.
+   - **Sun 2:** Physical attacks deal +1 damage (including a trade's hit back).
+   - **Sun 4:** every Pokémon has +1 Attack.
+6. **Breakfast heals:** they happen after Pokémon become Active, and never above a Pokémon's Strength.
+7. **Dominance ✱:**
+   - At Supper, each placed Location is scored. The player whose Pokémon there have the greater total current Strength earns +1 Recognition, a starting value (`perDominance` in `v4/src/rules.js`).
+   - A tie, including an empty Location, gives nothing.
+   - Who placed the Location doesn't matter. The Default Location is never scored.
+8. **The demo deck:** the 20 Pokémon plus one of each Location, 24 cards, the same list for both players.

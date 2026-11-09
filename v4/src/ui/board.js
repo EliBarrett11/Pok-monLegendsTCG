@@ -1,21 +1,27 @@
-// Drawing a v4 match (F1), in v3's "necessary information only" look: the prompt bar; both Player
-// Characters outside the battlefield (Recognition 0–100); the 9-lane battlefield (the Default
-// Location: no placed Locations yet); the side panel (Round, Base Energy and Exert with Exhaust,
+// Drawing a v4 match (F1; F2 adds Locations), in v3's "necessary information only" look: the prompt
+// bar; both Player Characters outside the battlefield (Recognition 0–100); the 9-lane battlefield
+// (placed Locations as bold tiles over their lanes with a compact panel: name, Weather, who
+// dominates and what it gives at Supper, Rounds left; the passive on hover; the rest is the
+// Default Location); the side panel (Weather counts and active brackets, (Round, Base Energy and Exert with Exhaust,
 // Pass, the actions with the reasons they're unavailable, piles, the log); the hand. Board
 // Pokémon show art, Level, Attack, the Speed icon and Strength (full details on hover).
-import { RULES } from '../rules.js?v=202611091135';
+import { RULES } from '../rules.js?v=202611091145';
 import {
   isReady, legalTargets, attackers, summonable, emptySpaces, whyNot, passEndsPhase, passSpends, availableExert, energyLeft,
-  playerGuard, guardOf,
-} from '../engine/game.js?v=202611091135';
-import { icon, speedIcon } from './icons.js?v=202611091135';
+  playerGuard, guardOf, placeable, locationStarts, weatherTotals, activeBrackets, dominantOf, strengthIn, locationAt,
+} from '../engine/game.js?v=202611091145';
+import { WEATHER_BRACKETS } from '../engine/cards.js?v=202611091145';
+import { icon, speedIcon } from './icons.js?v=202611091145';
 
 const ASSETS = '../assets';
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const art = (c) => `${ASSETS}/cards/${c.art}.jpg`;
 const COL = 150;
 
-const detail = (c) => `${c.name} · Level ${c.level} (${c.series}) · ${c.type} · ${c.speed} · ${c.attackType} · Attack ${c.attack} · Strength ${c.currentStrength ?? c.strength}/${c.strength}${c.strengthType !== 'Hitpoints' ? ` · ${c.strengthType} guard` : ''} · cost ${c.cost}${c.text ? ` · ${c.text}` : ''}`;
+const isLoc = (c) => c?.cardType === 'Location';
+const locDetail = (c) => `${c.name} · Location · covers ${c.width} adjacent lanes on both sides · stays ${c.rounds} Rounds · no Energy · ${c.passive.text} · Weather: ${c.weather.count} ${c.weather.type}`;
+const bonusText = (c) => [c.bonusAttack ? `+${c.bonusAttack} Attack` : '', c.bonusStrength ? `+${c.bonusStrength} Strength` : ''].filter(Boolean).join(', ');
+const detail = (c) => (isLoc(c) ? locDetail(c) : `${c.name} · Level ${c.level} (${c.series}) · ${c.type} · ${c.speed} · ${c.attackType} · Attack ${c.attack} · Strength ${c.currentStrength ?? c.strength}/${c.strength}${c.strengthType !== 'Hitpoints' ? ` · ${c.strengthType} guard` : ''} · cost ${c.cost}${c.text ? ` · ${c.text}` : ''}${bonusText(c) ? ` · includes ${bonusText(c)} from Location/Weather` : ''}`);
 const stats = (c, str = c.currentStrength ?? c.strength) => `<div class="v4-stats"><span class="atk">${icon('attack')}${c.attack}</span>${speedIcon(c.speed)}<span class="str">${icon('strength')}${str}</span></div>`;
 const guardTag = (c) => (c.strengthType !== 'Hitpoints' ? `<span class="v4-guard">${icon('guard')}${c.strengthType === 'Defence' ? 'Def' : 'Sp.Def'}</span>` : '');
 
@@ -28,6 +34,14 @@ function boardCard(s, c, who, space, cls) {
 }
 
 function handCard(s, c, cls, tip) {
+  if (isLoc(c)) {
+    return `<div class="v4-card v4-hcard k-location ${cls}" data-uid="${c.uid}" title="${esc(tip)}" style="--loc: ${c.color}">
+    <div class="v4-art" style="background-image: url('${art(c)}')"></div>
+    <span class="v4-cost">0</span>
+    <div class="v4-htext"><b class="v4-hname">${esc(c.name)}</b><small class="v4-hline">${esc(`Location · ${c.width} lanes · ${c.rounds} Rounds`)}</small>
+      <div class="v4-hbody"><p class="ok">${esc(c.passive.text)}</p><p>${weatherIcon(c.weather.type)} ${c.weather.count} ${c.weather.type}</p>${c.retained ? '<p class="ret">Retained</p>' : ''}</div></div>
+  </div>`;
+  }
   return `<div class="v4-card v4-hcard k-pokemon ${cls}" data-uid="${c.uid}" title="${esc(tip)}">
     <div class="v4-art" style="background-image: url('${art(c)}')"></div>
     <span class="v4-lv">Lv ${c.level}</span><span class="v4-cost">${c.cost}</span>
@@ -37,6 +51,9 @@ function handCard(s, c, cls, tip) {
   </div>`;
 }
 
+const weatherIcon = (type) => (type === 'Rain' ? '🌧' : '☀');
+const bracketText = (b) => `${b.type} ${b.at}+: ${b.text}`;
+
 // --- The prompt bar ------------------------------------------------------------------------------------
 export function promptFor(s, ui, ctx = {}) {
   const me = s.players.player;
@@ -44,6 +61,12 @@ export function promptFor(s, ui, ctx = {}) {
   if (s.phase === 'mulligan') return { tag: 'Round 1 · Mulligan', text: me.mulliganed ? 'The Opponent is choosing…' : 'Choose any cards to put back into your Discard Pile; you draw as many.', gold: !me.mulliganed };
   if (ui.select?.kind === 'hand') {
     const c = me.hand.find((x) => x.uid === ui.select.uid);
+    const retainBtn = { action: 'retain', label: 'Retain (1 Energy)', disabled: !!whyNot(s, 'player', 'retain', c), tip: whyNot(s, 'player', 'retain', c) };
+    if (isLoc(c)) {
+      const why = whyNot(s, 'player', 'summon', c);
+      return { tag: `${c.name} · Location · ${c.width} lanes`, text: `${why ? `Place: ${esc(why)}.` : `Place it (no Energy): click <b>a glowing lane</b>; it covers that lane and the ${c.width - 1} to its right, on both sides, for ${c.rounds} Rounds.`} Or <b>Retain</b> it.`, gold: true,
+        buttons: [retainBtn, { action: 'cancel', label: 'Cancel' }] };
+    }
     const why = whyNot(s, 'player', 'summon', c);
     return { tag: `${c.name} · Lv ${c.level} · ${c.cost} Energy`, text: `${why ? `Summon: ${esc(why)}.` : 'Summon: click <b>a glowing space</b> on your side.'} Or <b>Retain</b> it (1 Energy): it stays in your hand through Supper, and you draw one fewer next Breakfast.`, gold: true,
       buttons: [{ action: 'retain', label: 'Retain (1 Energy)', disabled: !!whyNot(s, 'player', 'retain', c), tip: whyNot(s, 'player', 'retain', c) }, { action: 'cancel', label: 'Cancel' }] };
@@ -59,6 +82,7 @@ export function promptFor(s, ui, ctx = {}) {
     const atk = attackers(s, 'player').map((sp) => me.row[sp].name);
     if (atk.length) opts.push(`<b>Attack</b> with ${[...new Set(atk)].map((n) => `<b>${esc(n)}</b>`).join(' or ')} (Ready)`);
     if (summonable(s, 'player').length) opts.push('summon a glowing Pokémon');
+    if (placeable(s, 'player').length) opts.push('place a <b>Location</b>');
     if (me.hand.some((c) => !c.retained) && energyLeft(me) >= RULES.retainCost) opts.push('<b>Retain</b> a card');
     const pass = passEndsPhase(s) ? '<b>Pass</b> to end the Battle Phase' : `<b>Pass</b> for +1 Base Energy${passSpends(s, 'player').length ? ' (your fastest Pokémon become Spent)' : ''}`;
     return { tag: `Round ${s.round} · your turn`, text: opts.length ? `${opts.join(', ').replace(/^./, (x) => x.toUpperCase())} — or ${pass}.` : `Only ${pass}: nothing else is possible now (see Actions).` };
@@ -79,7 +103,8 @@ function character(s, who, ui) {
 // --- The battlefield -------------------------------------------------------------------------------------------
 function battlefield(s, ui) {
   const targets = new Set();
-  if (ui.select?.kind === 'hand' && !whyNot(s, 'player', 'summon', s.players.player.hand.find((c) => c.uid === ui.select.uid))) for (const i of emptySpaces(s, 'player')) targets.add(`player:${i}`);
+  const selCard = ui.select?.kind === 'hand' ? s.players.player.hand.find((c) => c.uid === ui.select.uid) : null;
+  if (selCard && !whyNot(s, 'player', 'summon', selCard)) for (const i of isLoc(selCard) ? locationStarts(s, selCard) : emptySpaces(s, 'player')) targets.add(`player:${i}`);
   if (ui.select?.kind === 'attack') for (const t of legalTargets(s, 'player', ui.select.from)) if (t.kind === 'pokemon') targets.add(`ai:${t.space}`);
   const myTurn = s.phase === 'battle' && s.turn === 'player' && !ui.locked;
   const canAttack = new Set(myTurn && !ui.select ? attackers(s, 'player') : []);
@@ -91,9 +116,40 @@ function battlefield(s, ui) {
   }).join('');
   return `<section class="v4-board">
     <div class="v4-mat"></div>
-    <div class="v4-default"><b>Default Location</b><small>9 lanes · no passive, Weather or dominance</small></div>
-    <div class="v4-grid"><div class="v4-row opponent">${row('ai')}</div><div class="v4-row player">${row('player')}</div></div>
+    ${defaultLabel(s)}
+    <div class="v4-grid">${s.locations.map((l) => locationTile(s, l)).join('')}<div class="v4-row opponent">${row('ai')}</div><div class="v4-row player">${row('player')}</div></div>
   </section>`;
+}
+
+// A placed Location: a bold tile behind its lanes (both rows) with a compact panel between the rows.
+function locationTile(s, l) {
+  const d = dominantOf(s, l);
+  const you = strengthIn(s, l, 'player');
+  const opp = strengthIn(s, l, 'ai');
+  const dom = d ? `<span class="${d}">${d === 'player' ? 'You dominate' : 'Opponent dominates'}</span> · +${RULES.perDominance} at Supper` : `<span>${you || opp ? 'Tied' : 'No one'}</span> · nothing at Supper`;
+  const tip = `${l.name} (placed by ${l.owner === 'player' ? 'you' : 'the Opponent'}) · ${l.passive.text} · Weather: ${l.weather.count} ${l.weather.type} · Strength here: you ${you}, Opponent ${opp} · ${l.roundsLeft} Round${l.roundsLeft === 1 ? '' : 's'} left`;
+  return `<div class="v4-loc" style="left: ${l.start * COL}px; width: ${l.width * COL}px; --loc: ${l.color}" title="${esc(tip)}">
+    <div class="v4-loc-art" style="background-image: url('${art(l)}')"></div>
+    <div class="v4-loc-panel" title="${esc(tip)}">
+      <b>${esc(l.name)}</b>
+      <p>${weatherIcon(l.weather.type)} ${l.weather.count} ${l.weather.type} · ${l.roundsLeft} Round${l.roundsLeft === 1 ? '' : 's'} left</p>
+      <p class="v4-dom">${dom} <small>(${you}–${opp})</small></p>
+    </div>
+  </div>`;
+}
+
+// The Default Location's label, over its widest run of lanes (hidden when no lane is Default).
+function defaultLabel(s) {
+  let best = null;
+  for (let i = 0; i < RULES.lanes;) {
+    if (locationAt(s, i)) { i++; continue; }
+    let j = i;
+    while (j < RULES.lanes && !locationAt(s, j)) j++;
+    if (!best || j - i > best.w) best = { start: i, w: j - i };
+    i = j;
+  }
+  if (!best) return '';
+  return `<div class="v4-default" style="left: ${14 + (best.start + best.w / 2) * COL}px"><b>Default Location</b>${best.w >= 3 ? '<small>no passive, Weather or dominance</small>' : ''}</div>`;
 }
 
 // --- The side panel ---------------------------------------------------------------------------------------------
@@ -106,6 +162,7 @@ function side(s, ui, ctx) {
   const reason = (a) => (s.phase !== 'battle' ? 'Not the Battle Phase' : s.turn !== 'player' ? 'Not your turn' : null);
   const actions = [
     ['Summon', reason() ?? (summonable(s, 'player').length ? null : !emptySpaces(s, 'player').length ? 'No empty space on your side' : `No Pokémon you can pay for (${energyLeft(me)} Energy)`)],
+    ['Place Location', reason() ?? (placeable(s, 'player').length ? null : !me.hand.some(isLoc) ? 'No Location in hand' : 'No room: not enough adjacent free lanes')],
     ['Attack', reason() ?? whyNot(s, 'player', 'attack')],
     ['Retain', reason() ?? (!me.hand.some((c) => !c.retained) ? 'No card to Retain' : energyLeft(me) < RULES.retainCost ? 'Needs 1 Energy' : null)],
     ['Pass', reason()],
@@ -117,6 +174,7 @@ function side(s, ui, ctx) {
       <div class="v4-exert"><span>Exert <b>${ex}</b> / ${me.exertMax}</span><span class="v4-exert-dots">${Array.from({ length: me.exertMax }, (_, i) => `<i class="${i < ex ? 'on' : ''}"></i>`).join('')}</span></div>
       ${exhaust ? `<ul class="v4-exhaust">${exhaust}</ul>` : '<p class="v4-small">Exert covers what Base Energy can\'t; each point spent is Exhausted for 2–4 Rounds.</p>'}
     </section>
+    ${weatherPanel(s)}
     <button class="v4-pass" data-action="pass"${myTurn ? '' : ' disabled'}>Pass <small>${passEndsPhase(s) ? '(ends the Battle Phase)' : '(+1 Base Energy)'}</small></button>
     <section class="v4-panel v4-actions"><div class="v4-label">Actions</div>${actions.map(([n, why]) => `<p class="${why ? 'off' : 'on'}"><b>${n}</b>${why ? ` · ${esc(why)}` : ' · available'}</p>`).join('')}</section>
     <section class="v4-panel v4-piles">
@@ -126,6 +184,16 @@ function side(s, ui, ctx) {
     <section class="v4-panel v4-log"><div class="v4-label">Log</div>${s.log.slice(-7).map((l) => `<p>${esc(l)}</p>`).join('')}</section>
     <div class="v4-build"><p>${esc(ctx.build)}</p><p><a href="../v3/">v3</a> · <a href="../v2/">v2</a> · <a href="../">v1</a> · <button class="v4-link" data-action="new">New match</button></p></div>
   </aside>`;
+}
+
+// Weather: combined counts across placed Locations, and which brackets are active (both players).
+function weatherPanel(s) {
+  const t = weatherTotals(s);
+  const on = new Set(activeBrackets(s));
+  return `<section class="v4-panel v4-weather"><div class="v4-label">Weather</div>
+    <p class="v4-wcount">${weatherIcon('Rain')} Rain <b>${t.Rain}</b> · ${weatherIcon('Sun')} Sun <b>${t.Sun}</b></p>
+    ${WEATHER_BRACKETS.map((b) => `<p class="${[...on].some((x) => x.type === b.type && x.at === b.at) ? 'on' : 'off'}" title="${esc(`${b.type} ${b.at} or more (all placed Locations combined): ${b.text}. Applies to both players.`)}">${esc(bracketText(b))}</p>`).join('')}
+  </section>`;
 }
 
 function hand(s, ui) {
@@ -149,7 +217,7 @@ function dialogs(s, ui) {
   if (s.phase === 'mulligan' && !me.mulliganed && !ui.locked) {
     const chosen = ui.mull ?? [];
     return `<div class="v4-ask" role="dialog"><div class="v4-panel v4-wide"><p><b>Round 1 · Mulligan</b>: choose any cards to put into your Discard Pile; you draw as many new ones.</p>
-      <div class="v4-mini">${me.hand.map((c) => `<button class="${chosen.includes(c.uid) ? 'on' : ''}" data-mull="${c.uid}" style="background-image: url('${art(c)}')" title="${esc(detail(c))}"><span>${esc(c.name)} L${c.level}</span></button>`).join('')}</div>
+      <div class="v4-mini">${me.hand.map((c) => `<button class="${chosen.includes(c.uid) ? 'on' : ''}" data-mull="${c.uid}" style="background-image: url('${art(c)}')" title="${esc(detail(c))}"><span>${esc(c.name)}${isLoc(c) ? '' : ` L${c.level}`}</span></button>`).join('')}</div>
       <div class="v4-buttons"><button data-action="mull-done">${chosen.length ? `Put back ${chosen.length} and draw ${chosen.length}` : 'Keep this hand'}</button></div></div></div>`;
   }
   return '';
@@ -178,7 +246,11 @@ function wire(root, s, ui, ctx) {
   on('[data-action="pass"]', () => ctx.act({ type: 'pass', who: 'player' }));
   on('.v4-hand .v4-card', (el) => { ui.select = ui.select?.uid === el.dataset.uid ? null : { kind: 'hand', uid: el.dataset.uid }; ctx.redraw(); });
   on('[data-action="retain"]', () => ctx.act({ type: 'retain', who: 'player', uid: ui.select.uid }));
-  on('.v4-row.player .v4-space.target', (el) => ctx.act({ type: 'summon', who: 'player', uid: ui.select.uid, space: Number(el.dataset.space) }));
+  on('.v4-row.player .v4-space.target', (el) => {
+    const c = s.players.player.hand.find((x) => x.uid === ui.select.uid);
+    if (isLoc(c)) ctx.act({ type: 'placeLocation', who: 'player', uid: c.uid, start: Number(el.dataset.space) });
+    else ctx.act({ type: 'summon', who: 'player', uid: ui.select.uid, space: Number(el.dataset.space) });
+  });
   on('.v4-row.player .v4-card.can-attack', (el) => { ui.select = { kind: 'attack', from: Number(el.dataset.space) }; ctx.redraw(); });
   on('.v4-row.opponent .v4-space.target', (el) => ctx.act({ type: 'attack', who: 'player', from: ui.select.from, target: { kind: 'pokemon', space: Number(el.dataset.space) } }));
   on('.v4-pc.target', () => ctx.act({ type: 'attack', who: 'player', from: ui.select.from, target: { kind: 'player' } }));

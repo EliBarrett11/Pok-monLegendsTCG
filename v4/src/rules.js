@@ -8,6 +8,7 @@ export const RULES = {
   perDamageToPlayer: 1,   // Recognition per damage to the enemy Player Character
   perDefeat: 2,           // Recognition for defeating an enemy Pokémon (starting value)
   passEnergy: 1,          // Pass: +1 Base Energy (not the Pass that ends the Battle Phase)
+  perDominance: 1,        // Recognition at Supper for dominating a placed Location (starting value)
 };
 // The three development series (section 4A): Level range.
 export const SERIES_RANGE = { Light: [1, 6], Mid: [2, 7], Heavy: [3, 8] };

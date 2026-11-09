@@ -2,12 +2,12 @@
 // Pokémon Legends v4 — entry point (F1): you against the AI, on a fixed 1920×1080 stage scaled
 // to fit the window. ?seed=123 replays the same shuffle and AI choices; ?autoplay lets the AI play
 // both sides; ?debug exposes window.__v4 for the layout check (v4/tools/layout.mjs).
-import { createGame, applyAction, actor } from './engine/game.js?v=202611091135';
-import { chooseAction } from './ai/ai.js?v=202611091135';
-import { renderMatch } from './ui/board.js?v=202611091135';
-import { pokemonAt } from './engine/cards.js?v=202611091135';
+import { createGame, applyAction, actor } from './engine/game.js?v=202611091145';
+import { chooseAction } from './ai/ai.js?v=202611091145';
+import { renderMatch } from './ui/board.js?v=202611091145';
+import { pokemonAt, cardAtRound } from './engine/cards.js?v=202611091145';
 
-export const BUILD = 'F1 — v4 foundation: the core';
+export const BUILD = 'F2 — v4 foundation: Locations';
 
 const STAGE = { width: 1920, height: 1080 };
 const stage = document.getElementById('stage');
@@ -90,6 +90,17 @@ if (params.has('debug')) {
       redraw();
     },
     set(fn) { fn(state, ui); redraw(); },
+    // F2: give a Location card, or place one for either side (through the engine's action).
+    giveLocation(id) { const c = { ...cardAtRound(id, 1), uid: `dbg-${Math.random().toString(36).slice(2, 7)}` }; state.players.player.hand.push(c); redraw(); return c.uid; },
+    place(who, id, start) {
+      const c = { ...cardAtRound(id, 1), uid: `dbg-${Math.random().toString(36).slice(2, 7)}` };
+      const turn = state.turn;
+      state.players[who].hand.push(c);
+      state.turn = who;
+      state = applyAction(state, { type: 'placeLocation', who, uid: c.uid, start });
+      state.turn = turn;
+      redraw();
+    },
     give(id, level = 3) { const c = pokemonAt(id, level); c.uid = `dbg-${Math.random().toString(36).slice(2, 7)}`; state.players.player.hand.push(c); redraw(); return c.uid; },
   };
 }

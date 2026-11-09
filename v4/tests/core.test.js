@@ -39,7 +39,7 @@ const clear = (s) => { for (const w of ['player', 'ai']) s.players[w].row = s.pl
   assert.deepEqual([...DEMO_DECK].sort(), s.players.ai.drawPile.concat(s.players.ai.hand).map((c) => c.id).sort(), 'both players use the same list');
   assert.equal(s.players.player.hand.length, RULES.handDraw, 'Round 1: draw 7');
   // The demo deck: Light, Mid and Heavy, a Defence and a Special Defence guard.
-  const lines = new Set(DEMO_DECK.map((id) => PATHS.find((p) => p.id === id)));
+  const lines = new Set(DEMO_DECK.map((id) => PATHS.find((p) => p.id === id)).filter(Boolean));
   for (const series of ['Light', 'Mid', 'Heavy']) assert.ok([...lines].some((p) => p.series === series), series);
   assert.ok([...lines].some((p) => p.guard === 'Defence') && [...lines].some((p) => p.guard === 'Special Defence'), 'a guard of each kind');
   // Mulligan (v1): the chosen cards go to the Discard Pile; as many are drawn.
