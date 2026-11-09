@@ -334,3 +334,32 @@ button { font-family: inherit; }
 .v4-tbanner h2 { margin: 0 0 10px; font-family: var(--font-display); font-size: 36px; color: #ffe08a; }
 .v4-tbanner p { font-size: 18px; }
 .v4-weather p.off { font-size: 12px; }
+
+/* ===== v4 (UX1): the React window, Objective trackers, Command modes by situation ===== */
+.v4-rblock { position: absolute; inset: 0; z-index: 40; background: rgba(10, 5, 2, 0.5); }
+.reacting .v4-space.committed, .reacting .v4-space.target { z-index: 46; }
+.v4-arrow { position: absolute; left: 0; top: 0; z-index: 46; overflow: visible; pointer-events: none; filter: drop-shadow(0 0 6px rgba(255, 138, 58, 0.8)); }
+.v4-rbanner { position: absolute; z-index: 47; left: 520px; top: 322px; width: 820px; height: 162px; padding: 8px 20px; text-align: center; border-radius: 14px; border: 3px solid #ff9a6a; background: linear-gradient(rgba(70, 30, 12, 0.97), rgba(36, 16, 6, 0.98)); box-shadow: 0 0 34px rgba(255, 140, 90, 0.6); }
+.v4-rbanner h2 { margin: 0; font-family: var(--font-display); font-size: 34px; line-height: 1.1; letter-spacing: 0.12em; color: #ffd0a0; }
+.v4-rbanner p { margin: 4px 0 6px; font-size: 19px; line-height: 1.3; color: var(--cream); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v4-rbanner button { cursor: pointer; padding: 6px 22px; border-radius: 9px; font-family: var(--font-display); font-weight: 800; font-size: 17px; color: var(--ink); background: linear-gradient(#f6dd9a, #c99a48); border: 1px solid var(--brass-dark); }
+.v4-rbanner button small { font-family: var(--font-text); font-size: 13px; }
+.v4-rtimer { height: 8px; margin: 0 0 8px; border-radius: 4px; background: rgba(0, 0, 0, 0.5); overflow: hidden; }
+.v4-rtimer i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #ff6a3a, #ffd76a); animation-name: v4-countdown; animation-timing-function: linear; animation-fill-mode: forwards; }
+@keyframes v4-countdown { from { width: 100%; } to { width: 0%; } }
+.v4-ropts { position: absolute; z-index: 47; left: 24px; bottom: 10px; width: 1590px; height: 292px; display: flex; justify-content: center; align-items: flex-end; gap: 22px; pointer-events: none; }
+.v4-ropt { pointer-events: auto; position: relative; width: 240px; height: 286px; padding: 0 12px 10px; display: flex; flex-direction: column; border-radius: 12px; border: 3px solid #ff9a6a; background: #2a1408; box-shadow: 0 0 22px 6px rgba(255, 140, 90, 0.65), 0 10px 22px rgba(0, 0, 0, 0.7); overflow: hidden; }
+.v4-ropt.sel { border-color: #fff0b0; box-shadow: 0 0 26px 8px rgba(255, 230, 140, 0.85); }
+.v4-ropt .v4-art { position: relative; height: 104px; margin: 0 -12px 6px; background-size: cover; background-position: center; }
+.v4-ropt b { font-family: var(--font-display); font-size: 19px; color: #fff; }
+.v4-ropt .v4-reff { margin: 4px 0; flex: 1; font-size: 15px; line-height: 1.25; color: var(--cream); }
+.v4-ropt .v4-rcost { margin: 0 0 6px; font-size: 13px; color: #ffd0b0; }
+.v4-ropt button { cursor: pointer; padding: 6px 0; border-radius: 9px; font-family: var(--font-display); font-weight: 800; font-size: 17px; color: #fff; background: linear-gradient(#ff9a6a, #c84a2a); border: 1px solid #ffd0b0; }
+.v4-mon.incoming { opacity: 0.85; border-style: dashed; border-color: #ff9a6a; }
+.k-command.quiet { filter: brightness(0.75) saturate(0.75); }
+.v4-modes p.off { opacity: 0.55; }
+.v4-trnote { font-size: 11px; color: var(--cream-muted) !important; }
+.v4-tr.done { opacity: 0.75; }
+.v4-prog.done { background: #6ad07a; color: #10240f; }
+.v4-setting { margin: 2px 0; }
+.v4-setting select { font-size: 11px; background: rgba(20, 10, 4, 0.8); color: var(--cream); border: 1px solid var(--brass-mid); border-radius: 4px; }

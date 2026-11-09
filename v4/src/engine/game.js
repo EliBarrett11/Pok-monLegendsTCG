@@ -14,8 +14,10 @@
 // resolves after it (it may fizzle). Pending Strats are in s.strats.
 // F4: PokéDollars ($1 each Breakfast; more when an enemy Pokémon is defeated), Items (bought from
 // hand or the shared PokéMart, then used at once or stored in the Inventory Bag; Held or Consumed),
-// and Trainers (an Objective in the Trainer area whose completion brings its Partner Pokémon, or a
-// one-off Trainer Command).
+// and Trainers. UX1 (Elliott's rule): each Trainer card in a deck has an Objective tracker in its
+// player's Trainer area from match setup (active from Round 1, free, progress 0). A drawn Trainer is
+// played only as its Trainer Command and keeps cycling; when its Objective completes, the card is
+// taken from wherever it is and leaves the deck for good, and its Partner arrives.
 // F5: the Pokémon League Tournament (s.tournament): from a Breakfast (Round 10, or once either
 // player has 70+ Recognition), it replaces every placed Location and covers all 9 lanes: no
 // Location passives or Weather, no new Locations; all Recognition earned is increased by half
@@ -28,10 +30,10 @@
 // per Retained card; Round 1: draw 7 then a mulligan, as in v1), Battle (alternating turns, one
 // action each: Summon, Attack, Retain, Pass; two Passes in a row end it), Supper (the hand is
 // discarded except Retained cards). Initiative switches each Round.
-import { RULES, SPEEDS, levelFor } from '../rules.js?v=202611091234';
-import { nextRandom, shuffle } from './random.js?v=202611091234';
-import { newEnergy, refreshEnergy, canPay, payCost, availableExert } from './energy.js?v=202611091234';
-import { DEMO_DECK, cardAtRound, pokemonAt, pathDef, locationDef, WEATHER_BRACKETS, FAVOURS, MODE_NAMES, ITEMS, BAG_SIZE } from './cards.js?v=202611091234';
+import { RULES, SPEEDS, levelFor } from '../rules.js?v=202611091610';
+import { nextRandom, shuffle } from './random.js?v=202611091610';
+import { newEnergy, refreshEnergy, canPay, payCost, availableExert } from './energy.js?v=202611091610';
+import { DEMO_DECK, cardAtRound, pokemonAt, pathDef, locationDef, WEATHER_BRACKETS, FAVOURS, MODE_NAMES, ITEMS, BAG_SIZE } from './cards.js?v=202611091610';
 
 export const PLAYERS = ['player', 'ai'];
 export const NAMES = { player: 'You', ai: 'The Opponent' };
@@ -52,6 +54,10 @@ export function createGame(seed = Date.now(), { decks = { player: DEMO_DECK, ai:
       ...newEnergy(), recognition: 0, retainedNext: 0, mulliganed: false,
       dollars: 0, bag: [], trainers: [], waiting: [],
     };
+    // UX1: one Objective tracker per Trainer card in the deck, active from Round 1, linked to its uid.
+    for (const c of s.players[who].drawPile.filter((x) => x.cardType === 'Trainer')) {
+      s.players[who].trainers.push({ uid: `trainer-${c.uid}`, cardUid: c.uid, card: structuredClone(c), name: c.name, objective: c.objective, progress: 0, complete: false, startedRound: 1 });
+    }
   }
   // The PokéMart (F4): one shared pool with one copy of each Item.
   s.mart.pool = ITEMS.map((c) => ({ ...structuredClone(c), uid: `mart-${c.id}` }));
@@ -198,15 +204,35 @@ export function buyReason(s, who, item, then) {
 export const buyableFromHand = (s, who) => s.players[who].hand.filter((c) => c.cardType === 'Item' && !buyReason(s, who, c));
 export const buyableFromMart = (s, who) => s.mart.onSale.map((c, slot) => (c && !buyReason(s, who, c) ? slot : null)).filter((x) => x !== null);
 export const usableFromBag = (s, who) => s.players[who].bag.filter((c) => itemTargets(s, who, c).length);
-// Trainers (F4): why a Trainer can't be played as an Objective or a Command now.
-export function trainerReason(s, who, card, mode) {
+// Trainers: why a Trainer in hand can't be played as its Trainer Command now (UX1: a Trainer card is
+// only ever played as its Command; its Objective is tracked from match setup).
+export function trainerReason(s, who, card) {
   const p = s.players[who];
-  const cost = mode === 'objective' ? card.objectiveCost : card.command.cost;
-  if (!canPay(p, cost)) return `${mode === 'objective' ? 'Objective' : 'Trainer Command'} needs ${cost} Energy · you have ${energyLeft(p)}`;
-  if (mode === 'command' && card.command.ops.some((o) => o.op === 'damageAll') && !pokemonOf(s, opponentOf(who)).length) return 'No enemy Pokémon';
+  const cost = card.command.cost;
+  if (!canPay(p, cost)) return `Trainer Command needs ${cost} Energy · you have ${energyLeft(p)}`;
+  if (card.command.ops.some((o) => o.op === 'damageAll') && !pokemonOf(s, opponentOf(who)).length) return 'No enemy Pokémon';
   return null;
 }
-export const playableTrainers = (s, who, mode) => s.players[who].hand.filter((c) => c.cardType === 'Trainer' && !trainerReason(s, who, c, mode));
+export const playableTrainers = (s, who) => s.players[who].hand.filter((c) => c.cardType === 'Trainer' && !trainerReason(s, who, c));
+
+// UX1: the modes to show for a Command card in hand, by situation (for the hand, the click menu and
+// the AI). On your own turn: Adapt (with its reason when it isn't playable), plus Strat only if you can
+// afford it. In a React window where you're the reactor: React only, if affordable with a target.
+// Otherwise none. Each: { mode, cost, reason }. The engine's legality checks don't depend on this.
+export function commandModesFor(s, who, uid) {
+  const card = s.players[who].hand.find((c) => c.uid === uid);
+  if (!card || card.cardType !== 'Command' || s.phase !== 'battle') return [];
+  const entry = (mode) => ({ mode, cost: card.modes[mode].cost, reason: whyNot(s, who, mode === 'react' ? 'react' : 'command', card, mode) });
+  if (s.reactWindow) {
+    if (s.reactWindow.reactor !== who) return [];
+    const r = entry('react');
+    return r.reason ? [] : [r];
+  }
+  if (s.turn !== who) return [];
+  const out = [entry('adapt')];
+  if (canPay(s.players[who], card.modes.strat.cost)) out.push(entry('strat'));
+  return out;
+}
 
 // Why an action can't be taken now (null when it can). For the interface.
 export function whyNot(s, who, action, card, mode) {
@@ -229,8 +255,7 @@ export function whyNot(s, who, action, card, mode) {
     }
     case 'buyItem': return buyReason(s, who, card, mode);
     case 'useItem': return itemTargets(s, who, card).length ? null : card.itemType === 'Held' ? 'No Pokémon of yours without a Held Item' : 'No Pokémon of yours to use it on';
-    case 'trainerObjective': return trainerReason(s, who, card, 'objective');
-    case 'trainerCommand': return trainerReason(s, who, card, 'command');
+    case 'trainerCommand': return trainerReason(s, who, card);
     case 'supporter':
       return supporterPlayable(s, who, card) ? null : `Needs ${card.release} other card${card.release === 1 ? '' : 's'} in hand to Release`;
     case 'summon':
@@ -255,10 +280,7 @@ export function playReason(s, who, card) {
     return adapt && whyNot(s, who, 'command', card, 'strat') ? adapt : null;
   }
   if (card.cardType === 'Item') return whyNot(s, who, 'buyItem', card);
-  if (card.cardType === 'Trainer') {
-    const o = whyNot(s, who, 'trainerObjective', card);
-    return o && whyNot(s, who, 'trainerCommand', card) ? o : null;
-  }
+  if (card.cardType === 'Trainer') return whyNot(s, who, 'trainerCommand', card);
   return whyNot(s, who, card.cardType === 'Supporter' ? 'supporter' : 'summon', card);
 }
 
@@ -272,8 +294,7 @@ export function legalActions(s, who) {
     ...(playableSupporters(s, who).length ? ['supporter'] : []),
     ...(buyableFromHand(s, who).length || buyableFromMart(s, who).length ? ['buyItem'] : []),
     ...(usableFromBag(s, who).length ? ['useItem'] : []),
-    ...(playableTrainers(s, who, 'objective').length ? ['trainerObjective'] : []),
-    ...(playableTrainers(s, who, 'command').length ? ['trainerCommand'] : []), ...(attackers(s, who).length ? ['attack'] : []), ...(retainable(s, who).length ? ['retain'] : [])];
+    ...(playableTrainers(s, who).length ? ['trainerCommand'] : []), ...(attackers(s, who).length ? ['attack'] : []), ...(retainable(s, who).length ? ['retain'] : [])];
 }
 export function actor(s) {
   if (s.phase === 'mulligan') return PLAYERS.find((w) => !s.players[w].mulliganed) ?? null;
@@ -412,29 +433,13 @@ const ACTIONS = {
     endTurn(s, who, false);
   },
 
-  // Trainer Objective (F4): pay its Energy; the Trainer goes to your Trainer area and its objective
-  // is tracked from now on. It stays until completed.
-  trainerObjective(s, { who, uid }) {
-    const p = s.players[who];
-    const card = p.hand.find((c) => c.uid === uid && c.cardType === 'Trainer');
-    if (!card) throw new Error('Choose a Trainer Card from your hand');
-    const why = trainerReason(s, who, card, 'objective');
-    if (why) throw new Error(`${card.name}: ${why}`);
-    payCost(p, card.objectiveCost, s.round);
-    p.hand = p.hand.filter((c) => c !== card);
-    const { retained, ...plain } = card;
-    p.trainers.push({ uid: `trainer-${uid}`, card: plain, name: card.name, objective: card.objective, progress: 0, playedRound: s.round });
-    emit(s, 'trainerPlayed', { who, id: card.id });
-    log(s, `${NAMES[who]} played ${card.name}'s Objective (${card.objectiveCost} Energy): ${card.objective.text}.`);
-    endTurn(s, who, false);
-  },
-
-  // Trainer Command (F4): pay its Energy; its effect resolves at once; then it's discarded.
+  // Trainer Command (F4): pay its Energy; its effect resolves at once; then it's discarded (and keeps
+  // cycling through the deck). It doesn't affect the Trainer's Objective.
   trainerCommand(s, { who, uid }) {
     const p = s.players[who];
     const card = p.hand.find((c) => c.uid === uid && c.cardType === 'Trainer');
     if (!card) throw new Error('Choose a Trainer Card from your hand');
-    const why = trainerReason(s, who, card, 'command');
+    const why = trainerReason(s, who, card);
     if (why) throw new Error(`${card.name}: ${why}`);
     payCost(p, card.command.cost, s.round);
     p.hand = p.hand.filter((c) => c !== card);
@@ -695,21 +700,31 @@ function gainDollars(s, who, n, source) {
 
 // --- Trainers and Partners (F4; adapted from v2's unlockTier / partnerInto and its waiting Partners) ---
 function progressTrainers(s, who, kind) {
-  for (const t of [...s.players[who].trainers]) {
-    if (t.objective.kind !== kind || s.phase === 'gameOver') continue;
+  for (const t of s.players[who].trainers) {
+    if (t.complete || t.objective.kind !== kind || s.phase === 'gameOver') continue;
     t.progress += 1;
     emit(s, 'objectiveProgress', { who, uid: t.uid, progress: t.progress, need: t.objective.need });
+    log(s, `${POSS[who]} ${t.name} Objective: ${Math.min(t.progress, t.objective.need)}/${t.objective.need} (${t.objective.text}).`);
     if (t.progress >= t.objective.need) completeTrainer(s, who, t);
   }
 }
-// Completed: the Partner arrives (or waits for a free space), +Recognition, the Trainer is discarded.
+const PILE_NAMES = { drawPile: 'Draw Pile', hand: 'hand', discard: 'Discard Pile' };
+// UX1: completed: the Trainer card is taken at once from wherever it is (Draw Pile, hand, Discard Pile)
+// and leaves the deck for good (it stays only on the tracker); the Partner arrives (or waits for a
+// free space); its On Summon resolves; +Recognition. The tracker stays, marked complete.
 function completeTrainer(s, who, t) {
   const p = s.players[who];
-  p.trainers = p.trainers.filter((x) => x !== t);
+  t.complete = true;
+  t.completedRound = s.round;
   emit(s, 'objectiveComplete', { who, uid: t.uid, name: t.name });
   log(s, `${POSS[who]} ${t.name}: Objective complete (${t.objective.text})!`);
+  const pile = Object.keys(PILE_NAMES).find((k) => p[k].some((c) => c.uid === t.cardUid));
+  if (pile) {
+    p[pile] = p[pile].filter((c) => c.uid !== t.cardUid);
+    emit(s, 'trainerTaken', { who, uid: t.cardUid, from: pile });
+    log(s, `${t.name} is taken from ${who === 'player' ? 'your' : 'the Opponent\'s'} ${PILE_NAMES[pile]} and leaves the deck for good.`);
+  } else log(s, `${t.name}'s card had already left the deck (Released).`);
   const card = { ...structuredClone(t.card.partner), uid: `partner-${t.uid}`, trainer: t.name };
-  p.discard.push(t.card);
   const space = p.row.findIndex((c) => !c);
   if (space >= 0) partnerInto(s, who, card, space);
   else {

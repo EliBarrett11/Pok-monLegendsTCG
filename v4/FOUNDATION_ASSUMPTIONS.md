@@ -40,6 +40,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   10. Waiting Partners arrive.
 
   In Round 1, after the draw, each player may mulligan (v1).
+- **Match setup (UX1, Elliott's rule):** each player's 40 cards are shuffled into the Draw Pile, Trainers included. For each Trainer card in the deck, an Objective tracker goes into that player's Trainer area, linked to the card. It is active from Round 1, costs nothing and starts at progress 0. Then comes Round 1's Breakfast.
 - **Supper order:**
   1. Pending Strats resolve.
   2. Dominance: placed Locations, or the Tournament.
@@ -159,6 +160,11 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
     - It fizzles if its target Pokémon is gone, even if another Pokémon now stands in that space. The cost stays paid.
   - **Why:** "after the opponent's next turn" read literally.
   - **Approval:** **Needed**.
+- **The React window in the interface (UX1):**
+  - **Chosen:** when the human player is the reactor, the game pauses with a banner, the committed action shown, and the playable React cards shown large.
+  - A countdown runs (5 s by default; 8, 12 or 20 s in a setting). On timeout the interface sends the same `decline` as **Let it happen**.
+  - The timer is interface-only: the engine has no timer, and tests and autoplay never wait.
+  - **Approval:** No (Elliott's plan).
 - **"Until Supper" effects:**
   - **Chosen:** X Attack and Choice Band last until that Round's Supper. So an X Attack Strat that resolves at Supper has no effect.
   - **Why:** one simple end point.
@@ -222,20 +228,37 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
 
   **Approval:** **Needed**.
 
-## 10. Trainers and Partners
+## 10. Trainers and Partners (UX1: Objectives are active from the start)
 
-- **Trainer Objective:**
-  - **Chosen:** a Battle Phase action costing 1 Energy. The Trainer goes to your Trainer area and only what happens afterwards counts. It stays until completed, with no limit on how many you have.
+- **The rule (settled by Elliott, UX1):**
+  - Trainer cards stay shuffled into the 40-card deck.
+  - Each Trainer's Objective is tracked from match setup: active from Round 1, free, progress 0.
+  - A drawn Trainer can only be played as its Trainer Command. It's then discarded and keeps cycling through the deck. Playing the Command doesn't affect its Objective.
+  - There's no "play as Objective" action.
   - **On completion:**
-    - The Partner arrives in your first (leftmost) empty space, Spent, like a summon.
+    - The Trainer card is taken at once from wherever it is (Draw Pile, hand whether Retained or not, or Discard Pile) and leaves the deck for good. The deck is then 39 cards.
+    - Its Partner arrives in your first free space, or waits for one.
     - Its On Summon resolves.
     - You gain the Objective's Recognition.
-    - The Trainer goes to your Discard Pile.
-  - **With no free space,** the Partner waits and arrives as soon as one frees (checked after every action and at Breakfast). A defeated Partner goes to the Released Pile.
-  - **Why:** v2's Partners, simplified to one Objective.
-  - **Approval:** **Needed** (the Objective cost, the leftmost space).
+  - The tracker stays in the Trainer area, ticked, and makes no further progress.
+  - **Approval:** No (Elliott's rule).
+- **Where the completed card goes:**
+  - **Chosen:** it's kept only on the tracker. It isn't in the Draw Pile, hand, Discard Pile or Released Pile.
+  - **Why:** "removed from the deck for good" without counting it as a Released card.
+  - **Approval:** **Needed**.
+- **A Trainer card already Released:**
+  - **Chosen:** if a Supporter Released the Trainer card before its Objective completed, the Objective still completes as normal: Partner and Recognition. The log says the card had already left the deck.
+  - **Why:** the Objective is tracked independently of the card.
+  - **Approval:** **Needed**.
+- **Partners:**
+  - **Chosen:**
+    - The Partner arrives in your first (leftmost) empty space, Spent, like a summon.
+    - With no free space it waits, and arrives as soon as one frees (checked after every action and at Breakfast).
+    - A defeated Partner goes to the Released Pile.
+  - **Why:** v2's Partners.
+  - **Approval:** **Needed** (the leftmost space).
 - **Trainer Command:**
-  - **Chosen:** a separate Battle Phase action with its own Energy cost. It resolves at once and is then discarded. It can't be reacted to.
+  - **Chosen:** a Battle Phase action with its own Energy cost. It resolves at once, then the card is discarded. It can't be reacted to.
   - **Why:** the spec.
   - **Approval:** No.
 - **The two Trainers** (placeholder values):
@@ -285,6 +308,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
 - **The AI:**
   - It is a greedy one-move AI like v2's and plays only through `applyAction`. It scores each legal move by its result.
   - It judges its own committed actions as if you let them happen.
-  - It values a pending Strat as 70% resolved, PokéDollars and Bag Items by price, and Trainers by their progress.
+  - It values a pending Strat as 70% resolved, PokéDollars and Bag Items by price, and active Objectives by their progress.
+  - It never tries to play an Objective (UX1). It gets its Command modes, React included, from `commandModesFor`, the same helper as the hand display, and its React decisions are instant.
   - **Why:** section 16.
   - **Approval:** No.

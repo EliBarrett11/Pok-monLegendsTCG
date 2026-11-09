@@ -189,20 +189,16 @@ const stock = (s, id, slot = 0) => {
   assert.equal(s.players.player.row[0].currentStrength, 3);
 }
 
-// --- Trainer Objective: progress, completion, the Partner (and waiting for a space), Recognition ------------------------------------------
+// --- Trainer Objective (UX1: tracked from match setup): progress, completion, the Partner (and waiting for a space), Recognition --------------------
 {
   // Misty: Defeat 2 enemy Pokémon.
   let s = battle();
+  const misty = () => s.players.player.trainers.find((t) => t.name === 'Misty');
   s.players.player.row[0] = mon('growlithe', 7, { spent: false });
   s.players.player.drawPile = Array.from({ length: 5 }, () => card('ponyta'));
-  const misty = give(s, 'player', 'misty');
-  s = applyAction(s, { type: 'trainerObjective', who: 'player', uid: misty });
-  assert.equal(s.players.player.baseEnergy, 5, 'Objective costs 1 Energy');
-  assert.equal(s.players.player.trainers[0].name, 'Misty');
-  assert.equal(s.players.player.trainers[0].progress, 0);
+  assert.equal(misty().progress, 0, 'active from setup, progress 0');
   s = nextRound(s);
-  assert.equal(s.players.player.trainers.length, 1, 'it stays through Supper');
-  assert.ok(!s.players.player.discard.some((c) => c.id === 'misty'));
+  assert.equal(s.players.player.trainers.length, 2, 'the trackers stay through Supper');
   for (const w of ['player', 'ai']) s.players[w].hand = [];
   s.players.ai.row[4] = mon('ponyta', 1, { currentStrength: 1 });
   s.players.ai.row[5] = mon('ponyta', 1, { currentStrength: 1 });
@@ -210,19 +206,19 @@ const stock = (s, id, slot = 0) => {
   s.passesInARow = 0;
   s.players.player.row[0].spent = false;
   s = applyAction(s, { type: 'attack', who: 'player', from: 0, target: { kind: 'pokemon', space: 4 } });
-  assert.equal(s.players.player.trainers[0].progress, 1, 'progress: 1 of 2');
+  assert.equal(misty().progress, 1, 'progress: 1 of 2');
   s.turn = 'player';
   s.players.player.row[0].spent = false;
   s.players.player.drawPile = Array.from({ length: 4 }, () => card('ponyta'));
   const rec = s.players.player.recognition;
   const hand = s.players.player.hand.length;
   s = applyAction(s, { type: 'attack', who: 'player', from: 0, target: { kind: 'pokemon', space: 5 } });
-  assert.equal(s.players.player.trainers.length, 0, 'complete');
+  assert.ok(misty().complete, 'complete; the tracker stays');
   assert.equal(s.players.player.row[1].name, 'Starmie', 'the Partner arrives in the first empty space');
   assert.ok(s.players.player.row[1].spent, 'Spent, like a summon');
   assert.equal(s.players.player.hand.length, hand + 2, 'its On Summon: draw 2');
   assert.equal(s.players.player.recognition, rec + RULES.perDefeat + RULES.perObjective, '+Recognition for the Objective');
-  assert.ok(s.players.player.discard.some((c) => c.id === 'misty'), 'the Trainer goes to the Discard Pile');
+  assert.ok(![...s.players.player.discard, ...s.players.player.drawPile, ...s.players.player.hand].some((c) => c.id === 'misty'), 'the Trainer card is out of the deck');
   assert.equal(RULES.perObjective, 2);
 
   // Waiting for a free space: every space is taken when Blaine's Objective completes at Supper.
@@ -230,10 +226,8 @@ const stock = (s, id, slot = 0) => {
   for (let i = 0; i < 9; i++) s.players.player.row[i] = mon('squirtle', 4);
   s.players.ai.row[0] = mon('ponyta', 1);
   s = applyAction(s, { type: 'placeLocation', who: 'player', uid: give(s, 'player', 'cerulean-cape'), start: 0 });
-  s.turn = 'player';
-  s = applyAction(s, { type: 'trainerObjective', who: 'player', uid: give(s, 'player', 'blaine') });
   s = nextRound(s);
-  assert.equal(s.players.player.trainers.length, 0, 'Blaine: dominated a Location at Supper');
+  assert.ok(s.players.player.trainers.find((t) => t.name === 'Blaine').complete, 'Blaine: dominated a Location at Supper');
   assert.equal(s.players.player.waiting[0].name, 'Ninetales', 'no free space: it waits');
   // A space frees: it arrives (after that action), and its On Summon resolves.
   s.players.ai.row[1] = mon('growlithe', 7, { spent: false });
@@ -254,7 +248,7 @@ const stock = (s, id, slot = 0) => {
   assert.equal(s.players.player.hand.length, 2, 'Misty: draw 2');
   assert.equal(s.players.player.baseEnergy, 5);
   assert.ok(s.players.player.discard.some((c) => c.id === 'misty'), 'then discarded');
-  assert.equal(s.players.player.trainers.length, 0);
+  assert.ok(s.players.player.trainers.every((x) => !x.complete && x.progress === 0), 'the Command doesn\'t affect its Objective');
   s = battle();
   s.players.ai.row[2] = mon('squirtle', 4);
   s = applyAction(s, { type: 'trainerCommand', who: 'player', uid: give(s, 'player', 'blaine') });
@@ -272,10 +266,8 @@ const stock = (s, id, slot = 0) => {
   stock(s, 'leftovers', 0);
   assert.equal(buyReason(s, 'player', s.mart.onSale[0], 'store'), 'Costs $3 · you have $0');
   assert.ok(!legalActions(s, 'player').includes('buyItem'));
-  const misty = give(s, 'player', 'misty');
-  assert.equal(whyNot(s, 'player', 'trainerObjective', s.players.player.hand.at(-1)), 'Objective needs 1 Energy · you have 0');
+  give(s, 'player', 'misty');
   assert.equal(whyNot(s, 'player', 'trainerCommand', s.players.player.hand.at(-1)), 'Trainer Command needs 1 Energy · you have 0');
-  assert.throws(() => applyAction(s, { type: 'trainerObjective', who: 'player', uid: misty }));
   s.players.player.baseEnergy = 5;
   give(s, 'player', 'blaine');
   assert.equal(whyNot(s, 'player', 'trainerCommand', s.players.player.hand.at(-1)), 'No enemy Pokémon');
@@ -287,7 +279,7 @@ const stock = (s, id, slot = 0) => {
   assert.equal(whyNot(s, 'player', 'useItem', s.players.player.bag[0]), 'No Pokémon of yours without a Held Item');
 }
 
-// --- The AI buys and uses Items and plays Trainers both ways (through applyAction) --------------------------------------------------------
+// --- The AI buys and uses Items and plays Trainer Commands (through applyAction) --------------------------------------------------------
 {
   // Buy and use: its hurt Pokémon, a Potion in the PokéMart.
   let s = battle('ai', 0, 2);
@@ -310,11 +302,12 @@ const stock = (s, id, slot = 0) => {
   give(s, 'ai', 'charcoal');
   a = chooseAction(s, 'ai', { rng: () => 0 });
   assert.deepEqual([a.type, a.then], ['buyItem', 'store']);
-  // A Trainer as an Objective.
+  // UX1: a Trainer is only a Trainer Command; the AI never tries an Objective.
   s = battle('ai', 1, 0);
+  s.players.ai.drawPile = Array.from({ length: 4 }, () => card('ponyta'));
   give(s, 'ai', 'misty');
   a = chooseAction(s, 'ai', { rng: () => 0 });
-  assert.equal(a.type, 'trainerObjective');
+  assert.equal(a.type, 'trainerCommand');
   // A Trainer Command: Blaine's 1 damage defeats two enemy Pokémon.
   s = battle('ai', 2, 0);
   s.players.player.row[0] = mon('ponyta', 1, { currentStrength: 1 });

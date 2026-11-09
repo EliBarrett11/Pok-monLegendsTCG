@@ -4,7 +4,7 @@
 //   forms: [{ name, art, from, speed? }] — the form from that Level up to the next form's Level.
 //   stats: { level: [Attack, Strength] } for every Level of the series.
 //   guard: 'Defence' | 'Special Defence' | null. ability: (level) → { text, onSummon } or null.
-import { SERIES_RANGE, levelFor, costFor } from '../rules.js?v=202611091234';
+import { SERIES_RANGE, levelFor, costFor } from '../rules.js?v=202611091610';
 
 const op = (name, amount) => ({ op: name, amount });
 const path = (spec) => ({ guard: null, ability: () => null, ...spec });
@@ -143,20 +143,21 @@ export const ITEMS = [
 export const itemDef = (id) => ITEMS.find((c) => c.id === id);
 export const BAG_SIZE = 6;   // the Inventory Bag (v1: src/engine/game.js BAG_SIZE)
 
-// --- Trainer Cards (F4, section 4F; Partners as in v2's printed Partner cards): two ways to play.
-//   Objective: costs objectiveCost Energy; goes to the Trainer area and is tracked from then on.
+// --- Trainer Cards (F4, section 4F; Partners as in v2's printed Partner cards). UX1 (Elliott's rule):
+//   Objective: tracked from match setup for each Trainer card in a deck (free, from Round 1).
 //     kinds: 'defeat' (defeat N enemy Pokémon) · 'dominate' (dominate a Location at Supper, N times).
-//     On completion: its Partner arrives (an empty space; else it waits), its On Summon resolves,
-//     +Recognition, and the Trainer goes to the Discard Pile.
-//   Command: costs command.cost Energy; resolves at once (ops as Pokémon abilities: 'draw', 'damageAll').
+//     On completion: the Trainer card is taken from wherever it is and leaves the deck for good; its
+//     Partner arrives (an empty space; else it waits), its On Summon resolves, +Recognition.
+//   Command: the only way to play a drawn Trainer: costs command.cost Energy; resolves at once (ops as
+//     Pokémon abilities: 'draw', 'damageAll'); then it's discarded and keeps cycling.
 const partner = (spec) => ({ cardType: 'Pokémon', series: 'Partner', strengthType: 'Hitpoints', partner: true, ...spec });
-const trainer = (id, name, objectiveCost, objective, partnerCard, command) => ({ id, name, cardType: 'Trainer', art: id, objectiveCost, objective, partner: partnerCard, command });
+const trainer = (id, name, objective, partnerCard, command) => ({ id, name, cardType: 'Trainer', art: id, objective, partner: partnerCard, command });
 export const TRAINERS = [
-  trainer('misty', 'Misty', 1, { kind: 'defeat', need: 2, text: 'Defeat 2 enemy Pokémon' },
+  trainer('misty', 'Misty', { kind: 'defeat', need: 2, text: 'Defeat 2 enemy Pokémon' },
     partner({ id: 'starmie', name: 'Starmie', art: 'starmie', type: 'Water', attackType: 'Special', speed: 'Swift', level: 5, cost: 3, attack: 4, strength: 6,
       text: 'On Summon: draw 2 cards', onSummon: [{ op: 'draw', amount: 2 }] }),
     { cost: 1, ops: [{ op: 'draw', amount: 2 }], text: 'Draw 2 cards' }),
-  trainer('blaine', 'Blaine', 1, { kind: 'dominate', need: 1, text: 'Dominate a Location at Supper' },
+  trainer('blaine', 'Blaine', { kind: 'dominate', need: 1, text: 'Dominate a Location at Supper' },
     partner({ id: 'ninetales', name: 'Ninetales', art: 'ninetales', type: 'Fire', attackType: 'Special', speed: 'Steady', level: 5, cost: 3, attack: 5, strength: 6,
       text: 'On Summon: 1 damage to each enemy Pokémon', onSummon: [{ op: 'damageAll', amount: 1 }] }),
     { cost: 2, ops: [{ op: 'damageAll', amount: 1 }], text: '1 damage to each enemy Pokémon' }),

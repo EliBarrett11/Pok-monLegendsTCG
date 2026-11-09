@@ -1,12 +1,12 @@
 // v4's simple AI (F1; F2 adds Locations and dominance; F3 Command Cards in all three modes,
 // including Reacting to the player, and Supporters; F4 Items (buy from hand or the PokéMart, use
-// now or store, use from the Bag) and Trainers (Objective or Trainer Command)): a greedy one-move AI like v2's and v3's (adapted from v3/src/ai/ai.js).
+// now or store, use from the Bag) and Trainer Commands; UX1: Objectives are tracked from setup, modes come from commandModesFor): a greedy one-move AI like v2's and v3's (adapted from v3/src/ai/ai.js).
 // It plays only through the engine's actions: it tries each legal move on a copy of the state,
 // scores the result, and plays the best (Pass when nothing beats it).
-import { RULES } from '../rules.js?v=202611091234';
+import { RULES } from '../rules.js?v=202611091610';
 import { applyAction, legalActions, opponentOf, summonable, emptySpaces, attackers, legalTargets, retainable, pokemonOf, isReady, energyLeft, placeable, locationStarts, dominantOf, summonCost,
-  playableCommands, commandTargets, reactOptions, playableSupporters, favourMet, resolveStrats,
-  buyableFromHand, buyableFromMart, usableFromBag, itemTargets, buyReason, playableTrainers, tournamentDominant, boosted } from '../engine/game.js?v=202611091234';
+  commandModesFor, commandTargets, playableSupporters, favourMet, resolveStrats,
+  buyableFromHand, buyableFromMart, usableFromBag, itemTargets, buyReason, playableTrainers, tournamentDominant, boosted } from '../engine/game.js?v=202611091610';
 
 // Pending Strats count at a discount: the state as if they had resolved, blended with as it is.
 export function evaluate(s, who) {
@@ -25,7 +25,7 @@ function evaluateNow(s, who) {
     let v = p.recognition * 1.6 + p.hand.reduce((n, c) => n + (c.cardType === 'Item' ? 0.2 : 0.5), 0);
     // F4: PokéDollars, Items in the Bag, Trainers working on their Objectives, waiting Partners.
     v += p.dollars * 0.3 + p.bag.reduce((n, c) => n + 0.25 + c.price * 0.4, 0);
-    for (const tr of p.trainers) v += 2 + (2 * tr.progress) / tr.objective.need;
+    for (const tr of p.trainers.filter((x) => !x.complete)) v += (2 * tr.progress) / tr.objective.need;
     v += p.waiting.length * 3;
     for (const { card } of pokemonOf(s, w)) v += card.attack * 0.9 + card.currentStrength * 0.45 + (isReady(s, card) ? 0.5 : 0);
     return v;
@@ -52,13 +52,16 @@ export function moves(s, who) {
   // A React window (the player committed an attack, summon or Adapt): React or let it happen.
   if (legal.includes('decline')) {
     const out = [{ type: 'decline', who }];
-    for (const c of dedupe(reactOptions(s, who))) for (const target of commandTargets(s, who, c)) out.push({ type: 'react', who, uid: c.uid, target });
+    // UX1: the React options come from commandModesFor, the same helper the hand display uses.
+    const reacts = p.hand.filter((c) => commandModesFor(s, who, c.uid).some((m) => m.mode === 'react'));
+    for (const c of dedupe(reacts)) for (const target of commandTargets(s, who, c)) out.push({ type: 'react', who, uid: c.uid, target });
     return out;
   }
   const out = [{ type: 'pass', who }];
   if (legal.includes('command')) {
     for (const mode of ['adapt', 'strat']) {
-      for (const c of dedupe(playableCommands(s, who, mode))) for (const target of commandTargets(s, who, c)) out.push({ type: 'command', who, uid: c.uid, mode, target });
+      const cards = p.hand.filter((c) => commandModesFor(s, who, c.uid).some((m) => m.mode === mode && !m.reason));
+      for (const c of dedupe(cards)) for (const target of commandTargets(s, who, c)) out.push({ type: 'command', who, uid: c.uid, mode, target });
     }
   }
   // Supporters: Release the least useful cards; or, when it can, one that meets the Favour.
@@ -97,8 +100,8 @@ export function moves(s, who) {
   }
   if (legal.includes('useItem')) for (const c of dedupe(usableFromBag(s, who))) for (const target of itemTargets(s, who, c)) out.push({ type: 'useItem', who, uid: c.uid, target });
   // Trainers: as an Objective, or as a Trainer Command.
-  if (legal.includes('trainerObjective')) for (const c of dedupe(playableTrainers(s, who, 'objective'))) out.push({ type: 'trainerObjective', who, uid: c.uid });
-  if (legal.includes('trainerCommand')) for (const c of dedupe(playableTrainers(s, who, 'command'))) out.push({ type: 'trainerCommand', who, uid: c.uid });
+  // Trainers: only as Trainer Commands (UX1: Objectives are tracked from match setup).
+  if (legal.includes('trainerCommand')) for (const c of dedupe(playableTrainers(s, who))) out.push({ type: 'trainerCommand', who, uid: c.uid });
   if (legal.includes('attack')) for (const from of attackers(s, who)) for (const target of legalTargets(s, who, from)) out.push({ type: 'attack', who, from, target });
   // Retain: only the strongest card, and only when there's Energy to spare.
   if (legal.includes('retain') && energyLeft(p) > 1) {

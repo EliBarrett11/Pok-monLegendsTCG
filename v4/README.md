@@ -15,7 +15,7 @@ Plain HTML, CSS and JavaScript modules: no build step and relative paths only. I
 | `v4/src/engine/` | Game rules and state (`game.js`), cards (`cards.js`), Energy (`energy.js`), random numbers. **No DOM code.** |
 | `v4/src/ai/` | The simple AI: greedy, one move ahead, through the engine's actions |
 | `v4/src/ui/` | The interface (v3's look), coded icons |
-| `v4/tests/` | `node v4/tests/core.test.js`, `locations.test.js`, `commands.test.js`, `items.test.js` and `tournament.test.js` (focused rule tests; no match simulations) |
+| `v4/tests/` | `node v4/tests/core.test.js`, `locations.test.js`, `commands.test.js`, `items.test.js`, `tournament.test.js` and `ux1.test.js` (focused rule tests; no match simulations) |
 | `v4/tools/` | `node v4/tools/layout.mjs` (the nothing-clipped check); `node v4/tools/stamp.mjs` (cache-busting: run before each commit) |
 
 **Reused (copied, with the source noted in each file):**
@@ -362,3 +362,44 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
     - The layout check is ok at all three sizes, with the Tournament banner and board scenarios.
     - Browser checks: a complete match against the AI, and a player win at 100. See "Validation" above.
   - **Missing art:** the Pokémon League Tournament has no art, so it uses a plain gold frame. Elliott, it needs a Tournament image (e.g. `assets/cards/pokemon-league.jpg`).
+
+- **UX1 — Elliott's rule and display changes, and the React window** (`docs/v4-ux-plan.md`, sections 2 and 3.4).
+  - **Trainer Objectives are active from the start** (a rule change Elliott settled):
+    - The Trainers stay shuffled into the 40-card deck.
+    - At setup, each player's Trainer area gets one Objective tracker per Trainer card in their deck (Misty and Blaine). Each is linked to its card's `uid`, active from Round 1, free, and starts at progress 0.
+    - The Objective action is gone. A drawn Trainer is played only as its Trainer Command, then discarded, and keeps cycling; the Command doesn't affect its Objective.
+    - **On completion:**
+      - the Trainer card is taken at once from the Draw Pile, the hand (Retained or not) or the Discard Pile, and leaves the deck for good (39 cards left);
+      - its Partner arrives (or waits for a free space);
+      - its On Summon resolves;
+      - +2 Recognition.
+    - The tracker stays, ticked. Progress, completion and where the card was taken from are logged.
+    - The AI never plays an Objective.
+  - **Command modes by situation:** a pure engine helper, `commandModesFor(s, who, uid)`. The hand display, the click menu and the AI all use it.
+    - **Your turn:** Adapt (with its reason if it can't be played), plus Strat only if you can afford it.
+    - **Your React window:** React only, if affordable with a target.
+    - **Otherwise:** none, and the card is quietly dimmed.
+  - **The React window** (when it's your React):
+    - **The pause:** everything else stops.
+    - **The committed action:** shown on the board, with a dashed arrow from the attacker (or from the banner, for an Adapt) to its target, or the incoming summoned card in its space.
+    - **The banner:** a REACT? banner with a plain sentence (e.g. "The Opponent's Gyarados is attacking your Charizard for 9.") and a countdown bar.
+    - **The options:** each playable React card shown large, with its effect aimed at the actual target, its cost, the Energy you'll have left, and a React button. A card with several targets highlights them first.
+    - **Let it happen.**
+    - **The timer:** 5 s by default. A small React timer control (5, 8, 12 or 20 s) is under the build line, saved in localStorage (inside try/catch). On timeout it sends the same `decline` as the button.
+    - **Keys:** Space reacts when there's exactly one option and one target; Esc lets it happen.
+    - The timer lives in `main.js`, not the engine. The AI's React decisions are instant, and autoplay and tests never wait.
+  - **Series hidden:** Light, Mid and Heavy no longer appear in any displayed text (card faces, the hand line, board cards, hover and detail text, the log). They stay in the data and rules.
+  - **Recognition** is shown capped at 100 everywhere on screen. The end screen also gives the real totals.
+  - **Checks:**
+    - `node v4/tests/ux1.test.js` covers:
+      - 2 active Objectives at progress 0 and 40 cards at setup;
+      - no `trainerObjective` action;
+      - a Trainer played only as a Command and cycling;
+      - completion from the Draw Pile, the hand (Retained) and the Discard Pile (39 left, the Partner, +2, a ticked tracker that makes no more progress);
+      - `commandModesFor` in every situation;
+      - `decline` resolving the committed attack;
+      - no series in rendered text or the log;
+      - Recognition capped on screen.
+    - The other five test files were updated where they used the Objective action, or where always-active Objectives would change what they check. They all pass.
+    - `layout.mjs` is ok at all three sizes.
+    - **A browser check of the real React window** (opened by an AI attack): the timer declines after 5 s, Esc lets it happen, Space reacts, a multi-target React highlights its targets, and the timer setting survives a reload. No errors.

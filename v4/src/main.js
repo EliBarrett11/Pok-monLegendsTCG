@@ -2,12 +2,12 @@
 // Pokémon Legends v4 — entry point (F1): you against the AI, on a fixed 1920×1080 stage scaled
 // to fit the window. ?seed=123 replays the same shuffle and AI choices; ?autoplay lets the AI play
 // both sides; ?debug exposes window.__v4 for the layout check (v4/tools/layout.mjs).
-import { createGame, applyAction, actor } from './engine/game.js?v=202611091234';
-import { chooseAction } from './ai/ai.js?v=202611091234';
-import { renderMatch } from './ui/board.js?v=202611091234';
-import { pokemonAt, cardAtRound } from './engine/cards.js?v=202611091234';
+import { createGame, applyAction, actor, commandModesFor, commandTargets } from './engine/game.js?v=202611091610';
+import { chooseAction } from './ai/ai.js?v=202611091610';
+import { renderMatch, reactOpen } from './ui/board.js?v=202611091610';
+import { pokemonAt, cardAtRound } from './engine/cards.js?v=202611091610';
 
-export const BUILD = 'F5 — v4 foundation: the Pokémon League Tournament (complete)';
+export const BUILD = 'UX1 — Objectives from the start, Command modes, the React window';
 
 const STAGE = { width: 1920, height: 1080 };
 const stage = document.getElementById('stage');
@@ -29,8 +29,56 @@ let match = 0;
 let aiRng = Math.random;
 const ui = { select: null, ask: null, locked: false };
 
-const ctx = { build: BUILD, autoplay, act, redraw, newMatch };
-function redraw() { renderMatch(root, state, ui, ctx); }
+// UX1: the React timer setting (5, 8, 12 or 20 s), kept in localStorage (the full Settings screen is UX5).
+const TIMER_CHOICES = [5, 8, 12, 20];
+function loadReactTimer() {
+  try { const v = Number(localStorage.getItem('v4.reactTimer')); return TIMER_CHOICES.includes(v) ? v : 5; } catch { return 5; }
+}
+function setReactTimer(v) {
+  ctx.reactTimer = TIMER_CHOICES.includes(v) ? v : 5;
+  try { localStorage.setItem('v4.reactTimer', String(ctx.reactTimer)); } catch { /* storage unavailable: keep it for this page */ }
+  redraw();
+}
+
+const ctx = { build: BUILD, autoplay, act, redraw, newMatch, setReactTimer, reactTimer: loadReactTimer() };
+function redraw() {
+  syncReactClock();
+  renderMatch(root, state, ui, ctx);
+}
+
+// UX1: the React window's countdown belongs to the interface, not the engine. When the human
+// player's window opens, a timer starts; on timeout it sends exactly the decline action the
+// "Let it happen" button sends. Autoplay never shows the window (the AI decides at once).
+let reactTimeout = null;
+function syncReactClock() {
+  const open = !autoplay && state && reactOpen(state, ui);
+  if (!open) {
+    if (ui.reactClock) { clearTimeout(reactTimeout); ui.reactClock = null; }
+    return;
+  }
+  if (ui.reactClock?.state === state) return;
+  clearTimeout(reactTimeout);
+  const ms = ctx.reactTimer * 1000;
+  const forState = state;
+  ui.reactClock = { state, start: Date.now(), ms };
+  reactTimeout = setTimeout(() => {
+    if (state === forState && state.reactWindow?.reactor === 'player') act({ type: 'decline', who: 'player' });
+  }, ms);
+}
+
+// UX1 keys in the React window: Space reacts when there's exactly one option with one target; Esc
+// lets it happen.
+addEventListener('keydown', (e) => {
+  if (!state || autoplay || !reactOpen(state, ui)) return;
+  if (e.key === 'Escape') { e.preventDefault(); act({ type: 'decline', who: 'player' }); return; }
+  if (e.key === ' ' || e.code === 'Space') {
+    e.preventDefault();
+    const opts = state.players.player.hand.filter((c) => commandModesFor(state, 'player', c.uid).length);
+    if (opts.length !== 1) return;
+    const targets = commandTargets(state, 'player', opts[0]);
+    if (targets.length === 1) act({ type: 'react', who: 'player', uid: opts[0].uid, target: targets[0] });
+  }
+});
 
 function newMatch() {
   match += 1;
@@ -66,7 +114,8 @@ async function aiLoop(id) {
       if (!who || (who === 'player' && !autoplay)) break;
       ui.locked = true;
       redraw();
-      await wait(PAUSE);
+      // UX1: the AI's own React decisions stay instant.
+      if (!state.reactWindow) await wait(PAUSE);
       if (id !== match) return;
       state = applyAction(state, chooseAction(state, who, { rng: aiRng }));
     }

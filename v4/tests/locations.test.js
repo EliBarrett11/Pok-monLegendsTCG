@@ -18,7 +18,8 @@ const battle = (seed = 1) => {
   let s = createGame(seed);
   s = applyAction(s, { type: 'mulligan', who: 'player', cards: [] });
   s = applyAction(s, { type: 'mulligan', who: 'ai', cards: [] });
-  for (const w of ['player', 'ai']) { s.players[w].hand = []; s.players[w].row = s.players[w].row.map(() => null); }
+  // UX1: Trainer Objectives are active from setup; these Location checks leave them out.
+  for (const w of ['player', 'ai']) { s.players[w].hand = []; s.players[w].row = s.players[w].row.map(() => null); s.players[w].trainers = []; }
   return s;
 };
 // Place a Location for `who` (it becomes their turn first).

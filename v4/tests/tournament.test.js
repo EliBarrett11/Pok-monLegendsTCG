@@ -12,11 +12,12 @@ import { chooseAction } from '../src/ai/ai.js';
 let n = 0;
 const mon = (id, level, extra = {}) => { const c = pokemonAt(id, level); return { ...c, uid: `m-${n++}`, currentStrength: c.strength, spent: true, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...extra }; };
 const card = (id) => ({ ...cardAtRound(id, 1), uid: `c-${n++}` });
-const battle = (turn = 'player') => {
+// UX1: Trainer Objectives are active from setup; these checks leave them out unless `trainers` is true.
+const battle = (turn = 'player', { trainers = false } = {}) => {
   let s = createGame(21);
   s = applyAction(s, { type: 'mulligan', who: 'player', cards: [] });
   s = applyAction(s, { type: 'mulligan', who: 'ai', cards: [] });
-  for (const w of ['player', 'ai']) { const p = s.players[w]; p.hand = []; p.row = p.row.map(() => null); p.baseEnergy = 9; p.exertMax = 0; p.exhaust = []; }
+  for (const w of ['player', 'ai']) { const p = s.players[w]; p.hand = []; p.row = p.row.map(() => null); p.baseEnergy = 9; p.exertMax = 0; p.exhaust = []; if (!trainers) p.trainers = []; }
   s.turn = turn;
   s.passesInARow = 0;
   return s;
@@ -162,12 +163,11 @@ const place = (s, who, id, start) => { s.players[who].hand.push(card(id)); s.tur
   s = nextRound(s);
   assert.deepEqual([s.players.player.recognition, s.players.ai.recognition], before);
   // It also counts as dominating a Location for Blaine's Objective.
-  s = battle();
+  s = battle('player', { trainers: true });
   s.tournament = { startedRound: 1, reason: 'test' };
   s.players.player.row[0] = mon('squirtle', 4);
-  s = applyAction(s, { type: 'trainerObjective', who: 'player', uid: give(s, 'player', 'blaine') });
   s = nextRound(s);
-  assert.equal(s.players.player.trainers.length, 0);
+  assert.ok(s.players.player.trainers.find((t) => t.name === 'Blaine').complete);
   assert.ok(s.players.player.row.some((c) => c?.name === 'Ninetales'));
 }
 
