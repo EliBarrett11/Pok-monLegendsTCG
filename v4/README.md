@@ -15,7 +15,7 @@ Plain HTML, CSS and JavaScript modules: no build step and relative paths only. I
 | `v4/src/engine/` | Game rules and state (`game.js`), cards (`cards.js`), Energy (`energy.js`), random numbers. **No DOM code.** |
 | `v4/src/ai/` | The simple AI: greedy, one move ahead, through the engine's actions |
 | `v4/src/ui/` | The interface (v3's look), coded icons |
-| `v4/tests/` | `node v4/tests/core.test.js`, `locations.test.js`, `commands.test.js` and `items.test.js` (focused rule tests; no match simulations) |
+| `v4/tests/` | `node v4/tests/core.test.js`, `locations.test.js`, `commands.test.js`, `items.test.js` and `tournament.test.js` (focused rule tests; no match simulations) |
 | `v4/tools/` | `node v4/tools/layout.mjs` (the nothing-clipped check); `node v4/tools/stamp.mjs` (cache-busting: run before each commit) |
 
 **Reused (copied, with the source noted in each file):**
@@ -36,6 +36,66 @@ Plain HTML, CSS and JavaScript modules: no build step and relative paths only. I
 The rules for Ready, the unmatched-Speed Pass and trades follow v3's engine.
 
 **URL options:** `?seed=123` replays the same match; `?autoplay` lets the AI play both sides; `?debug` exposes `window.__v4` for checks.
+
+## The foundation deck (40 cards, the same list for both players)
+
+One simple, neutral deck that shows every approved feature (spec section 9). Card data lives in `v4/src/engine/cards.js` (`DEMO_DECK`).
+
+| Card | Type | Count | What it demonstrates |
+|---|---|---|---|
+| Ponyta → Rapidash | Pokémon, Light (L1–6) | 4 | Light development, Swift Speed, Physical attacks |
+| Chinchou → Lanturn | Pokémon, Light (L1–6) | 3 | a Special Defence guard |
+| Squirtle → Wartortle → Blastoise | Pokémon, Mid (L2–7) | 4 | Mid development, three evolution Levels, a Defence guard |
+| Growlithe → Arcanine | Pokémon, Mid (L2–7) | 4 | Mid development, Physical attacker |
+| Magikarp → Gyarados | Pokémon, Heavy (L3–8) | 3 | Heavy development, an On Summon ability (draw 1, Levels 3–5) |
+| Charmander → Charmeleon → Charizard | Pokémon, Heavy (L3–8) | 2 | three evolution Levels, an On Summon ability at Level 7+ |
+| Cerulean Cape | Location (2 lanes, 3 Rounds) | 1 | +1 Strength passive, Rain |
+| Mt. Ember | Location (3 lanes, 3 Rounds) | 1 | +1 Attack passive, Sun |
+| Lake of Rage | Location (2 lanes, 2 Rounds) | 1 | heal at Breakfast, Sun |
+| Route 119 | Location (4 lanes, 2 Rounds) | 1 | summoning discount, Rain |
+| Ember | Command | 2 | Adapt, React and Strat: damage |
+| Recover | Command | 2 | Adapt, React and Strat: healing |
+| X Attack | Command | 1 | Adapt, React and Strat: a temporary stat boost |
+| Rock Slide | Command | 1 | Adapt, React and Strat: a battlefield effect (a whole Location) |
+| Nurse Joy | Supporter (Release 1) | 1 | healing; Favour: a Water Pokémon |
+| Professor Oak | Supporter (Release 1) | 2 | searching for a Pokémon; Favour: a Location |
+| Brock | Supporter (Release 2) | 1 | a battlefield benefit (+Strength); Favour: a Pokémon of Level 4+ |
+| Potion | Item, Consumed, $2 | 2 | an Item from the deck; use now or store |
+| Charcoal | Item, Held, $2 | 1 | a Held Item |
+| Choice Band | Item, Consumed, $2 | 1 | a temporary stat boost |
+| Misty | Trainer | 1 | Objective "Defeat 2 enemy Pokémon" → Starmie; Trainer Command: draw 2 |
+| Blaine | Trainer | 1 | Objective "Dominate a Location at Supper" → Ninetales; Trainer Command: 1 damage to each enemy Pokémon |
+
+**In total:** 20 Pokémon, 4 Locations, 6 Command Cards, 4 Supporters, 4 Items and 2 Trainers.
+
+The PokéMart has its own pool of one each of the six Items: Potion, Oran Berry, Choice Band, Charcoal, Mystic Water and Leftovers. So Oran Berry, Mystic Water and Leftovers can only be bought there.
+
+## Validation (spec sections 12 and 14)
+
+No match simulations or AI-vs-AI matches were run. Each item was checked by a focused test (`node v4/tests/<name>.test.js`) or in the browser:
+
+- **Browser check:** a real match in Chromium against the AI, with the human side keeping its hand, passing and letting each React window resolve. It ran start to finish with no errors: the Tournament began at Round 7 (70+ Recognition), its banner showed, and the AI won at 102 Recognition.
+- **Click-through checks:** each feature's player flows (F3 and F4), and a player win at 100 by clicking an attack in the Tournament.
+- **Layout check:** `node v4/tools/layout.mjs` checks every screen at 1920×1080, 1366×768 and 1280×720.
+
+| Requirement | How it was verified |
+|---|---|
+| The project builds and runs without errors | No build step. Every test imports the modules. The layout check loads every scenario at three sizes with no page errors. Two browser checks (the full match and the player win) had no errors. |
+| A match can be started; both players get the same deck | `core.test.js` and `tournament.test.js` compare both piles with the 40-card list. |
+| Both players can perform the available actions; all nine Battle Phase actions work | Each action is applied through `applyAction` for the player and the AI:<br>- Summon: `core`<br>- Command (Adapt, React, Strat): `commands`<br>- Supporter: `commands`<br>- Place Location: `locations`<br>- Purchase Item: `items`<br>- Play Inventory Item: `items`<br>- Trainer Command: `items`<br>- Retain: `core`<br>- Pass: `core`<br>Attack and Trainer Objective also work.<br>Browser click-throughs covered each player flow. |
+| Every approved card type works | Pokémon (`core`), Command (`commands`), Location (`locations`), Supporter (`commands`), Item and Trainer (`items`). |
+| Pokémon development works | `core`: Levels by Round and series, the cost curve, snapshots on summon. |
+| Energy and PokéDollar economies work | `core`: Base Energy, Pass, Exert and Exhaust. `items`: income, defeat rewards, spending. |
+| Command React, Adapt and Strat work; React interrupts; Strat is delayed | `commands`:<br>- React resolves before an attack, a summon or an Adapt, can make it fizzle, uses no turn and can't be reacted to.<br>- Strat resolves after the opponent's next turn, or at Supper, and fizzles when its target is gone. |
+| Supporter Release and Favour work | `commands`: Release is permanent and never reshuffled, the Supporter is Released too, and the Favour gives its effect and Recognition. |
+| Locations can be placed and dominated; Weather works | `locations`: placement, durations, passives, all four brackets, dominance, ties. |
+| Items, the PokéMart (3 a Round) and the Inventory work | `items`: buying from hand and the PokéMart, use now or store, the Bag limit, playing from the Bag, Held and Consumed, and the refresh of 3 each Breakfast with Items returning to the pool. |
+| Trainer Objectives and Commands work | `items`: progress, completion, the Partner (including waiting for a space), its On Summon, the Recognition, both Trainer Commands. |
+| Recognition from every approved source | Damage to the Player Character and defeats: `core`. Dominance: `locations`, `tournament`. Favours: `commands`. Trainer Objectives: `items`. Card effects (a Command or Partner On Summon that defeats): `commands`, `items`. |
+| The Tournament replaces the active Locations and functions | `tournament`:<br>- it triggers at Round 10 or 70+ Recognition;<br>- Locations are removed to the Discard Piles and Pokémon stay;<br>- passives and Weather end;<br>- Locations can't be placed;<br>- Recognition is +50%, rounded up;<br>- dominance gives +3 (5), ties give nothing.<br>The browser match also triggered it. |
+| A player can win at 100 Recognition | `core` and `tournament`, including during the Tournament for either player. The browser checks ended a match both ways. |
+| A complete match is playable with the same deck | The browser match above, start to finish. |
+| Important assumptions are documented | `v4/FOUNDATION_ASSUMPTIONS.md`, in the section 13 format. |
 
 ## Build log
 
@@ -267,3 +327,38 @@ The rules for Ready, the unmatched-Speed Pass and trades follow v3's engine.
     - `layout.mjs` reports ok at all three sizes, with new scenarios: Items, Bags and Trainer areas; the buy chooser; the Trainer chooser.
     - A browser click-through showed no errors. It bought from the PokéMart and used it, bought from hand and stored it, used an Item from the Bag, and played a Trainer Objective and a Trainer Command.
   - **Art:** all existing (potion, oran-berry, choice-band, charcoal, mystic-water, leftovers, misty, starmie, blaine, ninetales); none missing.
+
+- **F5 — the Pokémon League Tournament and completion (step 5 of 5).**
+  - **The trigger:** at Breakfast at the start of Round 10, or at the first Breakfast where either player has 70+ Recognition, whichever comes first.
+  - **The transition:**
+    - All placed Locations are removed; their cards go to their owners' Discard Piles.
+    - The Tournament covers all 9 lanes, and Pokémon stay where they are.
+    - Location passives and Weather end.
+    - No new Locations can be placed; Location cards say why.
+    - It lasts until the match ends.
+  - **Passive:** all Recognition earned is increased by half, rounded up (3 → 5).
+  - **Dominance:** at each Supper, more total current Strength on the battlefield earns +3 Recognition (5 with the passive). Ties give nothing. It counts as dominating a Location for Blaine's Objective.
+  - **Winning** stays at 100 Recognition; there's no other victory condition.
+  - **The interface:**
+    - A banner when the Tournament begins.
+    - A gold Tournament tile across the board, showing its passive, who dominates (with both Strength totals) and what that gives at Supper.
+    - A 🏆 Tournament chip by the Round.
+    - The Weather panel shows "None".
+  - **The AI** counts the Tournament's dominance.
+  - **The final foundation deck:** 40 cards, adding a second Ember, Recover, Potion and Professor Oak. See "The foundation deck" above.
+  - **`FOUNDATION_ASSUMPTIONS.md`** is completed in the section 13 format. Each entry gives what was chosen, why it's the simplest, and whether it needs approval. It covers the Tournament, the starting values, the round-start order, React timing and the Retain limit.
+  - **Checks:**
+    - `node v4/tests/tournament.test.js` covers:
+      - the deck;
+      - the trigger, by Round and by Recognition;
+      - Locations removed and Pokémon staying;
+      - old passives and Weather ending;
+      - no Locations;
+      - the +50% passive;
+      - Tournament dominance and ties;
+      - winning at 100 during the Tournament, for either player;
+      - the AI.
+    - All five test files pass.
+    - The layout check is ok at all three sizes, with the Tournament banner and board scenarios.
+    - Browser checks: a complete match against the AI, and a player win at 100. See "Validation" above.
+  - **Missing art:** the Pokémon League Tournament has no art, so it uses a plain gold frame. Elliott, it needs a Tournament image (e.g. `assets/cards/pokemon-league.jpg`).

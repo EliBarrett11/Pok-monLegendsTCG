@@ -4,7 +4,7 @@
 //   forms: [{ name, art, from, speed? }] — the form from that Level up to the next form's Level.
 //   stats: { level: [Attack, Strength] } for every Level of the series.
 //   guard: 'Defence' | 'Special Defence' | null. ability: (level) → { text, onSummon } or null.
-import { SERIES_RANGE, levelFor, costFor } from '../rules.js?v=202611091219';
+import { SERIES_RANGE, levelFor, costFor } from '../rules.js?v=202611091234';
 
 const op = (name, amount) => ({ op: name, amount });
 const path = (spec) => ({ guard: null, ability: () => null, ...spec });
@@ -179,4 +179,6 @@ export const DEMO_DECK = [
   'ember', 'recover', 'x-attack', 'rock-slide', 'nurse-joy', 'professor-oak', 'brock',
   // F4: Items (the other three are only in the PokéMart) and Trainers.
   'potion', 'charcoal', 'choice-band', 'misty', 'blaine',
+  // F5: the final foundation deck (40): a second Ember, Recover, Potion and Professor Oak.
+  'ember', 'recover', 'potion', 'professor-oak',
 ];

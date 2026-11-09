@@ -3,10 +3,10 @@
 // now or store, use from the Bag) and Trainers (Objective or Trainer Command)): a greedy one-move AI like v2's and v3's (adapted from v3/src/ai/ai.js).
 // It plays only through the engine's actions: it tries each legal move on a copy of the state,
 // scores the result, and plays the best (Pass when nothing beats it).
-import { RULES } from '../rules.js?v=202611091219';
+import { RULES } from '../rules.js?v=202611091234';
 import { applyAction, legalActions, opponentOf, summonable, emptySpaces, attackers, legalTargets, retainable, pokemonOf, isReady, energyLeft, placeable, locationStarts, dominantOf, summonCost,
   playableCommands, commandTargets, reactOptions, playableSupporters, favourMet, resolveStrats,
-  buyableFromHand, buyableFromMart, usableFromBag, itemTargets, buyReason, playableTrainers } from '../engine/game.js?v=202611091219';
+  buyableFromHand, buyableFromMart, usableFromBag, itemTargets, buyReason, playableTrainers, tournamentDominant, boosted } from '../engine/game.js?v=202611091234';
 
 // Pending Strats count at a discount: the state as if they had resolved, blended with as it is.
 export function evaluate(s, who) {
@@ -36,6 +36,11 @@ function evaluateNow(s, who) {
   for (const l of s.locations) {
     const d = dominantOf(s, l);
     if (d) dom += (d === who ? 1 : -1) * RULES.perDominance * l.roundsLeft * 1.6 * 0.8;
+  }
+  // F5: the Tournament's dominance, worth its (boosted) Recognition at the next Supper.
+  if (s.tournament) {
+    const d = tournamentDominant(s);
+    if (d) dom += (d === who ? 1 : -1) * boosted(s, RULES.perTournamentDominance) * 1.6 * 0.8;
   }
   return side(who) - side(foe) + dom + (s.turn === who ? me.baseEnergy * 0.3 : 0) - me.exhaust.length * 0.6;
 }

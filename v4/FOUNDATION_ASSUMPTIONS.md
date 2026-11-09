@@ -1,195 +1,290 @@
 # v4 foundation: assumptions
 
-Decisions made where `docs/v4-foundation-spec.md` (and its section 16) doesn't give an exact rule. Each is the simplest working choice. ✱ = may need Elliott's approval.
+These are the decisions the approved design (`docs/v4-foundation-spec.md`, with section 16 first) doesn't settle exactly. Each entry gives:
 
-## F1: the core
+- **Chosen:** what the code does.
+- **Why:** why that's the simplest working option.
+- **Approval:** **Needed** (a design or number choice Elliott may want to change) or **No** (it follows an earlier version or is a direct reading of the spec).
 
-1. **Pokémon Levels off the battlefield.**
-   - The series' first Level in Round 1, +1 each Round, up to the maximum (Light 1–6, Mid 2–7, Heavy 3–8).
-   - The rule applies to every card off the battlefield (hand, Draw Pile and Discard Pile), so a Discard Pile reshuffled into the Draw Pile is already at the current Level.
-   - *Why:* the spec says "Hand and Deck", and the Discard Pile becomes the deck again (v1).
-2. **Cost by Level ✱:** one curve for every series, `cost = ceil((Level − 1) / 2)`. So Level 1 costs 0, Levels 2–3 cost 1, 4–5 cost 2, 6–7 cost 3, and 8 costs 4.
-   - A Mid Pokémon reaches Level L in Round L−1, when Base Energy is L−1, so it costs about half the Round's Base Energy (the spec's target).
-   - Light is cheaper and Heavy dearer in any given Round, because of their Levels.
-   - *Why:* one formula, in `v4/src/rules.js`.
-3. **Stats and abilities ✱:** six evolution paths, written as simple stats per Level from existing Pokémon and art:
-   - Ponyta → Rapidash, Chinchou → Lanturn (Light);
-   - Squirtle → Wartortle → Blastoise, Growlithe → Arcanine (Mid);
-   - Magikarp → Gyarados, Charmander → Charmeleon → Charizard (Heavy).
-   - Two abilities only: Magikarp's "On Summon: draw 1" and Charizard's "On Summon: 2 damage to each enemy Pokémon".
-4. **Demo deck so far:** 20 Pokémon cards (Pokémon only, as F1 asks), the same list for both players. Later steps add the other card types.
-5. **Mulligan (v1):** in Round 1, after drawing 7, each player chooses any cards to put into their Discard Pile and draws as many. The player chooses, then the AI.
-6. **Retain ✱:**
-   - It's a Battle Phase action like the others (it uses the turn) and costs 1 Energy, paid like any cost: Base Energy first, then Exert.
-   - There's no limit beyond Energy and turns.
-   - A Retained card stays through one Supper.
-   - Each Retained card draws one fewer at the next Breakfast (never below 0).
-7. **Breakfast order:**
-   1. Exhaust recovers.
-   2. Base Energy and the Exert maximum are set (v1: the Round, max 10; Exert maximum the Round, max 3).
-   3. Spent Pokémon become Active.
-   4. Cards off the battlefield take their new Level.
-   5. Draw 7, less one per Retained card.
-8. **Guards and the Player Character ✱:**
-   - A guard protects its Player Character only against attacks of its kind: Defence against Physical attackers, Special Defence against Special.
-   - It does so only when the attacker stands in the guard's own Location. In F1, with no placed Locations, that means anywhere.
-   - *Why:* it matches "Special Defence does the same against Special attacks".
-9. **Recognition values ✱:**
-   - 1 per damage to the enemy Player Character (section 16);
-   - +2 for defeating an enemy Pokémon, a starting value (both are in `v4/src/rules.js`).
-   - 100 wins at once.
-10. **Trades:** as in v3. A Ready target hits back; both become Spent; a Pokémon at 0 Strength or less goes to its owner's Released Pile.
+Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All values are starting values, not the result of balance testing.
 
-## F2: Locations
+## 1. Starting values (Recognition, Energy, PokéDollars)
 
-1. **Placing ✱:**
-   - Place Location is a Battle Phase action like the others: it uses the turn and costs no Energy (as in v2).
-   - It covers the chosen lane and the lanes to its right. It can't overlap another placed Location or run off the battlefield.
-   - Either player may place one. There's no limit beyond the free lanes, so at most 4 can be placed at once.
-   - A Location card can be Retained like any card. It has no Level.
-2. **Duration and removal ✱:**
-   - Rounds left count down at each Supper, after dominance is scored.
-   - A Location placed with 3 Rounds is scored at 3 Suppers and then removed. Placing it late in a Round still counts that Round.
-   - When removed, its card goes to its owner's Discard Pile, and its lanes are the Default Location again. Pokémon there stay where they are and lose its passive.
-3. **The four Locations ✱:** placeholder values, using the v1/v2 art:
+| Value | Chosen | Why | Approval |
+|---|---|---|---|
+| Damage to a Player Character | 1 Recognition per damage | Section 16 sets it | No |
+| Defeating an enemy Pokémon | +2 Recognition | A small round number, below a typical attack on the Player Character, which matches the spec's order of importance | **Needed** |
+| Dominating a placed Location at Supper | +1 Recognition per Location | Lowest non-zero value; several Locations can be dominated at once | **Needed** |
+| Completing a Supporter Favour | +1 Recognition | Lowest non-zero value | **Needed** |
+| Completing a Trainer Objective | +2 Recognition | Objectives take several turns, so worth a little more than a Favour | **Needed** |
+| Specific card effects | No card gives Recognition directly; these Recognition sources are triggered by cards (Favours, Objectives, Commands that defeat a Pokémon) | No extra card design needed | **Needed** |
+| Winning | 100 Recognition, at once, at any moment (also mid-action) | Spec; the only victory condition | No |
+| Base Energy | v1: the Round number (max 10); Pass +1 except the Pass that ends the Battle Phase | Section 16 | No |
+| Exert and Exhaust | v1 exactly: Exert maximum = Round (max 3); spent Exert is Exhausted for 2, 3 or 4 Rounds by position | Section 16 | No |
+| Starting Energy | Round 1: Base Energy 1, Exert maximum 1 | Follows from v1's rule | No |
+| PokéDollars per Round | +$1 at each Breakfast, including Round 1 | Spec "$1 per round" | No |
+| PokéDollars per defeat | The defeated Pokémon's Energy cost at its Level, at least $1, to its opponent, whatever caused it; a Partner counts as cost 3 | Ties the reward to what the Pokémon was worth, using a number that already exists | **Needed** |
 
-   | Location | Lanes | Rounds | Weather | Passive (on both players' Pokémon in it) |
-   |---|---|---|---|---|
-   | Cerulean Cape | 2 | 3 | 1 Rain | +1 Strength |
-   | Mt. Ember | 3 | 3 | 2 Sun | +1 Attack |
-   | Lake of Rage | 2 | 2 | 1 Sun | Heal 2 at Breakfast |
-   | Route 119 | 4 | 2 | 2 Rain | Summoning here costs 1 less (minimum 0) |
+## 2. Round structure and the round-start (Breakfast) order
 
-4. **Passives apply to both players' Pokémon in the Location ✱:**
-   - +Strength raises both the maximum and the current Strength.
-   - When the bonus ends, the maximum drops back and current Strength is capped at it. Losing a bonus never defeats a Pokémon: at least 1 Strength is left.
-   - A Pokémon that is already there when the Location is placed gets the passive at once.
-5. **Weather brackets ✱:** placeholder values. Counts combine across all placed Locations. Each bracket applies to every Pokémon of both players while the count is at or above it:
-   - **Rain 2:** every Pokémon heals 1 at Breakfast.
-   - **Rain 4:** every Pokémon has +1 Strength.
-   - **Sun 2:** Physical attacks deal +1 damage (including a trade's hit back).
-   - **Sun 4:** every Pokémon has +1 Attack.
-6. **Breakfast heals:** they happen after Pokémon become Active, and never above a Pokémon's Strength.
-7. **Dominance ✱:**
-   - At Supper, each placed Location is scored. The player whose Pokémon there have the greater total current Strength earns +1 Recognition, a starting value (`perDominance` in `v4/src/rules.js`).
-   - A tie, including an empty Location, gives nothing.
-   - Who placed the Location doesn't matter. The Default Location is never scored.
-8. **The demo deck:** the 20 Pokémon plus one of each Location, 24 cards, the same list for both players.
+- **Chosen:**
+  1. If the Tournament trigger is met, the Tournament begins.
+  2. Exhaust recovers into Exert.
+  3. Base Energy and the Exert maximum are set.
+  4. Spent Pokémon become Active.
+  5. +$1.
+  6. Breakfast heals: Lake of Rage, the Rain 2 bracket, Leftovers.
+  7. Cards off the battlefield take this Round's Level.
+  8. Draw 7, less one per card Retained.
+  9. The PokéMart refreshes 3 Items.
+  10. Waiting Partners arrive.
 
-## F3: Command Cards and Supporters
+  In Round 1, after the draw, each player may mulligan (v1).
+- **Supper order:**
+  1. Pending Strats resolve.
+  2. Dominance: placed Locations, or the Tournament.
+  3. Trainer Objective progress from dominance.
+  4. Location durations count down and expired Locations are removed.
+  5. "Until Supper" effects end.
+  6. The hand is discarded, except Retained cards.
+- **Why:** v1's order, with each new step placed where its effect is needed: the Tournament first, so old passives don't apply that Breakfast; heals before the draw; the PokéMart and Partners last.
+- **Approval:** **Needed** (the order of the new steps).
+- **Battle Phase:**
+  - Initiative alternates each Round.
+  - Players alternate one action per turn.
+  - Two Passes in a row end the phase (v1).
+  - **Approval:** No.
 
-1. **Eligible actions and the React window ✱:**
-   - Three actions can be reacted to: an attack, a summon, and a Command Card played as Adapt. Pass, Retain, Place Location, Supporters, Strats and Reacts can't.
-   - The acting player commits the action first, and its cost is paid then:
-     - **Summon:** the Energy is paid and the card leaves the hand.
-     - **Adapt:** the Energy is paid and the card leaves the hand.
-     - **Attack:** it has no cost to pay.
-   - A React window then opens for the other player only if they hold a Command Card whose React they can pay for and that has a target. Otherwise the action resolves at once.
-   - In the window, that player either Reacts with one card or lets it happen. Then the committed action resolves, and the acting player's turn ends.
-2. **React timing ✱:**
-   - The React's weaker effect resolves fully before the committed action, which then resolves against the new state.
-   - **The committed action fizzles** (cost still paid) if:
-     - the attacker is gone;
-     - the attacked Pokémon is gone, or is now guarded;
-     - the Adapt's target is gone.
-   - A fizzled attack still makes the attacker Spent. A fizzled Adapt card goes to the Discard Pile.
-   - A summon can't fizzle: the React can't fill its space. The summoned Pokémon arrives after the React, Spent as usual.
-   - A React doesn't use the reacting player's turn, and nothing can be reacted to in turn. There's no stack: at most one React per committed action.
-   - React Energy comes from the same pool as everything else (Base Energy, then Exert).
-3. **Strat timing ✱:**
-   - Paid and targeted when played; this is the turn's action. It is not eligible for React.
-   - It resolves at the start of its owner's next turn, after the opponent's turn. If the Battle Phase ends first, it resolves at Supper, before dominance is scored.
-   - Several pending Strats resolve in the order they were played.
-   - It fizzles if its target Pokémon is gone, even if another Pokémon now stands in that space. The cost stays paid.
-   - A resolved or fizzled Strat card goes to its owner's Discard Pile.
-   - X Attack's "+Attack until Supper" lasts until that Round's Supper. So an X Attack Strat that resolves at Supper has no effect.
-4. **Command targets:**
-   - Commands target Pokémon only, never a Player Character.
-   - Guards don't apply to Commands (section 16 makes them about attacks).
-   - A Command that defeats a Pokémon gives its player the usual +2 Recognition.
-   - Rock Slide hits each enemy Pokémon in its target's Location; the Default Location counts as one.
-5. **The four Command Cards ✱:** placeholder values. React is always cheaper than Adapt, and Strat dearer:
+## 3. Hands and Retain
 
-   | Card | Target | Adapt | React | Strat |
-   |---|---|---|---|---|
-   | Ember | an enemy Pokémon | 2: 3 damage | 1: 2 damage | 3: 5 damage |
-   | Recover | one of yours | 2: heal 4 | 1: heal 2 | 3: heal 8 |
-   | X Attack | one of yours | 2: +2 Attack until Supper | 1: +1 | 3: +4 |
-   | Rock Slide | an enemy Pokémon | 3: 1 damage to each enemy Pokémon in its Location | 2: 1 damage to it | 4: 2 damage to each in its Location |
+- **Chosen:**
+  - **Draw and mulligan:** 7 at Breakfast; a Round 1 mulligan (v1).
+  - **Supper:** the hand is discarded except Retained cards. The Discard Pile reshuffles into the Draw Pile when it runs out.
+  - **Retain** is a Battle Phase action:
+    - It costs 1 Energy and keeps one card through one Supper.
+    - Each Retained card draws one fewer next Breakfast (never below 0).
+    - **The Retain limit:** none beyond Energy and turns.
+    - Any card type can be Retained.
+- **Why:** section 16's wording, with no extra limit invented.
+- **Approval:** **Needed** (no Retain limit; Retain uses the turn).
 
-6. **Supporters ✱:**
-   - A Battle Phase action costing no Energy, with no limit per Round. Released cards are chosen by the player.
-   - It needs that many other cards in hand; the Supporter can't Release itself as its cost. It is Released after its effect.
-   - Released cards go to the Released Pile and are never reshuffled (as in v2).
-   - The Favour is met if any Released card meets its condition. It gives the enhanced effect and **+1 Recognition**, a starting value (`perFavour` in `v4/src/rules.js`).
-7. **The three Supporters ✱:** placeholder values, adapted from v2's Supporters and Favours:
+## 4. Pokémon development
 
-   | Supporter | Release | Effect | Favour: Release… | Enhanced |
-   |---|---|---|---|---|
-   | Nurse Joy | 1 | heal each of your Pokémon 2 | a Water Pokémon | heal 4 |
-   | Professor Oak | 1 | put the first Pokémon card in your Draw Pile into your hand | a Location | 2 Pokémon cards |
-   | Brock | 2 | +1 Strength (kept) to each of your Pokémon | a Pokémon of Level 4+ | +2 |
+- **Chosen:**
+  - **Levels off the battlefield** (hand, Draw Pile and Discard Pile): the series' first Level in Round 1, +1 each Round, up to its maximum (Light 1–6, Mid 2–7, Heavy 3–8).
+  - **On the battlefield:** a summoned Pokémon is a snapshot and doesn't develop.
+  - **The cost curve** is `cost = ceil((Level − 1) / 2)` for every series. A Mid Pokémon costs about half the Round's Base Energy.
+- **Why:** one formula and one rule for all cards; the Discard Pile becomes the deck again, so it develops too.
+- **Approval:** **Needed** (the cost curve).
+- **The six evolution paths** (stats per Level; abilities on Magikarp L3–5 "On Summon: draw 1" and Charizard L7+ "On Summon: 2 damage to each enemy Pokémon"):
+  - Ponyta → Rapidash and Chinchou → Lanturn (Light);
+  - Squirtle → Wartortle → Blastoise and Growlithe → Arcanine (Mid);
+  - Magikarp → Gyarados and Charmander → Charmeleon → Charizard (Heavy).
+  - **Why:** existing Pokémon and art, with simple numbers.
+  - **Approval:** **Needed** (placeholder stats).
 
-   Oak's search doesn't reshuffle and finds what's there; the Draw Pile is already shuffled.
-8. **The demo deck:** 20 Pokémon, the four Locations, and one of each Command Card and Supporter: 31 cards, the same list for both players.
-9. **AI:**
-   - It judges a move as if the player lets it happen.
-   - It values a pending Strat as 70% resolved.
-   - It Releases its least useful cards, or a card that meets the Favour when it can.
+## 5. Speed, combat, guards and the Player Character
 
-## F4: Items and Trainers
+- **Chosen:**
+  - **Ready and Spent** work as in v3:
+    - A Ready Pokémon is the fastest Active one on both sides.
+    - Summoned Pokémon arrive Spent.
+    - Passing with unmatched Speed makes your fastest Pokémon Spent.
+  - **Trades:** a Ready target hits back. A Pokémon at 0 Strength goes to the Released Pile.
+  - **Guards:**
+    - A Defence or Special Defence Pokémon protects its side's other Pokémon in the same Location.
+    - It also protects its Player Character, but only against attackers of the matching kind standing in the guard's own Location.
+  - **Commands** ignore guards. Commands and Items target Pokémon only, never a Player Character.
+- **Why:** v3's rules; section 16's guard wording read literally.
+- **Approval:** **Needed** (whether guards protect the Player Character only against the matching attack kind; whether Commands ignore guards).
 
-1. **PokéDollars ✱:**
-   - +$1 at each Breakfast, including Round 1.
-   - When a Pokémon is defeated, its opponent gains its Energy cost at its Level, at least $1, whatever caused the defeat. A Partner counts as costing 3.
-   - PokéDollars carry between Rounds. They are shown on each Player Character.
-2. **Purchase Item ✱:**
-   - A Battle Phase action that uses the turn. It is not eligible for React.
-   - You buy one Item from your hand or the PokéMart, then use it at once (choosing a target) or store it in your Inventory Bag (6 spaces, as in v1).
-   - There's no v1-style "In Delivery" wait: a stored Item can be used from your next turn.
-   - A sold PokéMart slot stays empty until the next Breakfast.
-   - An unbought Item in hand is discarded at Supper like any card. Bag Items stay through Supper.
-3. **Items ✱:**
-   - Every Item targets one of your Pokémon in play.
-   - **Held:** it attaches, one Held Item per Pokémon, and gives its bonus while held. It is lost when that Pokémon is defeated.
-   - **Consumed:** it resolves, then leaves play.
-   - Used Consumed Items and lost Held Items go to the PokéMart's pool, including copies that came from a deck (as in v1). So the pool can hold more than one copy of an Item.
-4. **The six Items ✱:** placeholder values. Potion, Charcoal and Choice Band are in the demo deck; Oran Berry, Mystic Water and Leftovers are only in the PokéMart.
+## 6. Locations, Weather and dominance
 
-   | Item | Price | Type | Effect |
-   |---|---|---|---|
-   | Potion | $2 | Consumed | heal 3 |
-   | Oran Berry | $1 | Consumed | heal 2 |
-   | Choice Band | $2 | Consumed | +2 Attack until Supper |
-   | Charcoal | $2 | Held | +1 Attack |
-   | Mystic Water | $2 | Held | +2 Strength |
-   | Leftovers | $3 | Held | heal 1 at each Breakfast |
+- **Placing:**
+  - **Chosen:** a Battle Phase action costing no Energy (v2). It covers the chosen lane and the lanes to its right, all free. Either player may place one, limited only by free lanes (so at most 4 at once).
+  - **Why:** v2's placement; no separate limit invented.
+  - **Approval:** **Needed** (no limit beyond lanes).
+- **Durations:**
+  - **Chosen:** Rounds left count down at Supper, after scoring. When a Location expires, its card goes to its owner's Discard Pile and its lanes are the Default Location again; Pokémon stay where they are.
+  - **Why:** the simplest timing.
+  - **Approval:** No.
+- **Passives:**
+  - **Chosen:** they apply to both players' Pokémon in the Location. A Pokémon already there gets the passive at once. Losing a Strength bonus never defeats a Pokémon (at least 1 Strength is left).
+  - **Why:** symmetrical and simple.
+  - **Approval:** **Needed**.
+- **Weather brackets** (counts combine across placed Locations; each bracket applies to both players):
+  - **Chosen:**
+    - Rain 2: every Pokémon heals 1 at Breakfast.
+    - Rain 4: every Pokémon has +1 Strength.
+    - Sun 2: Physical attacks deal +1 damage.
+    - Sun 4: every Pokémon has +1 Attack.
+  - **Why:** two types and two simple brackets each, as section 16 suggests.
+  - **Approval:** **Needed** (the values).
+- **Dominance:**
+  - **Chosen:** at Supper, for each placed Location, the player with the greater total current Strength there earns its Recognition. Ties and empty Locations give nothing. The Default Location is never scored.
+  - **Why:** section 16.
+  - **Approval:** No.
+- **The four Locations** (placeholder values):
 
-5. **The PokéMart:**
-   - One shared pool with one copy of each of the six Items, separate from the decks.
-   - At each Breakfast, including Round 1, unsold Items go back to the pool and 3 random Items from the pool go on sale.
-6. **Breakfast order (added):** after Exhaust and Energy, $1 is added and Spent Pokémon become Active. Then heals happen (Location, Rain, Leftovers), cards take their Level, the draw happens, the PokéMart refreshes, and waiting Partners arrive.
-7. **Trainer Objective ✱:**
-   - A Battle Phase action costing 1 Energy. The Trainer goes to your Trainer area beside your Player Character.
-   - It counts only what happens after it's played. It stays until completed, with no limit on how many you have.
-   - **On completion:**
-     - The Partner arrives in your first empty space (leftmost), Spent, as a summoned snapshot.
-     - Its On Summon resolves.
-     - You gain +2 Recognition (`perObjective` in `v4/src/rules.js`, a starting value).
-     - The Trainer card goes to your Discard Pile.
-   - If no space is free, the Partner waits. It arrives as soon as a space frees, checked after every action and at Breakfast.
-   - A defeated Partner goes to the Released Pile; it isn't a deck card.
-8. **Trainer Command:** a separate Battle Phase action with its own Energy cost. It resolves at once, then the card is discarded. It isn't eligible for React.
-9. **The two Trainers ✱:** placeholder values.
+  | Location | Lanes | Rounds | Weather | Passive |
+  |---|---|---|---|---|
+  | Cerulean Cape | 2 | 3 | 1 Rain | +1 Strength |
+  | Mt. Ember | 3 | 3 | 2 Sun | +1 Attack |
+  | Lake of Rage | 2 | 2 | 1 Sun | Heal 2 at Breakfast |
+  | Route 119 | 4 | 2 | 2 Rain | Summoning here costs 1 less |
 
-   | Trainer | Objective (1 Energy) | Partner | Partner On Summon | Trainer Command |
-   |---|---|---|---|---|
-   | Misty | Defeat 2 enemy Pokémon | Starmie (Water, Special, Swift; Attack 4, Strength 6) | draw 2 cards | 1 Energy: draw 2 cards |
-   | Blaine | Dominate a Location at Supper | Ninetales (Fire, Special, Steady; Attack 5, Strength 6) | 1 damage to each enemy Pokémon | 2 Energy: 1 damage to each enemy Pokémon |
+  **Approval:** **Needed**.
 
-10. **The demo deck:** 36 cards, the same list for both players: 20 Pokémon, 4 Locations, 4 Command Cards, 3 Supporters, 3 Items and 2 Trainers.
-11. **AI values:**
-    - PokéDollars count a little.
-    - Bag Items count by price.
-    - A Trainer in play counts by its progress.
-    - An unbought Item in hand counts less than other cards, because it would be discarded at Supper.
+## 7. Command Cards: React, Adapt and Strat timing
+
+- **Eligibility:**
+  - **Chosen:** three actions can be reacted to: an attack, a summon, and a Command played as Adapt.
+    - When one is committed, its cost is paid at once (Energy, and the card leaves the hand).
+    - A React window opens for the other player only if they can pay for a React that has a target.
+    - They React with one card or let it happen.
+  - **Why:** these are the actions section 4B's examples interrupt. The other actions (Pass, Retain, Place Location, Supporter, Strat, Items, Trainers) can't be reacted to.
+  - **Approval:** **Needed**.
+- **Timing and priority:**
+  - **Chosen:**
+    - The React resolves fully, then the committed action resolves against the new state.
+    - The committed action fizzles, with its cost still paid, if its attacker or target is gone or the target is now guarded. A fizzled attack still makes the attacker Spent.
+    - A React doesn't use a turn, and nothing can be reacted to in turn. There's no stack: at most one React per action.
+  - **Why:** the smallest rule that "genuinely interrupts".
+  - **Approval:** **Needed**.
+- **Strat:**
+  - **Chosen:**
+    - It is paid and targeted when played, as that turn's action.
+    - It resolves at the start of its owner's next turn, after the opponent's turn. If the Battle Phase ends first, it resolves at Supper, before dominance.
+    - Pending Strats resolve in the order played.
+    - It fizzles if its target Pokémon is gone, even if another Pokémon now stands in that space. The cost stays paid.
+  - **Why:** "after the opponent's next turn" read literally.
+  - **Approval:** **Needed**.
+- **"Until Supper" effects:**
+  - **Chosen:** X Attack and Choice Band last until that Round's Supper. So an X Attack Strat that resolves at Supper has no effect.
+  - **Why:** one simple end point.
+  - **Approval:** **Needed**.
+- **The four Commands** (React cheaper and Strat dearer than Adapt; placeholder values):
+
+  | Card | Target | Adapt | React | Strat |
+  |---|---|---|---|---|
+  | Ember | an enemy Pokémon | 2 Energy: 3 damage | 1: 2 damage | 3: 5 damage |
+  | Recover | one of yours | 2: heal 4 | 1: heal 2 | 3: heal 8 |
+  | X Attack | one of yours | 2: +2 Attack until Supper | 1: +1 | 3: +4 |
+  | Rock Slide | an enemy Pokémon | 3: 1 damage to each enemy Pokémon in its Location | 2: 1 damage to it | 4: 2 damage to each |
+
+  **Approval:** **Needed**.
+
+## 8. Supporters: Release and Favour
+
+- **Chosen:**
+  - **Playing one:** a Battle Phase action costing no Energy, with no limit per Round. The player picks exactly N other cards from hand to Release.
+  - **Release:** Released cards go to the Released Pile (never reshuffled, as in v2). Then the Supporter itself is Released.
+  - **Favour:** met if any Released card meets its condition. It gives the enhanced effect and Recognition.
+- **Why:** v2's Supporters.
+- **Approval:** No for the rule; **Needed** for the values:
+
+  | Supporter | Release | Effect | Favour: Release… | Enhanced |
+  |---|---|---|---|---|
+  | Nurse Joy | 1 | heal each of your Pokémon 2 | a Water Pokémon | heal 4 |
+  | Professor Oak | 1 | the first Pokémon card in your Draw Pile into your hand | a Location | 2 Pokémon cards |
+  | Brock | 2 | +1 Strength (kept) to each of your Pokémon | a Pokémon of Level 4+ | +2 |
+
+## 9. Items, the PokéMart and the Inventory Bag
+
+- **Purchase Item:**
+  - **Chosen:** a Battle Phase action. You buy one Item from your hand or the PokéMart, then use it now (with a target) or store it in your Bag (6 spaces, v1).
+    - There's no In Delivery wait: a stored Item can be used from your next turn.
+    - A sold PokéMart slot stays empty until the next Breakfast.
+    - An unbought Item in hand is discarded at Supper.
+  - **Why:** v1's buying without its extra delay step.
+  - **Approval:** **Needed** (no In Delivery).
+- **Held and Consumed:**
+  - **Chosen:** every Item targets one of your Pokémon in play.
+    - **Held:** one per Pokémon; lost when that Pokémon is defeated.
+    - **Consumed:** resolves, then leaves play.
+    - Used and lost Items go to the PokéMart's pool, including deck copies (as in v1), so the pool can hold duplicates.
+  - **Why:** v1's rule.
+  - **Approval:** **Needed** (one Held Item each).
+- **The PokéMart:**
+  - **Chosen:** one shared pool with one copy of each of the six Items. At each Breakfast (Round 1 included), unsold Items go back and 3 random Items go on sale.
+  - **Why:** the spec.
+  - **Approval:** No.
+- **The six Items** (placeholder values): Potion, Charcoal and Choice Band are in the deck; the others are only in the PokéMart.
+
+  | Item | Price | Type | Effect |
+  |---|---|---|---|
+  | Potion | $2 | Consumed | heal 3 |
+  | Oran Berry | $1 | Consumed | heal 2 |
+  | Choice Band | $2 | Consumed | +2 Attack until Supper |
+  | Charcoal | $2 | Held | +1 Attack |
+  | Mystic Water | $2 | Held | +2 Strength |
+  | Leftovers | $3 | Held | heal 1 at each Breakfast |
+
+  **Approval:** **Needed**.
+
+## 10. Trainers and Partners
+
+- **Trainer Objective:**
+  - **Chosen:** a Battle Phase action costing 1 Energy. The Trainer goes to your Trainer area and only what happens afterwards counts. It stays until completed, with no limit on how many you have.
+  - **On completion:**
+    - The Partner arrives in your first (leftmost) empty space, Spent, like a summon.
+    - Its On Summon resolves.
+    - You gain the Objective's Recognition.
+    - The Trainer goes to your Discard Pile.
+  - **With no free space,** the Partner waits and arrives as soon as one frees (checked after every action and at Breakfast). A defeated Partner goes to the Released Pile.
+  - **Why:** v2's Partners, simplified to one Objective.
+  - **Approval:** **Needed** (the Objective cost, the leftmost space).
+- **Trainer Command:**
+  - **Chosen:** a separate Battle Phase action with its own Energy cost. It resolves at once and is then discarded. It can't be reacted to.
+  - **Why:** the spec.
+  - **Approval:** No.
+- **The two Trainers** (placeholder values):
+
+  | Trainer | Objective | Partner (On Summon) | Trainer Command |
+  |---|---|---|---|
+  | Misty | Defeat 2 enemy Pokémon | Starmie (draw 2) | 1 Energy: draw 2 |
+  | Blaine | Dominate a Location at Supper (the Tournament counts) | Ninetales (1 damage to each enemy Pokémon) | 2 Energy: the same damage |
+
+  **Approval:** **Needed**.
+
+## 11. The Pokémon League Tournament
+
+- **Trigger:**
+  - **Chosen:** at Breakfast at the start of Round 10, or at the first Breakfast where either player has 70+ Recognition, whichever comes first. It's checked first at Breakfast and never mid-Round.
+  - **Why:** Elliott's starting value, using the existing Round and Recognition systems.
+  - **Approval:** No for the rule; **Needed** for the values 10 and 70.
+- **The transition:**
+  - **Chosen:**
+    - All placed Locations are removed; their cards go to their owners' Discard Piles.
+    - The Tournament Location covers all 9 lanes, and Pokémon stay where they are.
+    - Location passives and Weather no longer apply.
+    - No Location can be placed for the rest of the match; Location cards say why.
+    - The Tournament lasts until the match ends.
+  - **Why:** Elliott's F5 rules.
+  - **Approval:** No.
+- **Passive:**
+  - **Chosen:** all Recognition earned during the Tournament, from every source, is increased by half, rounded up (1 → 2, 3 → 5, 4 → 6).
+  - **Why:** Elliott's rule.
+  - **Approval:** No.
+- **Dominance:**
+  - **Chosen:** at each Supper, more total current Strength across the battlefield earns +3 Recognition, which becomes 5 with the passive. Ties give nothing. It also counts as "dominating a Location" for Blaine's Objective.
+  - **Why:** Elliott's rule; the Tournament is a Location.
+  - **Approval:** **Needed** (whether it counts for Blaine).
+- **Guards:** during the Tournament every lane is in one Location, so a guard protects its whole side.
+  - **Why:** the existing guard rule.
+  - **Approval:** No.
+- **Stalling:** a match can only stall if neither player can or will earn Recognition. For example, both sides empty (so the Tournament ties) and both players passing. The AI always summons and attacks when it can, so this needs a player who never acts.
+  - **Why:** reported, not ruled on, as asked.
+  - **Approval:** For Elliott to decide.
+
+## 12. The demo deck and the AI
+
+- **The deck:** one 40-card list, the same for both players (see `v4/README.md`, "The foundation deck").
+  - **Why:** section 9.
+  - **Approval:** **Needed** (the counts).
+- **The AI:**
+  - It is a greedy one-move AI like v2's and plays only through `applyAction`. It scores each legal move by its result.
+  - It judges its own committed actions as if you let them happen.
+  - It values a pending Strat as 70% resolved, PokéDollars and Bag Items by price, and Trainers by their progress.
+  - **Why:** section 16.
+  - **Approval:** No.

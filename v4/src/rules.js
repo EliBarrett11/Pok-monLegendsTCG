@@ -13,6 +13,11 @@ export const RULES = {
   perObjective: 2,        // Recognition for completing a Trainer Objective (starting value)
   dollarsPerRound: 1,     // PokéDollars at each Breakfast
   martSize: 3,            // Items for sale in the PokéMart each Round
+  // The Pokémon League Tournament (F5; Elliott's starting values): it begins at Breakfast in this
+  // Round, or at the first Breakfast where either player has this much Recognition, whichever first.
+  tournamentRound: 10,
+  tournamentRecognition: 70,
+  perTournamentDominance: 3,   // Recognition at Supper for dominating the Tournament (before its passive)
 };
 // The three development series (section 4A): Level range.
 export const SERIES_RANGE = { Light: [1, 6], Mid: [2, 7], Heavy: [3, 8] };

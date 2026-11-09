@@ -2,12 +2,12 @@
 // Pokémon Legends v4 — entry point (F1): you against the AI, on a fixed 1920×1080 stage scaled
 // to fit the window. ?seed=123 replays the same shuffle and AI choices; ?autoplay lets the AI play
 // both sides; ?debug exposes window.__v4 for the layout check (v4/tools/layout.mjs).
-import { createGame, applyAction, actor } from './engine/game.js?v=202611091219';
-import { chooseAction } from './ai/ai.js?v=202611091219';
-import { renderMatch } from './ui/board.js?v=202611091219';
-import { pokemonAt, cardAtRound } from './engine/cards.js?v=202611091219';
+import { createGame, applyAction, actor } from './engine/game.js?v=202611091234';
+import { chooseAction } from './ai/ai.js?v=202611091234';
+import { renderMatch } from './ui/board.js?v=202611091234';
+import { pokemonAt, cardAtRound } from './engine/cards.js?v=202611091234';
 
-export const BUILD = 'F4 — v4 foundation: Items and Trainers';
+export const BUILD = 'F5 — v4 foundation: the Pokémon League Tournament (complete)';
 
 const STAGE = { width: 1920, height: 1080 };
 const stage = document.getElementById('stage');
@@ -38,7 +38,7 @@ function newMatch() {
   let k = seed;
   aiRng = params.has('seed') ? () => { k = (k * 9301 + 49297) % 233280; return k / 233280; } : Math.random;
   state = createGame(seed);
-  Object.assign(ui, { select: null, ask: null, locked: false });
+  Object.assign(ui, { select: null, ask: null, locked: false, seenTournament: null });
   redraw();
   aiLoop(match);
 }

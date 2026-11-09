@@ -229,6 +229,18 @@ const SCENARIOS = {
     await to(p, 4);
     await v4(p, () => { const L = window.__v4; const uid = L.giveCard('blaine'); L.set((s, ui) => { ui.select = { kind: 'hand', uid }; }); });
   },
+  // F5: the Tournament's banner, then the board with the Tournament across all 9 lanes.
+  tournament: async (p) => {
+    await to(p, 3);
+    await v4(p, () => window.__v4.set((s) => { s.round = 9; }));
+    await to(p, 10);
+  },
+  'tournament-board': async (p) => {
+    await to(p, 3);
+    await v4(p, () => window.__v4.set((s) => { s.round = 9; }));
+    await to(p, 10);
+    await v4(p, () => window.__v4.set((s, ui) => { ui.seenTournament = s.tournament?.startedRound; const uid = s.players.player.hand.find((c) => c.cardType === 'Location')?.uid; if (uid) ui.select = { kind: 'hand', uid }; }));
+  },
   'big-hand': async (p) => { await to(p, 6); await v4(p, () => { for (let i = 0; i < 6; i++) window.__v4.give('charmander', 7); }); },
 };
 

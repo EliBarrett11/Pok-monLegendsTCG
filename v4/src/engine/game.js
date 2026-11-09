@@ -16,6 +16,10 @@
 // hand or the shared PokéMart, then used at once or stored in the Inventory Bag; Held or Consumed),
 // and Trainers (an Objective in the Trainer area whose completion brings its Partner Pokémon, or a
 // one-off Trainer Command).
+// F5: the Pokémon League Tournament (s.tournament): from a Breakfast (Round 10, or once either
+// player has 70+ Recognition), it replaces every placed Location and covers all 9 lanes: no
+// Location passives or Weather, no new Locations; all Recognition earned is increased by half
+// (rounded up); at each Supper the player with more total Strength on the battlefield dominates it.
 // The Player Character sits outside the battlefield: no Health, no space; damage to it gives the
 // attacker's player Recognition. 100 Recognition wins.
 //
@@ -24,10 +28,10 @@
 // per Retained card; Round 1: draw 7 then a mulligan, as in v1), Battle (alternating turns, one
 // action each: Summon, Attack, Retain, Pass; two Passes in a row end it), Supper (the hand is
 // discarded except Retained cards). Initiative switches each Round.
-import { RULES, SPEEDS, levelFor } from '../rules.js?v=202611091219';
-import { nextRandom, shuffle } from './random.js?v=202611091219';
-import { newEnergy, refreshEnergy, canPay, payCost, availableExert } from './energy.js?v=202611091219';
-import { DEMO_DECK, cardAtRound, pokemonAt, pathDef, locationDef, WEATHER_BRACKETS, FAVOURS, MODE_NAMES, ITEMS, BAG_SIZE } from './cards.js?v=202611091219';
+import { RULES, SPEEDS, levelFor } from '../rules.js?v=202611091234';
+import { nextRandom, shuffle } from './random.js?v=202611091234';
+import { newEnergy, refreshEnergy, canPay, payCost, availableExert } from './energy.js?v=202611091234';
+import { DEMO_DECK, cardAtRound, pokemonAt, pathDef, locationDef, WEATHER_BRACKETS, FAVOURS, MODE_NAMES, ITEMS, BAG_SIZE } from './cards.js?v=202611091234';
 
 export const PLAYERS = ['player', 'ai'];
 export const NAMES = { player: 'You', ai: 'The Opponent' };
@@ -39,7 +43,7 @@ const POSS = { player: 'Your', ai: 'The Opponent\'s' };
 export function createGame(seed = Date.now(), { decks = { player: DEMO_DECK, ai: DEMO_DECK } } = {}) {
   const s = {
     seed, rng: seed >>> 0, round: 1, phase: 'mulligan', turn: null, initiative: null, passesInARow: 0,
-    players: {}, locations: [], strats: [], reactWindow: null, mart: { pool: [], onSale: [] }, winner: null, result: null, log: [], events: [],
+    players: {}, locations: [], strats: [], reactWindow: null, mart: { pool: [], onSale: [] }, tournament: null, winner: null, result: null, log: [], events: [],
   };
   for (const who of PLAYERS) {
     s.players[who] = {
@@ -65,13 +69,14 @@ export function createGame(seed = Date.now(), { decks = { player: DEMO_DECK, ai:
 // --- Reading the state -------------------------------------------------------------------------------
 
 // The Location of a lane: a placed Location, or the Default Location (one Location, F1).
-export const locationOf = (s, lane) => s.locations.find((l) => lane >= l.start && lane < l.start + l.width)?.uid ?? 'default';
+export const locationOf = (s, lane) => (s.tournament ? 'tournament' : null) ?? s.locations.find((l) => lane >= l.start && lane < l.start + l.width)?.uid ?? 'default';
 export const locationAt = (s, lane) => s.locations.find((l) => lane >= l.start && lane < l.start + l.width) ?? null;
 export const lanesOf = (l) => Array.from({ length: l.width }, (_, i) => l.start + i);
 // The lanes a Location of this width could start at: every lane it covers is free (adapted from
 // v2's locationStarts).
 export function locationStarts(s, card) {
   const out = [];
+  if (s.tournament) return out;   // F5: no Locations during the Tournament
   for (let start = 0; start + card.width <= RULES.lanes; start++) {
     if (lanesOf({ start, width: card.width }).every((lane) => !locationAt(s, lane))) out.push(start);
   }
@@ -87,6 +92,15 @@ export function weatherTotals(s) {
 export const activeBrackets = (s) => { const t = weatherTotals(s); return WEATHER_BRACKETS.filter((b) => t[b.type] >= b.at); };
 // Dominance: the player with the greater total current Strength in a Location (null on a tie).
 export function strengthIn(s, l, who) { return lanesOf(l).reduce((n, i) => n + (s.players[who].row[i]?.currentStrength ?? 0), 0); }
+// F5: the Tournament's dominance: total current Strength across the whole battlefield (null on a tie).
+export function tournamentStrength(s, who) { return pokemonOf(s, who).reduce((n, { card }) => n + card.currentStrength, 0); }
+export function tournamentDominant(s) {
+  const a = tournamentStrength(s, 'player');
+  const b = tournamentStrength(s, 'ai');
+  return a > b ? 'player' : b > a ? 'ai' : null;
+}
+// F5: Recognition during the Tournament is increased by half, rounded up (3 → 5).
+export const boosted = (s, amount) => (s.tournament ? amount + Math.ceil(amount / 2) : amount);
 export function dominantOf(s, l) {
   const a = strengthIn(s, l, 'player');
   const b = strengthIn(s, l, 'ai');
@@ -220,7 +234,7 @@ export function whyNot(s, who, action, card, mode) {
     case 'supporter':
       return supporterPlayable(s, who, card) ? null : `Needs ${card.release} other card${card.release === 1 ? '' : 's'} in hand to Release`;
     case 'summon':
-      if (card.cardType === 'Location') return locationStarts(s, card).length ? null : `No room: needs ${card.width} adjacent free lanes`;
+      if (card.cardType === 'Location') return s.tournament ? 'No Locations during the Pokémon League Tournament' : locationStarts(s, card).length ? null : `No room: needs ${card.width} adjacent free lanes`;
       if (!emptySpaces(s, who).length) return 'No empty space on your side';
       return canPay(p, cheapest(s, who, card)) ? null : `Needs ${cheapest(s, who, card)} Energy · you have ${energyLeft(p)}`;
     case 'retain':
@@ -798,12 +812,13 @@ function endTurn(s, who, passed) {
 
 // --- Recognition and winning ------------------------------------------------------------------------
 
-export function gainRecognition(s, who, amount, source) {
-  if (amount <= 0 || s.phase === 'gameOver') return;
+export function gainRecognition(s, who, base, source) {
+  if (base <= 0 || s.phase === 'gameOver') return;
   const p = s.players[who];
+  const amount = boosted(s, base);
   p.recognition += amount;
-  emit(s, 'recognition', { who, amount, total: p.recognition, source });
-  log(s, `${NAMES[who]}: +${amount} Recognition (${source}), now ${p.recognition}.`);
+  emit(s, 'recognition', { who, amount, base, total: p.recognition, source });
+  log(s, `${NAMES[who]}: +${amount} Recognition (${source}${amount !== base ? `; Tournament: ${base} +50%` : ''}), now ${p.recognition}.`);
   if (p.recognition >= RULES.win) {
     s.phase = 'gameOver';
     s.winner = who;
@@ -856,6 +871,17 @@ function supper(s) {
       if (s.phase === 'gameOver') return;
     }
   }
+  // F5: the Tournament's dominance (it has no duration).
+  if (s.tournament) {
+    const d = tournamentDominant(s);
+    emit(s, 'tournamentDominance', { who: d, player: tournamentStrength(s, 'player'), ai: tournamentStrength(s, 'ai') });
+    if (d) {
+      gainRecognition(s, d, RULES.perTournamentDominance, 'dominating the Pokémon League Tournament');
+      if (s.phase === 'gameOver') return;
+      progressTrainers(s, d, 'dominate');
+      if (s.phase === 'gameOver') return;
+    } else log(s, 'The Pokémon League Tournament is tied: nobody dominates it.');
+  }
   // Durations: each placed Location counts down; at 0 it's removed (its lanes are Default again,
   // its card goes to its owner's Discard Pile; Pokémon there stay where they are).
   for (const l of [...s.locations]) {
@@ -887,6 +913,8 @@ function startRound(s, round) {
   s.initiative = opponentOf(s.initiative);
   emit(s, 'breakfast', { round });
   log(s, `Round ${round} · Breakfast.`);
+  // F5: first, the Pokémon League Tournament may begin.
+  if (!s.tournament && (round >= RULES.tournamentRound || PLAYERS.some((w) => s.players[w].recognition >= RULES.tournamentRecognition))) beginTournament(s, round);
   for (const who of PLAYERS) {
     const p = s.players[who];
     const recovered = refreshEnergy(p, round);
@@ -911,6 +939,18 @@ function startRound(s, round) {
   s.phase = 'battle';
   s.turn = s.initiative;
   s.passesInARow = 0;
+}
+
+// F5: the Pokémon League Tournament begins: every placed Location is removed (its card to its owner's
+// Discard Pile); the Tournament covers all 9 lanes; Pokémon stay where they are.
+function beginTournament(s, round) {
+  const reason = round >= RULES.tournamentRound ? `Round ${RULES.tournamentRound}` : `${RULES.tournamentRecognition}+ Recognition`;
+  for (const l of s.locations) s.players[l.owner].discard.push(l.card);
+  const removed = s.locations.map((l) => l.name);
+  s.locations = [];
+  s.tournament = { startedRound: round, reason };
+  emit(s, 'tournament', { round, reason, removed });
+  log(s, `The Pokémon League Tournament begins (${reason})!${removed.length ? ` ${removed.join(', ')} ${removed.length === 1 ? 'is' : 'are'} removed.` : ''} It covers the whole battlefield: Recognition +50%, and its dominance gives +${RULES.perTournamentDominance} at Supper.`);
 }
 
 function emit(s, type, data = {}) { s.events.push({ type, ...data }); }

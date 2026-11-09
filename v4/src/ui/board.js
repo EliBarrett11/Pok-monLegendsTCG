@@ -10,15 +10,17 @@
 // F4: PokéDollars on each Player Character, the Trainer areas (objectives, progress, waiting
 // Partners), the strip under the battlefield (the PokéMart and both Inventory Bags), Item and
 // Trainer cards, Held Items and Partners on the battlefield.
-import { RULES } from '../rules.js?v=202611091219';
+// F5: the Pokémon League Tournament: a banner when it begins, its tile across all 9 lanes (its passive
+// and dominance), no Weather, and the Round panel's Tournament chip.
+import { RULES } from '../rules.js?v=202611091234';
 import {
   isReady, legalTargets, attackers, summonable, emptySpaces, whyNot, passEndsPhase, passSpends, availableExert, energyLeft,
   playerGuard, guardOf, placeable, locationStarts, weatherTotals, activeBrackets, dominantOf, strengthIn, locationAt,
   actor, commandTargets, playableCommands, playableSupporters, playReason, favourMet,
-  itemTargets, buyReason, buyableFromHand, buyableFromMart, usableFromBag, playableTrainers, trainerReason,
-} from '../engine/game.js?v=202611091219';
-import { WEATHER_BRACKETS, MODES, MODE_NAMES, FAVOURS, modeText, effectText, BAG_SIZE } from '../engine/cards.js?v=202611091219';
-import { icon, speedIcon } from './icons.js?v=202611091219';
+  itemTargets, buyReason, tournamentDominant, tournamentStrength, boosted, buyableFromHand, buyableFromMart, usableFromBag, playableTrainers, trainerReason,
+} from '../engine/game.js?v=202611091234';
+import { WEATHER_BRACKETS, MODES, MODE_NAMES, FAVOURS, modeText, effectText, BAG_SIZE } from '../engine/cards.js?v=202611091234';
+import { icon, speedIcon } from './icons.js?v=202611091234';
 
 const ASSETS = '../assets';
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
@@ -276,7 +278,7 @@ function battlefield(s, ui) {
   return `<section class="v4-board">
     <div class="v4-mat"></div>
     ${defaultLabel(s)}
-    <div class="v4-grid">${s.locations.map((l) => locationTile(s, l)).join('')}<div class="v4-row opponent">${row('ai')}</div><div class="v4-row player">${row('player')}</div></div>
+    <div class="v4-grid">${s.tournament ? tournamentTile(s) : ''}${s.locations.map((l) => locationTile(s, l)).join('')}<div class="v4-row opponent">${row('ai')}</div><div class="v4-row player">${row('player')}</div></div>
   </section>`;
 }
 
@@ -299,8 +301,26 @@ function locationTile(s, l) {
   </div>`;
 }
 
+// F5: the Pokémon League Tournament across all 9 lanes (no art yet: a plain gold frame).
+function tournamentTile(s) {
+  const d = tournamentDominant(s);
+  const you = tournamentStrength(s, 'player');
+  const opp = tournamentStrength(s, 'ai');
+  const gain = boosted(s, RULES.perTournamentDominance);
+  const dom = d ? `<span class="${d}">${d === 'player' ? 'You dominate' : 'Opponent dominates'}</span> · +${gain} at Supper` : `<span>${you || opp ? 'Tied' : 'No one'}</span> · nothing at Supper`;
+  const tip = `The Pokémon League Tournament (since Round ${s.tournament.startedRound}: ${s.tournament.reason}). It covers the whole battlefield. Passive: all Recognition earned is increased by half, rounded up. At each Supper, the player whose Pokémon have the greater total current Strength dominates it: +${RULES.perTournamentDominance} Recognition (+${gain} with the passive). Ties give nothing. No Locations or Weather. 100 Recognition wins.`;
+  return `<div class="v4-loc v4-tournament" style="left: 0; width: ${RULES.lanes * COL}px; --loc: #f6c64a" title="${esc(tip)}">
+    <div class="v4-loc-panel v4-tpanel" title="${esc(tip)}">
+      <b>🏆 Pokémon League Tournament</b>
+      <p>All Recognition +50% (rounded up) · no Locations or Weather · since Round ${s.tournament.startedRound}</p>
+      <p class="v4-dom">${dom} <small>(Strength ${you}–${opp})</small></p>
+    </div>
+  </div>`;
+}
+
 // The Default Location's label, over its widest run of lanes (hidden when no lane is Default).
 function defaultLabel(s) {
+  if (s.tournament) return '';
   let best = null;
   for (let i = 0; i < RULES.lanes;) {
     if (locationAt(s, i)) { i++; continue; }
@@ -335,7 +355,7 @@ function side(s, ui, ctx) {
     ['Pass', reason()],
   ];
   return `<aside class="v4-side">
-    <section class="v4-panel"><div class="v4-label">Round ${s.round}</div><span class="v4-chip">${s.phase === 'battle' ? `Battle · ${s.turn === 'player' ? 'your turn' : 'their turn'}` : s.phase === 'mulligan' ? 'Mulligan' : 'Match over'}</span></section>
+    <section class="v4-panel"><div class="v4-label">Round ${s.round}</div>${s.tournament ? '<span class="v4-chip live" title="The Pokémon League Tournament: all Recognition +50%">🏆 Tournament</span> ' : ''}<span class="v4-chip">${s.phase === 'battle' ? `Battle · ${s.turn === 'player' ? 'your turn' : 'their turn'}` : s.phase === 'mulligan' ? 'Mulligan' : 'Match over'}</span></section>
     <section class="v4-panel v4-energy">
       <div class="v4-label">${icon('energy')} Base Energy</div><b>${me.baseEnergy}</b>
       <div class="v4-exert"><span>Exert <b>${ex}</b> / ${me.exertMax}</span><span class="v4-exert-dots">${Array.from({ length: me.exertMax }, (_, i) => `<i class="${i < ex ? 'on' : ''}"></i>`).join('')}</span></div>
@@ -365,6 +385,7 @@ function stratPanel(s) {
 
 // Weather: combined counts across placed Locations, and which brackets are active (both players).
 function weatherPanel(s) {
+  if (s.tournament) return '<section class="v4-panel v4-weather"><div class="v4-label">Weather</div><p class="off">None: the Pokémon League Tournament replaced every Location (and its Weather).</p></section>';
   const t = weatherTotals(s);
   const on = new Set(activeBrackets(s));
   return `<section class="v4-panel v4-weather"><div class="v4-label">Weather</div>
@@ -392,6 +413,13 @@ function hand(s, ui) {
 function dialogs(s, ui) {
   const me = s.players.player;
   if (s.phase === 'gameOver') return `<div class="v4-ask" role="dialog"><div class="v4-panel v4-over"><h2>${s.winner === 'player' ? 'Pokémon League Champion!' : 'Defeat'}</h2><p>${esc(s.log.at(-1))}</p><p>Round ${s.round} · You ${me.recognition} · Opponent ${s.players.ai.recognition}</p><button data-action="new">New match</button></div></div>`;
+  // F5: the banner when the Tournament begins (once).
+  if (s.tournament && ui.seenTournament !== s.tournament.startedRound && s.phase === 'battle') {
+    return `<div class="v4-ask" role="dialog"><div class="v4-panel v4-wide v4-tbanner"><h2>🏆 The Pokémon League Tournament begins!</h2>
+      <p>${esc(s.tournament.reason === `Round ${RULES.tournamentRound}` ? `Round ${RULES.tournamentRound} has arrived.` : `A player has reached ${RULES.tournamentRecognition} Recognition.`)} Every Location is removed; the Tournament covers the whole battlefield, and your Pokémon stay where they are.</p>
+      <p><b>Passive:</b> all Recognition earned is increased by half (rounded up). <b>Dominance:</b> at each Supper, more total Strength on the battlefield earns +${RULES.perTournamentDominance} (+${boosted(s, RULES.perTournamentDominance)}). No Locations or Weather from now on. First to ${RULES.win} Recognition is the Pokémon League Champion.</p>
+      <div class="v4-buttons"><button data-action="tournament-ok">To the Tournament</button></div></div></div>`;
+  }
   if (ui.select?.kind === 'supporter') {
     const sup = me.hand.find((c) => c.uid === ui.select.uid);
     const chosen = ui.select.release;
@@ -437,6 +465,7 @@ function wire(root, s, ui, ctx) {
   on('[data-action="new"]', () => ctx.newMatch());
   on('[data-action="cancel"]', () => { ui.select = null; ctx.redraw(); });
   on('[data-mull]', (el) => { const u = el.dataset.mull; ui.mull = (ui.mull ?? []).includes(u) ? ui.mull.filter((x) => x !== u) : [...(ui.mull ?? []), u]; ctx.redraw(); });
+  on('[data-action="tournament-ok"]', () => { ui.seenTournament = s.tournament.startedRound; ctx.redraw(); });
   on('[data-action="mull-done"]', () => { const cards = ui.mull ?? []; ui.mull = []; ctx.act({ type: 'mulligan', who: 'player', cards }); });
   if (actor(s) !== 'player' || s.phase === 'mulligan' || ui.locked) return;
   // The React window: pick a Command card to React with, or let it happen.
