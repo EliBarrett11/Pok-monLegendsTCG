@@ -350,6 +350,20 @@ Settled 9 November 2026:
 - **Q3:** Sound is in scope, but only at good quality and for free (section 3.8).
 - **Q4:** The React timer defaults to 5 s, with 8, 12 and 20 s in Settings.
 
+- **Q5 (from UX1), settled:** Option 2. Trainer Objectives should be something players work towards all match, paying off in the mid to late game with a Partner that feels like a real reward. Over 120 AI-vs-AI simulations (median match length 8 Rounds), the target pairs completed at these median Rounds:
+  - **6 / 4: Round 5.**
+  - **8 / 5: Round 6.** About 93% of Mistys and 68% of Blaines complete.
+  - **10 / 6: Round 7.**
+
+  Proposed: **Misty "Defeat 8 enemy Pokémon"** and **Blaine "Dominate a Location 5 times"** (each Location dominated at a Supper counts once). These are starting values for Elliott to confirm.
+- **Q6, settled with changes (9 November 2026):**
+  - **Locations are full board tiles again.** A Location's art covers its lanes on both sides, from the opponent's row to yours. The Location plate (name, passive, Rounds left, Weather added, Strength on each side) sits across the middle.
+  - **The Attack icon and the guard tags are replaced** by five stat icons, one each for Physical Attack, Special Attack, Hitpoints, Defence and Special Defence (`docs/design/v4-stat-icons.jpg`). Each Pokémon shows its attack icon beside Attack and its Strength icon beside Strength, so the "Def" and "Sp.Def" tags go.
+  - **Location cards in the hand show no cost,** since they are always free.
+
 Open:
-- **Q5 (from UX1):** with Objectives active from Round 1, they complete almost at once. Over 200 AI-vs-AI matches (median length 8 Rounds), Misty's "Defeat 2" completed by a median of Round 2 and Blaine's "Dominate a Location" by Round 3. With higher targets: Misty 3 → Round 3, 4 → Round 4, 5 → Round 4; Blaine 2 → Round 4, 3 → Round 4, 4 → Round 5. Keep as is, raise the targets, or change what they ask?
-- **Q6:** approve the UX2 layout mockup, or ask for changes.
+- **Q7:** the Partners are weak for a mid-to-late reward. Today each is Level 5 with Attack 4–5 and Strength 6, below a Level 7 Charizard (Attack 8, Strength 9). Proposed starting values:
+  - **Starmie:** Swift, Special, Attack 8, Hitpoints 10. On Summon: draw 2 (unchanged).
+  - **Ninetales:** Steady, Special, Attack 9, Hitpoints 11. On Summon: 2 damage to each enemy Pokémon (up from 1).
+  - Both count as cost 4 when defeated (Level 8).
+- **Q8:** approve the revised UX2 mockup and the stat icons.
