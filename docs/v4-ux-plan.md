@@ -272,8 +272,8 @@ I review each report and screenshot before writing the next prompt.
 | **UX1: Rules and React** ✅ | Elliott's changes 2a, 2b and 2c. The React window with its banner, options, timer and default. Recognition capped at 100. Tests for all of it | Done: commit 3ba8b7c |
 | **UX2: Layout, HUD and card faces** ✅ | The approved mockup: the new layout (3.1), full-size Location tiles, the five stat icons, hand and board card faces (3.3), Ready/Spent states. Also Elliott's Objective targets and Partner stats. The Actions panel is removed | Done: commit 7b022aa |
 | **UX3: Interaction** ✅ | Drag and drop, targeting arrows with result previews, hover reasons, Cancel, confirmations, keyboard (3.4), plus the UX2 polish list | Done: commit d4a2523 |
-| **UX4: Motion and VFX** | Port the effects layer and presenter (3.5). Every engine event animated, AI pacing, speed settings, click to skip, phase banners and summaries, Recognition rings, Partner and Tournament moments, low motion, sound hooks for UX6 | Prompt in section 9 |
-| **UX5: Learning and flow** | Port the Codex, explain and glossary. First-match tips, title screen, mulligan screen, end screen with match summary, settings, resume, colourblind and text size, and a final polish and layout pass | UX4 |
+| **UX4: Motion and VFX** ✅ | Port the effects layer and presenter (3.5). Every engine event animated, AI pacing, speed settings, click to skip, phase banners and summaries, Recognition rings, Partner and Tournament moments, low motion, sound hooks for UX6 | Done: commit 5039535 |
+| **UX5: Learning and flow** | UX4 fixes. Port the Codex, explain and glossary. Hints, first-match tips, title screen, mulligan screen, end screen with match summary, Settings screen, resume, accessibility, and a final polish pass | Prompt in section 10 |
 | **UX6: Sound** | Free CC0 sound effects (and music, only if a good free track is found), volume settings and mute | UX5, plus my listen-tested file list |
 
 ---
@@ -675,5 +675,163 @@ None open.
 > - test, performance and layout results;
 > - the screenshot or GIF paths;
 > - any placeholder textures Elliott should generate;
+> - anything that differs from this prompt, and why;
+> - any decision this prompt didn't settle.
+
+---
+
+## 10. Prompt UX5 (ready to send)
+
+> **v4 UX5: UX4 fixes, the Codex and learning, the title, mulligan and end screens, Settings, resume, and a final polish pass**
+>
+> Work only in `v4/`. First read `docs/v4-ux-plan.md` sections 3.2, 3.6 and 3.7. Then study v2's working Codex: `v2/src/ui/codex.js`, `v2/src/engine/explain.js`, `v2/src/engine/glossary.js`, `v2/src/ui/prompt.js` and `v2/tests/info.test.js`, and the design `docs/design/v2-info-B.jpg`.
+>
+> Copy what you reuse into `v4/src/` with a "Copied from …" header. Don't import across versions.
+>
+> Don't change any rule or number. The engine stays DOM-free. You may add data the engine records, such as match statistics, but never change what it does. The AI still plays only through `applyAction`.
+>
+> **0. Fix these UX4 bugs first** (I saw them in frames recorded from an animated autoplay match):
+> - **Floating captions get cut off at the edge of the stage.** "Let it happen" appears at the far top-left, "Sun 2: Physical attacks deal +1 dam…" runs off past the Round panel, and "…he Battle Phase ends" is cut off at the left edge. Every floating caption must sit over or beside the thing it describes, kept fully inside the stage.
+> - **The "Your turn" (and other) banners draw underneath Location tiles and plates.** Banners must be above the board.
+> - **The prompt bar's tag reads "OPPONENT"** while your own actions are shown (seen in autoplay, e.g. "Autoplay (you) places Mt. Ember…"). The tag must say whose action it is.
+> - **Extend `tools/layout.mjs` with a mid-beat mode.** It plays a seeded autoplay match at `?timescale=3`, samples frames through a whole Round including Supper and Breakfast, and fails when any floating caption, banner or number:
+>   - is outside the stage, or clipped;
+>   - is covered by board elements.
+> - **Add an `?fps` overlay** (a small frame-time readout in a corner) so Elliott can check performance on his own PC, which has a real graphics card.
+>
+> **A. The Codex** (from v2; the engine side pure and tested in Node):
+> - **Opening it:** right-click anything, or hover it and press **C**, to inspect it. The panel opens over the right-hand column; the board stays visible and the match carries on. Esc or ✕ closes it.
+> - **The right-click conflict:** right-click already cancels a choice in progress (UX3). Keep that: right-click cancels when a choice is in progress and inspects otherwise. C always inspects.
+> - **Entries for v4:**
+>   - **A card anywhere you can see it:** hand, Discard and Released piles, Bag, PokéMart.
+>   - **A Pokémon in play:**
+>     - where its Attack and Strength come from (reuse the UX3 preview parts);
+>     - its attack type and Strength type in words, with the icons;
+>     - its guard, if any, and what it protects;
+>     - Ready, Active or Spent, and what that means;
+>     - its Held Item;
+>     - for a card in hand, its Level growth in words (e.g. "Level 2 now; +1 each Round it stays in your deck, up to 7"). **Never the words Light, Mid or Heavy.**
+>   - **A Location:** passive, lanes, Rounds left, the Weather it adds, Strength on each side, and what dominating it gives.
+>   - **A Trainer Objective:** the goal, progress, the Partner with its full card, and the reward.
+>   - **A Recognition ring:** a history by source (damage, defeats, dominance, Favours, Objectives, Tournament bonus), with the Round of each.
+>   - **The Energy tile:** this Round's Base Energy, Pass bonus, Exert and Exhaust, in words.
+>   - **The Weather chip:** the full bracket table, the current totals, and which Locations add them.
+>   - **The piles:** the Deck as a count only (never its order), and the Discard and Released contents.
+>   - **The Bag, the PokéMart, a log line, the Tournament, a game term, and Rules** (the whole glossary, searchable).
+> - **The glossary** (`src/engine/glossary.js`): write every v4 term from `FOUNDATION_ASSUMPTIONS.md`, `docs/v4-foundation-spec.md` and the engine. **Don't invent rules.** Where a term isn't settled anywhere, leave it out and list it in your report. The terms include:
+>   - **Turn flow:** Breakfast, Battle, Supper, Round; Mulligan.
+>   - **Energy:** Energy, Base Energy, Pass, Exert, Exhaust, Retain.
+>   - **Pokémon:** Level, Summon, Ready, Active, Spent, Speed; Attack, Physical, Special; Strength, Hitpoints, Defence, Special Defence, guard, hit-back.
+>   - **The board:** Location, lane, dominance, Weather, Rain, Sun.
+>   - **Commands:** Command, Adapt, React, Strat.
+>   - **Supporters:** Supporter, Release, Favour.
+>   - **Items:** Item, Held, Consumed, Bag, PokéMart, PokéDollars.
+>   - **Trainers:** Trainer Command, Trainer Objective, Partner.
+>   - **Winning:** Recognition, Tournament, Champion.
+>
+>   Every term that appears in any text (cards, prompt bar, previews, log, Codex) becomes a link to its entry, with Back and breadcrumbs.
+> - **The ? overlay** gains a one-page rules summary, built from the glossary, beside the key list.
+>
+> **B. Hints:** a setting with Full (default), Short or Off for the prompt bar.
+> - **Short** gives the step and the choice in progress only.
+> - **Off** gives the step tag only.
+> - Hover reasons and previews are never hidden.
+>
+> **C. First-match tips:**
+> - **What they are:** small dismissible callouts, each pointing at its subject the first time it matters. They cover:
+>   - the hand and costs;
+>   - Energy and Exert;
+>   - summoning;
+>   - Ready and attacking, including the hit-back;
+>   - End turn and the Pass bonus;
+>   - Retain;
+>   - the first React window;
+>   - Locations and dominance;
+>   - Weather;
+>   - the PokéMart and Bag;
+>   - Supporters and Release;
+>   - Trainer Objectives;
+>   - the Tournament.
+> - **Behaviour:** each shows once, and is saved as seen. "Don't show tips" turns them all off. Settings has "Show tips again".
+> - **They never cover** the thing they point at, the prompt bar or a dialog's buttons, and never block input.
+>
+> **D. Title screen:**
+> - **Background:** the game's name over board art.
+> - **Buttons:** **Play**, **Rules** (opens the Codex rules), **Settings**, and **Resume match** when a save exists, showing its Round and both Recognition totals.
+> - **Starting a match:** a short coin toss shows who goes first, before the mulligan.
+> - **Build line:** the build stamp in a corner.
+> - **No AI difficulty choice,** since there's only one AI.
+>
+> **E. Mulligan screen:** restyle it to match the game: your hand large in the middle; click a card to mark it (✕ and dimmed); then **Keep** or **Replace N**. Use the same choices the mulligan offers today, and don't change the rule.
+>
+> **F. End screen:**
+> - **The result:** a large Victory or Defeat over the board.
+> - **The summary:**
+>   - both players' Recognition by source, as a stacked bar with numbers (damage, defeats, dominance, Favours, Objectives, Tournament bonus);
+>   - Rounds played;
+>   - Objectives completed, and when;
+>   - your Pokémon that dealt the most damage, with its card art.
+> - **Buttons:** **Rematch**, **Title** and **View board** (hides the overlay so you can look at the final board, with a button to bring it back).
+> - **Where the numbers come from:** have the engine keep a `stats` record in the game state, so it survives resume. Its sources must add up exactly to each player's real Recognition total; the uncapped total is shown here.
+>
+> **G. The Settings screen** (a gear button at the top-right of the stage, and from the title screen). Move the small bottom-right controls into it, and keep the key hint there. Every setting is saved in localStorage inside try/catch, and the game works if storage fails. The settings:
+> - speed and Low motion;
+> - the React timer;
+> - Hints;
+> - card text size (100 / 115 / 130%), which must still pass the layout check at all three screen sizes;
+> - a colourblind-friendly option, which adds shape and pattern cues wherever colour alone carries meaning:
+>   - you vs the Opponent on the Strength bars and rings;
+>   - Rain vs Sun;
+>   - damaged Strength (e.g. an underline as well as red);
+>   - legal vs illegal targets;
+> - "Ask again" for the confirmations you turned off;
+> - "Show tips again".
+>
+> Don't add a sound section yet; UX6 adds it.
+>
+> **H. Resume:**
+> - **Saving:** autosave the match (the engine state as JSON, plus a save-format version) to localStorage every time the game waits for your decision, and at each Breakfast.
+> - **Restoring:** the title screen's Resume restores it exactly where you left off, including a React window if one was open.
+> - **Failures:** a save from an older format, or one that fails to load, is discarded with a short message, never a crash.
+> - **Clearing:** a finished match clears the save.
+>
+> **I. Final polish pass:**
+> - play a full match by hand at each of the three screen sizes, and at 115% and 130% text;
+> - check consistent wording across cards, prompts, previews, log, Codex and tips (one name for each thing);
+> - check that every disabled thing has a reason, and every number on screen can be inspected.
+>
+> Fix what you find and list it in your report.
+>
+> **J. Tests and checks:**
+> - **`node v4/tests/ux5.test.js`** checks:
+>   - **Codex coverage:** every visible kind of thing has a Codex entry (build entries from seeded mid-match states, including the Tournament).
+>   - **Glossary links:** every glossary term used in any text links correctly, with no dead links, and no Codex or glossary text contains Light, Mid or Heavy.
+>   - **Codex numbers:** every Pokémon's Codex parts add up to the stats it shows.
+>   - **Statistics:** `stats` sources add up to each player's Recognition in 50 fixed-seed AI-vs-AI matches.
+>   - **Resume:** save at several points in a seeded match, load, continue with the same choices, and the final state is identical to the uninterrupted match. An old or corrupt save is rejected cleanly.
+> - **All existing tests pass.**
+> - **A browser check (Playwright):**
+>   - title → Play → coin toss → mulligan → a few turns → reload → Resume → finish → end screen → Rematch;
+>   - the Codex opens on each kind of thing;
+>   - tips appear once each;
+>   - each setting persists and takes effect.
+>
+>   No page errors.
+> - **The layout check** at all three sizes, including the new screens, 130% text, the colourblind option, an open Codex, a tip on screen, and the new mid-beat mode.
+> - **Screenshots at 1920×1080:**
+>   - the title screen;
+>   - the coin toss;
+>   - the mulligan;
+>   - the Codex on a Pokémon, on a Location and on a glossary term;
+>   - a first-match tip;
+>   - the Settings screen;
+>   - Victory and Defeat end screens with the summary;
+>   - a mid-match board at 130% text.
+>
+> **K. Finish:** bump the `?v=` stamp, commit and push to `main`, add a README build-log entry, and report:
+> - what changed;
+> - test and layout results;
+> - the screenshot paths;
+> - glossary terms you left out as unsettled;
 > - anything that differs from this prompt, and why;
 > - any decision this prompt didn't settle.
