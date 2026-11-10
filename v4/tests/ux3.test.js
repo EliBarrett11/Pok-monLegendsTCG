@@ -145,9 +145,11 @@ for (const c of COMMANDS) {
         after = applyAction(after, { type: 'pass', who: 'ai' });   // the Strat resolves at the start of the player's next turn
         assert.equal(after.strats.length, 0);
       } else {
-        // A React window: the Opponent summons into an empty space; the player Reacts.
-        s.players.ai.hand = [{ ...cardAtRound('ponyta', 1), uid: 'opp-summon' }];
-        s = applyAction(s, { type: 'summon', who: 'ai', uid: 'opp-summon', space: 8 });
+        // A React window (G1: summons can't be Reacted to): the Opponent plays Recover as Adapt on a
+        // Pokémon at full Strength (no change), and the player Reacts.
+        s.players.ai.row[8] = mon('ponyta', 2);
+        s.players.ai.hand = [{ ...cardAtRound('recover', 1), uid: 'opp-adapt' }];
+        s = applyAction(s, { type: 'command', who: 'ai', uid: 'opp-adapt', mode: 'adapt', target: { who: 'ai', space: 8 } });
         assert.equal(s.reactWindow?.reactor, 'player');
         before = s;
         pv = effectPreview(s, 'player', cc, 'react', target);

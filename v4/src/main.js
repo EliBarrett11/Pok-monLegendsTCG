@@ -2,18 +2,18 @@
 // Pokémon Legends v4 — entry point (F1): you against the AI, on a fixed 1920×1080 stage scaled
 // to fit the window. ?seed=123 replays the same shuffle and AI choices; ?autoplay lets the AI play
 // both sides; ?debug exposes window.__v4 for the layout check (v4/tools/layout.mjs).
-import { createGame, applyAction, actor, energyLeft, playReason } from './engine/game.js?v=202611100828';
-import { chooseAction } from './ai/ai.js?v=202611100828';
-import { renderMatch, reactOpen } from './ui/board.js?v=202611100828';
-import { pokemonAt, cardAtRound } from './engine/cards.js?v=202611100828';
-import { setupInteraction } from './ui/interact.js?v=202611100828';
-import { present, setupPresenter, isPresenting, resetFx, stampRings, skip } from './ui/present.js?v=202611100828';
-import { speedFactor, setSpeed, speedName, lowMotion, setLowMotionSetting } from './ui/settings.js?v=202611100828';
-import { MS } from './ui/vfx/library.js?v=202611100828';
-import { played } from './ui/sound.js?v=202611100828';
-import { MODE_NAMES } from './engine/cards.js?v=202611100828';
+import { createGame, applyAction, actor, energyLeft, playReason, passReason } from './engine/game.js?v=202611101109';
+import { chooseAction } from './ai/ai.js?v=202611101109';
+import { renderMatch, reactOpen } from './ui/board.js?v=202611101109';
+import { pokemonAt, cardAtRound } from './engine/cards.js?v=202611101109';
+import { setupInteraction } from './ui/interact.js?v=202611101109';
+import { present, setupPresenter, isPresenting, resetFx, stampRings, skip } from './ui/present.js?v=202611101109';
+import { speedFactor, setSpeed, speedName, lowMotion, setLowMotionSetting } from './ui/settings.js?v=202611101109';
+import { MS } from './ui/vfx/library.js?v=202611101109';
+import { played } from './ui/sound.js?v=202611101109';
+import { MODE_NAMES } from './engine/cards.js?v=202611101109';
 
-export const BUILD = 'UX4 — motion and effects: the presenter, attacks, Commands, Partners, Supper and Breakfast, AI pacing, speed';
+export const BUILD = 'G1 — rules and economy: Pass, React, cost curve, Recognition, PokéDollars, the one-Item PokéMart, Objective moments';
 
 const STAGE = { width: 1920, height: 1080 };
 const stage = document.getElementById('stage');
@@ -99,6 +99,8 @@ ctx.confirmYes = () => {
 ctx.confirmNo = () => { ui.confirm = null; redraw(); };
 ctx.endTurn = () => {
   if (!state || state.phase !== 'battle' || state.turn !== 'player' || state.reactWindow || ui.locked || isPresenting()) return;
+  // G1 (2.1): no Pass while a Ready Pokémon of yours with unmatched Speed can attack (the button shows why).
+  if (passReason(state, 'player')) return;
   const me = state.players.player;
   const left = energyLeft(me);
   const playable = me.hand.some((c) => !playReason(state, 'player', c));
@@ -198,7 +200,7 @@ function aimFor(a) {
   else if (a.type === 'summon') { from = hand; to = space(a.who, a.space); }
   else if (a.type === 'command' || a.type === 'react') { from = hand; to = space(a.target.who, a.target.space); }
   else if (a.type === 'placeLocation') { from = hand; to = space(a.who, a.start); }
-  else if (a.type === 'useItem' || (a.type === 'buyItem' && a.then === 'use')) { from = a.type === 'useItem' ? q(`.v4-hud.${a.who === 'ai' ? 'opp' : 'you'} .v4-bag`) : a.from === 'mart' ? q('.v4-martbtn') : hand; to = space(a.who, a.target.space); }
+  else if (a.type === 'useItem' || (a.type === 'buyItem' && a.then === 'use')) { from = a.type === 'useItem' ? q(`.v4-hud.${a.who === 'ai' ? 'opp' : 'you'} .v4-bag`) : a.from === 'mart' ? q('.v4-martcard') : hand; to = space(a.who, a.target.space); }
   if (!from || !to || !interaction) return null;
   const c = (el) => { const r = interaction.rectOf(el); return { x: r.x + r.w / 2, y: r.y + r.h / 2 }; };
   return { from: c(from), to: c(to) };

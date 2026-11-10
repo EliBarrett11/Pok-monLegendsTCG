@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RULES } from '../src/rules.js';
-import { createGame, applyAction, legalActions, whyNot, playReason, buyReason } from '../src/engine/game.js';
+import { createGame, applyAction, legalActions, whyNot, playReason, buyReason, passBlockers } from '../src/engine/game.js';
 import { pokemonAt, cardAtRound, ITEMS, TRAINERS, DEMO_DECK, BAG_SIZE } from '../src/engine/cards.js';
 import { chooseAction } from '../src/ai/ai.js';
 
@@ -21,7 +21,8 @@ const battle = (turn = 'player', energy = 6, dollars = 10) => {
   return s;
 };
 const give = (s, who, id) => { const c = card(id); s.players[who].hand.push(c); return c.uid; };
-const pass = (s) => applyAction(s, { type: 'pass', who: s.turn });
+// G1: a Ready Pokémon with unmatched Speed blocks Pass; these tests only move time on, so it's made Spent.
+const pass = (s) => { for (const sp of passBlockers(s, s.turn)) s.players[s.turn].row[sp].spent = true; return applyAction(s, { type: 'pass', who: s.turn }); };
 const nextRound = (s) => { const r = s.round; while (s.round === r && s.phase !== 'gameOver') s = pass(s); return s; };
 const martIds = (s) => [...s.mart.pool, ...s.mart.onSale.filter(Boolean)].map((c) => c.id).sort();
 // Put an Item on sale in a PokéMart slot (from the pool).
@@ -55,17 +56,17 @@ const stock = (s, id, slot = 0) => {
   for (const w of ['player', 'ai']) { s.players[w].hand = []; s.players[w].row = s.players[w].row.map(() => null); }
   s = nextRound(s);
   assert.equal(s.players.player.dollars, 2, 'carried, +$1');
-  // Defeat: its Energy cost at its Level (Wartortle Level 4 costs 2), at least 1 (Ponyta Level 1 costs 0).
+  // G1: a flat $1 for each enemy Pokémon defeated (was its Energy cost).
   s = battle('player', 6, 0);
   s.players.player.row[0] = mon('growlithe', 7, { spent: false });
   s.players.ai.row[1] = mon('squirtle', 4, { currentStrength: 1 });
   s.players.ai.row[2] = mon('ponyta', 1, { currentStrength: 1 });
   s = applyAction(s, { type: 'attack', who: 'player', from: 0, target: { kind: 'pokemon', space: 1 } });
-  assert.equal(s.players.player.dollars, 2);
+  assert.equal(s.players.player.dollars, 1);
   s.turn = 'player';
   s.players.player.row[0].spent = false;
   s = applyAction(s, { type: 'attack', who: 'player', from: 0, target: { kind: 'pokemon', space: 2 } });
-  assert.equal(s.players.player.dollars, 3, 'at least $1');
+  assert.equal(s.players.player.dollars, 2, '$1 each');
 }
 
 // --- Purchase Item: from hand or the PokéMart; use now or store; the Bag limit; play from the Bag -------------------------------------
@@ -123,29 +124,30 @@ const stock = (s, id, slot = 0) => {
   assert.ok(s.players.player.discard.some((c) => c.uid === unbought), 'discarded at Supper');
 }
 
-// --- The PokéMart: 3 on sale, refreshed each Breakfast; unsold, used and lost Items go back to the pool --------------------------------------
+// --- The PokéMart (G1): one Item on sale with its Stock; bought, used and lost Items; the pool ---------------------------------------
+// (Stock counting down, replacement and Sold out are checked in tests/g1.test.js.)
 {
   let s = createGame(11);
-  assert.equal(s.mart.onSale.length, 3);
+  assert.equal(s.mart.onSale.length, 1, 'one slot');
+  assert.equal(s.mart.stock, s.mart.onSale[0].stock, 'with its full Stock');
   assert.deepEqual(martIds(s), ITEMS.map((c) => c.id).sort(), 'one copy of each Item');
   s = applyAction(s, { type: 'mulligan', who: 'player', cards: [] });
   s = applyAction(s, { type: 'mulligan', who: 'ai', cards: [] });
   for (const w of ['player', 'ai']) { s.players[w].hand = []; s.players[w].drawPile = []; s.players[w].discard = []; s.players[w].row = s.players[w].row.map(() => null); s.players[w].dollars = 10; }
   s.players.player.row[0] = mon('ponyta', 2);
   s.turn = 'player';
-  s = applyAction(s, { type: 'buyItem', who: 'player', from: 'mart', slot: 2, then: 'store' });
+  s = applyAction(s, { type: 'buyItem', who: 'player', from: 'mart', slot: 0, then: 'store' });
   const bought = s.players.player.bag[0].id;
-  assert.equal(s.mart.onSale.filter(Boolean).length, 2);
+  assert.equal(s.mart.onSale[0], null, 'Sold out');
   const seen = new Set();
   for (let r = 0; r < 6; r++) {
     s = nextRound(s);
-    assert.equal(s.mart.onSale.length, 3, 'each Breakfast: 3 on sale');
-    assert.ok(s.mart.onSale.every(Boolean));
-    assert.ok(!s.mart.onSale.some((c) => c.id === bought), 'a bought Item is not in the PokéMart');
+    assert.ok(s.mart.onSale[0], 'restocked');
+    assert.ok(s.mart.onSale[0].id !== bought && !s.mart.pool.some((c) => c.id === bought), 'a bought Item is not in the PokéMart');
     assert.equal(martIds(s).length, 5, 'unsold Items went back to the pool');
-    for (const c of s.mart.onSale) seen.add(c.id);
+    seen.add(s.mart.onSale[0].id);
   }
-  assert.ok(seen.size > 3, 'random refreshes');
+  assert.ok(seen.size > 1, 'different Items over the Rounds');
   // A used Consumed Item and a lost Held Item return to the pool.
   s = battle();
   s.players.player.row[0] = mon('ponyta', 2, { currentStrength: 1 });

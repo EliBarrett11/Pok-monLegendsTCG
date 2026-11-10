@@ -4,8 +4,7 @@ import assert from 'node:assert/strict';
 import { RULES } from '../src/rules.js';
 import {
   createGame, applyAction, legalActions, whyNot, locationStarts, locationOf, weatherTotals, activeBrackets, gainRecognition,
-  tournamentDominant, damageOf, playReason,
-} from '../src/engine/game.js';
+  tournamentDominant, damageOf, playReason, passBlockers } from '../src/engine/game.js';
 import { pokemonAt, cardAtRound, DEMO_DECK, PATHS, LOCATIONS, COMMANDS, SUPPORTERS, ITEMS, TRAINERS } from '../src/engine/cards.js';
 import { chooseAction } from '../src/ai/ai.js';
 
@@ -23,7 +22,8 @@ const battle = (turn = 'player', { trainers = false } = {}) => {
   return s;
 };
 const give = (s, who, id) => { const c = card(id); s.players[who].hand.push(c); return c.uid; };
-const pass = (s) => applyAction(s, { type: 'pass', who: s.turn });
+// G1: a Ready Pokémon with unmatched Speed blocks Pass; these tests only move time on, so it's made Spent.
+const pass = (s) => { for (const sp of passBlockers(s, s.turn)) s.players[s.turn].row[sp].spent = true; return applyAction(s, { type: 'pass', who: s.turn }); };
 // End the Round (two Passes) with empty hands, so nothing else happens.
 const nextRound = (s) => { const r = s.round; while (s.round === r && s.phase !== 'gameOver') { s.players.player.hand = []; s.players.ai.hand = []; s = pass(s); } return s; };
 const place = (s, who, id, start) => { s.players[who].hand.push(card(id)); s.turn = who; s.passesInARow = 0; return applyAction(s, { type: 'placeLocation', who, uid: s.players[who].hand.at(-1).uid, start }); };
@@ -151,7 +151,7 @@ const place = (s, who, id, start) => { s.players[who].hand.push(card(id)); s.tur
   assert.equal(tournamentDominant(s), 'player', 'across the whole battlefield: 8 against 7');
   s = nextRound(s);
   assert.equal(s.players.player.recognition, RULES.perTournamentDominance + Math.ceil(RULES.perTournamentDominance / 2));
-  assert.equal(s.players.player.recognition, 5);
+  assert.equal(s.players.player.recognition, 8, 'G1: +5, ×1.5 → 8');
   assert.equal(s.players.ai.recognition, 0);
   // A tie: nothing.
   s.players.ai.row[5] = mon('ponyta', 1);   // 7 + 2 = 9 against 6 + 2 + heals
@@ -191,7 +191,7 @@ const place = (s, who, id, start) => { s.players[who].hand.push(card(id)); s.tur
   s.players.ai.row[0] = mon('squirtle', 4);
   s = nextRound(s);
   assert.equal(s.winner, 'ai');
-  assert.equal(s.players.ai.recognition, 100);
+  assert.equal(s.players.ai.recognition, 95 + 8, 'G1: Tournament dominance +5, ×1.5 → 8');
   // 99 is not a win.
   s = battle();
   s.players.player.recognition = 98;

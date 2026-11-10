@@ -7,13 +7,14 @@
 // Pokémon in it and Weather counters of one type; Weather counts combine across placed Locations
 // into brackets for both players; at Supper the player with more total Strength in a Location
 // dominates it and earns Recognition.
-// F3: Command Cards (Adapt now; React in response to an opponent's attack, summon or Adapt, before
-// it resolves; Strat after the opponent's next turn) and Supporters (Release cards from hand
-// permanently; an optional Favour). Attacks, summons and Adapts are committed first: if the
-// opponent has an affordable React, a React window opens (s.reactWindow) and the committed action
-// resolves after it (it may fizzle). Pending Strats are in s.strats.
-// F4: PokéDollars ($1 each Breakfast; more when an enemy Pokémon is defeated), Items (bought from
-// hand or the shared PokéMart, then used at once or stored in the Inventory Bag; Held or Consumed),
+// F3: Command Cards (Adapt now; React in response to an opponent's attack, Adapt or resolving Strat,
+// before it resolves; Strat after the opponent's next turn) and Supporters (Release cards from hand
+// permanently; an optional Favour). G1: attacks and Adapts are committed first, and a Strat opens a
+// window as it resolves: if the opponent has an affordable React, a React window opens
+// (s.reactWindow) and the action resolves after it (it may fizzle). Summons resolve at once. Pending
+// Strats are in s.strats.
+// F4: PokéDollars ($1 each Breakfast; G1: $1 for each enemy Pokémon defeated), Items (bought from
+// hand or the PokéMart's one Item with its Stock, then used at once or stored in the Bag; Held or Consumed),
 // and Trainers. UX1 (Elliott's rule): each Trainer card in a deck has an Objective tracker in its
 // player's Trainer area from match setup (active from Round 1, free, progress 0). A drawn Trainer is
 // played only as its Trainer Command and keeps cycling; when its Objective completes, the card is
@@ -30,10 +31,10 @@
 // per Retained card; Round 1: draw 7 then a mulligan, as in v1), Battle (alternating turns, one
 // action each: Summon, Attack, Retain, Pass; two Passes in a row end it), Supper (the hand is
 // discarded except Retained cards). Initiative switches each Round.
-import { RULES, SPEEDS, levelFor } from '../rules.js?v=202611100828';
-import { nextRandom, shuffle } from './random.js?v=202611100828';
-import { newEnergy, refreshEnergy, canPay, payCost, availableExert } from './energy.js?v=202611100828';
-import { DEMO_DECK, cardAtRound, pokemonAt, pathDef, locationDef, WEATHER_BRACKETS, FAVOURS, MODE_NAMES, ITEMS, BAG_SIZE } from './cards.js?v=202611100828';
+import { RULES, SPEEDS, levelFor } from '../rules.js?v=202611101109';
+import { nextRandom, shuffle } from './random.js?v=202611101109';
+import { newEnergy, refreshEnergy, canPay, payCost, availableExert } from './energy.js?v=202611101109';
+import { DEMO_DECK, cardAtRound, pokemonAt, pathDef, locationDef, WEATHER_BRACKETS, FAVOURS, MODE_NAMES, ITEMS, BAG_SIZE } from './cards.js?v=202611101109';
 
 export const PLAYERS = ['player', 'ai'];
 export const NAMES = { player: 'You', ai: 'The Opponent' };
@@ -45,7 +46,7 @@ const POSS = { player: 'Your', ai: 'The Opponent\'s' };
 export function createGame(seed = Date.now(), { decks = { player: DEMO_DECK, ai: DEMO_DECK } } = {}) {
   const s = {
     seed, rng: seed >>> 0, round: 1, phase: 'mulligan', turn: null, initiative: null, passesInARow: 0,
-    players: {}, locations: [], strats: [], reactWindow: null, mart: { pool: [], onSale: [] }, tournament: null, winner: null, result: null, log: [], events: [],
+    players: {}, locations: [], strats: [], reactWindow: null, mart: { pool: [], onSale: [null], stock: 0, soldOut: null }, tournament: null, winner: null, result: null, log: [], events: [],
   };
   for (const who of PLAYERS) {
     s.players[who] = {
@@ -67,7 +68,7 @@ export function createGame(seed = Date.now(), { decks = { player: DEMO_DECK, ai:
     s.players[who].dollars += RULES.dollarsPerRound;
     draw(s, who, RULES.handDraw);
   }
-  refreshMart(s);
+  stockMart(s, 'start');
   log(s, `Round 1 · Breakfast. Each player draws ${RULES.handDraw}; ${NAMES[s.initiative]} ${s.initiative === 'player' ? 'have' : 'has'} initiative. Mulligan: put any cards back and draw as many.`);
   return s;
 }
@@ -177,15 +178,33 @@ export const playableSupporters = (s, who) => s.players[who].hand.filter((c) => 
 // The Favour: met if a Released card meets the Supporter's condition (copied from v2's favourMet).
 export const favourMet = (card, released) => !!card.favour && released.some((c) => FAVOURS[card.favour.condition].test(c));
 
-// Passing while your fastest Active Pokémon are faster than all of the opponent's makes them Spent.
+// G1 (gameplay update 2.1): Ready Pokémon with unmatched Speed: yours are the fastest Active Pokémon
+// and the opponent has no Active Pokémon of the same Speed.
 export const passEndsPhase = (s) => s.passesInARow >= 1;
-export function passSpends(s, who) {
-  if (s.phase !== 'battle' || passEndsPhase(s)) return [];
+export function unmatchedReady(s, who) {
+  if (s.phase !== 'battle') return [];
   const top = topSpeed(s);
   if (top < 0) return [];
   const atTop = allPokemon(s).filter(({ card }) => !card.spent && speedRank(card) === top);
   if (atTop.some((p) => p.who !== who)) return [];
   return atTop.map(({ space }) => space);
+}
+// You can't Pass while an unmatched Ready Pokémon of yours has a legal target: attack with it (or take
+// another action) first. If none of them has a target, you may Pass and they become Spent (as before).
+// (targetsOf is the target check, replaceable only so tests can stage the no-target case: with today's
+// guards a guard is itself always a legal target, so it can't arise in play.)
+export const passBlockers = (s, who, targetsOf = legalTargets) => unmatchedReady(s, who).filter((sp) => targetsOf(s, who, sp).length);
+export function passReason(s, who, targetsOf = legalTargets) {
+  const b = passBlockers(s, who, targetsOf);
+  if (!b.length) return null;
+  const names = b.map((sp) => s.players[who].row[sp].name);
+  const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+  return `${list} ${names.length === 1 ? 'is' : 'are'} Ready and faster than anything ${who === 'player' ? 'the Opponent has' : 'you have'}: attack first`;
+}
+// Passing (when allowed) makes unmatched Ready Pokémon Spent; not the Pass that ends the Battle Phase.
+export function passSpends(s, who) {
+  if (s.phase !== 'battle' || passEndsPhase(s)) return [];
+  return unmatchedReady(s, who);
 }
 
 // --- Items, the Bag and the PokéMart (F4) ---
@@ -238,7 +257,7 @@ export function commandModesFor(s, who, uid) {
 export function whyNot(s, who, action, card, mode) {
   const p = s.players[who];
   if (action === 'react') {
-    if (!s.reactWindow || s.reactWindow.reactor !== who) return 'React only in response to an opponent\'s attack, summon or Adapt';
+    if (!s.reactWindow || s.reactWindow.reactor !== who) return 'React only in response to an opponent\'s attack, Adapt or resolving Strat';
     mode = 'react';
     action = 'command';
   } else {
@@ -247,7 +266,7 @@ export function whyNot(s, who, action, card, mode) {
   }
   switch (action) {
     case 'command': {
-      if (mode === 'react' && !s.reactWindow) return 'React only in response to an opponent\'s attack, summon or Adapt';
+      if (mode === 'react' && !s.reactWindow) return 'React only in response to an opponent\'s attack, Adapt or resolving Strat';
       const cost = card.modes[mode].cost;
       if (!canPay(p, cost)) return `${MODE_NAMES[mode]} needs ${cost} Energy · you have ${energyLeft(p)}`;
       if (!commandTargets(s, who, card).length) return card.target === 'enemy' ? 'No target: no enemy Pokémon' : 'No target: none of your Pokémon';
@@ -289,7 +308,7 @@ export function legalActions(s, who) {
   if (s.phase === 'mulligan') return s.players[who].mulliganed ? [] : ['mulligan'];
   if (s.reactWindow) return s.reactWindow.reactor === who ? ['decline', ...(reactOptions(s, who).length ? ['react'] : [])] : [];
   if (s.phase !== 'battle' || s.turn !== who) return [];
-  return ['pass', ...(summonable(s, who).length ? ['summon'] : []), ...(placeable(s, who).length ? ['placeLocation'] : []),
+  return [...(passReason(s, who) ? [] : ['pass']), ...(summonable(s, who).length ? ['summon'] : []), ...(placeable(s, who).length ? ['placeLocation'] : []),
     ...(playableCommands(s, who, 'adapt').length || playableCommands(s, who, 'strat').length ? ['command'] : []),
     ...(playableSupporters(s, who).length ? ['supporter'] : []),
     ...(buyableFromHand(s, who).length || buyableFromMart(s, who).length ? ['buyItem'] : []),
@@ -410,7 +429,7 @@ const ACTIONS = {
     if (why) throw new Error(`${item.name}: ${why}`);
     const t = then === 'use' ? checkItemTarget(s, who, item, target) : null;
     p.dollars -= item.price;
-    if (from === 'mart') s.mart.onSale[slot] = null;
+    if (from === 'mart') { s.mart.onSale[slot] = null; s.mart.stock = 0; s.mart.soldOut = { by: who, armed: false }; }
     else p.hand = p.hand.filter((c) => c !== item);
     const { retained, ...plain } = item;
     emit(s, 'itemBought', { who, id: item.id, name: item.name, uid: item.uid, slot: from === 'mart' ? slot : null, from: from === 'mart' ? 'mart' : 'hand', then, price: item.price });
@@ -533,11 +552,13 @@ const ACTIONS = {
 };
 
 // --- Committing and resolving (F3) ----------------------------------------------------------------
-// An eligible action (attack, summon, Command Adapt) is committed: its cost is paid. If the other
-// player has an affordable React with a target, a React window opens; otherwise it resolves now.
+// An action is committed: its cost is paid. G1 (gameplay update 2.2): only an attack by a Pokémon and
+// a Command played as Adapt can be Reacted to (a resolving Strat too: resolveStrats); a summon resolves
+// at once. If the other player has an affordable React with a target, a React window opens.
+const REACTABLE = ['attack', 'command'];
 function commit(s, pending) {
   const foe = opponentOf(pending.who);
-  if (reactOptions(s, foe).length) {
+  if (REACTABLE.includes(pending.type) && reactOptions(s, foe).length) {
     s.reactWindow = { reactor: foe, pending };
     emit(s, 'reactWindow', { reactor: foe, action: pending.type });   // (UX3: not "type", which named the event itself)
     return;
@@ -547,6 +568,13 @@ function commit(s, pending) {
 
 function resolvePending(s, pending) {
   if (s.phase === 'gameOver') return;
+  // A resolving Strat isn't a turn: it resolves, then the rest of the due Strats, then whatever it
+  // interrupted (the owner's turn goes on, or Supper continues to dominance).
+  if (pending.type === 'strat') {
+    resolveStratNow(s, pending.strat);
+    if (resolveStrats(s, pending.owner, pending.at) && pending.at === 'supper') supperRest(s);
+    return;
+  }
   RESOLVE[pending.type](s, pending);
   endTurn(s, pending.who, false);
 }
@@ -639,15 +667,31 @@ function hurt(s, side, space, n, by) {
 
 // Pending Strats resolve (in the order played): the owner's at the start of their next turn, or
 // everyone's at Supper if the Battle Phase ends first. A Strat whose target is gone fizzles.
-export function resolveStrats(s, owner = null) {
-  const due = s.strats.filter((x) => !owner || x.owner === owner);
-  s.strats = s.strats.filter((x) => !due.includes(x));
-  for (const x of due) {
-    if (s.phase === 'gameOver') return;
-    log(s, `${POSS[x.owner]} Strat resolves: ${x.card.name}.`);
-    applyCommand(s, x.owner, x.card, 'strat', x.target);
-    s.players[x.owner].discard.push(x.card);
+// G1 (2.2): the other player may React to each one as it resolves: a React window opens and the rest
+// wait (returns false); resolvePending carries on once it closes. True when all due Strats resolved.
+export function resolveStrats(s, owner = null, at = owner ? 'turn' : 'supper') {
+  for (;;) {
+    if (s.phase === 'gameOver') return true;
+    const x = s.strats.find((y) => !owner || y.owner === owner);
+    if (!x) return true;
+    s.strats = s.strats.filter((y) => y !== x);
+    const foe = opponentOf(x.owner);
+    if (reactOptions(s, foe).length) {
+      const pending = { type: 'strat', who: x.owner, strat: x, owner, at, card: x.card, target: x.target,
+        text: `${POSS[x.owner]} Strat ${x.card.name} (${cardModeText(x.card, 'strat')}) is resolving on ${x.targetName}${at === 'supper' ? ' at Supper' : ''}` };
+      s.reactWindow = { reactor: foe, pending };
+      emit(s, 'reactWindow', { reactor: foe, action: 'strat' });
+      log(s, `${POSS[x.owner]} Strat ${x.card.name} is resolving: ${NAMES[foe]} may React.`);
+      return false;
+    }
+    resolveStratNow(s, x);
   }
+}
+function resolveStratNow(s, x) {
+  if (s.phase === 'gameOver') return;
+  log(s, `${POSS[x.owner]} Strat resolves: ${x.card.name}.`);
+  applyCommand(s, x.owner, x.card, 'strat', x.target);
+  s.players[x.owner].discard.push(x.card);
 }
 
 // A Supporter's effect.
@@ -688,13 +732,41 @@ export function applyItem(s, who, item, t) {
   log(s, `${NAMES[who]} used ${item.name} on ${c.name} (${item.text}).`);
   s.mart.pool.push(item);
 }
-// Breakfast: unsold Items go back to the pool; 3 random Items from the pool go on sale.
-function refreshMart(s) {
-  const back = s.mart.onSale.filter(Boolean);
-  const pool = shuffle(s, [...s.mart.pool, ...back]);
-  s.mart.onSale = pool.slice(0, RULES.martSize);
-  s.mart.pool = pool.slice(RULES.martSize);
-  emit(s, 'martRefreshed', { onSale: s.mart.onSale.map((c) => c.id) });
+// G1 (gameplay update 2.6): the PokéMart has one slot. A random Item from the pool goes on sale with
+// its full Stock. why: 'start' (match setup), 'stock' (the last one's Stock ran out), 'restock' (after
+// Sold out). A different Item than the one just returned is chosen when the pool has one.
+function stockMart(s, why, not = null) {
+  const pool = s.mart.pool;
+  const choices = pool.filter((c) => c.id !== not);
+  const from = choices.length ? choices : pool;
+  if (!from.length) { s.mart.onSale = [null]; s.mart.stock = 0; return; }
+  const pick = from[Math.floor(nextRandom(s) * from.length)];
+  s.mart.pool = pool.filter((c) => c !== pick);
+  s.mart.onSale = [pick];
+  s.mart.stock = pick.stock;
+  s.mart.soldOut = null;
+  emit(s, 'martRefreshed', { id: pick.id, name: pick.name, stock: pick.stock, why });
+  if (why !== 'start') log(s, `The PokéMart now sells ${pick.name} ($${pick.price}) for ${pick.stock} turns.`);
+}
+// Each turn taken in the Battle Phase (React decisions aren't turns) uses 1 Stock. At 0 the Item goes
+// back to the pool and another replaces it. While Sold out nothing counts down: the PokéMart restocks
+// once the buyer has finished their next turn (the turn of the purchase itself doesn't count).
+function martTurn(s, who) {
+  const m = s.mart;
+  if (m.soldOut) {
+    if (m.soldOut.by !== who) return;
+    if (!m.soldOut.armed) { m.soldOut.armed = true; return; }
+    stockMart(s, 'restock');
+    return;
+  }
+  const c = m.onSale[0];
+  if (!c) return;
+  m.stock -= 1;
+  if (m.stock > 0) return;
+  m.pool.push(c);
+  m.onSale = [null];
+  log(s, `${c.name} leaves the PokéMart (its Stock ran out).`);
+  stockMart(s, 'stock', c.id);
 }
 function gainDollars(s, who, n, source, from = null) {
   s.players[who].dollars += n;
@@ -814,14 +886,15 @@ function defeat(s, who, space, by) {
   s.players[who].released.push(card);
   emit(s, 'defeated', { who, space, name: card.name, by });
   log(s, `${POSS[who]} ${card.name} was defeated.`);
-  // F4: PokéDollars for the defeat (its Energy cost at its Level, at least 1).
-  gainDollars(s, by, Math.max(1, card.cost ?? 0), `defeating ${card.name}`, { kind: 'space', who, space });
+  // G1 (2.5): a flat $1 for each enemy Pokémon defeated (Partners included).
+  gainDollars(s, by, RULES.dollarsPerDefeat, `defeating ${card.name}`, { kind: 'space', who, space });
   gainRecognition(s, by, RULES.perDefeat, `defeating ${card.name}`, { kind: 'space', who, space });
   progressTrainers(s, by, 'defeat');
 }
 
 function endTurn(s, who, passed) {
   if (s.phase === 'gameOver') return;
+  martTurn(s, who);
   s.passesInARow = passed ? s.passesInARow + 1 : 0;
   if (s.passesInARow >= 2) return supper(s);
   s.turn = opponentOf(who);
@@ -877,7 +950,11 @@ function supper(s) {
   emit(s, 'supper', { round: s.round });
   log(s, `Round ${s.round} · Supper.`);
   // F3: Strats still pending resolve first (the Battle Phase ended before their owner's next turn).
-  resolveStrats(s);
+  // G1: each may open a React window; Supper goes on when the last one has resolved.
+  if (!resolveStrats(s, null, 'supper')) return;
+  supperRest(s);
+}
+function supperRest(s) {
   if (s.phase === 'gameOver') return;
   // Dominance: for each placed Location, the player with more total Strength there earns Recognition.
   for (const l of [...s.locations]) {
@@ -957,7 +1034,7 @@ function startRound(s, round) {
   });
   // UX4: what Breakfast gave each player, for the summary strip (data only).
   ev.summary = Object.fromEntries(PLAYERS.map((w) => [w, { drew: s.players[w].hand.length - hand0[w], dollars: RULES.dollarsPerRound, energy: s.players[w].baseEnergy }]));
-  refreshMart(s);
+  // G1: no PokéMart refresh at Breakfast any more (its Stock carries over between Rounds).
   partnersArrive(s);
   syncBonuses(s);
   s.phase = 'battle';

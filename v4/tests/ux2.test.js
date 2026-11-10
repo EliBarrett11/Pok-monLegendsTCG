@@ -1,7 +1,7 @@
 // v4 UX2: Objective targets, stronger Partners, the stat icons and the new card faces. Focused tests,
 // no match simulations. Run: node v4/tests/ux2.test.js
 import assert from 'node:assert/strict';
-import { createGame, applyAction } from '../src/engine/game.js';
+import { createGame, applyAction, passBlockers } from '../src/engine/game.js';
 import { pokemonAt, cardAtRound, TRAINERS, LOCATIONS, COMMANDS, SUPPORTERS, ITEMS } from '../src/engine/cards.js';
 import { attackIcon, strengthIcon, STAT_ICONS } from '../src/ui/icons.js';
 import { renderMatch, renderHandCard } from '../src/ui/board.js';
@@ -19,7 +19,8 @@ const battle = (turn = 'player') => {
   return s;
 };
 const tracker = (s, who, name) => s.players[who].trainers.find((t) => t.name === name);
-const pass = (s) => applyAction(s, { type: 'pass', who: s.turn });
+// G1: a Ready Pokémon with unmatched Speed blocks Pass; these tests only move time on, so it's made Spent.
+const pass = (s) => { for (const sp of passBlockers(s, s.turn)) s.players[s.turn].row[sp].spent = true; return applyAction(s, { type: 'pass', who: s.turn }); };
 const nextRound = (s) => { const r = s.round; while (s.round === r && s.phase !== 'gameOver') s = pass(s); return s; };
 
 // --- A. The Objective targets and texts --------------------------------------------------------------------------
@@ -64,14 +65,14 @@ const nextRound = (s) => { const r = s.round; while (s.round === r && s.phase !=
   const st = s.players.player.row.find((c) => c?.name === 'Starmie');
   assert.deepEqual([st.level, st.speed, st.attack, st.strength], [8, 'Swift', 8, 10]);
   assert.equal(s.players.player.hand.length, hand + 2);
-  // A defeated Partner gives its opponent $4.
+  // A defeated Partner gives its opponent $1 (G1: a flat $1 per defeat).
   s = battle('ai');
   s.players.player.row[3] = { ...structuredClone(nine), uid: 'p9', currentStrength: 1, spent: true, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, trainer: 'Blaine' };
   s.players.ai.row[3] = mon('growlithe', 7, { spent: false });
   s.players.player.hand = [];
   s = applyAction(s, { type: 'attack', who: 'ai', from: 3, target: { kind: 'pokemon', space: 3 } });
   assert.equal(s.players.player.row[3], null);
-  assert.equal(s.players.ai.dollars, 4, '$4 for a defeated Partner');
+  assert.equal(s.players.ai.dollars, 1, '$1 for a defeated Partner');
 }
 
 // --- A. Blaine counts one per Location dominated at a Supper (and the Tournament counts one) ------------------------------
@@ -134,13 +135,12 @@ const nextRound = (s) => { const r = s.round; while (s.round === r && s.phase !=
   b.players.player.row[8] = { ...structuredClone(TRAINERS[0].partner), uid: 'pp', currentStrength: 6, spent: true, trainer: 'Misty' };
   for (const c of b.players.player.hand) html.push(renderHandCard(b, c));
   renderMatch(root, b, { select: null, locked: false, drawer: 'log' }, ctx);
-  renderMatch(root, b, { select: null, locked: false, drawer: 'mart' }, ctx);
   renderMatch(root, b, { select: { kind: 'attack', from: 0 }, locked: false }, ctx);
   for (const c of b.players.player.hand) renderMatch(root, b, { select: { kind: 'hand', uid: c.uid }, locked: false }, ctx);
   const text = html.join('\n');
   const m = text.match(/.{30}\b(Light|Mid|Heavy)\b.{20}/);
   assert.ok(!m, `no series in displayed text: ${m?.[0]}`);
-  assert.ok(text.includes('PokéMart') && text.includes('v4-drawer log') && text.includes('v4-drawer mart'), 'the drawers rendered');
+  assert.ok(text.includes('PokéMart') && text.includes('v4-drawer log') && text.includes('v4-martcard'), 'the log drawer and the PokéMart card rendered (G1: no PokéMart drawer)');
   assert.ok(text.includes('Trainer Objectives') && text.includes('Defeat 8 Pokémon'));
 }
 

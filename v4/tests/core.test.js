@@ -5,8 +5,7 @@ import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RULES, levelFor, costFor, SERIES_RANGE } from '../src/rules.js';
 import {
-  createGame, applyAction, legalTargets, isReady, readySpaces, passSpends, gainRecognition, whyNot,
-} from '../src/engine/game.js';
+  createGame, applyAction, legalTargets, isReady, readySpaces, passSpends, gainRecognition, whyNot, passBlockers, passReason, legalActions } from '../src/engine/game.js';
 import { pokemonAt, cardAtRound, PATHS, DEMO_DECK } from '../src/engine/cards.js';
 import { payCost, refreshEnergy, newEnergy, availableExert, canPay } from '../src/engine/energy.js';
 
@@ -24,7 +23,8 @@ const battle = (seed = 1) => {
   }
   return s;
 };
-const pass = (s) => applyAction(s, { type: 'pass', who: s.turn });
+// G1: a Ready Pokémon with unmatched Speed blocks Pass; these tests only move time on, so it's made Spent.
+const pass = (s) => { for (const sp of passBlockers(s, s.turn)) s.players[s.turn].row[sp].spent = true; return applyAction(s, { type: 'pass', who: s.turn }); };
 const nextRound = (s) => { const r = s.round; while (s.round === r && s.phase !== 'gameOver') s = pass(s); return s; };
 const clear = (s) => { for (const w of ['player', 'ai']) s.players[w].row = s.players[w].row.map(() => null); };
 
@@ -71,9 +71,10 @@ const clear = (s) => { for (const w of ['player', 'ai']) s.players[w].row = s.pl
   assert.equal(pokemonAt('squirtle', 5).name, 'Wartortle');
   assert.equal(pokemonAt('squirtle', 7).name, 'Blastoise');
   assert.equal(pokemonAt('charmander', 7).speed, 'Swift', 'Charizard is Swift');
+  // G1 (gameplay update 2.3): cost = half the Level, rounded up; nothing is free.
   for (let r = 1; r <= 6; r++) {
     const c = cardAtRound('growlithe', r);
-    assert.ok(Math.abs(c.cost - Math.min(r, 10) / 2) <= 0.5, `Round ${r}: a Mid Pokémon costs about half the Base Energy (${c.cost} of ${r})`);
+    assert.equal(c.cost, Math.ceil(c.level / 2), `Round ${r}: Level ${c.level} costs ${Math.ceil(c.level / 2)}`);
   }
   assert.ok(costFor(8) > costFor(3), 'cost rises with Level');
   // Cards in hand and deck gain +1 Level each Round; the battlefield keeps a snapshot.
@@ -196,8 +197,12 @@ const clear = (s) => { for (const w of ['player', 'ai']) s.players[w].row = s.pl
   clear(u);
   u.players.player.row[0] = mon('ponyta', 2);
   u.players.ai.row[0] = mon('magikarp', 3);
+  // G1: Ponyta (Swift) is Ready and unmatched, with a target: no Pass until it attacks.
+  assert.ok(!legalActions(u, 'player').includes('pass'), 'Pass refused');
+  assert.match(passReason(u, 'player'), /Ponyta is Ready and faster than anything the Opponent has: attack first/);
+  // With no legal target (staged), Pass is allowed and it becomes Spent.
+  assert.equal(passReason(u, 'player', () => []), null);
   assert.deepEqual(passSpends(u, 'player'), [0]);
-  assert.ok(applyAction(u, { type: 'pass', who: 'player' }).players.player.row[0].spent);
   // Unavailable actions say why.
   const w = battle(9);
   w.turn = 'player';

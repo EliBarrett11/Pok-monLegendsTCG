@@ -5,7 +5,7 @@ import { existsSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RULES } from '../src/rules.js';
-import { createGame, applyAction, legalActions, actor, whyNot, playReason } from '../src/engine/game.js';
+import { createGame, applyAction, legalActions, actor, whyNot, playReason, passBlockers } from '../src/engine/game.js';
 import { pokemonAt, cardAtRound, COMMANDS, SUPPORTERS, DEMO_DECK } from '../src/engine/cards.js';
 import { chooseAction } from '../src/ai/ai.js';
 
@@ -61,7 +61,7 @@ const types = (s) => s.events.map((e) => e.type);
   const atk = s.players.player.row[0].attack;
   s = applyAction(s, { type: 'command', who: 'player', uid: give(s, 'player', 'x-attack'), mode: 'adapt', target: { who: 'player', space: 0 } });
   assert.equal(s.players.player.row[0].attack, atk + 2);
-  while (s.round === 1) s = applyAction(s, { type: 'pass', who: s.turn });
+  while (s.round === 1) { for (const sp of passBlockers(s, s.turn)) s.players[s.turn].row[sp].spent = true; s = applyAction(s, { type: 'pass', who: s.turn }); }
   assert.equal(s.players.player.row[0].attack, atk, 'gone at Supper');
   // Rock Slide: 1 damage to each enemy Pokémon in the target's Location (here the Default Location).
   s = battle();
@@ -119,7 +119,11 @@ const types = (s) => s.events.map((e) => e.type);
   s3 = applyAction(s3, { type: 'placeLocation', who: 'player', uid: give(s3, 'player', 'mt-ember'), start: 0 });
   assert.equal(s3.reactWindow, null);
   s3 = applyAction(s3, { type: 'pass', who: 'ai' });
+  // G1: the Strat resolving at the start of the player's turn can be Reacted to.
+  assert.equal(s3.reactWindow?.pending.type, 'strat', 'a resolving Strat opens a React window');
+  s3 = applyAction(s3, { type: 'decline', who: 'ai' });
   s3.turn = 'player';
+  s3.players.player.baseEnergy = Math.max(1, s3.players.player.baseEnergy);
   s3 = applyAction(s3, { type: 'retain', who: 'player', uid: give(s3, 'player', 'ponyta') });
   assert.equal(s3.reactWindow, null);
 }
@@ -150,16 +154,14 @@ const types = (s) => s.events.map((e) => e.type);
   assert.ok(types(s).includes('fizzled'), 'Recover fizzled');
   assert.equal(s.players.player.baseEnergy, 6 - 2, 'its cost is still paid');
   assert.ok(s.players.player.discard.some((c) => c.id === 'recover'));
-  // A summon can be reacted to: the React resolves before the Pokémon arrives.
+  // G1: a summon can't be reacted to: the Pokémon arrives at once.
   s = battle();
   s.players.player.row[0] = mon('squirtle', 4);
   give(s, 'ai', 'ember');
   const p = give(s, 'player', 'ponyta');
   s = applyAction(s, { type: 'summon', who: 'player', uid: p, space: 6 });
-  assert.equal(s.reactWindow.pending.type, 'summon');
-  assert.equal(s.players.player.row[6], null, 'not arrived yet');
-  s = applyAction(s, { type: 'react', who: 'ai', uid: s.players.ai.hand[0].uid, target: { who: 'player', space: 0 } });
-  assert.equal(s.players.player.row[6].name, 'Ponyta', 'then it arrives');
+  assert.equal(s.reactWindow, null, 'no React window for a summon');
+  assert.equal(s.players.player.row[6].name, 'Ponyta', 'it arrives at once');
   assert.ok(types(s).indexOf('commandResolved') < types(s).indexOf('summoned'));
 }
 
@@ -191,6 +193,10 @@ const types = (s) => s.events.map((e) => e.type);
   assert.equal(s.turn, 'ai');
   s = applyAction(s, { type: 'pass', who: 'ai' });   // the opponent's next turn
   assert.equal(s.turn, 'player');
+  // G1: as it resolves, the Opponent (who holds Recover) may React; it lets it happen.
+  assert.equal(s.reactWindow?.pending.type, 'strat', 'a React window on the resolving Strat');
+  assert.equal(s.players.ai.row[4].currentStrength, 9, 'not until the window closes');
+  s = applyAction(s, { type: 'decline', who: 'ai' });
   assert.equal(s.strats.length, 0);
   assert.equal(s.players.ai.row[4].currentStrength, 9 - 5, 'resolved at the start of the player\'s next turn: 5 damage');
   assert.ok(s.players.player.discard.some((c) => c.id === 'ember'));
@@ -239,13 +245,13 @@ const types = (s) => s.events.map((e) => e.type);
   s = applyAction(s, { type: 'supporter', who: 'player', uid: joy2, release: [sq] });
   assert.equal(s.players.player.row[0].currentStrength, 5, 'Favour: heal 4');
   assert.equal(s.players.player.recognition, RULES.perFavour, 'Favour: Recognition');
-  assert.equal(RULES.perFavour, 1);
+  assert.equal(RULES.perFavour, 3, 'G1: a Favour is +3');
   // Released cards never come back: the Discard Pile reshuffles, the Released Pile doesn't.
   const p = s.players.player;
   p.drawPile = [];
   p.discard = [card('ponyta')];
   s.turn = 'player';
-  while (s.round === 1) s = applyAction(s, { type: 'pass', who: s.turn });
+  while (s.round === 1) { for (const sp of passBlockers(s, s.turn)) s.players[s.turn].row[sp].spent = true; s = applyAction(s, { type: 'pass', who: s.turn }); }
   const all = [...s.players.player.hand, ...s.players.player.drawPile, ...s.players.player.discard].map((c) => c.id);
   assert.ok(!all.includes('nurse-joy') && !all.includes('squirtle'), 'never reshuffled');
   assert.equal(s.players.player.released.length, 2);
@@ -266,7 +272,7 @@ const types = (s) => s.events.map((e) => e.type);
   const e = give(s, 'player', 'ember');
   s = applyAction(s, { type: 'supporter', who: 'player', uid: brock, release: ['g4', e] });
   assert.equal(s.players.player.row[0].strength, base + 2);
-  assert.equal(s.players.player.recognition, 1);
+  assert.equal(s.players.player.recognition, RULES.perFavour);
   // Wrong Release counts and the Supporter itself are refused.
   s = battle();
   const b2 = give(s, 'player', 'brock');

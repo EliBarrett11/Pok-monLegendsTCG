@@ -3,23 +3,23 @@
 //   the prompt bar (the only place for step text and action buttons); the opponent's HUD (Recognition
 //   ring, purse, Energy line, Bag, Objective trackers), hand backs and piles; the board (9 lanes, two
 //   rows; Locations as full tiles under the Pokémon with a plate across the middle; the Tournament as
-//   one tile); the right column (Round, Weather chip, Energy tile, END TURN, the PokéMart button and
+//   one tile); the right column (Round, Weather chip, Energy tile, END TURN, the PokéMart card (G1) and
 //   drawer, the log ticker and drawer); your HUD; the fanned hand; your piles and key hints.
 // Earlier stages, kept: F1–F5's actions and screens (Commands, React windows, Strats, Supporters,
 // Items, Trainers, the Tournament), UX1's Objective trackers, commandModesFor, the React window and
 // timer (main.js), no series shown, Recognition shown capped at 100.
-import { RULES } from '../rules.js?v=202611100828';
+import { RULES } from '../rules.js?v=202611101109';
 import {
-  isReady, legalTargets, attackers, summonable, emptySpaces, whyNot, passEndsPhase, passSpends, availableExert, energyLeft,
+  isReady, legalTargets, attackers, summonable, emptySpaces, whyNot, passEndsPhase, passSpends, passReason, passBlockers, availableExert, energyLeft,
   playerGuard, guardOf, placeable, locationStarts, weatherTotals, activeBrackets, dominantOf, strengthIn,
   actor, commandTargets, playableSupporters, playReason, favourMet,
   commandModesFor, damageOf,
   itemTargets, buyReason, tournamentDominant, tournamentStrength, boosted, buyableFromHand, buyableFromMart, usableFromBag, playableTrainers, trainerReason,
-} from '../engine/game.js?v=202611100828';
-import { WEATHER_BRACKETS, MODES, MODE_NAMES, FAVOURS, modeText, effectText, BAG_SIZE, PATHS, TRAINERS } from '../engine/cards.js?v=202611100828';
-import { baseEnergyFor, EXERT_LIMIT } from '../engine/energy.js?v=202611100828';
-import { icon, speedIcon, attackIcon, strengthIcon, typeIcon, STAT_NAMES, attackKey, strengthKey } from './icons.js?v=202611100828';
-import { hitsFor, commitHit } from './flows.js?v=202611100828';
+} from '../engine/game.js?v=202611101109';
+import { WEATHER_BRACKETS, MODES, MODE_NAMES, FAVOURS, modeText, effectText, BAG_SIZE, PATHS, TRAINERS } from '../engine/cards.js?v=202611101109';
+import { baseEnergyFor, EXERT_LIMIT } from '../engine/energy.js?v=202611101109';
+import { icon, speedIcon, attackIcon, strengthIcon, typeIcon, STAT_NAMES, attackKey, strengthKey } from './icons.js?v=202611101109';
+import { hitsFor, commitHit } from './flows.js?v=202611101109';
 
 // UX3: the key list (the ? overlay and the hint at the bottom-right).
 export const KEY_LIST = [
@@ -53,7 +53,7 @@ const isMon = (c) => c?.cardType === 'Pokémon';
 const statWords = (c) => `${STAT_NAMES[attackKey(c)]} ${c.attack} · ${STAT_NAMES[strengthKey(c)]} ${c.currentStrength ?? c.strength}/${c.strength}${c.strengthType === 'Defence' ? ' (guards against Physical)' : c.strengthType === 'Special Defence' ? ' (guards against Special)' : ''}`;
 const locDetail = (c) => `${c.name} · Location · covers ${c.width} adjacent lanes on both sides · stays ${c.rounds} Rounds · no Energy · ${c.passive.text} · Weather: +${c.weather.count} ${c.weather.type}`;
 const bonusText = (c) => [c.bonusAttack ? `+${c.bonusAttack} Attack` : '', c.bonusStrength ? `+${c.bonusStrength} Strength` : ''].filter(Boolean).join(', ');
-const cmdDetail = (c) => `${c.name} · Command Card · ${MODES.map((m) => `${MODE_NAMES[m]} (${c.modes[m].cost} Energy): ${modeText(c, m)}`).join(' · ')} · Adapt resolves now; React only in reply to the opponent's attack, summon or Adapt, before it; Strat after the opponent's next turn`;
+const cmdDetail = (c) => `${c.name} · Command Card · ${MODES.map((m) => `${MODE_NAMES[m]} (${c.modes[m].cost} Energy): ${modeText(c, m)}`).join(' · ')} · Adapt resolves now; React only in reply to the opponent's attack, Adapt or resolving Strat, before it; Strat face-down, resolving after the opponent's next turn`;
 const supDetail = (c) => `${c.name} · Supporter · no Energy · Release ${c.release} other card${c.release === 1 ? '' : 's'} from hand (permanently), then this card · ${effectText(c.effect)} · Favour (Release ${FAVOURS[c.favour.condition].text}): ${effectText(c.favour)}, +${RULES.perFavour} Recognition`;
 const shortMode = (c, m) => { const { op, amount } = c.modes[m]; return { damage: `${amount} dmg`, heal: `heal ${amount}`, attackUp: `+${amount} Atk`, damageLocation: `${amount} each there` }[op]; };
 const longMode = (c, m) => { const { op, amount } = c.modes[m]; return { damage: `${amount} damage`, heal: `heal ${amount}`, attackUp: `+${amount} Attack`, damageLocation: `${amount} damage to each there` }[op]; };
@@ -130,7 +130,7 @@ export function promptFor(s, ui, ctx = {}) {
   if (ui.select?.kind === 'command') {
     const c = me.hand.find((x) => x.uid === ui.select.uid);
     const m = ui.select.mode;
-    return { tag: `${c.name} · ${MODE_NAMES[m]} · ${c.modes[m].cost} Energy`, text: `${esc(modeText(c, m))}: choose <b>a glowing target</b>.${m === 'strat' ? ' It resolves after the Opponent\'s next turn (or at Supper); if the target is gone by then, it fizzles.' : ' The Opponent may React first.'}`, gold: true, buttons: [{ action: 'cancel', label: 'Cancel' }] };
+    return { tag: `${c.name} · ${MODE_NAMES[m]} · ${c.modes[m].cost} Energy`, text: `${esc(modeText(c, m))}: choose <b>a glowing target</b>.${m === 'strat' ? ' It resolves after the Opponent\'s next turn (or at Supper), when they may React; if the target is gone by then, it fizzles.' : ' The Opponent may React first.'}`, gold: true, buttons: [{ action: 'cancel', label: 'Cancel' }] };
   }
   if (ui.select?.kind === 'buy') {
     const c = selItem(s, ui.select);
@@ -200,6 +200,8 @@ export function promptFor(s, ui, ctx = {}) {
     if (usableFromBag(s, 'player').length) opts.push('use a <b>Bag</b> Item');
     if (playableTrainers(s, 'player').length) opts.push('a <b>Trainer Command</b>');
     if (me.hand.some((c) => !c.retained) && energyLeft(me) >= RULES.retainCost) opts.push('<b>Retain</b>');
+    // G1 (2.1): while an unmatched Ready Pokémon can attack, End turn isn't offered.
+    if (passReason(s, 'player')) return { tag: `Round ${s.round} · your turn`, text: `${opts.join(', ').replace(/^./, (x) => x.toUpperCase())}. <b>End turn</b> waits: ${esc(passReason(s, 'player'))}.` };
     const pass = passEndsPhase(s) ? '<b>End turn</b> to end the Battle Phase' : `<b>End turn</b> (+1 Base Energy${passSpends(s, 'player').length ? '; your fastest Pokémon become Spent' : ''})`;
     return { tag: `Round ${s.round} · your turn`, text: opts.length ? `${opts.join(', ').replace(/^./, (x) => x.toUpperCase())} — or ${pass}.` : `Only ${pass}: nothing else is possible now.` };
   }
@@ -236,7 +238,7 @@ function ring(s, who, ui) {
   const tip = `${who === 'player' ? 'Your' : 'The Opponent\'s'} Recognition: ${p.recognition} (shown up to ${RULES.win}). The Player Character has no Health: damage to it gives the attacker's player 1 Recognition per point. ${RULES.win} wins.${target ? ' Click to attack the Opponent.' : ''}`;
   return `<button class="v4-ring ${who}${target ? ' target' : ''}" data-pc="${who}" title="${esc(tip)}"><svg width="86" height="86" aria-hidden="true"><circle cx="43" cy="43" r="37" fill="rgba(0,0,0,.45)" stroke="rgba(255,255,255,.1)" stroke-width="8"/><circle cx="43" cy="43" r="37" fill="none" stroke="var(--${who === 'player' ? 'you' : 'opp'})" stroke-width="8" stroke-linecap="round" stroke-dasharray="${(C * v) / 100} ${C}"/></svg><span class="n"><b>${v}</b><small>of ${RULES.win}</small></span></button>`;
 }
-const purse = (p) => `<span class="v4-purse" title="PokéDollars: $${RULES.dollarsPerRound} each Breakfast, more for each enemy Pokémon defeated (its cost); kept between Rounds">$ ${p.dollars}</span>`;
+const purse = (p) => `<span class="v4-purse" title="PokéDollars: $${RULES.dollarsPerRound} each Breakfast, +$${RULES.dollarsPerDefeat} for each enemy Pokémon defeated; kept between Rounds">$ ${p.dollars}</span>`;
 function bag(s, who, ui) {
   const p = s.players[who];
   const myTurn = s.phase === 'battle' && s.turn === 'player' && !ui.locked && !s.reactWindow;
@@ -294,7 +296,7 @@ function board(s, ui) {
   const pend = s.reactWindow?.pending;
   const committed = new Set();
   if (pend?.type === 'attack') { committed.add(`${pend.who}:${pend.from}`); if (pend.target.kind === 'pokemon') committed.add(`${opponentName(pend.who)}:${pend.target.space}`); }
-  if (pend?.type === 'command') committed.add(`${pend.target.who}:${pend.target.space}`);
+  if (pend?.type === 'command' || pend?.type === 'strat') committed.add(`${pend.target.who}:${pend.target.space}`);
   if (pend?.type === 'summon') committed.add(`${pend.who}:${pend.space}`);
   const incoming = pend?.type === 'summon' ? pend : null;
   const myTurn = s.phase === 'battle' && s.turn === 'player' && !ui.locked && !s.reactWindow;
@@ -324,7 +326,9 @@ function ambient(s) {
 // UX4: each pending Strat, sealed: a glowing card back with an hourglass on the board edge of its
 // owner's side (the badge on its target stays).
 function sealed(s) {
-  return ['ai', 'player'].map((who) => s.strats.filter((x) => x.owner === who).map((x, k) => `<span class="v4-sealed ${who}" data-strat="${x.uid}" style="top: ${(who === 'ai' ? 60 : 392) + k * 30}px" title="${esc(`${Whose(who)} Strat, sealed: ${x.card.name} on ${x.targetName}, after ${who === 'player' ? 'the Opponent\'s' : 'your'} next turn (or at Supper)`)}">⏳</span>`).join('')).join('');
+  // G1: a Strat resolving under a React window stays shown (first, glowing) until it resolves.
+  const resolving = s.reactWindow?.pending.type === 'strat' ? s.reactWindow.pending.strat : null;
+  return ['ai', 'player'].map((who) => [...(resolving?.owner === who ? [resolving] : []), ...s.strats.filter((x) => x.owner === who)].map((x, k) => `<span class="v4-sealed ${who}${x === resolving ? ' resolving' : ''}" data-strat="${x.uid}" style="top: ${(who === 'ai' ? 60 : 392) + k * 30}px" title="${esc(`${Whose(who)} Strat, sealed: ${x.card.name} on ${x.targetName}, after ${who === 'player' ? 'the Opponent\'s' : 'your'} next turn (or at Supper)`)}">⏳</span>`).join('')).join('');
 }
 
 // A Location: its art over all its lanes on both sides (a border in its colour), with a plate across
@@ -365,7 +369,8 @@ const PC_AT = { ai: { x: 24 + 14 + 86 - BOARD.left, y: 76 + 48 - BOARD.top }, pl
 function reactArrow(s) {
   const p = s.reactWindow?.pending;
   if (!p || p.type === 'summon') return '';
-  const from = p.type === 'attack' ? spaceAt(p.who, p.from) : { x: BOARD.w / 2, y: BOARD.h / 2 };
+  // G1: a resolving Strat's arrow starts at its sealed card, on its owner's board edge.
+  const from = p.type === 'attack' ? spaceAt(p.who, p.from) : p.type === 'strat' ? { x: 2, y: (p.who === 'ai' ? 60 : 392) + 28 } : { x: BOARD.w / 2, y: BOARD.h / 2 };
   const to = p.type === 'attack' ? (p.target.kind === 'player' ? PC_AT[opponentName(p.who)] : spaceAt(opponentName(p.who), p.target.space)) : spaceAt(p.target.who, p.target.space);
   const mx = (from.x + to.x) / 2 + 40;
   const my = (from.y + to.y) / 2 - 40;
@@ -383,15 +388,15 @@ export function reactSentence(s) {
     if (p.target.kind === 'player') return `${Whose(p.who)} ${a.name} is attacking ${foe === 'player' ? 'you' : 'the Opponent'} for ${n}.`;
     return `${Whose(p.who)} ${a.name} is attacking ${whose(foe)} ${s.players[foe].row[p.target.space].name} for ${n}.`;
   }
-  if (p.type === 'summon') return `${p.who === 'player' ? 'You are' : 'The Opponent is'} summoning ${p.card.name} (Level ${p.card.level}) into lane ${p.space + 1}.`;
   const on = s.players[p.target.who].row[p.target.space];
+  if (p.type === 'strat') return `${Whose(p.who)} Strat ${p.card.name} is resolving${p.at === 'supper' ? ' at Supper' : ''}: ${longMode(p.card, 'strat')} on ${whose(p.target.who)} ${on?.name ?? 'Pokémon'}.`;
   return `${p.who === 'player' ? 'You are' : 'The Opponent is'} playing ${p.card.name} (Adapt): ${longMode(p.card, 'adapt')} on ${whose(p.target.who)} ${on.name}.`;
 }
 // A React card's effect in plain words, aimed at the actual target when there's only one.
 export function reactEffect(s, card, targets) {
   const { op, amount } = card.modes.react;
   const tgt = targets.length === 1 ? `${whose(targets[0].who)} ${s.players[targets[0].who].row[targets[0].space].name}` : (card.target === 'enemy' ? 'an enemy Pokémon (choose)' : 'one of your Pokémon (choose)');
-  const what = s.reactWindow?.pending.type === 'attack' ? 'the attack' : s.reactWindow?.pending.type === 'summon' ? 'the summon' : 'their Command';
+  const what = { attack: 'the attack', strat: 'their Strat resolves', command: 'their Command' }[s.reactWindow?.pending.type] ?? 'their Command';
   const verb = { damage: `${amount} damage to ${tgt}`, heal: `Heal ${amount} on ${tgt}`, attackUp: `+${amount} Attack to ${tgt} until Supper`, damageLocation: `${amount} damage to each enemy Pokémon in the Location of ${tgt}` }[op];
   return `${verb.charAt(0).toUpperCase()}${verb.slice(1)}, before ${what}.`;
 }
@@ -491,11 +496,34 @@ function energyTile(s) {
 }
 function endTurn(s, ui) {
   const myTurn = s.phase === 'battle' && s.turn === 'player' && !ui.locked && !ui.select && !s.reactWindow;
+  // G1 (2.1): no Pass while a Ready Pokémon of yours with unmatched Speed can attack.
+  const why = s.phase === 'battle' && s.turn === 'player' && !s.reactWindow ? passReason(s, 'player') : null;
+  if (why) {
+    const b = passBlockers(s, 'player');
+    const short = b.length === 1 ? why : `${b.length} of your Pokémon are Ready and faster than anything the Opponent has: attack first`;
+    return `<button class="v4-col v4-pass blocked" data-action="pass" disabled title="${esc(`Can't end the turn: ${why}.`)}"><b>END TURN</b><small class="why">${esc(short)}</small></button>`;
+  }
   return `<button class="v4-col v4-pass" data-action="pass"${myTurn ? '' : ' disabled'} title="${esc(myTurn ? (passEndsPhase(s) ? 'Pass: the Opponent passed too, so this ends the Battle Phase.' : `Pass: +1 Base Energy${passSpends(s, 'player').length ? '; your fastest Pokémon become Spent (unmatched Speed)' : ''}.`) : 'Not your turn')}"><b>END TURN</b><small>${passEndsPhase(s) ? 'Pass · ends the Battle Phase' : 'Pass · +1 Base Energy'}<span class="key">Space</span></small></button>`;
 }
-function martButton(s, ui) {
-  const fresh = ui.martSeen !== s.round ? s.mart.onSale.filter(Boolean).length : 0;
-  return `<button class="v4-panel v4-col v4-martbtn" data-action="open-mart" title="Open the PokéMart: ${s.mart.onSale.filter(Boolean).map((c) => `${c.name} $${c.price}`).join(', ') || 'sold out'}"><span class="ic" style="background-image: url('${UI_ART('pokemart')}')"></span><span><b>PokéMart</b><small>You have $${s.players.player.dollars}</small></span>${fresh ? `<span class="v4-badge">${fresh} new</span>` : ''}</button>`;
+// G1 (2.6): the PokéMart's one Item, always on show: art, name, price gem, Held or Consumed, its effect,
+// a Stock pip per turn left (the last one pulsing), and Buy (then use now or store, in the prompt bar).
+// Sold out: a stamp, and when it restocks.
+function martCard(s, ui) {
+  const c = s.mart.onSale[0];
+  if (!c) {
+    const by = s.mart.soldOut?.by;
+    const when = by ? `Restocks after ${by === 'player' ? 'your' : 'the Opponent\'s'} next turn` : 'Nothing on sale';
+    return `<section class="v4-panel v4-col v4-martcard sold" title="${esc(`The PokéMart is sold out. ${when}.`)}"><div class="v4-lbl">PokéMart</div><div class="v4-soldout">SOLD OUT</div><p class="v4-restock">${esc(when)}</p></section>`;
+  }
+  const myTurn = s.phase === 'battle' && s.turn === 'player' && !ui.locked && !s.reactWindow;
+  const why = !myTurn ? (s.phase !== 'battle' ? 'Not the Battle Phase' : s.reactWindow ? 'A React window is open' : 'Not your turn') : buyReason(s, 'player', c);
+  const pips = Array.from({ length: s.mart.stock }, (_, k) => `<i class="${k === s.mart.stock - 1 ? 'last' : ''}"></i>`).join('');
+  const stockTip = `Stock: ${s.mart.stock} turn${s.mart.stock === 1 ? '' : 's'} left on sale (of ${c.stock}). Each turn by either player uses 1; then a new Item replaces it.`;
+  return `<section class="v4-panel v4-col v4-martcard" data-item="${c.id}" title="${esc(`PokéMart: ${itemDetail(c)}. ${stockTip} Buying it takes it away from the Opponent too.`)}">
+    <span class="a" style="background-image: url('${art(c)}')"><span class="v4-gem money${s.players.player.dollars < c.price ? ' no' : ''}">$${c.price}</span></span>
+    <div class="t"><div class="v4-lbl">PokéMart</div><b>${esc(c.name)}</b><small>${c.itemType} · ${esc(c.text.replace(/^Held: /, ''))}</small></div>
+    <div class="row"><span class="stock" title="${esc(stockTip)}">${pips}</span><button data-buy="0"${why ? ` disabled title="${esc(why)}"` : ''}>Buy</button></div>
+    <p class="note">${esc(why ?? 'Buy: use it now or store it in your Bag')}</p></section>`;
 }
 // The log ticker and drawer. Lines are coloured by whose they are; an attack line gets its attacker's
 // attack icon; long lines are shortened in the ticker (the full line is on hover and in the drawer).
@@ -512,21 +540,10 @@ function logLine(line, short) {
   return `<p class="${cls}" title="${esc(line)}">${ic}${esc(text)}</p>`;
 }
 function logTicker(s) {
-  return `<button class="v4-panel v4-col v4-ticker" data-action="open-log" title="Open the full log (L)">${s.log.slice(-3).map((l) => logLine(l, true)).join('')}<span class="open">Open log <span class="key">L</span></span></button>`;
+  return `<button class="v4-panel v4-col v4-ticker" data-action="open-log" title="Open the full log (L)">${s.log.slice(-2).map((l) => logLine(l, true)).join('')}<span class="open">Open log <span class="key">L</span></span></button>`;
 }
 
 // --- Drawers -----------------------------------------------------------------------------------------------
-function martDrawer(s, ui) {
-  if (ui.drawer !== 'mart') return '';
-  const myTurn = s.phase === 'battle' && s.turn === 'player' && !ui.locked && !s.reactWindow;
-  const rows = s.mart.onSale.map((c, slot) => {
-    if (!c) return '<div class="v4-mrow sold"><p>Sold · new stock at Breakfast</p></div>';
-    const why = !myTurn ? (s.phase === 'battle' ? 'Not your turn' : 'Not the Battle Phase') : buyReason(s, 'player', c);
-    return `<div class="v4-mrow" title="${esc(itemDetail(c))}"><span class="a" style="background-image: url('${art(c)}')"></span><p><b>${esc(c.name)}</b> <span class="price">$${c.price}</span><br><small>${c.itemType} · ${esc(c.text)}</small></p>
-      <button data-buy="${slot}"${why ? ` disabled title="${esc(why)}"` : ''}>Buy</button></div>`;
-  }).join('');
-  return `<section class="v4-panel v4-drawer mart" role="dialog"><header><b>PokéMart</b><small>You have $${s.players.player.dollars} · 3 Items each Breakfast · bought Items are used now or stored in your Bag</small><button data-action="close-drawer">Close</button></header>${rows}</section>`;
-}
 function logDrawer(s, ui, ctx) {
   if (ui.drawer !== 'log') return '';
   return `<section class="v4-panel v4-drawer log" role="dialog"><header><b>Log</b><small>${esc(ctx.build)}</small><button data-action="close-drawer">Close <span class="key">L</span></button></header>
@@ -629,11 +646,11 @@ export function renderMatch(root, s, ui, ctx) {
     <div class="v4-prompt${p.gold ? ' gold' : ''}"><span class="v4-tag">${esc(p.tag)}</span><span class="v4-ptext" title="${esc(actionsTip(s, ui))}">${p.text}</span>${(p.buttons ?? []).map((b) => `<button data-action="${b.action}"${b.disabled ? ' disabled' : ''}${b.tip ? ` title="${esc(b.tip)}"` : ''}>${esc(b.label)}</button>`).join('')}</div>
     ${oppHud(s, ui)}${oppHandAndPiles(s)}
     ${board(s, ui)}
-    ${roundBox(s)}${weatherChip(s)}${energyTile(s)}${endTurn(s, ui)}${martButton(s, ui)}${logTicker(s)}
+    ${roundBox(s)}${weatherChip(s)}${energyTile(s)}${endTurn(s, ui)}${martCard(s, ui)}${logTicker(s)}
     ${youHud(s, ui)}
     ${hand(s, ui)}
     ${myPiles(s, ctx)}
-    ${martDrawer(s, ui)}${logDrawer(s, ui, ctx)}${picker(s, ui)}
+    ${logDrawer(s, ui, ctx)}${picker(s, ui)}
     ${reactOverlay(s, ui)}
     ${dialogs(s, ui)}
   </div>`;
@@ -656,7 +673,6 @@ function wire(root, s, ui, ctx) {
   on('[data-action="cancel"]', () => { ui.picker = null; ui.select = null; ui.drag = null; ctx.redraw(); });
   on('[data-action="mull-done"]', () => { const cards = ui.mull ?? []; ui.mull = []; ctx.act({ type: 'mulligan', who: 'player', cards }); });
   // The drawers open and close at any time (buying only on your turn).
-  on('[data-action="open-mart"]', () => { ui.drawer = ui.drawer === 'mart' ? null : 'mart'; ui.martSeen = s.round; ctx.redraw(); });
   on('[data-action="open-log"]', () => { ui.drawer = ui.drawer === 'log' ? null : 'log'; ctx.redraw(); });
   on('[data-action="close-drawer"]', () => { ui.drawer = null; ctx.redraw(); });
   if (actor(s) !== 'player' || s.phase === 'mulligan' || ui.locked) return;
@@ -677,7 +693,7 @@ function wire(root, s, ui, ctx) {
   on('[data-pick]', (el) => { const pk = ui.picker; ui.picker = null; ctx.act({ type: 'command', who: 'player', uid: pk.uid, mode: el.dataset.pick, target: pk.target }); });
   on('.v4-hand .v4-card', (el) => { ui.select = ui.select?.uid === el.dataset.uid ? null : { kind: 'hand', uid: el.dataset.uid }; ctx.redraw(); });
   on('[data-action="retain"]', () => ctx.retain(ui.select.uid));
-  on('[data-buy]', (el) => { ui.select = { kind: 'buy', from: 'mart', slot: Number(el.dataset.buy) }; ui.drawer = null; ctx.redraw(); });
+  on('[data-buy]', (el) => { ui.select = { kind: 'buy', from: 'mart', slot: Number(el.dataset.buy) }; ctx.redraw(); });
   on('[data-bag].usable', (el) => { ui.select = { kind: 'item', from: 'bag', uid: el.dataset.bag }; ctx.redraw(); });
   const src = () => (ui.select.kind === 'buy' ? { from: 'mart', slot: ui.select.slot } : { from: 'hand', uid: ui.select.uid });
   on('[data-action="buy-use"]', () => { ui.select = { kind: 'item', ...src() }; ctx.redraw(); });

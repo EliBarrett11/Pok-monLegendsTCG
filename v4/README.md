@@ -590,3 +590,43 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
         - idle: 16.7 ms.
 
         60 fps on integrated graphics still needs checking on a real machine.
+- **G1 — rules and economy** (`docs/v4-gameplay-update.md` sections 1, 2 and 7, approved by Elliott on 10 November 2026). The deck is unchanged; G2 and G3 rebuild it.
+  - **Pass (2.1):** you can't Pass while a Ready Pokémon of yours with unmatched Speed has a legal target. This includes the Pass that would end the Battle Phase.
+    - End turn is disabled and shows the reason, e.g. "Charizard is Ready and faster than anything the Opponent has: attack first"; Space does nothing then.
+    - The prompt bar says why End turn waits. The UX3 end-turn confirmation can't offer an illegal Pass.
+    - The AI plays through `legalActions`.
+    - The no-target case can't arise with today's guards (a guard is always itself a target). `passBlockers` and `passReason` take an optional target check so the test can stage it.
+  - **React (2.2):** a React window opens only for an attack, an Adapt when it's played, and a Strat as it resolves, at the start of its owner's next turn or at Supper.
+    - No window opens for summons, a Strat played face-down, or Trainer Commands.
+    - At Supper the window opens before dominance, and Supper goes on once it closes.
+    - A resolving Strat isn't a turn. A React that removes its target makes it fizzle.
+    - The interface's React window (banner, timer, keys) works for it. Its arrow starts at the Strat's sealed card, which glows on its owner's board edge until it resolves.
+  - **Costs (2.3):** `costFor(level) = ceil(level / 2)`: Level 1–2 cost 1, 3–4 cost 2, 5–6 cost 3, 7–8 cost 4. Nothing is free; Partners stay cost 4.
+  - **Recognition (2.4):** dominating a Location +3, a Favour +3, dominating the Tournament +5 (8 with its passive).
+  - **PokéDollars (2.5):** +$1 at each Breakfast, plus a flat +$1 for each enemy Pokémon defeated, Partners included.
+  - **The PokéMart (2.6):**
+    - **The rules:**
+      - One Item is on sale, with its Stock: Oran Berry $1, 8 turns; Potion, Choice Band, Charcoal and Mystic Water $2, 6 turns; Leftovers $3, 4 turns.
+      - Each turn by either player in the Battle Phase uses 1 Stock. At 0 a different random Item from the pool replaces it, with full Stock.
+      - Stock carries across Breakfast; there's no refresh.
+      - Once bought, it's Sold out until the buyer has finished their next turn, and nothing counts down meanwhile.
+    - **The interface:**
+      - The button, drawer and "N new" badge are gone.
+      - A small card in the right-hand column shows the Item's art, name, price gem, Held or Consumed, its effect, and a Stock pip per turn left (the last one pulsing).
+      - Buy leads to the existing use-or-store choice, with the reason when you can't buy.
+      - Sold out shows a stamp and "Restocks after your/the Opponent's next turn". A new Item slides in with a short beat.
+      - The log ticker shrank to two lines to make room.
+    - **The AI** gives a small bonus to buying it, because that takes it away from the opponent.
+  - **Trainer Objective point moments (2.7):** a new presenter beat for each `objectiveProgress`, for either player:
+    - A dark backdrop fades in, and the Trainer's portrait slides in large from that player's side, with the name and the Objective.
+    - Below it is a track of pips with the Partner's portrait at the end. The new pip stamps in with a flash and a rising "+1", the count ticks ("3 → 4 / 8"), and the Partner glows a step brighter.
+    - Then the portrait slides back into the tracker, which pulses.
+    - It takes about 1.2 s at Normal. Several points in one action play as one moment.
+    - The final point plays a longer version (the track fills and the portrait flares gold), leading straight into the Partner's arrival.
+    - It follows the speed setting and is skippable. Low motion keeps the stamp and the count but drops the movement.
+  - **Docs:** `FOUNDATION_ASSUMPTIONS.md` is updated for every rule here, including the Breakfast order (no PokéMart refresh), the Supper order, and the Pass and React sections. The hint and reason texts are updated too.
+  - **Checks:**
+    - **`node v4/tests/g1.test.js`** checks Pass, the React windows, costs, Recognition and $, the PokéMart's Stock, replacement, carry-over and Sold out, and the Objective beat.
+    - The existing tests were updated for the new values: costs, $ per defeat, Favour, dominance and the Tournament; summons can't be Reacted to; a resolving Strat opens a window; the one-slot PokéMart. Their time-advancing Pass helpers make a blocking Pokémon Spent first.
+    - The layout check has new scenarios: the PokéMart card, a long Item text, Sold out, End turn blocked, an Objective moment mid-beat, the final point, and a React window on a resolving Strat. The mart drawer scenario is gone.
+    - `node v4/tools/sim-g1.mjs` runs the 100-match AI-vs-AI summary.

@@ -8,12 +8,12 @@
 import {
   EVENT_BEATS, MS, MOMENTS, attackDef, counterDef, commandMs, summonFor, defeatFor, timelineDuration, impactScale, defOf, V4_TIMELINES,
   SUPPORTER_ANIMS, ITEM_ANIMS, TRAINER_COMMAND_ANIMS,
-} from './vfx/library.js?v=202611100828';
+} from './vfx/library.js?v=202611101109';
 
 const NEED = {
   attack: 'old', command: 'old', react: 'old', seal: 'old', trainerCommand: 'old', supporter: 'old', itemBought: 'old', itemUsed: 'old',
   defeat: 'old', dominance: 'old', locationRemoved: 'old', retain: 'old', supperHand: 'old',
-  summon: 'new', partner: 'new', locationPlaced: 'new', tournament: 'new', breakfast: 'new', mart: 'any',
+  summon: 'new', partner: 'new', locationPlaced: 'new', tournament: 'new', breakfast: 'new', mart: 'new', objective: 'any',
   recognition: 'any', coins: 'any', pip: 'any', trackerComplete: 'any', note: 'any', round: 'any', supper: 'any', champion: 'any', turn: 'any',
 };
 const foeOf = (who) => (who === 'player' ? 'ai' : 'player');
@@ -54,7 +54,8 @@ export function beatMs(step, prev, next) {
     case 'retain': return MS.lock;
     case 'round': case 'supper': case 'turn': return MOMENTS.banner.ms;
     case 'champion': return MOMENTS.champion.ms;
-    case 'mart': return MS.note;
+    case 'mart': return MOMENTS.mart.ms;
+    case 'objective': return MOMENTS.objective.ms + MS.objStamp * ((step.points?.length ?? 1) - 1) + (step.final ? MS.objFinal : 0);
     case 'note': return MS.note;
     default: return 0;
   }
@@ -77,6 +78,19 @@ export function plan(prev, next, factor = 1) {
       if (j >= 0) used.add(j);
     }
     if (e.type === 'commandResolved' && e.mode === 'react') beat = 'react';
+    // G1 (2.7): an Objective's points in one action play as one moment (the count ticks for each); the
+    // final point plays the longer version, which leads into the Partner's arrival.
+    if (e.type === 'objectiveProgress') {
+      const points = [e];
+      let final = false;
+      ev.forEach((x, k) => {
+        if (k <= i || x.uid !== e.uid) return;
+        if (x.type === 'objectiveProgress') { points.push(x); used.add(k); }
+        if (x.type === 'objectiveComplete') { final = true; used.add(k); }
+      });
+      steps.push({ beat, e, i, need: NEED[beat], points, final });
+      return;
+    }
     // Supper: after its Strats, dominance and countdowns, the hand slides to the Discard Pile.
     if (e.type === 'breakfast' && ev.some((x) => x.type === 'supper')) steps.push({ beat: 'supperHand', e, i, need: NEED.supperHand });
     steps.push({ beat, e, i, need: NEED[beat] ?? 'any' });

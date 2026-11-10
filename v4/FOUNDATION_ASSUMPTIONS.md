@@ -14,8 +14,8 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
 |---|---|---|---|
 | Damage to a Player Character | 1 Recognition per damage | Section 16 sets it | No |
 | Defeating an enemy Pokémon | +2 Recognition | A small round number, below a typical attack on the Player Character, which matches the spec's order of importance | **Needed** |
-| Dominating a placed Location at Supper | +1 Recognition per Location | Lowest non-zero value; several Locations can be dominated at once | **Needed** |
-| Completing a Supporter Favour | +1 Recognition | Lowest non-zero value | **Needed** |
+| Dominating a placed Location at Supper | +3 Recognition per Location (G1; was +1) | Gameplay update 2.4: dominance was too small to fight over | No (Elliott, 10 November 2026) |
+| Completing a Supporter Favour | +3 Recognition (G1; was +1) | Gameplay update 2.4: a Favour worth building a hand around | No (Elliott, 10 November 2026) |
 | Completing a Trainer Objective | +2 Recognition | Objectives take several turns, so worth a little more than a Favour | **Needed** |
 | Specific card effects | No card gives Recognition directly; these Recognition sources are triggered by cards (Favours, Objectives, Commands that defeat a Pokémon) | No extra card design needed | **Needed** |
 | Winning | 100 Recognition, at once, at any moment (also mid-action) | Spec; the only victory condition | No |
@@ -23,7 +23,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
 | Exert and Exhaust | v1 exactly: Exert maximum = Round (max 3); spent Exert is Exhausted for 2, 3 or 4 Rounds by position | Section 16 | No |
 | Starting Energy | Round 1: Base Energy 1, Exert maximum 1 | Follows from v1's rule | No |
 | PokéDollars per Round | +$1 at each Breakfast, including Round 1 | Spec "$1 per round" | No |
-| PokéDollars per defeat | The defeated Pokémon's Energy cost at its Level, at least $1, to its opponent, whatever caused it; a Partner counts as cost 4 (UX2) | Ties the reward to what the Pokémon was worth, using a number that already exists | **Needed** |
+| PokéDollars per defeat | A flat +$1 for each enemy Pokémon defeated, Partners included, to its opponent, whatever caused it (G1; was its Energy cost) | Gameplay update 2.5: too much money; about $16 per player per match now (simulation) | No (Elliott, 10 November 2026) |
 
 ## 2. Round structure and the round-start (Breakfast) order
 
@@ -36,25 +36,27 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   6. Breakfast heals: Lake of Rage, the Rain 2 bracket, Leftovers.
   7. Cards off the battlefield take this Round's Level.
   8. Draw 7, less one per card Retained.
-  9. The PokéMart refreshes 3 Items.
-  10. Waiting Partners arrive.
+  9. Waiting Partners arrive.
+
+  G1: the PokéMart no longer refreshes at Breakfast; its Item and Stock carry over between Rounds (section 9).
 
   In Round 1, after the draw, each player may mulligan (v1).
 - **Match setup (UX1, Elliott's rule):** each player's 40 cards are shuffled into the Draw Pile, Trainers included. For each Trainer card in the deck, an Objective tracker goes into that player's Trainer area, linked to the card. It is active from Round 1, costs nothing and starts at progress 0. Then comes Round 1's Breakfast.
 - **Supper order:**
-  1. Pending Strats resolve.
+  1. Pending Strats resolve, in the order played. G1: each may open a React window for the other player as it resolves; Supper waits for the window, then goes on.
   2. Dominance: placed Locations, or the Tournament.
   3. Trainer Objective progress from dominance.
   4. Location durations count down and expired Locations are removed.
   5. "Until Supper" effects end.
   6. The hand is discarded, except Retained cards.
-- **Why:** v1's order, with each new step placed where its effect is needed: the Tournament first, so old passives don't apply that Breakfast; heals before the draw; the PokéMart and Partners last.
+- **Why:** v1's order, with each new step placed where its effect is needed: the Tournament first, so old passives don't apply that Breakfast; heals before the draw; Partners last.
 - **Approval:** **Needed** (the order of the new steps).
 - **Battle Phase:**
   - Initiative alternates each Round.
   - Players alternate one action per turn.
   - Two Passes in a row end the phase (v1).
-  - **Approval:** No.
+  - **G1, Pass (gameplay update 2.1):** you can't Pass while you have a Ready Pokémon with unmatched Speed (the opponent has no Active Pokémon of the same Speed) that has a legal target: attack with it, or take another action, first. This applies to every Pass, including the one that would end the Battle Phase. If none of them has a legal target (with today's guards that can't happen, since a guard is itself always a target), you may Pass and they become Spent, as before. End turn is disabled with the reason; Space does nothing; the AI follows `legalActions`.
+  - **Approval:** No (Elliott, Q1, 10 November 2026).
 
 ## 3. Hands and Retain
 
@@ -74,9 +76,9 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
 - **Chosen:**
   - **Levels off the battlefield** (hand, Draw Pile and Discard Pile): the series' first Level in Round 1, +1 each Round, up to its maximum (Light 1–6, Mid 2–7, Heavy 3–8).
   - **On the battlefield:** a summoned Pokémon is a snapshot and doesn't develop.
-  - **The cost curve** is `cost = ceil((Level − 1) / 2)` for every series. A Mid Pokémon costs about half the Round's Base Energy.
+  - **The cost curve (G1, gameplay update 2.3)** is `cost = ceil(Level / 2)` for every series: Level 1–2 cost 1, 3–4 cost 2, 5–6 cost 3, 7–8 cost 4. Nothing is free, and in any Round a Heavy card costs about 1 more than a Light one. Partners stay Level 8, cost 4.
 - **Why:** one formula and one rule for all cards; the Discard Pile becomes the deck again, so it develops too.
-- **Approval:** **Needed** (the cost curve).
+- **Approval:** No for the cost curve (Elliott, 10 November 2026).
 - **The six evolution paths** (stats per Level; abilities on Magikarp L3–5 "On Summon: draw 1" and Charizard L7+ "On Summon: 2 damage to each enemy Pokémon"):
   - Ponyta → Rapidash and Chinchou → Lanturn (Light);
   - Squirtle → Wartortle → Blastoise and Growlithe → Arcanine (Mid);
@@ -90,7 +92,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   - **Ready and Spent** work as in v3:
     - A Ready Pokémon is the fastest Active one on both sides.
     - Summoned Pokémon arrive Spent.
-    - Passing with unmatched Speed makes your fastest Pokémon Spent.
+    - G1: you can't Pass while a Ready Pokémon of yours with unmatched Speed has a legal target (section 2). Passing with unmatched Speed and no target makes those Pokémon Spent.
   - **Trades:** a Ready target hits back. A Pokémon at 0 Strength goes to the Released Pile.
   - **Guards:**
     - A Defence or Special Defence Pokémon protects its side's other Pokémon in the same Location.
@@ -139,12 +141,15 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
 ## 7. Command Cards: React, Adapt and Strat timing
 
 - **Eligibility:**
-  - **Chosen:** three actions can be reacted to: an attack, a summon, and a Command played as Adapt.
-    - When one is committed, its cost is paid at once (Energy, and the card leaves the hand).
-    - A React window opens for the other player only if they can pay for a React that has a target.
-    - They React with one card or let it happen.
-  - **Why:** these are the actions section 4B's examples interrupt. The other actions (Pass, Retain, Place Location, Supporter, Strat, Items, Trainers) can't be reacted to.
-  - **Approval:** **Needed**.
+  - **Chosen (G1, gameplay update 2.2):** you can React only when the opponent attacks with a Pokémon or uses a Command Card, when it resolves:
+    - an **attack**, when it's committed;
+    - a Command played as **Adapt**, when it's played (it resolves at once);
+    - a Command played as **Strat**, when it **resolves**: at the start of its owner's next turn, or at Supper (before dominance). Playing a Strat face-down can't be Reacted to.
+    - **Summons**, Trainer Commands, Supporters, Items, Locations, Retain and Pass can't be Reacted to. A React can't be Reacted to.
+    - When an attack or Adapt is committed, its cost is paid at once (Energy, and the card leaves the hand).
+    - A React window opens for the other player only if they can pay for a React that has a target. They React with one card or let it happen.
+  - **Why:** Elliott's rule (Q2, 10 November 2026).
+  - **Approval:** No.
 - **Timing and priority:**
   - **Chosen:**
     - The React resolves fully, then the committed action resolves against the new state.
@@ -156,7 +161,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   - **Chosen:**
     - It is paid and targeted when played, as that turn's action.
     - It resolves at the start of its owner's next turn, after the opponent's turn. If the Battle Phase ends first, it resolves at Supper, before dominance.
-    - Pending Strats resolve in the order played.
+    - Pending Strats resolve in the order played. G1: as each one resolves, the other player gets a React window (the same banner, timer and keys); the rest wait for it. A resolving Strat isn't a turn. A React that removes its target makes it fizzle.
     - It fizzles if its target Pokémon is gone, even if another Pokémon now stands in that space. The cost stays paid.
   - **Why:** "after the opponent's next turn" read literally.
   - **Approval:** **Needed**.
@@ -200,7 +205,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
 - **Purchase Item:**
   - **Chosen:** a Battle Phase action. You buy one Item from your hand or the PokéMart, then use it now (with a target) or store it in your Bag (6 spaces, v1).
     - There's no In Delivery wait: a stored Item can be used from your next turn.
-    - A sold PokéMart slot stays empty until the next Breakfast.
+    - G1: the PokéMart's Item, once bought, shows Sold out until the buyer has finished their next turn (section below).
     - An unbought Item in hand is discarded at Supper.
   - **Why:** v1's buying without its extra delay step.
   - **Approval:** **Needed** (no In Delivery).
@@ -212,10 +217,15 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   - **Why:** v1's rule.
   - **Approval:** **Needed** (one Held Item each).
 - **The PokéMart:**
-  - **Chosen:** one shared pool with one copy of each of the six Items. At each Breakfast (Round 1 included), unsold Items go back and 3 random Items go on sale.
-  - **Why:** the spec.
+  - **Chosen (G1, gameplay update 2.6):** one shared pool with one copy of each of the six Items, and **one Item on sale**, always on show in the right-hand column with its **Stock** (turns on sale):
+    - Each turn taken by either player in the Battle Phase uses 1 Stock (React decisions and resolving Strats aren't turns; the Pass that ends the Battle Phase is). At 0 the Item goes back to the pool and a random Item from the pool replaces it, with full Stock.
+    - Stock carries over between Rounds; there's no refresh at Breakfast.
+    - When it's bought, the PokéMart shows **Sold out** until the buyer has finished their next turn (the turn of the purchase doesn't count); then a random Item arrives with full Stock. Nothing counts down while it's Sold out.
+    - Match setup puts the first random Item on sale.
+  - **Why:** Elliott's rule (Q3, 10 November 2026).
   - **Approval:** No.
-- **The six Items** (placeholder values): Potion, Charcoal and Choice Band are in the deck; the others are only in the PokéMart.
+  - **Settled here (not in the update):** the replacement Item is chosen from the pool without the one that just ran out, when the pool has another, so the Item on show always changes. **Needed**.
+- **The six Items** (placeholder values; G1 adds their Stock: $1 → 8, $2 → 6, $3 → 4): Potion, Charcoal and Choice Band are in the deck; the others are only in the PokéMart.
 
   | Item | Price | Type | Effect |
   |---|---|---|---|
@@ -269,7 +279,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   | Blaine | Dominate a Location 5 times (each Location dominated at a Supper counts 1; the Tournament counts 1) | Ninetales, Level 8: Steady, Special Attack 9, Hitpoints 11 (On Summon: 2 damage to each enemy Pokémon) | 2 Energy: 1 damage to each enemy Pokémon |
 
   - **Approval:** No (UX2, Elliott's Q5 and Q7).
-  - The targets 8 and 5 and the Level 8 Partners make an Objective a mid-to-late-game reward. Each Partner counts as cost 4, so defeating one gives its opponent $4.
+  - The targets 8 and 5 and the Level 8 Partners make an Objective a mid-to-late-game reward. Defeating a Partner gives its opponent $1, like any Pokémon (G1).
   - Blaine's Trainer Command keeps its 1 damage; only Ninetales's On Summon went up to 2.
 
 ## 11. The Pokémon League Tournament
@@ -292,7 +302,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   - **Why:** Elliott's rule.
   - **Approval:** No.
 - **Dominance:**
-  - **Chosen:** at each Supper, more total current Strength across the battlefield earns +3 Recognition, which becomes 5 with the passive. Ties give nothing. It also counts as "dominating a Location" for Blaine's Objective.
+  - **Chosen:** at each Supper, more total current Strength across the battlefield earns +5 Recognition (G1; was +3), which becomes 8 with the passive. Ties give nothing. It also counts as "dominating a Location" for Blaine's Objective.
   - **Why:** Elliott's rule; the Tournament is a Location.
   - **Approval:** **Needed** (whether it counts for Blaine).
 - **Guards:** during the Tournament every lane is in one Location, so a guard protects its whole side.

@@ -3,10 +3,10 @@
 // now or store, use from the Bag) and Trainer Commands; UX1: Objectives are tracked from setup, modes come from commandModesFor): a greedy one-move AI like v2's and v3's (adapted from v3/src/ai/ai.js).
 // It plays only through the engine's actions: it tries each legal move on a copy of the state,
 // scores the result, and plays the best (Pass when nothing beats it).
-import { RULES } from '../rules.js?v=202611100828';
+import { RULES } from '../rules.js?v=202611101109';
 import { applyAction, legalActions, opponentOf, summonable, emptySpaces, attackers, legalTargets, retainable, pokemonOf, isReady, energyLeft, placeable, locationStarts, dominantOf, summonCost,
   commandModesFor, commandTargets, playableSupporters, favourMet, resolveStrats,
-  buyableFromHand, buyableFromMart, usableFromBag, itemTargets, buyReason, playableTrainers, tournamentDominant, boosted } from '../engine/game.js?v=202611100828';
+  buyableFromHand, buyableFromMart, usableFromBag, itemTargets, buyReason, playableTrainers, tournamentDominant, boosted } from '../engine/game.js?v=202611101109';
 
 // Pending Strats count at a discount: the state as if they had resolved, blended with as it is.
 export function evaluate(s, who) {
@@ -25,6 +25,9 @@ function evaluateNow(s, who) {
     let v = p.recognition * 1.6 + p.hand.reduce((n, c) => n + (c.cardType === 'Item' ? 0.2 : 0.5), 0);
     // F4: PokéDollars, Items in the Bag, Trainers working on their Objectives, waiting Partners.
     v += p.dollars * 0.3 + p.bag.reduce((n, c) => n + 0.25 + c.price * 0.4, 0);
+    // G1: buying the PokéMart's one Item also takes it away from the opponent (Sold out until the
+    // buyer's next turn ends): a small bonus for the side that bought it.
+    if (s.mart.soldOut?.by === w) v += 0.4;
     for (const tr of p.trainers.filter((x) => !x.complete)) v += (2 * tr.progress) / tr.objective.need;
     v += p.waiting.length * 3;
     for (const { card } of pokemonOf(s, w)) v += card.attack * 0.9 + card.currentStrength * 0.45 + (isReady(s, card) ? 0.5 : 0);
@@ -49,7 +52,7 @@ export function moves(s, who) {
   const legal = legalActions(s, who);
   const p = s.players[who];
   if (legal.includes('mulligan')) return [{ type: 'mulligan', who, cards: p.hand.filter((c) => c.cost > 1).map((c) => c.uid) }];
-  // A React window (the player committed an attack, summon or Adapt): React or let it happen.
+  // A React window (an attack, an Adapt, or a Strat resolving): React or let it happen.
   if (legal.includes('decline')) {
     const out = [{ type: 'decline', who }];
     // UX1: the React options come from commandModesFor, the same helper the hand display uses.
@@ -57,7 +60,8 @@ export function moves(s, who) {
     for (const c of dedupe(reacts)) for (const target of commandTargets(s, who, c)) out.push({ type: 'react', who, uid: c.uid, target });
     return out;
   }
-  const out = [{ type: 'pass', who }];
+  // G1: Pass only when it's legal (not while an unmatched Ready Pokémon can attack).
+  const out = legal.includes('pass') ? [{ type: 'pass', who }] : [];
   if (legal.includes('command')) {
     for (const mode of ['adapt', 'strat']) {
       const cards = p.hand.filter((c) => commandModesFor(s, who, c.uid).some((m) => m.mode === mode && !m.reason));

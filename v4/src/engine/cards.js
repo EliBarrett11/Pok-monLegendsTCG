@@ -4,7 +4,7 @@
 //   forms: [{ name, art, from, speed? }] — the form from that Level up to the next form's Level.
 //   stats: { level: [Attack, Strength] } for every Level of the series.
 //   guard: 'Defence' | 'Special Defence' | null. ability: (level) → { text, onSummon } or null.
-import { SERIES_RANGE, levelFor, costFor } from '../rules.js?v=202611100828';
+import { SERIES_RANGE, levelFor, costFor } from '../rules.js?v=202611101109';
 
 const op = (name, amount) => ({ op: name, amount });
 const path = (spec) => ({ guard: null, ability: () => null, ...spec });
@@ -131,14 +131,16 @@ export function effectText({ op, amount }) {
 // Every Item targets one of your Pokémon.
 //   Consumed ops: 'heal' (N) · 'attackUp' (+N Attack until Supper)
 //   Held ops:     'attack' (+N Attack) · 'strength' (+N Strength) · 'healBreakfast' (heal N at Breakfast)
-const item = (id, name, price, itemType, op, amount, text) => ({ id, name, cardType: 'Item', art: id, price, itemType, op, amount, text });
+// G1 (gameplay update 2.6): each Item's Stock: how many turns it stays on sale in the PokéMart's one
+// slot (dearer Items stay for less time: $1 → 8, $2 → 6, $3 → 4, $4 → 3).
+const item = (id, name, price, itemType, op, amount, text, stock) => ({ id, name, cardType: 'Item', art: id, price, itemType, op, amount, text, stock });
 export const ITEMS = [
-  item('potion', 'Potion', 2, 'Consumed', 'heal', 3, 'Heal one of your Pokémon 3'),
-  item('oran-berry', 'Oran Berry', 1, 'Consumed', 'heal', 2, 'Heal one of your Pokémon 2'),
-  item('choice-band', 'Choice Band', 2, 'Consumed', 'attackUp', 2, 'One of your Pokémon has +2 Attack until Supper'),
-  item('charcoal', 'Charcoal', 2, 'Held', 'attack', 1, 'Held: +1 Attack'),
-  item('mystic-water', 'Mystic Water', 2, 'Held', 'strength', 2, 'Held: +2 Strength'),
-  item('leftovers', 'Leftovers', 3, 'Held', 'healBreakfast', 1, 'Held: heal 1 at each Breakfast'),
+  item('potion', 'Potion', 2, 'Consumed', 'heal', 3, 'Heal one of your Pokémon 3', 6),
+  item('oran-berry', 'Oran Berry', 1, 'Consumed', 'heal', 2, 'Heal one of your Pokémon 2', 8),
+  item('choice-band', 'Choice Band', 2, 'Consumed', 'attackUp', 2, 'One of your Pokémon has +2 Attack until Supper', 6),
+  item('charcoal', 'Charcoal', 2, 'Held', 'attack', 1, 'Held: +1 Attack', 6),
+  item('mystic-water', 'Mystic Water', 2, 'Held', 'strength', 2, 'Held: +2 Strength', 6),
+  item('leftovers', 'Leftovers', 3, 'Held', 'healBreakfast', 1, 'Held: heal 1 at each Breakfast', 4),
 ];
 export const itemDef = (id) => ITEMS.find((c) => c.id === id);
 export const BAG_SIZE = 6;   // the Inventory Bag (v1: src/engine/game.js BAG_SIZE)

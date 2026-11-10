@@ -148,6 +148,29 @@ function check() {
 const settle = (p, ms = 400) => p.waitForTimeout(ms);
 const v4 = (p, fn, arg) => p.evaluate(fn, arg);
 const to = (p, round) => v4(p, (r) => window.__v4.fastForward(r), round);
+// G1: an Objective point moment, caught mid-beat: a defeat that gives Misty's Objective its next point
+// (or its final one), played at Normal speed, then the check runs while the moment is on screen.
+async function objectiveMoment(p, progress, final = false) {
+  await v4(p, async ({ progress }) => {
+    const C = await import('/v4/src/engine/cards.js');
+    window.__v4.set((s) => {
+      const mon = (id, level, extra) => ({ ...C.pokemonAt(id, level), uid: `om-${id}`, currentStrength: C.pokemonAt(id, level).strength, spent: false, summonedRound: 0, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...extra });
+      for (const w of ['player', 'ai']) s.players[w].row = s.players[w].row.map(() => null);
+      s.players.player.row[2] = mon('growlithe', 6);
+      s.players.ai.row[2] = mon('ponyta', 2, { currentStrength: 1, spent: true });
+      s.players.ai.hand = [];
+      const t = s.players.player.trainers.find((x) => x.objective.kind === 'defeat');
+      t.progress = progress;
+      t.complete = false;
+      s.reactWindow = null;
+      s.turn = 'player';
+    });
+    window.__v4.setSpeed('normal');
+    window.__v4.show({ type: 'attack', who: 'player', from: 2, target: { kind: 'pokemon', space: 2 } });
+  }, { progress });
+  await p.waitForSelector('.v4-objpanel', { timeout: 30000 });
+  await p.waitForTimeout(final ? 4800 : 1800);   // mid-beat at timescale 4 (the final point plays longer)
+}
 const centerOf = (p, sel) => p.evaluate((q) => { const r = document.querySelector(q).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }, sel);
 // UX3: move the pointer over an element (previews follow the pointer), or drag between two.
 async function hover(p, sel) { const c = await centerOf(p, sel); await p.mouse.move(c.x - 20, c.y - 20); await p.mouse.move(c.x, c.y, { steps: 3 }); await settle(p, 150); }
@@ -262,10 +285,68 @@ const SCENARIOS = {
     await to(p, 10);
     await v4(p, () => window.__v4.set((s, ui) => { ui.seenTournament = s.tournament?.startedRound; const uid = s.players.player.hand.find((c) => c.cardType === 'Location')?.uid; if (uid) ui.select = { kind: 'hand', uid }; }));
   },
-  // UX2: the PokéMart drawer and the log drawer.
-  'mart-drawer': async (p) => {
+  // G1: the PokéMart card (its last Stock pip pulsing), Sold out, End turn blocked with its reason, an
+  // Objective point moment mid-beat (and the final point's version), and a React window on a resolving Strat.
+  'mart-card': async (p) => {
     await to(p, 4);
-    await v4(p, () => window.__v4.set((s, ui) => { s.players.player.dollars = 4; ui.drawer = 'mart'; }));
+    await v4(p, () => window.__v4.set((s) => { s.players.player.dollars = 4; const c = s.mart.onSale[0] ?? s.mart.pool[0]; s.mart.onSale = [c]; s.mart.stock = Math.min(c.stock, 5); s.mart.soldOut = null; }));
+  },
+  'mart-long': async (p) => {
+    await to(p, 4);
+    await v4(p, () => window.__v4.set((s) => {
+      s.players.player.dollars = 1;
+      const all = [...s.mart.pool, ...s.mart.onSale.filter(Boolean)];
+      const c = all.find((x) => x.id === 'choice-band');
+      s.mart.pool = all.filter((x) => x !== c);
+      s.mart.onSale = [c];
+      s.mart.stock = c.stock;
+      s.mart.soldOut = null;
+    }));
+  },
+  'mart-sold-out': async (p) => {
+    await to(p, 4);
+    await v4(p, () => window.__v4.set((s) => { if (s.mart.onSale[0]) s.mart.pool.push(s.mart.onSale[0]); s.mart.onSale = [null]; s.mart.stock = 0; s.mart.soldOut = { by: 'ai', armed: true }; }));
+  },
+  'pass-blocked': async (p) => {
+    await to(p, 4);
+    await v4(p, async () => {
+      const C = await import('/v4/src/engine/cards.js');
+      window.__v4.set((s) => {
+        const mon = (id, level, extra) => ({ ...C.pokemonAt(id, level), uid: `pb-${id}`, currentStrength: C.pokemonAt(id, level).strength, spent: false, summonedRound: 0, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...extra });
+        for (const w of ['player', 'ai']) s.players[w].row = s.players[w].row.map(() => null);
+        s.players.player.row[3] = mon('charmander', 7);
+        s.players.ai.row[5] = mon('magikarp', 4, { spent: true });
+        s.reactWindow = null;
+        s.turn = 'player';
+      });
+    });
+  },
+  'objective-moment': async (p) => {
+    await to(p, 4);
+    await objectiveMoment(p, 3);
+  },
+  'objective-final': async (p) => {
+    await to(p, 4);
+    await objectiveMoment(p, 7, true);
+  },
+  'react-strat': async (p) => {
+    await to(p, 4);
+    await v4(p, async () => {
+      const C = await import('/v4/src/engine/cards.js');
+      window.__v4.set((s) => {
+        const mon = (id, level, extra) => ({ ...C.pokemonAt(id, level), uid: `rs-${id}`, currentStrength: C.pokemonAt(id, level).strength, spent: true, summonedRound: 0, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...extra });
+        for (const w of ['player', 'ai']) s.players[w].row = s.players[w].row.map(() => null);
+        s.players.player.row[2] = mon('squirtle', 6);
+        s.players.ai.row[6] = mon('growlithe', 5);
+        s.players.player.hand = [...s.players.player.hand.slice(0, 5), { ...C.cardAtRound('recover', s.round), uid: 'rs-recover' }, { ...C.cardAtRound('ember', s.round), uid: 'rs-ember' }];
+        s.players.player.baseEnergy = 6;
+        s.strats = [{ uid: 'strat-rs', owner: 'ai', card: { ...C.commandDef('ember'), uid: 'rs-card' }, target: { who: 'player', space: 2, uid: 'rs-squirtle' }, targetName: 'Blastoise', playedRound: s.round }];
+        s.reactWindow = null;
+        s.turn = 'player';
+        s.passesInARow = 0;
+      });
+      window.__v4.apply({ type: 'pass', who: 'player' });
+    });
   },
   'log-drawer': async (p) => {
     await to(p, 6);
@@ -316,7 +397,7 @@ for (const [w, h] of SIZES) {
     const page = await browser.newPage({ viewport: { width: w, height: h } });
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
-        await page.goto(`${BASE}?debug&seed=7&speed=instant`);
+        await page.goto(`${BASE}?debug&seed=7&speed=instant&timescale=4`);   // (timescale: G1's mid-beat scenarios)
     await settle(page, 600);
     try {
       await setup(page);

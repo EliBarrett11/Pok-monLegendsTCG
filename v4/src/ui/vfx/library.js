@@ -12,7 +12,7 @@
 import {
   TIMELINES, BUDGETS as ROOT_BUDGETS, COUNTERS, SUMMONS, attackAnimation, composeAttack, composeCounter,
   STRATEGY_OPENING, tintOf, impactScale, timelineDuration, MAX_SCALE,
-} from './shared.js?v=202611100828';
+} from './shared.js?v=202611101109';
 
 export { TIMELINES, composeAttack, composeCounter, tintOf, impactScale, timelineDuration, MAX_SCALE };
 
@@ -36,6 +36,9 @@ export const BUDGETS = {
   banner: { min: 200, max: 800 },        // "never blocking more than ~0.8 s"
   champion: { min: 1200, max: 2600 },    // the winner's ring filling and flaring "Champion"
   think: { min: 300, max: 700 },         // the AI's "thinking" pause (~0.5 s)
+  // G1 (2.7): a Trainer Objective point moment: ~1.2 s, a little longer for each extra point in the
+  // same action, and the final point's longer version (the track fills, the portrait flares gold).
+  objective: { min: 900, max: 2800 },
   aim: { min: 250, max: 600 },           // the AI's arrow before its beat (~0.4 s)
   note: { min: 300, max: 1200 },         // a word floating off something
 };
@@ -220,6 +223,14 @@ export const MS = {
   champion: 1800,
   note: 900,
   weatherPulse: 900,
+  // G1: the Objective point moment (about 1.2 s in all) and the PokéMart's new Item sliding in.
+  objIn: 150,          // the backdrop fades in
+  objSlide: 250,       // the portrait slides in from that player's side
+  objStamp: 300,       // each new pip stamps in (+1, the count ticks)
+  objHold: 200,
+  objOut: 300,         // the portrait slides back into the tracker, which pulses
+  objFinal: 900,       // the final point: the track fills and the portrait flares gold
+  martIn: 500,
 };
 
 // Each composed moment's total at Normal (for the budget check in tests/ux4.test.js).
@@ -242,6 +253,9 @@ export const MOMENTS = {
   think: { budget: 'think', ms: MS.think },
   aim: { budget: 'aim', ms: MS.aim },
   note: { budget: 'note', ms: MS.note },
+  objective: { budget: 'objective', ms: MS.objIn + MS.objSlide + MS.objStamp + MS.objHold + MS.objOut },
+  objectiveFinal: { budget: 'objective', ms: MS.objIn + MS.objSlide + MS.objStamp + MS.objHold + MS.objFinal + MS.objOut },
+  mart: { budget: 'item', ms: MS.martIn },
 };
 
 // --- Every engine event type and the beat that shows it ----------------------------------------------
@@ -259,14 +273,14 @@ export const EVENT_BEATS = {
   summoned: { when: 'after', beat: 'summon', budget: 'summon', sfx: 'summon' },
   partnerArrived: { when: 'after', beat: 'partner', budget: 'partner', sfx: 'partner' },
   partnerWaiting: { when: 'after', beat: 'note', budget: 'note', sfx: null },
-  objectiveProgress: { when: 'after', beat: 'pip', budget: 'tracker', sfx: null },
+  objectiveProgress: { when: 'after', beat: 'objective', budget: 'objective', sfx: 'objective' },
   objectiveComplete: { when: 'after', beat: 'trackerComplete', budget: 'tracker', sfx: null },
   trainerTaken: { when: 'after', beat: 'note', budget: 'note', sfx: null },
   trainerCommand: { when: 'before', beat: 'trainerCommand', budget: 'adapt', sfx: 'command-adapt' },
   supporter: { when: 'before', beat: 'supporter', budget: 'supporter', sfx: 'command-adapt' },
   itemBought: { when: 'before', beat: 'itemBought', budget: 'item', sfx: 'coins' },
   itemUsed: { when: 'before', beat: 'itemUsed', budget: 'item', sfx: 'heal' },
-  martRefreshed: { when: 'after', beat: 'mart', budget: 'note', sfx: null },
+  martRefreshed: { when: 'after', beat: 'mart', budget: 'item', sfx: null },
   dollars: { when: 'after', beat: 'coins', budget: 'coins', sfx: 'coins' },
   recognition: { when: 'after', beat: 'recognition', budget: 'recognition', sfx: 'recognition' },
   defeated: { when: 'before', beat: 'defeat', budget: 'defeat', sfx: 'defeat' },
@@ -287,7 +301,7 @@ export const EVENT_BEATS = {
 // The sound hooks (src/ui/sound.js names them; every beat calls one).
 export const SFX = ['attack-fire-physical', 'attack-fire-special', 'attack-water-physical', 'attack-water-special', 'attack-electric-special',
   'hit', 'defeat', 'heal', 'summon', 'partner', 'recognition', 'coins', 'command-adapt', 'command-strat', 'react', 'location-place',
-  'tournament', 'turn', 'victory'];
+  'tournament', 'turn', 'victory', 'objective'];
 export const attackSfx = (card) => `attack-${String(card?.type).toLowerCase()}-${String(card?.attackType).toLowerCase()}`;
 
 // Speed (D): timeline ms per real ms is 1 / factor. Instant draws at once.

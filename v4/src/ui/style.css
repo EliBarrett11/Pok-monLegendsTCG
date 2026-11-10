@@ -420,3 +420,48 @@ button { font-family: inherit; color: inherit; }
 .v4-low .v4-ambient { display: none; }
 .v4-keys .v4-lowm { white-space: nowrap; }
 .v4-keys .v4-lowm input { vertical-align: -2px; margin: 0 3px 0 0; }
+
+/* --- G1: the PokéMart card, the blocked End turn, the Objective point moment ----------------------------- */
+.v4-ticker { top: 748px; height: 58px; padding: 3px 12px; }
+.v4-ticker .open { margin-top: 0; }
+.v4-pass.blocked small.why { display: block; max-width: 250px; margin-top: 3px; font-size: 12.5px; line-height: 1.2; font-weight: 700; color: #ffd0b0; text-align: center; white-space: normal; }
+.v4-martcard { top: 608px; height: 132px; padding: 8px 10px; display: grid; grid-template-columns: 58px 1fr; grid-template-rows: 70px 30px 14px; column-gap: 10px; row-gap: 2px; }
+.v4-martcard .a { position: relative; width: 58px; height: 58px; margin-top: 4px; border-radius: 10px; background: center / cover; border: 1.5px solid var(--brass-mid); }
+.v4-martcard .a .v4-gem { left: -8px; top: -8px; width: 30px; height: 30px; font-size: 13px; }
+.v4-martcard .t { min-width: 0; line-height: 1.15; }
+.v4-martcard .t .v4-lbl { font-size: 11px; line-height: 1.2; }
+.v4-martcard .t b { display: block; font-size: 16px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v4-martcard .t small { display: block; font-size: 12.5px; line-height: 1.2; color: var(--cream-muted, #d8c8a8); max-height: 31px; overflow: hidden; }
+.v4-martcard .row { grid-column: 1 / 3; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.v4-martcard .stock { display: flex; gap: 4px; align-items: center; }
+.v4-martcard .stock i { display: block; width: 10px; height: 10px; border-radius: 50%; background: #ffd56a; border: 1.5px solid #fff2b8; box-shadow: 0 0 5px rgba(255, 210, 90, 0.7); }
+.v4-martcard .stock i.last { animation: v4-pip 1s ease-in-out infinite; }
+@keyframes v4-pip { 50% { opacity: 0.35; transform: scale(0.8); } }
+.v4-martcard button { height: 28px; padding: 0 18px; font-weight: 800; font-size: 14px; border-radius: 8px; border: 1.5px solid var(--brass); background: linear-gradient(#5a3a16, #3a240c); cursor: pointer; }
+.v4-martcard button:disabled { opacity: 0.45; cursor: help; }
+.v4-martcard .note { grid-column: 1 / 3; margin: 0; font-size: 11.5px; line-height: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v4-martcard.sold { display: block; text-align: center; }
+.v4-martcard.sold .v4-lbl { text-align: left; }
+.v4-soldout { display: inline-block; margin: 14px 0 6px; padding: 2px 14px; font-family: var(--font-display); font-weight: 800; font-size: 26px; line-height: 1.2; letter-spacing: 0.08em; color: #ff8a6a;
+  border: 3px solid #ff8a6a; border-radius: 8px; transform: rotate(-6deg); text-shadow: 0 0 10px rgba(255, 100, 60, 0.6); }
+.v4-restock { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+.v4-low .v4-martcard .stock i.last { animation: none; }
+/* The Objective point moment. */
+.v4-objback { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 50%, rgba(10, 5, 2, 0.55), rgba(10, 5, 2, 0.82)); }
+.v4-objpanel { position: absolute; left: 815px; top: 472px; transform: translate(-50%, -50%); width: 640px; padding: 22px 28px 20px; display: grid; grid-template-columns: 170px 1fr; column-gap: 24px; row-gap: 14px;
+  border-radius: 18px; background: linear-gradient(160deg, rgba(48, 28, 10, 0.97), rgba(22, 12, 4, 0.97)); border: 2px solid var(--brass); box-shadow: 0 18px 60px rgba(0, 0, 0, 0.7); }
+.v4-objpanel.player { border-color: var(--you); } .v4-objpanel.ai { border-color: var(--opp); }
+.v4-objpanel .por { grid-row: 1 / 3; width: 170px; height: 170px; border-radius: 14px; background: top / cover; border: 3px solid var(--brass-light); box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.4); }
+.v4-objpanel .info b { display: block; font-family: var(--font-display); font-weight: 800; font-size: 36px; line-height: 1.2; color: var(--brass-light); }
+.v4-objpanel .info span { display: block; margin-top: 4px; font-size: 20px; line-height: 1.25; color: var(--cream); }
+.v4-objpanel .track { display: flex; align-items: center; gap: 9px; }
+.v4-objpanel .track i { display: block; width: 22px; height: 22px; border-radius: 50%; border: 2.5px solid var(--brass); background: rgba(0, 0, 0, 0.35); }
+.v4-objpanel .track i.on { background: radial-gradient(#fff6c8, #ffd56a 60%, #c08a20); border-color: #fff2b8; }
+.v4-objpanel .track .pt { margin-left: 8px; width: 58px; height: 58px; border-radius: 50%; background: center / cover; border: 3px solid var(--brass-light); }
+.v4-objpanel .count { grid-column: 1 / 3; text-align: center; font-family: var(--font-display); font-weight: 800; font-size: 28px; line-height: 1.2; color: #fff2b8; }
+.v4-objpanel.final { border-color: #ffe08a; box-shadow: 0 0 60px rgba(255, 210, 90, 0.6), 0 18px 60px rgba(0, 0, 0, 0.7); }
+.v4-banner b, .v4-banner.turn b, .v4-banner.small b { line-height: 1.3; }
+.v4-pass.blocked:disabled { opacity: 1; background: linear-gradient(#3a2414, #24160a); border-color: #b0603a; box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.5); }
+.v4-pass.blocked b { opacity: 0.55; }
+.v4-objpanel .info b { line-height: 1.35; } .v4-objpanel .count { line-height: 1.35; }
+.v4-sealed.resolving { z-index: 47; border-color: #ffe08a; box-shadow: 0 0 22px 8px rgba(255, 210, 90, 0.95); }

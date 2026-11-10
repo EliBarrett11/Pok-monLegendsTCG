@@ -5,19 +5,19 @@
 // action. The presenter never changes the state: it gets prev and next and calls draw() once.
 // Without WebGL the 2D particles stand in (particles.js); numbers, banners and moves are page elements
 // and always play. Every beat calls a sound hook (sound.js).
-import { initVfx, vfxReady, playTimeline, skipTimelines, clearVfx, coins, rectOf, reducedMotion } from './vfx/engine.js?v=202611100828';
-import { burst, clearParticles } from './particles.js?v=202611100828';
-import { plan } from './plan.js?v=202611100828';
+import { initVfx, vfxReady, playTimeline, skipTimelines, clearVfx, coins, rectOf, reducedMotion } from './vfx/engine.js?v=202611101109';
+import { burst, clearParticles } from './particles.js?v=202611101109';
+import { plan } from './plan.js?v=202611101109';
 import {
   MS, attackDef, counterDef, tintFor, commandDef, MODE_STYLE, commandTint, SWEEP_COMMANDS, COMMAND_TYPES, summonFor, defeatFor, defOf,
   RING_FLARES, SUPPORTER_ANIMS, ITEM_ANIMS, attackSfx, tintOf,
-} from './vfx/library.js?v=202611100828';
-import { sfx } from './sound.js?v=202611100828';
-import { speedFactor } from './settings.js?v=202611100828';
-import { RULES } from '../rules.js?v=202611100828';
-import { activeBrackets } from '../engine/game.js?v=202611100828';
-import { commandDef as cardCommand, itemDef, supporterDef, trainerDef } from '../engine/cards.js?v=202611100828';
-import { renderHandCard } from './board.js?v=202611100828';
+} from './vfx/library.js?v=202611101109';
+import { sfx } from './sound.js?v=202611101109';
+import { speedFactor } from './settings.js?v=202611101109';
+import { RULES } from '../rules.js?v=202611101109';
+import { activeBrackets } from '../engine/game.js?v=202611101109';
+import { commandDef as cardCommand, itemDef, supporterDef, trainerDef } from '../engine/cards.js?v=202611101109';
+import { renderHandCard } from './board.js?v=202611101109';
 
 const GOLD = ['#ffd36b', '#fff6c8'];
 const NAME = { player: 'You', ai: 'The Opponent' };
@@ -343,7 +343,7 @@ const BEATS = {
 
   async itemBought({ prev, e, t }) {
     const item = itemDef(e.id);
-    const from = e.from === 'mart' ? pointOf($('.v4-martbtn')) : fromHand(e.who, e.uid);
+    const from = e.from === 'mart' ? pointOf($('.v4-martcard')) : fromHand(e.who, e.uid);
     const to = e.then === 'store' ? pointOf(bagEl(e.who)) : pointOf(purseEl(e.who));
     sfx('coins', { who: e.who, spent: e.price });
     floatText(purseEl(e.who), `−$${e.price}`, 'coins', t(MS.number));
@@ -535,9 +535,85 @@ const BEATS = {
     lock.remove();
   },
 
-  async mart({ t }) {
-    const b = $('.v4-martbtn');
-    if (b) await animate(b, [{ filter: 'none' }, { filter: 'brightness(1.6)' }, { filter: 'none' }], t(MS.note * 0.6));
+  // G1: the PokéMart's new Item slides in (after its Stock ran out, or after Sold out).
+  async mart({ e, t }) {
+    const b = $('.v4-martcard');
+    if (!b) return;
+    floatText(b, `New: ${e.name}`, 'status', t(MS.note));
+    await animate(b, reducedMotion() ? [{ opacity: 0 }, { opacity: 1 }] : [{ transform: 'translateX(70px)', opacity: 0 }, { transform: 'translateX(-6px)', opacity: 1, offset: 0.7 }, { transform: 'none', opacity: 1 }], t(MS.martIn), { easing: 'cubic-bezier(.2,.9,.3,1)' });
+  },
+
+  // G1 (2.7): a Trainer Objective point, inspired by a Champion level-up track. A dark backdrop; the
+  // Trainer's portrait slides in large from that player's side with its name and Objective; below it a
+  // track of pips (one per point) ending in the Partner's portrait. Each new pip stamps in with a flash
+  // and a rising "+1", the count ticks over ("3 → 4 / 8") and the Partner glows a step brighter. Then
+  // the portrait slides back into the tracker, which pulses. The final point: the track fills and the
+  // portrait flares gold, leading straight into the Partner's arrival. Low motion keeps the stamp and
+  // the count but drops the movement.
+  async objective({ prev, next, e, t, st }) {
+    const tr = next.players[e.who].trainers.find((x) => x.uid === e.uid) ?? prev.players[e.who].trainers.find((x) => x.uid === e.uid);
+    if (!tr || skipping) return;
+    const points = st?.points ?? [e];
+    const final = !!st?.final;
+    const need = e.need;
+    const low = reducedMotion();
+    const start = points[0].progress - 1;
+    sfx('objective', { who: e.who, trainer: tr.name, progress: points.at(-1).progress, need, final });
+    const glow = (n) => `brightness(${(0.45 + (0.75 * n) / need).toFixed(2)}) saturate(${(0.6 + (0.6 * n) / need).toFixed(2)})`;
+    const back = add('v4-objback', '');
+    const panel = add(`v4-objpanel ${e.who}`, `<span class="por" style="background-image: url('../assets/cards/${tr.card.art}.jpg')"></span>
+      <div class="info"><b>${esc(tr.name)}</b><span>${esc(tr.objective.text)}</span></div>
+      <div class="track">${Array.from({ length: need }, (_, k) => `<i class="${k < start ? 'on' : ''}"></i>`).join('')}<span class="pt" style="background-image: url('../assets/cards/${tr.card.partner.art}.jpg'); filter: ${glow(start)}"></span></div>
+      <div class="count">${Math.min(start, need)} / ${need}</div>`);
+    const from = e.who === 'player' ? 420 : -420;
+    await Promise.all([
+      animate(back, [{ opacity: 0 }, { opacity: 1 }], t(MS.objIn), { fill: 'forwards' }),
+      animate(panel, low ? [{ opacity: 0 }, { opacity: 1 }] : [{ transform: `translate(-50%, calc(-50% + ${from}px)) scale(0.8)`, opacity: 0 }, { transform: 'translate(-50%, -50%) scale(1)', opacity: 1 }],
+        t(MS.objIn + MS.objSlide), { easing: 'cubic-bezier(.2,.9,.3,1)', fill: 'forwards' }),
+    ]);
+    const count = panel.querySelector('.count');
+    const pt = panel.querySelector('.pt');
+    for (const p of points) {
+      if (skipping) break;
+      const pip = panel.querySelectorAll('.track i')[Math.min(p.progress, need) - 1];
+      count.textContent = `${p.progress - 1} → ${Math.min(p.progress, need)} / ${need}`;
+      if (pip) {
+        pip.classList.add('on', 'new');
+        const at = pointOf(pip);
+        if (at) floatText(null, '+1', 'level', t(MS.objStamp * 2.2), { x: at.x, y: at.y - 10 });
+        pt.style.filter = glow(p.progress);
+        await animate(pip, [{ transform: 'scale(2.6)', opacity: 0.2, boxShadow: '0 0 0 0 rgba(255, 230, 140, 0)' }, { transform: 'scale(0.9)', opacity: 1, boxShadow: '0 0 18px 6px rgba(255, 230, 140, 0.95)', offset: 0.6 }, { transform: 'scale(1)', opacity: 1, boxShadow: '0 0 6px 2px rgba(255, 230, 140, 0.6)' }], t(MS.objStamp), { easing: 'ease-out' });
+      }
+    }
+    await wait(t(MS.objHold));
+    if (final && !skipping) {
+      // The final point: the track fills, the Trainer's portrait flares gold.
+      count.textContent = `${need} / ${need} · Objective complete!`;
+      panel.classList.add('final');
+      const por = panel.querySelector('.por');
+      await Promise.all([
+        play('v4-ring-flare', { target: por, tint: GOLD }, t),
+        animate(por, [{ boxShadow: '0 0 0 3px #ffe08a' }, { boxShadow: '0 0 60px 22px rgba(255, 210, 90, 0.95)', filter: 'brightness(1.5)' }, { boxShadow: '0 0 24px 8px rgba(255, 210, 90, 0.7)' }], t(MS.objFinal), { fill: 'forwards' }),
+        animate(panel.querySelector('.track'), [{ filter: 'none' }, { filter: 'brightness(1.8) drop-shadow(0 0 10px #ffe08a)' }, { filter: 'brightness(1.2)' }], t(MS.objFinal), { fill: 'forwards' }),
+      ]);
+    }
+    // Back into the tracker, which pulses.
+    const trk = trackerEl(e.uid);
+    const to = pointOf(trk);
+    const r = pointOf(panel);
+    await Promise.all([
+      animate(back, [{ opacity: 1 }, { opacity: 0 }], t(MS.objOut), { fill: 'forwards' }),
+      animate(panel, low || !to || !r ? [{ opacity: 1 }, { opacity: 0 }] : [{ transform: 'translate(-50%, -50%) scale(1)', opacity: 1 }, { transform: `translate(calc(-50% + ${to.x - r.x}px), calc(-50% + ${to.y - r.y}px)) scale(0.12)`, opacity: 0.3 }], t(MS.objOut), { easing: 'ease-in', fill: 'forwards' }),
+    ]);
+    back.remove();
+    panel.remove();
+    if (trk) {
+      const pip = trk.querySelectorAll('.pips i')[Math.min(points.at(-1).progress, need) - 1];
+      for (const p of points) trk.querySelectorAll('.pips i')[Math.min(p.progress, need) - 1]?.classList.add('on');
+      if (final) trk.classList.add('done');
+      animate(trk, [{ filter: 'none', transform: 'scale(1)' }, { filter: 'brightness(1.8)', transform: 'scale(1.04)' }, { filter: 'none', transform: 'scale(1)' }], t(MS.pip));
+      if (pip) animate(pip, [{ transform: 'scale(1)' }, { transform: 'scale(1.8)' }, { transform: 'scale(1)' }], t(MS.pip));
+    }
   },
 
   async round({ e, t }) { sfx('turn', { round: e.round }); await banner(`Round ${e.round}`, 'Battle', t, 'phase'); },
@@ -699,7 +775,7 @@ export async function present(prev, next, draw) {
       if (skipping) break;
       if (n === switchAt) toNew();
       const fn = BEATS[st.beat];
-      if (fn) await fn({ prev, next, e: st.e, i: st.i, t });
+      if (fn) await fn({ prev, next, e: st.e, i: st.i, t, st });
     }
   } catch (err) {
     console.error(err);
@@ -714,7 +790,7 @@ function finish() {
   skipping = false;
   for (const g of ghosts.values()) g.remove();
   ghosts = new Map();
-  for (const el of document.querySelectorAll('.v4-reveal, .v4-flyer, .v4-region, .v4-strip, .v4-sweep, .v4-stadium, .v4-domglow')) el.remove();
+  for (const el of document.querySelectorAll('.v4-reveal, .v4-flyer, .v4-region, .v4-strip, .v4-sweep, .v4-stadium, .v4-domglow, .v4-objback, .v4-objpanel')) el.remove();
 }
 
 // The effects layers on the stage: the WebGL canvas (unless ?nowebgl), the 2D fallback canvas, and the

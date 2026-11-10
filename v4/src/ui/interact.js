@@ -2,9 +2,9 @@
 // and the keyboard. It draws on its own layer (#v4-fx) inside the stage, above the board and below
 // dialogs, so a redraw of the match never loses the arrow. Every choice goes through flows.js, the same
 // path clicks take; nothing is committed until a legal drop, Enter, or the final click.
-import { attackers, commandModesFor, commandTargets } from '../engine/game.js?v=202611100828';
-import { hitsFor, evaluate, previewHTML, needsArrow, placementAt, commitHit, sameHit } from './flows.js?v=202611100828';
-import { reactOpen } from './board.js?v=202611100828';
+import { attackers, commandModesFor, commandTargets } from '../engine/game.js?v=202611101109';
+import { hitsFor, evaluate, previewHTML, needsArrow, placementAt, commitHit, sameHit } from './flows.js?v=202611101109';
+import { reactOpen } from './board.js?v=202611101109';
 
 const W = 1920;
 export function setupInteraction({ stage, ui, ctx, getState }) {
@@ -83,7 +83,7 @@ export function setupInteraction({ stage, ui, ctx, getState }) {
     let el = null;
     if (sel.kind === 'attack') el = document.querySelector(`.v4-row.player .v4-space[data-space="${sel.from}"]`);
     else if (sel.kind === 'item' && sel.from === 'bag') el = document.querySelector(`[data-bag="${sel.uid}"]`);
-    else if (sel.kind === 'item' && sel.from === 'mart') el = document.querySelector('.v4-martbtn');
+    else if (sel.kind === 'item' && sel.from === 'mart') el = document.querySelector('.v4-martcard');
     else if (sel.kind === 'react') el = document.querySelector(`[data-react="${sel.uid}"]`)?.closest('.v4-ropt');
     else el = document.querySelector(`.v4-hand [data-uid="${sel.uid}"]`);
     return el ? center(rectOf(el)) : null;

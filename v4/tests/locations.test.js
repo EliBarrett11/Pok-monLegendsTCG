@@ -6,8 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { RULES } from '../src/rules.js';
 import {
   createGame, applyAction, legalActions, locationOf, locationStarts, placeable, whyNot, weatherTotals, activeBrackets,
-  dominantOf, strengthIn, summonCost, damageOf,
-} from '../src/engine/game.js';
+  dominantOf, strengthIn, summonCost, damageOf, passBlockers } from '../src/engine/game.js';
 import { pokemonAt, cardAtRound, LOCATIONS, DEMO_DECK, WEATHER_BRACKETS } from '../src/engine/cards.js';
 import { chooseAction, moves } from '../src/ai/ai.js';
 
@@ -30,7 +29,8 @@ const place = (s, who, id, start) => {
   s.passesInARow = 0;
   return applyAction(s, { type: 'placeLocation', who, uid: c.uid, start });
 };
-const pass = (s) => applyAction(s, { type: 'pass', who: s.turn });
+// G1: a Ready Pokémon with unmatched Speed blocks Pass; these tests only move time on, so it's made Spent.
+const pass = (s) => { for (const sp of passBlockers(s, s.turn)) s.players[s.turn].row[sp].spent = true; return applyAction(s, { type: 'pass', who: s.turn }); };
 const nextRound = (s) => { const r = s.round; while (s.round === r && s.phase !== 'gameOver') s = pass(s); return s; };
 const loc = (s, id) => s.locations.find((l) => l.id === id);
 
@@ -149,7 +149,8 @@ const loc = (s, id) => s.locations.find((l) => l.id === id);
   // Route 119: summoning into it costs 1 less (minimum 0).
   s = battle();
   s = place(s, 'player', 'route-119', 0);
-  const c = { ...cardAtRound('charmander', 1), uid: 'c1' };
+  // (G1 cost curve: a Level 1 Ponyta costs 1.)
+  const c = { ...cardAtRound('ponyta', 1), uid: 'c1' };
   assert.equal(c.cost, 1);
   assert.equal(summonCost(s, c, 0), 0);
   assert.equal(summonCost(s, c, 6), 1, 'outside: full cost');
@@ -160,12 +161,12 @@ const loc = (s, id) => s.locations.find((l) => l.id === id);
   s.players.ai.exertMax = 0;
   assert.equal(whyNot(s, 'ai', 'summon', c), null, 'payable with no Energy because of the discount');
   s = applyAction(s, { type: 'summon', who: 'ai', uid: 'c1', space: 3 });
-  assert.equal(s.players.ai.row[3].name, 'Charmander');
+  assert.equal(s.players.ai.row[3].name, 'Ponyta');
   assert.equal(s.players.ai.exhaust.length, 0, 'nothing paid');
   // The AI offers only the spaces it can pay for (here: Route 119's lanes).
   s = battle();
   s = place(s, 'player', 'route-119', 0);
-  s.players.ai.hand = [{ ...cardAtRound('charmander', 1), uid: 'c2' }];
+  s.players.ai.hand = [{ ...cardAtRound('ponyta', 1), uid: 'c2' }];
   s.players.ai.baseEnergy = 0;
   s.players.ai.exertMax = 0;
   s.turn = 'ai';
@@ -229,7 +230,7 @@ const loc = (s, id) => s.locations.find((l) => l.id === id);
 
 // --- Dominance and its Recognition at Supper; ties give nothing ---------------------------------------------------------
 {
-  assert.equal(RULES.perDominance, 1);
+  assert.equal(RULES.perDominance, 3, 'G1: dominance is +3');
   let s = battle();
   s = place(s, 'player', 'cerulean-cape', 0);
   s = place(s, 'ai', 'lake-of-rage', 3);
