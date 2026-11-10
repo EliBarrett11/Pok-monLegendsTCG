@@ -31,10 +31,10 @@
 // per Retained card; Round 1: draw 7 then a mulligan, as in v1), Battle (alternating turns, one
 // action each: Summon, Attack, Retain, Pass; two Passes in a row end it), Supper (the hand is
 // discarded except Retained cards). Initiative switches each Round.
-import { RULES, SPEEDS, levelFor } from '../rules.js?v=202611101109';
-import { nextRandom, shuffle } from './random.js?v=202611101109';
-import { newEnergy, refreshEnergy, canPay, payCost, availableExert } from './energy.js?v=202611101109';
-import { DEMO_DECK, cardAtRound, pokemonAt, pathDef, locationDef, WEATHER_BRACKETS, FAVOURS, MODE_NAMES, ITEMS, BAG_SIZE } from './cards.js?v=202611101109';
+import { RULES, SPEEDS, levelFor } from '../rules.js?v=202611101304';
+import { nextRandom, shuffle } from './random.js?v=202611101304';
+import { newEnergy, refreshEnergy, canPay, payCost, availableExert } from './energy.js?v=202611101304';
+import { DEMO_DECK, cardAtRound, pokemonAt, pathDef, locationDef, WEATHER_BRACKETS, FAVOURS, MODE_NAMES, ITEMS, BAG_SIZE, TRIGGER_NAMES, opText, CHOSEN } from './cards.js?v=202611101304';
 
 export const PLAYERS = ['player', 'ai'];
 export const NAMES = { player: 'You', ai: 'The Opponent' };
@@ -46,7 +46,7 @@ const POSS = { player: 'Your', ai: 'The Opponent\'s' };
 export function createGame(seed = Date.now(), { decks = { player: DEMO_DECK, ai: DEMO_DECK } } = {}) {
   const s = {
     seed, rng: seed >>> 0, round: 1, phase: 'mulligan', turn: null, initiative: null, passesInARow: 0,
-    players: {}, locations: [], strats: [], reactWindow: null, mart: { pool: [], onSale: [null], stock: 0, soldOut: null }, tournament: null, winner: null, result: null, log: [], events: [],
+    players: {}, locations: [], strats: [], reactWindow: null, choice: null, mart: { pool: [], onSale: [null], stock: 0, soldOut: null }, tournament: null, winner: null, result: null, log: [], events: [],
   };
   for (const who of PLAYERS) {
     s.players[who] = {
@@ -151,8 +151,10 @@ export function legalTargets(s, who, from) {
   const a = s.players[who].row[from];
   if (!a) return [];
   const foe = opponentOf(who);
-  const out = pokemonOf(s, foe).filter(({ space }) => !guardOf(s, foe, space, a.attackType)).map(({ space }) => ({ kind: 'pokemon', space }));
-  if (!playerGuard(s, who, from, foe)) out.push({ kind: 'player' });
+  // G2: Infiltrator: its attacks ignore guards (Pokémon and Player Character).
+  const inf = hasKw(a, 'infiltrator');
+  const out = pokemonOf(s, foe).filter(({ space }) => inf || !guardOf(s, foe, space, a.attackType)).map(({ space }) => ({ kind: 'pokemon', space }));
+  if (inf || !playerGuard(s, who, from, foe)) out.push({ kind: 'player' });
   return out;
 }
 export const attackers = (s, who) => readySpaces(s, who).filter((sp) => legalTargets(s, who, sp).length);
@@ -306,6 +308,8 @@ export function playReason(s, who, card) {
 export function legalActions(s, who) {
   if (s.phase === 'gameOver') return [];
   if (s.phase === 'mulligan') return s.players[who].mulliganed ? [] : ['mulligan'];
+  // G2: a chosen-target On Summon waits for its target (the summoner's choice; it can't be cancelled).
+  if (s.choice) return s.choice.who === who ? ['choose'] : [];
   if (s.reactWindow) return s.reactWindow.reactor === who ? ['decline', ...(reactOptions(s, who).length ? ['react'] : [])] : [];
   if (s.phase !== 'battle' || s.turn !== who) return [];
   return [...(passReason(s, who) ? [] : ['pass']), ...(summonable(s, who).length ? ['summon'] : []), ...(placeable(s, who).length ? ['placeLocation'] : []),
@@ -317,6 +321,7 @@ export function legalActions(s, who) {
 }
 export function actor(s) {
   if (s.phase === 'mulligan') return PLAYERS.find((w) => !s.players[w].mulliganed) ?? null;
+  if (s.choice) return s.choice.who;
   if (s.reactWindow) return s.reactWindow.reactor;
   return s.phase === 'battle' ? s.turn : null;
 }
@@ -406,7 +411,23 @@ const ACTIONS = {
     applyCommand(s, who, plain, 'react', t);
     p.discard.push(plain);
     s.reactWindow = null;
+    drainTriggers(s);
     resolvePending(s, w.pending);
+  },
+
+  // G2: the target of a chosen-target On Summon (an enemy Pokémon, or one of yours). The rest of the
+  // trigger and any chained triggers resolve; then the turn ends (the summon was its action).
+  choose(s, { who, target }) {
+    const c = s.choice;
+    if (!c.targets.some((t) => t.who === target?.who && t.space === target.space)) throw new Error('Choose one of the glowing targets');
+    s.choice = null;
+    const src = s.players[c.who].row[c.space];
+    const ev = emit(s, 'trigger', { who: c.who, space: c.space, id: src?.id, name: c.name, on: 'summon', text: c.text, chosen: true, target });
+    watch(s, ev, () => applyOp(s, { who: c.who, space: c.space, uid: c.uid, card: src, ctx: {} }, c.op, target));
+    if (c.rest.length && src) runOps2(s, { who: c.who, space: c.space, uid: c.uid, card: src, ctx: {}, depth: c.depth }, c.rest);
+    drainTriggers(s);
+    if (s.choice) return;
+    endTurn(s, c.who, false);
   },
 
   // Let it happen: no React; the committed action resolves.
@@ -572,10 +593,14 @@ function resolvePending(s, pending) {
   // interrupted (the owner's turn goes on, or Supper continues to dominance).
   if (pending.type === 'strat') {
     resolveStratNow(s, pending.strat);
+    drainTriggers(s);
     if (resolveStrats(s, pending.owner, pending.at) && pending.at === 'supper') supperRest(s);
     return;
   }
   RESOLVE[pending.type](s, pending);
+  // G2: the action's triggers resolve (in order), then the turn ends. A chosen-target On Summon waits.
+  drainTriggers(s);
+  if (s.choice || s.phase === 'gameOver') return;
   endTurn(s, pending.who, false);
 }
 
@@ -586,10 +611,13 @@ const RESOLVE = {
   summon(s, { who, card, space }) {
     const p = s.players[who];
     if (p.row[space]) { p.discard.push(card); return fizzle(s, who, `${POSS[who]} ${card.name}`, 'its space is taken'); }
-    p.row[space] = { ...card, currentStrength: card.strength, spent: true, summonedRound: s.round, bonusAttack: 0, bonusStrength: 0, tempAttack: 0 };
-    const ev = emit(s, 'summoned', { who, space, id: card.id, name: card.name, level: card.level });
+    // G2: Quick Attack: it arrives Active instead of Spent.
+    const quick = hasKw(card, 'quickAttack');
+    p.row[space] = { ...card, currentStrength: card.strength, spent: !quick, summonedRound: s.round, bonusAttack: 0, bonusStrength: 0, tempAttack: 0 };
+    emit(s, 'summoned', { who, space, id: card.id, name: card.name, level: card.level, quick });
+    if (quick) kwEvent(s, who, space, 'Quick Attack');
     syncBonuses(s);
-    if (card.onSummon) watch(s, ev, () => runOps(s, who, card.onSummon));
+    queueTrigger(s, who, space, p.row[space], 'summon', {}, 1);
   },
 
   // The attack: the attacker and target must still be there (and the target still legal). A Ready
@@ -601,23 +629,48 @@ const RESOLVE = {
     const d = target.kind === 'pokemon' ? s.players[foe].row[target.space] : null;
     if (target.kind === 'pokemon' && (!d || d.uid !== targetUid)) { a.spent = true; return fizzle(s, who, `${POSS[who]} ${a.name}'s attack`, 'its target is gone'); }
     if (!legalTargets(s, who, from).some((t) => t.kind === target.kind && t.space === target.space)) { a.spent = true; return fizzle(s, who, `${POSS[who]} ${a.name}'s attack`, 'its target is guarded now'); }
-    const hit = damageOf(s, a);
+    const raw = damageOf(s, a);
     if (target.kind === 'player') {
       a.spent = true;
-      emit(s, 'attack', { who, from, target, amount: hit, name: a.name });
-      log(s, `${POSS[who]} ${a.name} attacked ${who === 'player' ? 'the Opponent' : 'you'} for ${hit}.`);
-      return gainRecognition(s, who, hit * RULES.perDamageToPlayer, `${a.name}'s attack`, { kind: 'pc', who: foe });
+      emit(s, 'attack', { who, from, target, amount: raw, name: a.name });
+      log(s, `${POSS[who]} ${a.name} attacked ${who === 'player' ? 'the Opponent' : 'you'} for ${raw}.`);
+      gainRecognition(s, who, raw * RULES.perDamageToPlayer, `${a.name}'s attack`, { kind: 'pc', who: foe });
+      queueTrigger(s, who, from, a, 'attack', { target }, 1);
+      return;
     }
+    // G2 (4.1): Shell reduces each instance of damage (minimum 1); Retaliate: when the attack damages
+    // the defender, the attacker takes X (its own Shell reduces that too); Overrun: the damage left over
+    // after defeating the target goes to the enemy Player Character as Recognition; Rage: +1 Attack for
+    // good to each survivor of damage. Then the triggers, in order (FOUNDATION_ASSUMPTIONS.md 5):
+    // the attacker's On Attack and On Knockout, then the defender's On Defend (or On Knockout from its
+    // hit-back), then On Defeated.
     const trades = isReady(s, d);
-    const back = trades ? damageOf(s, d) : 0;
-    d.currentStrength -= hit;
-    if (trades) a.currentStrength -= back;
+    const rawBack = trades ? damageOf(s, d) : 0;
+    const left = d.currentStrength;
+    const hit = damage(s, foe, target.space, raw);
+    const back = trades ? damage(s, who, from, rawBack) : 0;
+    const ret = hit > 0 ? kwNum(d, 'retaliate') : 0;
+    const retaliated = ret ? damage(s, who, from, ret) : 0;
+    if (retaliated) kwEvent(s, foe, target.space, 'Retaliate', retaliated);
     a.spent = true;
     if (trades) d.spent = true;
-    emit(s, 'attack', { who, from, target, amount: hit, back, name: a.name, targetName: d.name });
-    log(s, `${POSS[who]} ${a.name} attacked ${d.name} for ${hit}${trades ? `; ${d.name} was Ready and hit back for ${back}` : ''}.`);
-    if (d.currentStrength <= 0) defeat(s, foe, target.space, who);
-    if (a.currentStrength <= 0) defeat(s, who, from, foe);
+    emit(s, 'attack', { who, from, target, amount: hit, raw, back, retaliated, name: a.name, targetName: d.name });
+    log(s, `${POSS[who]} ${a.name} attacked ${d.name} for ${hit}${trades ? `; ${d.name} was Ready and hit back for ${back}` : ''}${retaliated ? `; Retaliate: ${retaliated} back` : ''}.`);
+    const dDown = d.currentStrength <= 0;
+    const aDown = a.currentStrength <= 0;
+    if (dDown && hasKw(a, 'overrun') && hit - left > 0) {
+      const over = hit - left;
+      kwEvent(s, who, from, 'Overrun', over);
+      gainRecognition(s, who, over * RULES.perDamageToPlayer, `${a.name}'s Overrun`, { kind: 'pc', who: foe });
+      if (s.phase === 'gameOver') return;
+    }
+    settle(s, foe, target.space, who, hit);
+    settle(s, who, from, foe, back + retaliated);
+    if (s.phase === 'gameOver') return;
+    if (!aDown) queueTrigger(s, who, from, a, 'attack', { target }, 1);
+    if (dDown && !aDown) queueTrigger(s, who, from, a, 'knockout', { target }, 1);
+    if (!dDown && hit > 0) queueTrigger(s, foe, target.space, d, 'defend', { attacker: { who, space: from } }, 2);
+    if (aDown && !dDown && back > 0 && a.currentStrength + retaliated <= 0) queueTrigger(s, foe, target.space, d, 'knockout', { target: { kind: 'pokemon', space: from } }, 2);
   },
 
   // A Command's Adapt: its effect (or it fizzles if the target is gone); the card is discarded.
@@ -656,13 +709,151 @@ export function applyCommand(s, who, card, mode, target) {
     } else throw new Error(`Unknown op ${op}`);
   });
   log(s, `${card.name} (${MODE_NAMES[mode]}): ${cardModeText(card, mode)} on ${c.name}.`);
+  drainTriggers(s);
   return true;
 }
+// One instance of damage to a Pokémon (G2: Shell first, minimum 1), then defeat or Rage.
 function hurt(s, side, space, n, by) {
-  const card = s.players[side].row[space];
+  const dealt = damage(s, side, space, n);
+  settle(s, side, space, by, dealt);
+  return dealt;
+}
+
+// --- G2: keywords and triggers (docs/v4-gameplay-update.md 4.1; adapted from v2/src/engine/game.js) ---
+// Keywords come from the card and from its Held Item: numbers add up.
+export const hasKw = (card, k) => !!(card?.keywords?.[k] || card?.held?.keywords?.[k]);
+export const kwNum = (card, k) => [card?.keywords?.[k], card?.held?.keywords?.[k]].reduce((n, v) => n + (typeof v === 'number' ? v : 0), 0);
+const kwEvent = (s, who, space, kw, amount = null) => emit(s, 'keyword', { who, space, kw, amount, name: s.players[who].row[space]?.name ?? null });
+// Shell X: each instance of damage it takes is X less, minimum 1.
+export const afterShell = (card, n) => { const sh = kwNum(card, 'shell'); return n > 0 && sh ? Math.max(1, n - sh) : n; };
+function damage(s, side, space, n) {
+  const c = s.players[side].row[space];
+  if (!c || n <= 0) return 0;
+  const dealt = afterShell(c, n);
+  if (dealt < n) kwEvent(s, side, space, 'Shell', n - dealt);
+  c.currentStrength -= dealt;
+  return dealt;
+}
+// After damage: at 0 Strength or less it's defeated; a survivor with Rage gains +1 Attack for good.
+function settle(s, side, space, by, dealt) {
+  const c = s.players[side].row[space];
+  if (!c || dealt <= 0) return;
+  if (c.currentStrength <= 0) return defeat(s, side, space, by);
+  if (hasKw(c, 'rage')) { c.attack += 1; kwEvent(s, side, space, 'Rage', 1); }
+}
+// "In its Location": a placed Location's lanes, every lane during the Tournament, or else just its lane.
+export function lanesHere(s, lane) {
+  if (s.tournament) return Array.from({ length: RULES.lanes }, (_, i) => i);
+  const l = locationAt(s, lane);
+  return l ? lanesOf(l) : [lane];
+}
+// Triggers wait in a queue and resolve after the action that caused them: by chain depth, then in a
+// fixed order (1 the acting Pokémon's, 2 the other Pokémon's, 3 On Defeated), each in the order queued.
+// A trigger's own effects can queue more (one level deeper); chains stop at MAX_CHAIN.
+export const MAX_CHAIN = 4;
+function queueTrigger(s, who, space, card, when, ctx = {}, order = 1) {
+  if (!card?.trigger || card.trigger.on !== when) return;
+  (s.triggers ??= []).push({ who, space, uid: card.uid, card: when === 'defeated' ? structuredClone(card) : null, when, ctx, order, depth: s.triggerDepth ?? 0 });
+}
+export function drainTriggers(s) {
+  if (s.draining) return;
+  s.draining = true;
+  try {
+    while (s.triggers?.length && s.phase !== 'gameOver' && !s.choice) {
+      const depth = Math.min(...s.triggers.map((t) => t.depth));
+      const t = s.triggers.filter((x) => x.depth === depth).sort((a, b) => a.order - b.order)[0];
+      s.triggers = s.triggers.filter((x) => x !== t);
+      if (t.depth >= MAX_CHAIN) { log(s, 'A chain of triggers stops here (too many in a row).'); emit(s, 'fizzled', { who: t.who, what: 'a trigger chain' }); continue; }
+      s.triggerDepth = t.depth + 1;
+      runTrigger(s, t);
+      s.triggerDepth = 0;
+    }
+  } finally {
+    s.draining = false;
+    if (!s.triggers?.length) delete s.triggers;
+    delete s.triggerDepth;
+  }
+}
+// A trigger resolves: its Pokémon must still be in play (except On Defeated, which uses its card as it was).
+function runTrigger(s, t) {
+  const live = s.players[t.who].row[t.space];
+  const card = t.when === 'defeated' ? t.card : live?.uid === t.uid ? live : null;
   if (!card) return;
-  card.currentStrength -= n;
-  if (card.currentStrength <= 0) defeat(s, side, space, by);
+  const src = { who: t.who, space: t.space, uid: t.uid, card, ctx: t.ctx, depth: t.depth };
+  runOps2(s, src, card.trigger.ops);
+}
+// The ops of a trigger, in order. A chosen target pauses for the owner's choice (s.choice); with no
+// legal choice that part fizzles.
+function runOps2(s, src, ops) {
+  const { who, space, card } = src;
+  const text = `${TRIGGER_NAMES[card.trigger.on]}: ${card.trigger.ops.map(opText).join(', then ')}`;
+  for (const [k, o] of ops.entries()) {
+    if (s.phase === 'gameOver') return;
+    if (CHOSEN.includes(o.to)) {
+      const targets = choiceTargets(s, src, o);
+      if (!targets.length) { fizzle(s, who, `${POSS[who]} ${card.name}'s ${TRIGGER_NAMES[card.trigger.on]}`, 'there is no target'); continue; }
+      s.choice = { who, space, uid: src.uid, name: card.name, op: o, rest: ops.slice(k + 1), targets, text, depth: src.depth ?? 0 };
+      emit(s, 'triggerChoice', { who, space, name: card.name, text, targets });
+      log(s, `${POSS[who]} ${card.name}'s On Summon: ${who === 'player' ? 'choose' : 'the Opponent chooses'} a target.`);
+      return;
+    }
+    const ev = emit(s, 'trigger', { who, space, id: card.id, name: card.name, on: card.trigger.on, text, op: o.op });
+    log(s, `${POSS[who]} ${card.name}: ${text}.`);
+    watch(s, ev, () => applyOp(s, src, o, null));
+  }
+}
+// The targets a chosen op can pick.
+export function choiceTargets(s, src, o) {
+  const foe = opponentOf(src.who);
+  if (o.to === 'chosenEnemy') return pokemonOf(s, foe).map(({ space }) => ({ who: foe, space }));
+  if (o.to === 'chosenOwn') return pokemonOf(s, src.who).map(({ space }) => ({ who: src.who, space }));
+  const here = lanesHere(s, src.space);
+  return pokemonOf(s, src.who).filter(({ space }) => space !== src.space && here.includes(space)).map(({ space }) => ({ who: src.who, space }));
+}
+// One op of a trigger, on its targets (a chosen target, or the ones its wording names).
+function applyOp(s, src, o, chosen) {
+  const { who } = src;
+  const foe = opponentOf(who);
+  const p = s.players[who];
+  const self = p.row[src.space]?.uid === src.uid ? p.row[src.space] : null;
+  const here = lanesHere(s, src.space);
+  const tgt = src.ctx?.target?.kind === 'pokemon' ? src.ctx.target.space : null;
+  const foes = (f = () => true) => pokemonOf(s, foe).filter(({ space }) => f(space)).map(({ space }) => ({ who: foe, space }));
+  const mine = (f = () => true) => pokemonOf(s, who).filter(({ space }) => f(space)).map(({ space }) => ({ who, space }));
+  let targets;
+  switch (o.to) {
+    case 'chosenEnemy': case 'chosenOwn': case 'chosenOtherOwnHere': targets = chosen ? [chosen] : []; break;
+    case 'eachEnemy': targets = foes(); break;
+    case 'eachEnemyHere': targets = foes((sp) => here.includes(sp)); break;
+    case 'eachEnemyTargetLoc': targets = tgt === null ? [] : foes((sp) => lanesHere(s, tgt).includes(sp)); break;
+    case 'otherEnemiesTargetLoc': targets = tgt === null ? [] : foes((sp) => sp !== tgt && lanesHere(s, tgt).includes(sp)); break;
+    case 'oneOtherEnemyTargetLoc': {
+      // "Another enemy Pokémon in the target's Location": the weakest (lowest Strength, then lowest lane).
+      const all = tgt === null ? [] : foes((sp) => sp !== tgt && lanesHere(s, tgt).includes(sp));
+      all.sort((a, b) => s.players[foe].row[a.space].currentStrength - s.players[foe].row[b.space].currentStrength || a.space - b.space);
+      targets = all.slice(0, 1);
+      break;
+    }
+    case 'eachOwnHere': targets = mine((sp) => here.includes(sp)); break;
+    case 'eachOtherOwnHere': targets = mine((sp) => sp !== src.space && here.includes(sp)); break;
+    case 'self': targets = self ? [{ who, space: src.space }] : []; break;
+    default: targets = [];
+  }
+  if (o.op === 'draw') return draw(s, who, o.amount);
+  if (o.op === 'energy') { p.baseEnergy += o.amount; return; }
+  if (o.op === 'damage') {
+    const dealt = targets.map((t) => ({ ...t, n: damage(s, t.who, t.space, o.amount) }));
+    for (const t of dealt) settle(s, t.who, t.space, who, t.n);
+    return;
+  }
+  for (const t of targets) {
+    const c = s.players[t.who].row[t.space];
+    if (!c) continue;
+    if (o.op === 'heal') heal(c, o.amount);
+    else if (o.op === 'tempAttack') { c.attack += o.amount; c.tempAttack = (c.tempAttack ?? 0) + o.amount; }
+    else if (o.op === 'attack') c.attack += o.amount;
+    else if (o.op === 'strength') { c.strength += o.amount; c.currentStrength += o.amount; }
+  }
 }
 
 // Pending Strats resolve (in the order played): the owner's at the start of their next turn, or
@@ -814,10 +1005,11 @@ function completeTrainer(s, who, t) {
 // side; then its On Summon effect.
 function partnerInto(s, who, card, space) {
   s.players[who].row[space] = { ...card, currentStrength: card.strength, spent: true, summonedRound: s.round, bonusAttack: 0, bonusStrength: 0, tempAttack: 0 };
-  const ev = emit(s, 'partnerArrived', { who, id: card.id, name: card.name, space, trainer: card.trainer });
+  emit(s, 'partnerArrived', { who, id: card.id, name: card.name, space, trainer: card.trainer });
   log(s, `${card.trainer}'s Partner ${card.name} arrives in lane ${space + 1}!`);
   syncBonuses(s);
-  if (card.onSummon) watch(s, ev, () => runOps(s, who, card.onSummon));
+  queueTrigger(s, who, space, s.players[who].row[space], 'summon', {}, 1);
+  drainTriggers(s);
 }
 // Waiting Partners arrive as soon as a space is free (checked after every action and at Breakfast).
 function partnersArrive(s) {
@@ -868,12 +1060,11 @@ export function runOps(s, who, ops) {
     if (s.phase === 'gameOver') return;
     if (o.op === 'draw') draw(s, who, o.amount);
     else if (o.op === 'damageAll') {
-      for (const { card, space } of pokemonOf(s, foe)) {
-        card.currentStrength -= o.amount;
-        if (card.currentStrength <= 0) defeat(s, foe, space, who);
-      }
+      const dealt = pokemonOf(s, foe).map(({ space }) => ({ space, n: damage(s, foe, space, o.amount) }));
+      for (const t of dealt) settle(s, foe, t.space, who, t.n);
     } else throw new Error(`Unknown op ${o.op}`);
   }
+  drainTriggers(s);
 }
 
 // A Pokémon at 0 Strength or less is defeated: it goes to its owner's Released Pile.
@@ -885,6 +1076,8 @@ function defeat(s, who, space, by) {
   if (card.held) { s.mart.pool.push(card.held); log(s, `${card.held.name} goes back to the PokéMart.`); delete card.held; }
   s.players[who].released.push(card);
   emit(s, 'defeated', { who, space, name: card.name, by });
+  // G2: On Defeated (it resolves after the action, with the card as it was, in its lane's Location).
+  queueTrigger(s, who, space, card, 'defeated', {}, 3);
   log(s, `${POSS[who]} ${card.name} was defeated.`);
   // G1 (2.5): a flat $1 for each enemy Pokémon defeated (Partners included).
   gainDollars(s, by, RULES.dollarsPerDefeat, `defeating ${card.name}`, { kind: 'space', who, space });
@@ -894,6 +1087,8 @@ function defeat(s, who, space, by) {
 
 function endTurn(s, who, passed) {
   if (s.phase === 'gameOver') return;
+  drainTriggers(s);
+  if (s.phase === 'gameOver' || s.choice) return;
   martTurn(s, who);
   s.passesInARow = passed ? s.passesInARow + 1 : 0;
   if (s.passesInARow >= 2) return supper(s);
@@ -1023,7 +1218,8 @@ function startRound(s, round) {
       const rain = activeBrackets(s).filter((b) => b.kind === 'healAll').reduce((n, b) => n + b.amount, 0);
       for (const { card, space } of pokemonOf(s, who)) {
         const l = locationAt(s, space);
-        const n = rain + (l?.passive.kind === 'heal' ? l.passive.amount : 0) + (card.held?.op === 'healBreakfast' ? card.held.amount : 0);
+        // G2: Regenerate X heals X at Breakfast too.
+        const n = rain + (l?.passive.kind === 'heal' ? l.passive.amount : 0) + (card.held?.op === 'healBreakfast' ? card.held.amount : 0) + kwNum(card, 'regenerate');
         if (n) heal(card, n);
       }
       for (const pile of ['hand', 'drawPile', 'discard']) p[pile] = p[pile].map((c) => (c.cardType === 'Pokémon' ? { ...cardAtRound(c.id, round), uid: c.uid, ...(c.retained ? { retained: false } : {}) } : c));
@@ -1040,6 +1236,9 @@ function startRound(s, round) {
   s.phase = 'battle';
   s.turn = s.initiative;
   s.passesInARow = 0;
+  // G2: On Breakfast triggers, for every Pokémon in play (the initiative player's first).
+  for (const who of [s.initiative, opponentOf(s.initiative)]) for (const { card, space } of pokemonOf(s, who)) queueTrigger(s, who, space, card, 'breakfast', {}, 1);
+  drainTriggers(s);
 }
 
 // F5: the Pokémon League Tournament begins: every placed Location is removed (its card to its owner's

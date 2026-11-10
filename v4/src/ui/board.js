@@ -8,18 +8,18 @@
 // Earlier stages, kept: F1–F5's actions and screens (Commands, React windows, Strats, Supporters,
 // Items, Trainers, the Tournament), UX1's Objective trackers, commandModesFor, the React window and
 // timer (main.js), no series shown, Recognition shown capped at 100.
-import { RULES } from '../rules.js?v=202611101109';
+import { RULES } from '../rules.js?v=202611101304';
 import {
   isReady, legalTargets, attackers, summonable, emptySpaces, whyNot, passEndsPhase, passSpends, passReason, passBlockers, availableExert, energyLeft,
   playerGuard, guardOf, placeable, locationStarts, weatherTotals, activeBrackets, dominantOf, strengthIn,
   actor, commandTargets, playableSupporters, playReason, favourMet,
   commandModesFor, damageOf,
   itemTargets, buyReason, tournamentDominant, tournamentStrength, boosted, buyableFromHand, buyableFromMart, usableFromBag, playableTrainers, trainerReason,
-} from '../engine/game.js?v=202611101109';
-import { WEATHER_BRACKETS, MODES, MODE_NAMES, FAVOURS, modeText, effectText, BAG_SIZE, PATHS, TRAINERS } from '../engine/cards.js?v=202611101109';
-import { baseEnergyFor, EXERT_LIMIT } from '../engine/energy.js?v=202611101109';
-import { icon, speedIcon, attackIcon, strengthIcon, typeIcon, STAT_NAMES, attackKey, strengthKey } from './icons.js?v=202611101109';
-import { hitsFor, commitHit } from './flows.js?v=202611101109';
+} from '../engine/game.js?v=202611101304';
+import { WEATHER_BRACKETS, MODES, MODE_NAMES, FAVOURS, modeText, effectText, BAG_SIZE, PATHS, TRAINERS, TRIGGER_NAMES, KEYWORD_ORDER, KEYWORD_NAMES, opText } from '../engine/cards.js?v=202611101304';
+import { baseEnergyFor, EXERT_LIMIT } from '../engine/energy.js?v=202611101304';
+import { icon, speedIcon, attackIcon, strengthIcon, typeIcon, STAT_NAMES, attackKey, strengthKey } from './icons.js?v=202611101304';
+import { hitsFor, commitHit } from './flows.js?v=202611101304';
 
 // UX3: the key list (the ? overlay and the hint at the bottom-right).
 export const KEY_LIST = [
@@ -30,6 +30,14 @@ export const KEY_LIST = [
 ];
 
 const ASSETS = '../assets';
+import { glossaryText } from '../engine/glossary.js?v=202611101304';
+// G2: a Pokémon's keywords as small chips (the glossary on hover), and its trigger: the name in bold,
+// then the effect in plain words.
+const kwChips = (c, cls = 'v4-kws') => {
+  const kws = KEYWORD_ORDER.filter((k) => c.keywords?.[k]);
+  return kws.length ? `<div class="${cls}">${kws.map((k) => `<span class="v4-kw" title="${esc(glossaryText(k))}">${KEYWORD_NAMES[k]}${c.keywords[k] === true ? '' : ` ${c.keywords[k]}`}</span>`).join('')}</div>` : '';
+};
+const trigLine = (c) => (c.trigger ? `<div class="v4-trig" title="${esc(glossaryText(c.trigger.on))}"><b>${TRIGGER_NAMES[c.trigger.on]}:</b> ${esc(c.trigger.ops.map(opText).join(', then '))}</div>` : '');
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const art = (c) => `${ASSETS}/cards/${c.art}.jpg`;
 const UI_ART = (n) => `${ASSETS}/ui/${n}.jpg`;
@@ -78,7 +86,7 @@ function boardCard(s, c, who, space, cls = '') {
   return `<div class="v4-card v4-mon${c.partner ? ' partner' : ''}${ready ? ' ready' : ''}${c.spent ? ' spent' : ''}${c.tempAttack > 0 ? ' aura' : ''} ${cls}" data-uid="${c.uid}" data-who="${who}" data-space="${space}" style="background-image: url('${art(c)}')" title="${esc(`${detail(c)}${ready ? ' · Ready' : c.spent ? ' · Spent' : ' · Active'}`)}">
     <span class="v4-lv">${c.partner ? '★' : `Lv ${c.level}`}</span>${c.partner ? '<span class="v4-chip2 partner">Partner</span>' : ''}
     ${c.held ? `<span class="v4-held" style="background-image: url('${art(c.held)}')" title="${esc(`Holds ${c.held.name}: ${c.held.text}`)}"></span>` : ''}
-    ${badges ? `<div class="v4-strats">${badges}</div>` : ''}${statBar(c)}
+    ${badges ? `<div class="v4-strats">${badges}</div>` : ''}${kwChips(c, 'v4-kws board')}${statBar(c)}
   </div>`;
 }
 
@@ -96,7 +104,7 @@ export function renderHandCard(s, c, cls = '', tip = detail(c)) {
   }
   // Locations and Supporters cost no Energy: no gem.
   let body = '';
-  if (isMon(c)) body = `${c.text ? `<div class="v4-rule">${esc(c.text)}</div>` : ''}${statBar(c, c.strength)}`;
+  if (isMon(c)) body = `${kwChips(c)}${trigLine(c)}${statBar(c, c.strength)}`;
   else if (isCmd(c)) {
     const modes = commandModesFor(s, 'player', c.uid);
     body = `<div class="v4-kind">Command</div>${modes.map((m) => `<div class="v4-mode${m.reason ? ' off' : ''}"${m.reason ? ` title="${esc(m.reason)}"` : ''}><b>${MODE_NAMES[m.mode].toUpperCase()}</b> ${esc(shortMode(c, m.mode))}<span class="c">${icon('energy')}${m.cost}</span></div>`).join('')}`;
@@ -115,6 +123,11 @@ export function promptFor(s, ui, ctx = {}) {
   const me = s.players.player;
   // UX4: the AI's pacing: a thinking pause, then its action named (C).
   if (ui.aiNote) return { tag: 'Opponent', text: esc(ui.aiNote) };
+  // G2: a chosen-target On Summon waits for its target (it can't be cancelled once summoned).
+  if (s.choice) {
+    if (s.choice.who !== 'player') return { tag: `${s.choice.name} · On Summon`, text: 'The Opponent is choosing a target…' };
+    return { tag: `${s.choice.name} · On Summon`, text: `${esc(opText(s.choice.op))}: choose <b>a glowing target</b>. (It's summoned: this can't be cancelled.)`, gold: true };
+  }
   if (s.phase === 'gameOver') return { tag: s.winner === 'player' ? 'Champion!' : 'Defeat', text: esc(s.log.at(-1)) };
   if (s.phase === 'mulligan') return { tag: 'Round 1 · Mulligan', text: me.mulliganed ? 'The Opponent is choosing…' : 'Choose any cards to put back into your Discard Pile; you draw as many.', gold: !me.mulliganed };
   // The React window (UX1).

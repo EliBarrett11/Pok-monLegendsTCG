@@ -41,7 +41,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   G1: the PokéMart no longer refreshes at Breakfast; its Item and Stock carry over between Rounds (section 9).
 
   In Round 1, after the draw, each player may mulligan (v1).
-- **Match setup (UX1, Elliott's rule):** each player's 40 cards are shuffled into the Draw Pile, Trainers included. For each Trainer card in the deck, an Objective tracker goes into that player's Trainer area, linked to the card. It is active from Round 1, costs nothing and starts at progress 0. Then comes Round 1's Breakfast.
+- **Match setup (UX1, Elliott's rule):** each player's deck (40 cards; 35 in the G2 temporary deck) is shuffled into the Draw Pile, Trainers included. For each Trainer card in the deck, an Objective tracker goes into that player's Trainer area, linked to the card. It is active from Round 1, costs nothing and starts at progress 0. Then comes Round 1's Breakfast.
 - **Supper order:**
   1. Pending Strats resolve, in the order played. G1: each may open a React window for the other player as it resolves; Supper waits for the window, then goes on.
   2. Dominance: placed Locations, or the Tournament.
@@ -79,12 +79,51 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   - **The cost curve (G1, gameplay update 2.3)** is `cost = ceil(Level / 2)` for every series: Level 1–2 cost 1, 3–4 cost 2, 5–6 cost 3, 7–8 cost 4. Nothing is free, and in any Round a Heavy card costs about 1 more than a Light one. Partners stay Level 8, cost 4.
 - **Why:** one formula and one rule for all cards; the Discard Pile becomes the deck again, so it develops too.
 - **Approval:** No for the cost curve (Elliott, 10 November 2026).
-- **The six evolution paths** (stats per Level; abilities on Magikarp L3–5 "On Summon: draw 1" and Charizard L7+ "On Summon: 2 damage to each enemy Pokémon"):
-  - Ponyta → Rapidash and Chinchou → Lanturn (Light);
-  - Squirtle → Wartortle → Blastoise and Growlithe → Arcanine (Mid);
-  - Magikarp → Gyarados and Charmander → Charmeleon → Charizard (Heavy).
-  - **Why:** existing Pokémon and art, with simple numbers.
-  - **Approval:** **Needed** (placeholder stats).
+- **The 10 lines (G2, gameplay update 4.2; approved by Elliott, 10 November 2026).** Stats are Attack / Strength at each Level of the series. Every form has one trigger; some have keywords.
+
+  | Line (copies) | Type, attack, Speed, guard | Forms by Level | Stats by Level | Triggers and keywords |
+  |---|---|---|---|---|
+  | Ponyta → Rapidash (2) | Fire, Physical, Swift | Ponyta 1–3, Rapidash 4–6 | 2/2, 3/2, 3/3, 4/4, 5/4, 6/5 | Ponyta: On Defeated: draw 1 card. Rapidash: Quick Attack; On Knockout: +1 Attack (kept) |
+  | Chinchou → Lanturn (2) | Electric, Special, Steady, Sp. Def guard | Chinchou 1–3, Lanturn 4–6 | 1/3, 2/3, 2/4, 3/5, 4/6, 4/7 | Chinchou: On Summon: +1 Energy this turn. Lanturn: On Attack: 1 damage to each enemy Pokémon in its Location |
+  | Shinx → Luxio → Luxray (1) | Electric, Physical, Swift | Shinx 1–2, Luxio 3–4, Luxray 5–6 | 2/2, 2/3, 3/3, 4/4, 5/5, 6/5 | Shinx: On Summon: 1 damage to an enemy Pokémon. Luxio: Infiltrator; On Knockout: draw 1 card. Luxray: Infiltrator; On Summon: 2 damage to an enemy Pokémon |
+  | Squirtle → Wartortle → Blastoise (2) | Water, Special, Steady, Def guard | Squirtle 2–3, Wartortle 4–5, Blastoise 6–7 | 2/4, 2/5, 3/6, 4/7, 5/8, 6/9 | Squirtle: On Summon: heal 2 to one of your Pokémon. Wartortle: Shell 1; On Summon: heal 2 to each of your Pokémon in its Location. Blastoise: Shell 1; On Attack: 2 damage to another enemy Pokémon in the target's Location |
+  | Growlithe → Arcanine (2) | Fire, Physical, Swift | Growlithe 2–4, Arcanine 5–7 | 3/3, 3/4, 4/4, 5/5, 6/6, 7/7 | Growlithe: On Summon: your other Pokémon in its Location get +1 Attack until Supper. Arcanine: Overrun; On Knockout: draw 1 card |
+  | Horsea → Seadra → Kingdra (1) | Water, Special, Steady (Kingdra Swift) | Horsea 2–3, Seadra 4–5, Kingdra 6–7 | 2/3, 3/3, 4/4, 5/5, 6/6, 7/7 | Horsea: On Summon: 1 damage to an enemy Pokémon. Seadra: Retaliate 1; On Summon: 1 damage to an enemy Pokémon. Kingdra: Infiltrator; On Summon: 2 damage to an enemy Pokémon |
+  | Wooper → Quagsire (1) | Water, Physical, Slow, Def guard | Wooper 2–3, Quagsire 4–7 | 2/4, 2/5, 3/7, 4/8, 4/9, 5/10 | Wooper: Regenerate 1; On Summon: +1 Strength (kept) to another of your Pokémon in its Location. Quagsire: Regenerate 1, Rage; On Summon: heal 2 to each of your other Pokémon in its Location |
+  | Magikarp → Gyarados (1) | Water, Physical, Steady | Magikarp 3–5, Gyarados 6–8 | 1/4, 1/5, 2/5, 7/8, 8/9, 9/10 | Magikarp: On Summon: draw 1 card. Gyarados: Rage; On Summon: 1 damage to each enemy Pokémon in its Location |
+  | Charmander → Charmeleon → Charizard (2) | Fire, Special, Steady (Charizard Swift) | Charmander 3–4, Charmeleon 5–6, Charizard 7–8 | 2/4, 3/4, 4/6, 5/6, 7/8, 8/9 | Charmander: On Attack: +1 Attack (kept). Charmeleon: Rage; On Summon: 1 damage to an enemy Pokémon. Charizard: Overrun; On Summon: 2 damage to each enemy Pokémon |
+  | Magby → Magmar → Magmortar (1) | Fire, Special, Steady | Magby 3–4, Magmar 5–6, Magmortar 7–8 | 2/3, 3/4, 4/5, 5/6, 7/7, 8/8 | Magby: On Defeated: 1 damage to each enemy Pokémon in its Location. Magmar: Retaliate 1; On Summon: 1 damage to an enemy Pokémon. Magmortar: On Attack: 1 damage to each other enemy Pokémon in the target's Location |
+
+  Light: Ponyta, Chinchou, Shinx (Levels 1–6). Mid: Squirtle, Growlithe, Horsea, Wooper (2–7). Heavy: Magikarp, Charmander, Magby (3–8). Partners: Starmie (On Summon: draw 2 cards), Ninetales (On Summon: 2 damage to each enemy Pokémon).
+  - **Approval:** No (Elliott, 10 November 2026); numbers are starting values for the simulation.
+- **The temporary deck (G2, until G3):** the 15 Pokémon of the new deck list (gameplay update 5.4) plus the 20 other cards of the foundation deck, 35 in all. Nothing depends on 40: the deck size is just the list's length.
+
+## 4b. Triggers and keywords (G2, gameplay update 4.1)
+
+- **Triggers** (one per form, as data; resolved by the engine):
+  - **On Summon:** when it arrives (a summon or a Partner).
+  - **On Attack:** after it attacks (a Pokémon or the Player Character), if it survived.
+  - **On Defend:** when it survives an attack that damaged it (attacks only, not Command or trigger damage).
+  - **On Defeated:** when it's defeated, by anything; its effects use the lane it stood in.
+  - **On Knockout:** when its attack, or its hit-back, defeats an enemy Pokémon, if it's still in play (as v2). A defeat by Retaliate alone isn't its hit-back.
+  - **On Breakfast:** at each Breakfast while it's in play (after Breakfast's heals and draw, the initiative player's first).
+- **Effects:** draw; +N Energy (added to Base Energy: usable this turn and the rest of the Round); damage to a chosen enemy Pokémon (On Summon only), to each enemy Pokémon, to each in its Location, or in the target's Location (each, each other, or "another": the weakest other one there, then the lowest lane); heal one of your Pokémon (chosen), each in its Location (optionally not itself), or itself; +N Attack until Supper to your other Pokémon in its Location; +N Attack or Strength (kept) to itself or to a chosen other Pokémon of yours in its Location.
+  - **In its Location:** a placed Location's lanes; all 9 in the Tournament; otherwise just its own lane.
+  - **The target's Location** for an attack on the Player Character: there is none, so that effect does nothing.
+  - **Chosen targets:** the summoner picks with the targeting arrow and its preview (the AI through its normal choice). The summon can't be cancelled; until the target is chosen, choosing is the only legal action. With no legal target that part fizzles, with a log line.
+- **Resolution order:** triggers resolve after the action that caused them, never in the middle of it, in a queue: by chain depth, then (1) the acting Pokémon's (the attacker's On Attack, then its On Knockout; an On Summon), (2) the other Pokémon's (the defender's On Defend, or On Knockout from its hit-back), (3) On Defeated, each in the order queued. A React's own triggers resolve right after the React, before the action it answered. Triggers left over resolve before the turn passes.
+- **Chains:** a trigger's effects can set off more triggers (a damage trigger defeating something fires On Defeated); those go one level deeper. A chain stops after 4 levels (MAX_CHAIN), with a log line.
+- **React:** triggers aren't Command Cards: they can't be Reacted to.
+- **Keywords** (from the card, and from a Held Item; numbers add up):
+  - **Quick Attack:** arrives Active instead of Spent.
+  - **Infiltrator:** its attacks ignore guards: every enemy Pokémon and the enemy Player Character are legal targets.
+  - **Overrun:** when its attack defeats an enemy Pokémon, the damage left over (after Shell) goes to the enemy Player Character as Recognition for you, 1 per damage (×1.5 in the Tournament, like any Recognition).
+  - **Shell X:** each instance of damage it takes is X less, minimum 1: attacks, hit-backs, Retaliate, Commands, triggers and Trainer Commands.
+  - **Regenerate X:** heals X at Breakfast, with Breakfast's other heals.
+  - **Retaliate X:** when an attack damages it, the attacker takes X (the attacker's Shell reduces it). Not for its own hit-back.
+  - **Rage:** +1 Attack for good each time it survives damage (any damage).
+- **Why:** v2's settled wording and its implementation (v2/src/engine/game.js), in v4's terms.
+- **Approval:** No for the rules (Elliott, 4.1). **Needed:** the resolution order; "another enemy Pokémon" picking the weakest; +N Energy lasting the Round; On Knockout needing its Pokémon still in play.
 
 ## 5. Speed, combat, guards and the Player Character
 
@@ -314,13 +353,14 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
 
 ## 12. The demo deck and the AI
 
-- **The deck:** one 40-card list, the same for both players (see `v4/README.md`, "The foundation deck").
+- **The deck:** one list, the same for both players (see `v4/README.md`). G2: 35 cards for now (the 15 new Pokémon and the foundation's 20 other cards) until G3's 40-card deck.
   - **Why:** section 9.
   - **Approval:** **Needed** (the counts).
 - **The AI:**
   - It is a greedy one-move AI like v2's and plays only through `applyAction`. It scores each legal move by its result.
   - It judges its own committed actions as if you let them happen.
   - It values a pending Strat as 70% resolved, PokéDollars and Bag Items by price, and active Objectives by their progress.
+  - G2: it reads triggers and keywords through the results it scores (Retaliate defeating its attacker, Shell, Overrun's Recognition), adds a little value for keywords on the board (Infiltrator's reach most), and picks an On Summon target by trying each one.
   - It never tries to play an Objective (UX1). It gets its Command modes, React included, from `commandModesFor`, the same helper as the hand display, and its React decisions are instant.
   - **Why:** section 16.
   - **Approval:** No.

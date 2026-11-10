@@ -9,7 +9,8 @@ import { pokemonAt, cardAtRound, DEMO_DECK, PATHS, LOCATIONS, COMMANDS, SUPPORTE
 import { chooseAction } from '../src/ai/ai.js';
 
 let n = 0;
-const mon = (id, level, extra = {}) => { const c = pokemonAt(id, level); return { ...c, uid: `m-${n++}`, currentStrength: c.strength, spent: true, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...extra }; };
+// G2: board Pokémon are staged plain (no trigger or keywords): these tests check rules; tests/g2.test.js checks the Pokémon.
+const mon = (id, level, extra = {}) => { const c = pokemonAt(id, level); return { ...c, keywords: {}, trigger: null, uid: `m-${n++}`, currentStrength: c.strength, spent: true, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...extra }; };
 const card = (id) => ({ ...cardAtRound(id, 1), uid: `c-${n++}` });
 // UX1: Trainer Objectives are active from setup; these checks leave them out unless `trainers` is true.
 const battle = (turn = 'player', { trainers = false } = {}) => {
@@ -30,7 +31,7 @@ const place = (s, who, id, start) => { s.players[who].hand.push(card(id)); s.tur
 
 // --- The final foundation deck (section 9): 40 cards, the same for both players, every feature --------------------------------
 {
-  assert.equal(DEMO_DECK.length, 40);
+  assert.equal(DEMO_DECK.length, 35, 'G2: the temporary deck (15 new Pokémon + the 20 other cards) until G3');
   const s = createGame(3);
   const ids = (w) => [...s.players[w].hand, ...s.players[w].drawPile].map((c) => c.id).sort();
   assert.deepEqual(ids('player'), [...DEMO_DECK].sort());

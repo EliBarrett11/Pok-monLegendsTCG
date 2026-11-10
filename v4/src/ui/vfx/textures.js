@@ -4,7 +4,7 @@
 // bold shapes, crisp edges). The built-in ones (dot, glow, streak, sparkle,
 // shard, ring, coin and the distortion maps) are always drawn in code.
 
-import { TEXTURES, ATLASES, BUILT_IN } from './shared.js?v=202611101109';
+import { TEXTURES, ATLASES, BUILT_IN } from './shared.js?v=202611101304';
 
 function canvas(w, h) {
   const c = document.createElement('canvas');

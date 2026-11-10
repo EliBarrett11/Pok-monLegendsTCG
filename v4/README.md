@@ -37,18 +37,22 @@ The rules for Ready, the unmatched-Speed Pass and trades follow v3's engine.
 
 **URL options:** `?seed=123` replays the same match; `?autoplay` lets the AI play both sides; `?debug` exposes `window.__v4` for checks.
 
-## The foundation deck (40 cards, the same list for both players)
+## The deck (G2: a temporary 35 cards, the same list for both players)
 
-One simple, neutral deck that shows every approved feature (spec section 9). Card data lives in `v4/src/engine/cards.js` (`DEMO_DECK`).
+One neutral deck that shows every approved feature. Card data lives in `v4/src/engine/cards.js` (`DEMO_DECK`). G2 replaced the 20 old Pokémon with the 15 of the new deck (`docs/v4-gameplay-update.md` 4.2 and 5.4). The other 20 cards stay until G3 rebuilds them into the final 40. Nothing depends on a 40-card deck: the size is the list's length, and the tests check 35 for now.
 
-| Card | Type | Count | What it demonstrates |
+| Card | Type | Count | Triggers and keywords |
 |---|---|---|---|
-| Ponyta → Rapidash | Pokémon, Light (L1–6) | 4 | Light development, Swift Speed, Physical attacks |
-| Chinchou → Lanturn | Pokémon, Light (L1–6) | 3 | a Special Defence guard |
-| Squirtle → Wartortle → Blastoise | Pokémon, Mid (L2–7) | 4 | Mid development, three evolution Levels, a Defence guard |
-| Growlithe → Arcanine | Pokémon, Mid (L2–7) | 4 | Mid development, Physical attacker |
-| Magikarp → Gyarados | Pokémon, Heavy (L3–8) | 3 | Heavy development, an On Summon ability (draw 1, Levels 3–5) |
-| Charmander → Charmeleon → Charizard | Pokémon, Heavy (L3–8) | 2 | three evolution Levels, an On Summon ability at Level 7+ |
+| Ponyta → Rapidash | Pokémon, Light (L1–6) | 2 | On Defeated: draw 1 · Rapidash: Quick Attack, On Knockout: +1 Attack |
+| Chinchou → Lanturn | Pokémon, Light (L1–6) | 2 | On Summon: +1 Energy · Lanturn: On Attack: 1 to each enemy in its Location |
+| Shinx → Luxio → Luxray | Pokémon, Light (L1–6) | 1 | On Summon: 1 damage to an enemy · Luxio, Luxray: Infiltrator |
+| Squirtle → Wartortle → Blastoise | Pokémon, Mid (L2–7) | 2 | heals · Wartortle, Blastoise: Shell 1 · Blastoise: On Attack splash |
+| Growlithe → Arcanine | Pokémon, Mid (L2–7) | 2 | On Summon: +1 Attack to your others · Arcanine: Overrun, On Knockout: draw 1 |
+| Horsea → Seadra → Kingdra | Pokémon, Mid (L2–7) | 1 | On Summon: damage to an enemy · Seadra: Retaliate 1 · Kingdra: Infiltrator |
+| Wooper → Quagsire | Pokémon, Mid (L2–7) | 1 | Regenerate 1 · Quagsire: Rage, On Summon: heal your others |
+| Magikarp → Gyarados | Pokémon, Heavy (L3–8) | 1 | On Summon: draw 1 · Gyarados: Rage, On Summon: 1 to each enemy in its Location |
+| Charmander → Charmeleon → Charizard | Pokémon, Heavy (L3–8) | 2 | On Attack: +1 Attack · Charmeleon: Rage · Charizard: Overrun, 2 to each enemy |
+| Magby → Magmar → Magmortar | Pokémon, Heavy (L3–8) | 1 | On Defeated splash · Magmar: Retaliate 1 · Magmortar: On Attack splash |
 | Cerulean Cape | Location (2 lanes, 3 Rounds) | 1 | +1 Strength passive, Rain |
 | Mt. Ember | Location (3 lanes, 3 Rounds) | 1 | +1 Attack passive, Sun |
 | Lake of Rage | Location (2 lanes, 2 Rounds) | 1 | heal at Breakfast, Sun |
@@ -66,7 +70,7 @@ One simple, neutral deck that shows every approved feature (spec section 9). Car
 | Misty | Trainer | 1 | Objective "Defeat 8 enemy Pokémon" → Starmie (Level 8); Trainer Command: draw 2 |
 | Blaine | Trainer | 1 | Objective "Dominate a Location 5 times" → Ninetales (Level 8); Trainer Command: 1 damage to each enemy Pokémon |
 
-**In total:** 20 Pokémon, 4 Locations, 6 Command Cards, 4 Supporters, 4 Items and 2 Trainers.
+**In total (G2):** 15 Pokémon, 4 Locations, 6 Command Cards, 4 Supporters, 4 Items and 2 Trainers: 35 cards.
 
 The PokéMart has its own pool of one each of the six Items: Potion, Oran Berry, Choice Band, Charcoal, Mystic Water and Leftovers. So Oran Berry, Mystic Water and Leftovers can only be bought there.
 
@@ -630,3 +634,38 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
     - The existing tests were updated for the new values: costs, $ per defeat, Favour, dominance and the Tournament; summons can't be Reacted to; a resolving Strat opens a window; the one-slot PokéMart. Their time-advancing Pass helpers make a blocking Pokémon Spent first.
     - The layout check has new scenarios: the PokéMart card, a long Item text, Sold out, End turn blocked, an Objective moment mid-beat, the final point, and a React window on a resolving Strat. The mart drawer scenario is gone.
     - `node v4/tools/sim-g1.mjs` runs the 100-match AI-vs-AI summary.
+- **G2 — Pokémon triggers and keywords, and the 10 new lines** (`docs/v4-gameplay-update.md` 2.3, 3, 4 and 7; approved by Elliott).
+  - **The 10 lines (4.2)** replace `PATHS` exactly: forms by Level, stats, Speed, guards, one trigger per form and the keywords. The new lines are Shinx → Luxio → Luxray, Horsea → Seadra → Kingdra, Wooper → Quagsire and Magby → Magmar → Magmortar, all with existing art. Partners keep their stats; their On Summon is now a trigger.
+  - **Triggers (4.1):** On Summon, On Attack, On Defend, On Defeated, On Knockout and On Breakfast, as data on each form, resolved by the engine.
+    - **Effects:** draw; +N Energy; damage to a chosen enemy (On Summon only), to each enemy, to each in its Location or in the target's Location; heals; +Attack until Supper; +Attack or +Strength (kept).
+    - **Resolution:** after the action that caused them, in a fixed order: by chain depth, then the acting Pokémon's, the other Pokémon's, then On Defeated. Chains go 4 levels at most.
+    - Triggers can't be Reacted to.
+    - "In its Location" means just its own lane when there's no Location.
+  - **On Summon targets:** a chosen-target On Summon pauses the summon for its target. The summoner picks with the targeting arrow and a preview (the engine's own `choose` action on a copy). It can't be cancelled. With no target it fizzles with a log line. The AI tries each target and keeps the best.
+  - **Keywords (4.1):** Quick Attack, Infiltrator, Overrun, Shell X, Regenerate X, Retaliate X and Rage. They stack with Items, Locations and Weather (a Held Item's keywords add up). Shell reduces Retaliate too, as in v2.
+  - **Card text:** the trigger name in bold, then the effect in plain words; keywords as small chips, with the glossary text on hover. The hand shows chips and the trigger line; board cards show the chips; the full text is in the tooltips.
+  - **The glossary** (`src/engine/glossary.js`, new): every trigger and keyword in v2's wording, adapted to v4's terms (Ready, the Player Character).
+  - **Previews:** `attackPreview` now reports the damage after Shell, Retaliate, the keyword callouts and the triggers an attack sets off. `choicePreview` previews an On Summon target.
+  - **Presentation:**
+    - **Trigger beats:** the card flashes the trigger's name, then the effect. Damage plays the Pokémon's own attack in miniature (its counter version); heals, buffs and draws use the existing presets.
+    - **Keyword callouts:** "Shell −1", "Retaliate 1", "Rage +1", "Overrun 3" and "Quick Attack", kept inside the stage. An attack's Shell and Retaliate show after its impact.
+    - **Electric Physical** (Shinx, Luxio, Luxray): the spark rush, from the shared lightning and impact effects, is in the attack table and has its sound hook.
+  - **The AI** reads triggers and keywords through the results it scores (it won't attack into a Retaliate that would defeat its attacker for nothing), adds a little value for keywords on the board (Infiltrator's reach most), and picks On Summon targets.
+  - **Docs:** `FOUNDATION_ASSUMPTIONS.md` has the 10-line table and a new section 4b (triggers, effects, keywords, resolution order, chains).
+  - **Checks:**
+    - **`node v4/tests/g2.test.js`** (449 checks): every line at every Level against 4.2 (written out independently), each trigger's moment, each keyword, the order, the chain cap, no React, choices, Overrun's Recognition (and ×1.5 in the Tournament), and 20 AI matches.
+    - **`ux3.test.js`** now checks 300 random attacks with the new Pokémon. Every preview matches the real result, including Shell, Retaliate, Rage, Overrun, On Attack, On Knockout and On Defeated.
+    - The older tests stage plain board Pokémon (no trigger or keywords), since they check rules.
+    - **`node v4/tools/g2check.mjs`** (browser): a hand of new Pokémon; the player's chosen-target On Summon (prompt, glowing targets, preview, click); an On Knockout chain into an On Defeated; Retaliate defeating an attacker; the Electric Physical attack; no page errors.
+    - **`node v4/tools/sim-g2.mjs`** is the 100-match summary.
+  - **Results:**
+    - All 11 test files pass.
+    - The layout check is ok at all three sizes, with the trigger text on hand cards at 1280×720.
+    - `g2check` passes 6 of 6 with no page errors.
+    - **The 100-match simulation:**
+      - median 7 Rounds (5–9);
+      - the first player wins 55%;
+      - Recognition: damage 40%, Overrun 2%, defeats 23%, Location dominance 21%, Favours 9%, Objectives 3%;
+      - each line is summoned in 68% (Magby) to 99% (Charmander) of the matches where it's drawn;
+      - 5.3 On Summon target choices per match;
+      - keywords acting per match: Rage 5.6, Shell 3.8, Quick Attack 1.2, Overrun 1.0, Retaliate 0.7.

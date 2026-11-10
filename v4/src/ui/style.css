@@ -465,3 +465,13 @@ button { font-family: inherit; color: inherit; }
 .v4-pass.blocked b { opacity: 0.55; }
 .v4-objpanel .info b { line-height: 1.35; } .v4-objpanel .count { line-height: 1.35; }
 .v4-sealed.resolving { z-index: 47; border-color: #ffe08a; box-shadow: 0 0 22px 8px rgba(255, 210, 90, 0.95); }
+
+/* --- G2: keyword chips, the trigger line, trigger and keyword callouts ------------------------------------ */
+.v4-kws { display: flex; flex-wrap: wrap; gap: 3px; padding: 3px 9px 0; }
+.v4-kw { display: inline-block; padding: 0 6px; border-radius: 6px; font-size: 11px; font-weight: 800; line-height: 15px; letter-spacing: 0.03em; color: #2a1606; background: #f0c860; border: 1px solid #fff0b8; cursor: help; white-space: nowrap; }
+.v4-trig { padding: 2px 9px 0; font-size: 12.5px; line-height: 1.18; color: #ead9b5; }
+.v4-trig b { color: #ffe08a; font-weight: 800; }
+.v4-kws.board { position: absolute; left: 4px; right: 4px; bottom: 40px; padding: 0; justify-content: center; pointer-events: auto; }
+.v4-kws.board .v4-kw { font-size: 10px; line-height: 13px; padding: 0 4px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.7); }
+.v4-float.trigger { color: #ffe08a; font-size: 26px; text-shadow: 0 2px 0 #6b4a10, 0 0 14px rgba(255, 210, 90, 0.8); }
+.v4-float.kw { color: #fff; font-size: 22px; font-family: var(--font-text); font-weight: 800; padding: 1px 10px; border-radius: 8px; background: rgba(120, 70, 20, 0.85); border: 1.5px solid #f0c860; text-shadow: none; }

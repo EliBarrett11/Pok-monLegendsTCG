@@ -8,12 +8,12 @@
 import {
   EVENT_BEATS, MS, MOMENTS, attackDef, counterDef, commandMs, summonFor, defeatFor, timelineDuration, impactScale, defOf, V4_TIMELINES,
   SUPPORTER_ANIMS, ITEM_ANIMS, TRAINER_COMMAND_ANIMS,
-} from './vfx/library.js?v=202611101109';
+} from './vfx/library.js?v=202611101304';
 
 const NEED = {
   attack: 'old', command: 'old', react: 'old', seal: 'old', trainerCommand: 'old', supporter: 'old', itemBought: 'old', itemUsed: 'old',
   defeat: 'old', dominance: 'old', locationRemoved: 'old', retain: 'old', supperHand: 'old',
-  summon: 'new', partner: 'new', locationPlaced: 'new', tournament: 'new', breakfast: 'new', mart: 'new', objective: 'any',
+  summon: 'new', partner: 'new', locationPlaced: 'new', tournament: 'new', breakfast: 'new', mart: 'new', objective: 'any', trigger: 'any', keyword: 'any',
   recognition: 'any', coins: 'any', pip: 'any', trackerComplete: 'any', note: 'any', round: 'any', supper: 'any', champion: 'any', turn: 'any',
 };
 const foeOf = (who) => (who === 'player' ? 'ai' : 'player');
@@ -55,6 +55,8 @@ export function beatMs(step, prev, next) {
     case 'round': case 'supper': case 'turn': return MOMENTS.banner.ms;
     case 'champion': return MOMENTS.champion.ms;
     case 'mart': return MOMENTS.mart.ms;
+    case 'trigger': return MOMENTS.trigger.ms;
+    case 'keyword': return MOMENTS.keyword.ms;
     case 'objective': return MOMENTS.objective.ms + MS.objStamp * ((step.points?.length ?? 1) - 1) + (step.final ? MS.objFinal : 0);
     case 'note': return MS.note;
     default: return 0;
@@ -63,7 +65,15 @@ export function beatMs(step, prev, next) {
 
 // The beats of one action, in order. factor: the speed (1 Normal, 1.5 Slow, 0.5 Fast, 0 Instant).
 export function plan(prev, next, factor = 1) {
-  const ev = next.events ?? [];
+  // G2: an attack's Shell and Retaliate callouts are emitted as its damage lands, just before the attack
+  // event: they show after the attack (at its impact), so move them behind it.
+  const ev = [...(next.events ?? [])];
+  for (let i = 0; i < ev.length; i++) {
+    if (ev[i].type !== 'attack') continue;
+    let j = i;
+    while (j > 0 && ev[j - 1].type === 'keyword' && ['Shell', 'Retaliate'].includes(ev[j - 1].kw)) j -= 1;
+    if (j < i) { const moved = ev.splice(j, i - j); ev.splice(j + 1, 0, ...moved); i = j + moved.length; }
+  }
   const steps = [];
   const used = new Set();
   ev.forEach((e, i) => {

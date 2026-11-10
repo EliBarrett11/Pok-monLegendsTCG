@@ -2,18 +2,18 @@
 // Pokémon Legends v4 — entry point (F1): you against the AI, on a fixed 1920×1080 stage scaled
 // to fit the window. ?seed=123 replays the same shuffle and AI choices; ?autoplay lets the AI play
 // both sides; ?debug exposes window.__v4 for the layout check (v4/tools/layout.mjs).
-import { createGame, applyAction, actor, energyLeft, playReason, passReason } from './engine/game.js?v=202611101109';
-import { chooseAction } from './ai/ai.js?v=202611101109';
-import { renderMatch, reactOpen } from './ui/board.js?v=202611101109';
-import { pokemonAt, cardAtRound } from './engine/cards.js?v=202611101109';
-import { setupInteraction } from './ui/interact.js?v=202611101109';
-import { present, setupPresenter, isPresenting, resetFx, stampRings, skip } from './ui/present.js?v=202611101109';
-import { speedFactor, setSpeed, speedName, lowMotion, setLowMotionSetting } from './ui/settings.js?v=202611101109';
-import { MS } from './ui/vfx/library.js?v=202611101109';
-import { played } from './ui/sound.js?v=202611101109';
-import { MODE_NAMES } from './engine/cards.js?v=202611101109';
+import { createGame, applyAction, actor, energyLeft, playReason, passReason } from './engine/game.js?v=202611101304';
+import { chooseAction } from './ai/ai.js?v=202611101304';
+import { renderMatch, reactOpen } from './ui/board.js?v=202611101304';
+import { pokemonAt, cardAtRound } from './engine/cards.js?v=202611101304';
+import { setupInteraction } from './ui/interact.js?v=202611101304';
+import { present, setupPresenter, isPresenting, resetFx, stampRings, skip } from './ui/present.js?v=202611101304';
+import { speedFactor, setSpeed, speedName, lowMotion, setLowMotionSetting } from './ui/settings.js?v=202611101304';
+import { MS } from './ui/vfx/library.js?v=202611101304';
+import { played } from './ui/sound.js?v=202611101304';
+import { MODE_NAMES } from './engine/cards.js?v=202611101304';
 
-export const BUILD = 'G1 — rules and economy: Pass, React, cost curve, Recognition, PokéDollars, the one-Item PokéMart, Objective moments';
+export const BUILD = 'G2 — Pokémon triggers and keywords, and the 10 new lines';
 
 const STAGE = { width: 1920, height: 1080 };
 const stage = document.getElementById('stage');
@@ -54,6 +54,9 @@ ctx.setLowMotion = (on) => { setLowMotionSetting(on); ctx.lowMotion = lowMotion(
 ctx.tournamentSeen = () => stampRings();
 let interaction = null;
 function redraw() {
+  // G2: the player's chosen-target On Summon: the targeting flow asks for it at once.
+  if (state?.choice?.who === 'player' && !ui.presenting && ui.select?.kind !== 'choice') { ui.select = { kind: 'choice', space: state.choice.space }; ui.focus = null; }
+  if (!state?.choice && ui.select?.kind === 'choice') ui.select = null;
   syncReactClock();
   renderMatch(root, state, ui, ctx);
   interaction?.refresh();
@@ -184,6 +187,7 @@ function describe(s, a) {
     case 'useItem': return `${who} uses ${card.name} on ${on({ who: a.who, space: a.target.space })}`;
     case 'trainerCommand': return `${who} plays ${card.name} (Trainer Command)`;
     case 'retain': return `${who} Retains a card`;
+    case 'choose': return `${who}'s ${s.choice.name} On Summon targets ${s.players[a.target.who].row[a.target.space].name}`;
     case 'pass': return `${who} ends the turn (Pass)`;
     case 'mulligan': return `${who} ${a.cards?.length ? `mulligans ${a.cards.length}` : 'keeps the hand'}`;
     default: return `${who}: ${a.type}`;
@@ -199,6 +203,7 @@ function aimFor(a) {
   if (a.type === 'attack') { from = space(a.who, a.from); to = a.target.kind === 'player' ? q(`.v4-ring.${foe}`) : space(foe, a.target.space); }
   else if (a.type === 'summon') { from = hand; to = space(a.who, a.space); }
   else if (a.type === 'command' || a.type === 'react') { from = hand; to = space(a.target.who, a.target.space); }
+  else if (a.type === 'choose') { from = space(a.who, state.choice.space); to = space(a.target.who, a.target.space); }
   else if (a.type === 'placeLocation') { from = hand; to = space(a.who, a.start); }
   else if (a.type === 'useItem' || (a.type === 'buyItem' && a.then === 'use')) { from = a.type === 'useItem' ? q(`.v4-hud.${a.who === 'ai' ? 'opp' : 'you'} .v4-bag`) : a.from === 'mart' ? q('.v4-martcard') : hand; to = space(a.who, a.target.space); }
   if (!from || !to || !interaction) return null;

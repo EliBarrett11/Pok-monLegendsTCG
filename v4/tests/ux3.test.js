@@ -18,11 +18,12 @@ const strengthNow = (s, who, space, uid) => (s.players[who].row[space]?.uid === 
 // --- attackPreview against 200+ real attacks ---------------------------------------------------------------------------
 {
   let checked = 0;
+  const g2cover = {};
   const cover = { location: 0, weather: 0, held: 0, tournament: 0, hitBack: 0, player: 0, defeat: 0 };
   const charcoal = { ...cardAtRound('charcoal', 1), uid: 'held-test' };
-  for (let m = 0; checked < 220 && m < 60; m++) {
+  for (let m = 0; checked < 300 && m < 60; m++) {
     let s = createGame(1000 + m);
-    for (let step = 0; step < 900 && s.phase !== 'gameOver' && checked < 220; step++) {
+    for (let step = 0; step < 900 && s.phase !== 'gameOver' && checked < 300; step++) {
       const who = actor(s);
       if (!who) break;
       if (m % 3 === 2 && s.round >= 3 && !s.tournament && s.phase === 'battle' && !s.reactWindow) { s = structuredClone(s); s.tournament = { startedRound: s.round, reason: 'test' }; s.locations = []; syncBonuses(s); }
@@ -44,7 +45,12 @@ const strengthNow = (s, who, space, uid) => (s.players[who].row[space]?.uid === 
         // The damage, and its parts.
         if (atk) assert.equal(pv.damage, atk.amount, 'damage');
         assert.equal(pv.parts.reduce((n, p) => n + p.n, 0), damageOf(s, a), 'the parts add up to the attack number');
-        assert.equal(pv.damage, damageOf(s, a));
+        assert.equal(pv.raw, damageOf(s, a));
+        // G2: keywords and triggers set off by the attack, as the real result has them.
+        const real = [...evs.events, ...(evs.reactWindow ? resolve(evs).events : [])];
+        assert.deepEqual(pv.keywords.map((k) => k.kw), real.filter((e) => e.type === 'keyword').map((e) => e.kw), 'keyword callouts');
+        for (const k of pv.keywords) g2cover[k.kw] = (g2cover[k.kw] ?? 0) + 1;
+        for (const t of pv.triggers) g2cover[t.on] = (g2cover[t.on] ?? 0) + 1;
         // Rewards for both players.
         assert.deepEqual(pv.rewards, gainOf(s, after, who), 'rewards');
         if (d) {
@@ -76,9 +82,11 @@ const strengthNow = (s, who, space, uid) => (s.players[who].row[space]?.uid === 
       s = applyAction(s, chooseAction(s, who, { rng: rnd }));
     }
   }
-  assert.ok(checked >= 200, `200+ attacks checked (${checked})`);
+  assert.ok(checked >= 300, `300 attacks checked (${checked})`);
+  for (const k of ['Shell', 'Retaliate', 'Rage', 'Overrun', 'attack', 'knockout', 'defeated'])   // (no 4.2 line has On Defend: tests/g2.test.js stages it)
+    assert.ok(g2cover[k] > 0, `G2 covered: ${k} (${JSON.stringify(g2cover)})`);
   for (const [key, n] of Object.entries(cover)) assert.ok(n > 0, `covered: ${key} (${n})`);
-  console.log(`  attackPreview: ${checked} attacks agree with applyAction (${Object.entries(cover).map(([a, b]) => `${a} ${b}`).join(', ')})`);
+  console.log(`  attackPreview: ${checked} attacks agree with applyAction (${Object.entries(cover).map(([a, b]) => `${a} ${b}`).join(', ')}; G2: ${Object.entries(g2cover).map(([a, b]) => `${a} ${b}`).join(', ')})`);
 }
 
 // --- effectPreview against real results: every Command mode, every Item, both Trainer Commands ---------------------------------

@@ -12,7 +12,7 @@
 import {
   TIMELINES, BUDGETS as ROOT_BUDGETS, COUNTERS, SUMMONS, attackAnimation, composeAttack, composeCounter,
   STRATEGY_OPENING, tintOf, impactScale, timelineDuration, MAX_SCALE,
-} from './shared.js?v=202611101109';
+} from './shared.js?v=202611101304';
 
 export { TIMELINES, composeAttack, composeCounter, tintOf, impactScale, timelineDuration, MAX_SCALE };
 
@@ -39,6 +39,9 @@ export const BUDGETS = {
   // G1 (2.7): a Trainer Objective point moment: ~1.2 s, a little longer for each extra point in the
   // same action, and the final point's longer version (the track fills, the portrait flares gold).
   objective: { min: 900, max: 2800 },
+  // G2: a trigger (the card flashes its name, then the effect in miniature) and a keyword callout.
+  trigger: { min: 400, max: 1500 },
+  keyword: { min: 200, max: 900 },
   aim: { min: 250, max: 600 },           // the AI's arrow before its beat (~0.4 s)
   note: { min: 300, max: 1200 },         // a word floating off something
 };
@@ -49,6 +52,9 @@ export const BUDGETS = {
 export const ATTACK_NAMES = {
   'fire-physical': 'Flame Wheel', 'fire-special': 'Flamethrower', 'water-physical': 'Waterfall',
   'water-special': 'Hydro Pump', 'electric-special': 'forked lightning',
+  // G2: Shinx, Luxio and Luxray: a charging spark rush (the shared electric-physical: crackling charge,
+  // a dash wrapped in sparks, a lightning impact).
+  'electric-physical': 'spark rush',
 };
 // Electric Special in v4: forked lightning, the shared bolt with a second, later fork.
 const FORKED = (() => {
@@ -231,6 +237,10 @@ export const MS = {
   objOut: 300,         // the portrait slides back into the tracker, which pulses
   objFinal: 900,       // the final point: the track fills and the portrait flares gold
   martIn: 500,
+  // G2: a trigger's flash, its effect in miniature, a keyword's callout.
+  triggerFlash: 380,
+  triggerEffect: 650,
+  keyword: 700,
 };
 
 // Each composed moment's total at Normal (for the budget check in tests/ux4.test.js).
@@ -256,6 +266,8 @@ export const MOMENTS = {
   objective: { budget: 'objective', ms: MS.objIn + MS.objSlide + MS.objStamp + MS.objHold + MS.objOut },
   objectiveFinal: { budget: 'objective', ms: MS.objIn + MS.objSlide + MS.objStamp + MS.objHold + MS.objFinal + MS.objOut },
   mart: { budget: 'item', ms: MS.martIn },
+  trigger: { budget: 'trigger', ms: MS.triggerFlash + MS.triggerEffect },
+  keyword: { budget: 'keyword', ms: MS.keyword * 0.6 },
 };
 
 // --- Every engine event type and the beat that shows it ----------------------------------------------
@@ -296,12 +308,16 @@ export const EVENT_BEATS = {
   retained: { when: 'before', beat: 'retain', budget: 'note', sfx: null },
   pass: { when: 'before', beat: 'note', budget: 'note', sfx: null },
   reshuffled: { when: 'after', beat: 'note', budget: 'note', sfx: null },
+  // G2: triggers and keywords.
+  trigger: { when: 'after', beat: 'trigger', budget: 'trigger', sfx: 'trigger' },
+  keyword: { when: 'after', beat: 'keyword', budget: 'keyword', sfx: 'keyword' },
+  triggerChoice: { when: 'quiet', beat: null, budget: null, sfx: null },
 };
 
 // The sound hooks (src/ui/sound.js names them; every beat calls one).
 export const SFX = ['attack-fire-physical', 'attack-fire-special', 'attack-water-physical', 'attack-water-special', 'attack-electric-special',
   'hit', 'defeat', 'heal', 'summon', 'partner', 'recognition', 'coins', 'command-adapt', 'command-strat', 'react', 'location-place',
-  'tournament', 'turn', 'victory', 'objective'];
+  'tournament', 'turn', 'victory', 'objective', 'trigger', 'keyword', 'attack-electric-physical'];
 export const attackSfx = (card) => `attack-${String(card?.type).toLowerCase()}-${String(card?.attackType).toLowerCase()}`;
 
 // Speed (D): timeline ms per real ms is 1 / factor. Instant draws at once.

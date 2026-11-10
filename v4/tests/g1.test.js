@@ -11,7 +11,8 @@ let n = 0;
 let checks = 0;
 const ok = (c, m) => { assert.ok(c, m); checks += 1; };
 const eq = (a, b, m) => { assert.deepEqual(a, b, m); checks += 1; };
-const mon = (id, level, extra = {}) => { const c = pokemonAt(id, level); return { ...c, uid: `m-${n++}`, currentStrength: c.strength, spent: false, summonedRound: 0, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...extra }; };
+// G2: board Pokémon are staged plain (no trigger or keywords): these tests check rules; tests/g2.test.js checks the Pokémon.
+const mon = (id, level, extra = {}) => { const c = pokemonAt(id, level); return { ...c, keywords: {}, trigger: null, uid: `m-${n++}`, currentStrength: c.strength, spent: false, summonedRound: 0, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...extra }; };
 const card = (id, round = 1) => ({ ...cardAtRound(id, round), uid: `c-${n++}` });
 const battle = (turn = 'player', energy = 6) => {
   let s = createGame(5);
@@ -94,7 +95,7 @@ const types = (s) => s.events.map((e) => e.type);
   eq(t.reactWindow, null, 'no window for a Trainer Command');
   // A Strat being played doesn't; resolving at the start of its owner's next turn does.
   s = battle();
-  s.players.ai.row[4] = mon('squirtle', 6, { spent: true });   // Strength 9
+  s.players.ai.row[4] = mon('squirtle', 6, { spent: true, strength: 9, currentStrength: 9 });   // Strength 9
   give(s, 'ai', 'recover');
   s = applyAction(s, { type: 'command', who: 'player', uid: give(s, 'player', 'ember'), mode: 'strat', target: { who: 'ai', space: 4 } });
   eq(s.reactWindow, null, 'no window when a Strat is played face-down');
@@ -128,7 +129,7 @@ const types = (s) => s.events.map((e) => e.type);
   // At Supper: the window opens before dominance, and Supper goes on once it closes.
   let s = battle();
   s.players.player.row[0] = mon('squirtle', 5, { spent: true });
-  s.players.ai.row[4] = mon('squirtle', 6, { spent: true });
+  s.players.ai.row[4] = mon('squirtle', 6, { spent: true, strength: 9, currentStrength: 9 });
   const loc = card('mt-ember');
   s.players.player.hand.push(loc);
   s = applyAction(s, { type: 'placeLocation', who: 'player', uid: loc.uid, start: 0 });

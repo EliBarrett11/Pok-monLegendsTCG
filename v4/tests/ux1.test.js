@@ -8,7 +8,8 @@ import { chooseAction } from '../src/ai/ai.js';
 import { renderMatch, reactSentence } from '../src/ui/board.js';
 
 let n = 0;
-const mon = (id, level, extra = {}) => { const c = pokemonAt(id, level); return { ...c, uid: `m-${n++}`, currentStrength: c.strength, spent: true, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...extra }; };
+// G2: board Pokémon are staged plain (no trigger or keywords): these tests check rules; tests/g2.test.js checks the Pokémon.
+const mon = (id, level, extra = {}) => { const c = pokemonAt(id, level); return { ...c, keywords: {}, trigger: null, uid: `m-${n++}`, currentStrength: c.strength, spent: true, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...extra }; };
 const card = (id) => ({ ...cardAtRound(id, 1), uid: `c-${n++}` });
 const PILES = ['drawPile', 'hand', 'discard'];
 const deckCount = (p) => PILES.reduce((k, pile) => k + p[pile].length, 0);
@@ -36,10 +37,10 @@ const battle = (seed = 31, turn = 'player') => {
       assert.equal(t.startedRound, 1, 'active from Round 1');
       assert.ok([...p.drawPile, ...p.hand].some((c) => c.uid === t.cardUid && c.cardType === 'Trainer'), 'linked to its card\'s uid');
     }
-    assert.equal(p.drawPile.length + p.hand.length, 40);
+    assert.equal(p.drawPile.length + p.hand.length, 35, 'G2: the temporary 35-card deck');
     assert.equal([...p.drawPile, ...p.hand].filter((c) => c.cardType === 'Trainer').length, 2, 'both Trainers stay in the deck');
   }
-  assert.equal(DEMO_DECK.length, 40);
+  assert.equal(DEMO_DECK.length, 35, 'G2: the temporary 35-card deck until G3');
 }
 
 // --- No Objective action; a Trainer in hand is only a Trainer Command, discarded, its Objective untouched ------------------------------
@@ -59,7 +60,7 @@ const battle = (seed = 31, turn = 'player') => {
   assert.ok(after.players.player.discard.some((x) => x.uid === c.uid), 'to the Discard Pile (it keeps cycling)');
   const t2 = after.players.player.trainers.find((t) => t.name === 'Misty');
   assert.deepEqual([t2.progress, t2.complete], [0, false], 'its Objective stays active');
-  assert.equal(deckCount(after.players.player), 40);
+  assert.equal(deckCount(after.players.player), 35, 'G2: the temporary 35-card deck');
 }
 
 // --- Completing an Objective takes the card from the Draw Pile, the hand or the Discard Pile ---------------------------------------
@@ -74,7 +75,7 @@ for (const where of ['drawPile', 'hand', 'discard']) {
   p[from] = p[from].filter((x) => x !== c);
   if (where === 'hand') c.retained = true;   // Retained or not, it's taken
   p[where].push(c);
-  assert.equal(deckCount(p), 40);
+  assert.equal(deckCount(p), 35, 'G2: the temporary 35-card deck');
   tr.progress = tr.objective.need - 1;   // one defeat short
   p.row[0] = mon('growlithe', 7, { spent: false });
   s.players.ai.row[3] = mon('ponyta', 1, { currentStrength: 1 });
@@ -85,7 +86,7 @@ for (const where of ['drawPile', 'hand', 'discard']) {
   assert.ok(done.complete, `complete (${where})`);
   assert.equal(done.progress, done.objective.need);
   assert.ok(!PILES.some((k) => q[k].some((x) => x.uid === tr.cardUid)), `the card left the ${where}`);
-  assert.equal(deckCount(q), 39, 'the deck total drops to 39');
+  assert.equal(deckCount(q), DEMO_DECK.length - 1, 'the deck total drops by 1');
   assert.equal(q.row[1].name, 'Starmie', 'the Partner arrives in the first free space');
   assert.equal(q.recognition, rec + RULES.perDefeat + RULES.perObjective, '+2 for the Objective');
   assert.equal(q.trainers.length, 2, 'the completed tracker stays');

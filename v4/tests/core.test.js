@@ -9,7 +9,8 @@ import {
 import { pokemonAt, cardAtRound, PATHS, DEMO_DECK } from '../src/engine/cards.js';
 import { payCost, refreshEnergy, newEnergy, availableExert, canPay } from '../src/engine/energy.js';
 
-const mon = (id, level, extra = {}) => { const c = pokemonAt(id, level); return { ...c, uid: `t-${id}-${level}-${Math.random()}`, currentStrength: c.strength, spent: false, ...extra }; };
+// G2: board Pokémon are staged plain (no trigger or keywords): these tests check rules; tests/g2.test.js checks the Pokémon.
+const mon = (id, level, extra = {}) => { const c = pokemonAt(id, level); return { ...c, keywords: {}, trigger: null, uid: `t-${id}-${level}-${Math.random()}`, currentStrength: c.strength, spent: false, ...extra }; };
 const battle = (seed = 1) => {
   let s = createGame(seed);
   s = applyAction(s, { type: 'mulligan', who: 'player', cards: [] });
@@ -79,7 +80,7 @@ const clear = (s) => { for (const w of ['player', 'ai']) s.players[w].row = s.pl
   assert.ok(costFor(8) > costFor(3), 'cost rises with Level');
   // Cards in hand and deck gain +1 Level each Round; the battlefield keeps a snapshot.
   let s = battle(3);
-  const card = { ...cardAtRound('squirtle', 1), uid: 'snap' };
+  const card = { ...cardAtRound('growlithe', 1), uid: 'snap' };   // (G2: no chosen-target On Summon)
   s.players.player.hand.push(card);
   s.turn = 'player';
   s.players.player.baseEnergy = 5;
@@ -92,7 +93,7 @@ const clear = (s) => { for (const w of ['player', 'ai']) s.players[w].row = s.pl
   s = nextRound(s);
   s = nextRound(s);
   assert.equal(s.players.player.row[4].level, 2, 'the summoned Pokémon is a snapshot: it does not develop');
-  assert.equal(s.players.player.row[4].name, 'Squirtle');
+  assert.equal(s.players.player.row[4].name, 'Growlithe');
   const later = [...s.players.player.hand, ...s.players.player.drawPile, ...s.players.player.discard].find((c) => c.uid === inDeck.uid);
   assert.equal(later.level, Math.min(before + 2, SERIES_RANGE[later.series][1]), 'cards off the battlefield gained a Level each Round');
 }
@@ -182,11 +183,11 @@ const clear = (s) => { for (const w of ['player', 'ai']) s.players[w].row = s.pl
   const a = battle(7);
   a.turn = 'player';
   clear(a);
-  a.players.player.row[2] = mon('growlithe', 5);        // Arcanine 5/6, Swift
-  a.players.ai.row[6] = mon('ponyta', 2);               // 3/3 Swift: Ready, hits back
+  a.players.player.row[2] = mon('growlithe', 5);        // Arcanine 5/5, Swift
+  a.players.ai.row[6] = mon('ponyta', 2);               // 3/2 Swift: Ready, hits back
   const r0 = a.players.player.recognition;
   const after = applyAction(a, { type: 'attack', who: 'player', from: 2, target: { kind: 'pokemon', space: 6 } });
-  assert.equal(after.players.player.row[2].currentStrength, 6 - 3, 'the Ready target hit back');
+  assert.equal(after.players.player.row[2].currentStrength, a.players.player.row[2].strength - a.players.ai.row[6].attack, 'the Ready target hit back');
   assert.ok(after.players.player.row[2].spent);
   assert.equal(after.players.ai.row[6], null);
   assert.equal(after.players.ai.released.at(-1).name, 'Ponyta', 'defeated Pokémon go to the Released Pile');

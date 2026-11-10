@@ -9,7 +9,8 @@ import { pokemonAt, cardAtRound, ITEMS, TRAINERS, DEMO_DECK, BAG_SIZE } from '..
 import { chooseAction } from '../src/ai/ai.js';
 
 let n = 0;
-const mon = (id, level, extra = {}) => { const c = pokemonAt(id, level); return { ...c, uid: `m-${n++}`, currentStrength: c.strength, spent: true, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...extra }; };
+// G2: board Pokémon are staged plain (no trigger or keywords): these tests check rules; tests/g2.test.js checks the Pokémon.
+const mon = (id, level, extra = {}) => { const c = pokemonAt(id, level); return { ...c, keywords: {}, trigger: null, uid: `m-${n++}`, currentStrength: c.strength, spent: true, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...extra }; };
 const card = (id) => ({ ...cardAtRound(id, 1), uid: `c-${n++}` });
 const battle = (turn = 'player', energy = 6, dollars = 10) => {
   let s = createGame(9);
@@ -103,7 +104,7 @@ const stock = (s, id, slot = 0) => {
   assert.equal(s.players.player.row[3].held.id, 'mystic-water');
   // From the PokéMart, used now.
   s = battle();
-  s.players.player.row[0] = mon('ponyta', 2, { currentStrength: 1 });
+  s.players.player.row[0] = mon('growlithe', 3, { currentStrength: 1 });   // Strength 4
   stock(s, 'oran-berry', 0);
   s = applyAction(s, { type: 'buyItem', who: 'player', from: 'mart', slot: 0, then: 'use', target: { space: 0 } });
   assert.equal(s.players.player.row[0].currentStrength, 3);
@@ -236,6 +237,7 @@ const stock = (s, id, slot = 0) => {
   // A space frees: it arrives (after that action), and its On Summon resolves.
   s.players.ai.row[1] = mon('growlithe', 7, { spent: false });
   s.players.player.row[8].currentStrength = 1;
+  s.players.player.hand = [];   // (no React card)
   s.turn = 'ai';
   const aiStr = s.players.ai.row[0].currentStrength;
   s = applyAction(s, { type: 'attack', who: 'ai', from: 1, target: { kind: 'pokemon', space: 8 } });

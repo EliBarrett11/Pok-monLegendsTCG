@@ -5,19 +5,19 @@
 // action. The presenter never changes the state: it gets prev and next and calls draw() once.
 // Without WebGL the 2D particles stand in (particles.js); numbers, banners and moves are page elements
 // and always play. Every beat calls a sound hook (sound.js).
-import { initVfx, vfxReady, playTimeline, skipTimelines, clearVfx, coins, rectOf, reducedMotion } from './vfx/engine.js?v=202611101109';
-import { burst, clearParticles } from './particles.js?v=202611101109';
-import { plan } from './plan.js?v=202611101109';
+import { initVfx, vfxReady, playTimeline, skipTimelines, clearVfx, coins, rectOf, reducedMotion } from './vfx/engine.js?v=202611101304';
+import { burst, clearParticles } from './particles.js?v=202611101304';
+import { plan } from './plan.js?v=202611101304';
 import {
   MS, attackDef, counterDef, tintFor, commandDef, MODE_STYLE, commandTint, SWEEP_COMMANDS, COMMAND_TYPES, summonFor, defeatFor, defOf,
   RING_FLARES, SUPPORTER_ANIMS, ITEM_ANIMS, attackSfx, tintOf,
-} from './vfx/library.js?v=202611101109';
-import { sfx } from './sound.js?v=202611101109';
-import { speedFactor } from './settings.js?v=202611101109';
-import { RULES } from '../rules.js?v=202611101109';
-import { activeBrackets } from '../engine/game.js?v=202611101109';
-import { commandDef as cardCommand, itemDef, supporterDef, trainerDef } from '../engine/cards.js?v=202611101109';
-import { renderHandCard } from './board.js?v=202611101109';
+} from './vfx/library.js?v=202611101304';
+import { sfx } from './sound.js?v=202611101304';
+import { speedFactor } from './settings.js?v=202611101304';
+import { RULES } from '../rules.js?v=202611101304';
+import { activeBrackets } from '../engine/game.js?v=202611101304';
+import { commandDef as cardCommand, itemDef, supporterDef, trainerDef, TRIGGER_NAMES } from '../engine/cards.js?v=202611101304';
+import { renderHandCard } from './board.js?v=202611101304';
 
 const GOLD = ['#ffd36b', '#fff6c8'];
 const NAME = { player: 'You', ai: 'The Opponent' };
@@ -92,8 +92,10 @@ const pointOf = (el) => (el?.isConnected ? centre(rectOf(el)) : null);
 
 // A number or word rising off something.
 function floatText(el, text, kind, ms, at = null) {
-  const p = at ?? pointOf(el);
-  if (!p || skipping || ms <= 0) return;
+  const p0 = at ?? pointOf(el);
+  if (!p0 || skipping || ms <= 0) return;
+  // G2: every callout stays inside the stage (it rises up to ~64 px; a wide one keeps clear of the edges).
+  const p = { x: Math.max(150, Math.min(1770, p0.x)), y: Math.max(110, Math.min(1040, p0.y)) };
   const n = add(`v4-float ${kind}`, esc(text), { x: p.x, y: p.y - 20 });
   const a = n.animate([
     { transform: 'translate(-50%, 0) scale(0.6)', opacity: 0 },
@@ -374,7 +376,7 @@ const BEATS = {
     if (!el || !card) return;
     sfx('summon', { who: e.who, level: e.level });
     await play(summonFor(card), { target: el, tint: tintFor(card), fire: card.type === 'Fire' }, t);
-    await onSummon(el, card, e, t);
+    // (G2: its On Summon is its own beat: the trigger event that follows.)
   },
 
   async partner({ next, e, t }) {
@@ -392,7 +394,6 @@ const BEATS = {
     }
     if (el && card) {
       await play('v4-partner', { target: el, tint: GOLD }, t);
-      await onSummon(el, card, e, t);
     }
   },
 
@@ -535,6 +536,28 @@ const BEATS = {
     lock.remove();
   },
 
+  // G2: a trigger: the card flashes with the trigger's name, then its effect (triggerEffect).
+  async trigger({ prev, next, e, t }) {
+    const el = cardEl(e.who, e.space);
+    const from = el ?? spaceEl(e.who, e.space);
+    const card = next.players[e.who].row[e.space] ?? prev.players[e.who].row[e.space] ?? prev.players[e.who].released?.find((c) => c.name === e.name) ?? { type: 'Normal', attackType: 'Special' };
+    sfx('trigger', { who: e.who, on: e.on, name: e.name });
+    floatText(from, `${TRIGGER_NAMES[e.on] ?? 'Trigger'}${e.chosen ? '' : ''}`, 'trigger', t(MS.note * 1.2));
+    if (el) await animate(el, [{ filter: 'none', transform: 'scale(1)' }, { filter: 'brightness(1.9) drop-shadow(0 0 14px #ffe08a)', transform: 'scale(1.05)', offset: 0.4 }, { filter: 'none', transform: 'scale(1)' }], t(MS.triggerFlash));
+    else await wait(t(MS.triggerFlash));
+    await triggerEffect(e, card, from, t);
+  },
+
+  // G2: a keyword that acts: a small callout on its card ("Shell −1", "Retaliate 1", "Rage +1", "Overrun 3").
+  async keyword({ e, t }) {
+    const el = cardEl(e.who, e.space) ?? spaceEl(e.who, e.space);
+    const text = { Shell: `Shell −${e.amount}`, Retaliate: `Retaliate ${e.amount}`, Rage: 'Rage +1', Overrun: `Overrun ${e.amount}`, 'Quick Attack': 'Quick Attack' }[e.kw] ?? e.kw;
+    sfx('keyword', { who: e.who, kw: e.kw, amount: e.amount });
+    floatText(el, text, 'kw', t(MS.keyword));
+    if (el && e.kw === 'Rage') el.classList.add('raged');
+    await wait(t(MS.keyword * 0.6));
+  },
+
   // G1: the PokéMart's new Item slides in (after its Stock ran out, or after Sold out).
   async mart({ e, t }) {
     const b = $('.v4-martcard');
@@ -669,30 +692,34 @@ async function commandEffect(prev, e, el, t, style) {
   if (!skipping) await wait(t(120));
 }
 
-// On Summon after a summon or a Partner: damage to each enemy uses the Pokémon's own attack
-// animation (at the first, a short hit on the rest); a draw shows at the Draw Pile.
-async function onSummon(el, card, e, t) {
+// G2: a trigger's effect, after its card flashes the trigger's name: damage plays the Pokémon's own
+// attack in miniature (its shorter counter version) at the first target and a short hit on the rest;
+// heals, buffs and draws use the existing presets.
+async function triggerEffect(e, card, from, t) {
   const hits = e.hits ?? [];
-  if (!card.onSummon) return;
-  if (!hits.length) {
-    if (card.onSummon.some((o) => o.op === 'draw')) floatText(el, card.text || 'On Summon', 'status', t(MS.note));
-    return;
-  }
-  floatText(el, 'On Summon', 'status', t(MS.note));
-  cause = card.type;
-  sfx(attackSfx(card), { who: e.who, onSummon: true });
-  const [first, ...rest] = hits;
   const shown = new Set();
   const show = (h) => { if (!shown.has(h)) { shown.add(h); showHit(h, t); } };
-  await play(attackDef(card), {
-    attacker: el, target: cardEl(first.who, first.space), damage: first.before - first.after, tint: tintFor(card), fire: card.type === 'Fire',
-    on: {
-      impact: () => {
-        show(first);
-        rest.forEach((h, k) => wait(t(70 * k)).then(() => { play('v4-effect-hit', { target: cardEl(h.who, h.space), damage: h.before - h.after, tint: tintFor(card) }, t); show(h); }));
-      },
-    },
-  }, t);
+  const at = (h) => cardEl(h.who, h.space);
+  if (e.op === 'damage' && hits.length) {
+    cause = card.type;
+    sfx(attackSfx(card), { who: e.who, trigger: e.on });
+    const [first, ...rest] = hits;
+    await play(counterDef(card), {
+      attacker: from, target: at(first), damage: Math.max(1, first.before - first.after), tint: tintFor(card),
+      on: { counterHit: () => { show(first); rest.forEach((h, k) => wait(t(60 * k)).then(() => { play('v4-effect-hit', { target: at(h), damage: Math.max(1, h.before - h.after), tint: tintFor(card) }, t); show(h); })); } },
+    }, t, 1.3);
+  } else if (e.op === 'heal' && hits.length) {
+    await Promise.all(hits.map((h) => play('heal-glow', { target: at(h), tint: tintOf('Grass'), on: { heal: () => show(h) } }, t, 1.4)));
+  } else if (['tempAttack', 'attack', 'strength'].includes(e.op) && hits.length) {
+    await Promise.all(hits.map((h) => play(e.op === 'strength' ? 'v4-strength' : 'v4-held', { target: at(h), tint: e.op === 'strength' ? GOLD : tintOf('Fighting'), on: { heal: () => show(h), held: () => show(h) } }, t, 1.3)));
+  } else if (e.op === 'draw') {
+    const pile = pileEl(e.who, 'draw');
+    floatText(pile, 'Draw', 'status', t(MS.note));
+    await play('v4-search', { target: pile, tint: GOLD }, t, 1.4);
+  } else if (e.op === 'energy') {
+    floatText(e.who === 'player' ? $('.v4-energy') : $('.v4-hud.opp .v4-oen'), '+1 Energy', 'level', t(MS.note));
+    await wait(t(MS.triggerEffect * 0.5));
+  } else await wait(t(MS.triggerEffect * 0.4));
   hits.forEach(show);
 }
 

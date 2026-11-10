@@ -7,7 +7,8 @@ import { attackIcon, strengthIcon, STAT_ICONS } from '../src/ui/icons.js';
 import { renderMatch, renderHandCard } from '../src/ui/board.js';
 
 let n = 0;
-const mon = (id, level, extra = {}) => { const c = pokemonAt(id, level); return { ...c, uid: `m-${n++}`, currentStrength: c.strength, spent: true, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...extra }; };
+// G2: board Pokémon are staged plain (no trigger or keywords): these tests check rules; tests/g2.test.js checks the Pokémon.
+const mon = (id, level, extra = {}) => { const c = pokemonAt(id, level); return { ...c, keywords: {}, trigger: null, uid: `m-${n++}`, currentStrength: c.strength, spent: true, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...extra }; };
 const card = (id) => ({ ...cardAtRound(id, 1), uid: `c-${n++}` });
 const battle = (turn = 'player') => {
   let s = createGame(77);
@@ -39,9 +40,9 @@ const nextRound = (s) => { const r = s.round; while (s.round === r && s.phase !=
   const star = TRAINERS.find((t) => t.id === 'misty').partner;
   const nine = TRAINERS.find((t) => t.id === 'blaine').partner;
   assert.deepEqual([star.level, star.speed, star.attackType, star.strengthType, star.attack, star.strength, star.cost], [8, 'Swift', 'Special', 'Hitpoints', 8, 10, 4]);
-  assert.deepEqual(star.onSummon, [{ op: 'draw', amount: 2 }]);
+  assert.deepEqual(star.trigger, { on: 'summon', ops: [{ op: 'draw', amount: 2 }] });
   assert.deepEqual([nine.level, nine.speed, nine.attackType, nine.strengthType, nine.attack, nine.strength, nine.cost], [8, 'Steady', 'Special', 'Hitpoints', 9, 11, 4]);
-  assert.deepEqual(nine.onSummon, [{ op: 'damageAll', amount: 2 }], 'up from 1');
+  assert.deepEqual(nine.trigger, { on: 'summon', ops: [{ op: 'damage', amount: 2, to: 'eachEnemy' }] }, 'up from 1');
   // Ninetales arriving deals 2 to each enemy Pokémon: Blaine one domination short, then a dominated Location at Supper.
   let s = battle();
   tracker(s, 'player', 'Blaine').progress = 4;

@@ -10,7 +10,8 @@ import { pokemonAt, cardAtRound, COMMANDS, SUPPORTERS, DEMO_DECK } from '../src/
 import { chooseAction } from '../src/ai/ai.js';
 
 let n = 0;
-const mon = (id, level, extra = {}) => { const c = pokemonAt(id, level); return { ...c, uid: `m-${n++}`, currentStrength: c.strength, spent: true, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...extra }; };
+// G2: board Pokémon are staged plain (no trigger or keywords): these tests check rules; tests/g2.test.js checks the Pokémon.
+const mon = (id, level, extra = {}) => { const c = pokemonAt(id, level); return { ...c, keywords: {}, trigger: null, uid: `m-${n++}`, currentStrength: c.strength, spent: true, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...extra }; };
 const card = (id, round = 1) => ({ ...cardAtRound(id, round), uid: `c-${n++}` });
 // A Battle Phase with empty hands and rows, the given player's turn, plenty of Energy.
 const battle = (turn = 'player', energy = 6) => {
@@ -183,7 +184,7 @@ const types = (s) => s.events.map((e) => e.type);
 // --- Strat: paid and targeted now; resolves after the opponent's next turn, or at Supper; fizzles ------------------------------------
 {
   let s = battle();
-  s.players.ai.row[4] = mon('squirtle', 6);   // Strength 9
+  s.players.ai.row[4] = mon('squirtle', 6, { strength: 9, currentStrength: 9 });   // Strength 9
   give(s, 'ai', 'recover');
   s = applyAction(s, { type: 'command', who: 'player', uid: give(s, 'player', 'ember'), mode: 'strat', target: { who: 'ai', space: 4 } });
   assert.equal(s.players.player.baseEnergy, 6 - 3, 'Strat costs 3, paid now');
@@ -202,7 +203,7 @@ const types = (s) => s.events.map((e) => e.type);
   assert.ok(s.players.player.discard.some((c) => c.id === 'ember'));
   // At Supper, if the Battle Phase ends first (here the player had passed before; the Opponent's Pass ends it).
   s = battle();
-  s.players.ai.row[4] = mon('squirtle', 6);
+  s.players.ai.row[4] = mon('squirtle', 6, { strength: 9, currentStrength: 9 });
   s.strats.push({ uid: 'x', owner: 'player', card: card('ember'), target: { who: 'ai', space: 4, uid: s.players.ai.row[4].uid }, targetName: 'Blastoise', playedRound: 1 });
   s.turn = 'ai';
   s.passesInARow = 1;

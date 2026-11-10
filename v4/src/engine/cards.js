@@ -1,40 +1,108 @@
-// v4's Pokémon (F1): a few simple evolution paths, one per development series card, using
-// existing Pokémon and art from assets/cards. Form, stats, ability and cost come from the Level
-// (rules.js costFor). Data only.
-//   forms: [{ name, art, from, speed? }] — the form from that Level up to the next form's Level.
+// v4's Pokémon (G2, docs/v4-gameplay-update.md 4.2): 10 evolution lines, using existing art in
+// assets/cards. Form, stats, trigger, keywords and cost come from the Level (rules.js costFor). Data only.
+//   forms: [{ name, art, from, speed?, trigger?, keywords? }]: the form from that Level up to the next one.
 //   stats: { level: [Attack, Strength] } for every Level of the series.
-//   guard: 'Defence' | 'Special Defence' | null. ability: (level) → { text, onSummon } or null.
-import { SERIES_RANGE, levelFor, costFor } from '../rules.js?v=202611101109';
+//   guard: 'Defence' | 'Special Defence' | null.
+// Triggers (4.1): { on, ops } with on: 'summon' · 'attack' · 'defend' · 'defeated' · 'knockout' · 'breakfast'.
+// Each op: { op, amount, to? }:
+//   draw N · energy N (+N Base Energy, usable this turn and the rest of the Round)
+//   damage N to: 'chosenEnemy' (On Summon only) · 'eachEnemy' · 'eachEnemyHere' (its Location) ·
+//                'eachEnemyTargetLoc' · 'otherEnemiesTargetLoc' (each except the target) ·
+//                'oneOtherEnemyTargetLoc' (the weakest other one there)
+//   heal N to: 'chosenOwn' · 'eachOwnHere' · 'eachOtherOwnHere' · 'self'
+//   tempAttack N (until Supper) to: 'eachOtherOwnHere'
+//   attack N / strength N (kept) to: 'self' · 'chosenOtherOwnHere'
+// "Here" (its Location): a placed Location's lanes, all 9 in the Tournament, or just its own lane.
+// Keywords (4.1): { quickAttack, infiltrator, overrun, rage: true; shell, regenerate, retaliate: N }.
+import { SERIES_RANGE, levelFor, costFor } from '../rules.js?v=202611101304';
 
-const op = (name, amount) => ({ op: name, amount });
-const path = (spec) => ({ guard: null, ability: () => null, ...spec });
+const on = (when, ...ops) => ({ on: when, ops });
+const draw = (n) => ({ op: 'draw', amount: n });
+const dmg = (n, to) => ({ op: 'damage', amount: n, to });
+const heal = (n, to) => ({ op: 'heal', amount: n, to });
+const path = (spec) => ({ guard: null, ...spec });
 
 export const PATHS = [
   // --- Light (Levels 1–6) ---
   path({ id: 'ponyta', series: 'Light', type: 'Fire', attackType: 'Physical', speed: 'Swift',
-    forms: [{ name: 'Ponyta', art: 'ponyta', from: 1 }, { name: 'Rapidash', art: 'rapidash', from: 4 }],
-    stats: { 1: [2, 2], 2: [3, 3], 3: [3, 4], 4: [4, 4], 5: [5, 5], 6: [6, 5] } }),
+    forms: [{ name: 'Ponyta', art: 'ponyta', from: 1, trigger: on('defeated', draw(1)) },
+      { name: 'Rapidash', art: 'rapidash', from: 4, keywords: { quickAttack: true }, trigger: on('knockout', { op: 'attack', amount: 1, to: 'self' }) }],
+    stats: { 1: [2, 2], 2: [3, 2], 3: [3, 3], 4: [4, 4], 5: [5, 4], 6: [6, 5] } }),
   path({ id: 'chinchou', series: 'Light', type: 'Electric', attackType: 'Special', speed: 'Steady', guard: 'Special Defence',
-    forms: [{ name: 'Chinchou', art: 'chinchou', from: 1 }, { name: 'Lanturn', art: 'lanturn', from: 4 }],
-    stats: { 1: [1, 3], 2: [2, 4], 3: [2, 5], 4: [3, 6], 5: [4, 7], 6: [4, 8] } }),
+    forms: [{ name: 'Chinchou', art: 'chinchou', from: 1, trigger: on('summon', { op: 'energy', amount: 1 }) },
+      { name: 'Lanturn', art: 'lanturn', from: 4, trigger: on('attack', dmg(1, 'eachEnemyHere')) }],
+    stats: { 1: [1, 3], 2: [2, 3], 3: [2, 4], 4: [3, 5], 5: [4, 6], 6: [4, 7] } }),
+  path({ id: 'shinx', series: 'Light', type: 'Electric', attackType: 'Physical', speed: 'Swift',
+    forms: [{ name: 'Shinx', art: 'shinx', from: 1, trigger: on('summon', dmg(1, 'chosenEnemy')) },
+      { name: 'Luxio', art: 'luxio', from: 3, keywords: { infiltrator: true }, trigger: on('knockout', draw(1)) },
+      { name: 'Luxray', art: 'luxray', from: 5, keywords: { infiltrator: true }, trigger: on('summon', dmg(2, 'chosenEnemy')) }],
+    stats: { 1: [2, 2], 2: [2, 3], 3: [3, 3], 4: [4, 4], 5: [5, 5], 6: [6, 5] } }),
   // --- Mid (Levels 2–7) ---
   path({ id: 'squirtle', series: 'Mid', type: 'Water', attackType: 'Special', speed: 'Steady', guard: 'Defence',
-    forms: [{ name: 'Squirtle', art: 'squirtle', from: 2 }, { name: 'Wartortle', art: 'wartortle', from: 4 }, { name: 'Blastoise', art: 'blastoise', from: 6 }],
-    stats: { 2: [2, 4], 3: [3, 5], 4: [3, 6], 5: [4, 7], 6: [5, 9], 7: [6, 10] } }),
+    forms: [{ name: 'Squirtle', art: 'squirtle', from: 2, trigger: on('summon', heal(2, 'chosenOwn')) },
+      { name: 'Wartortle', art: 'wartortle', from: 4, keywords: { shell: 1 }, trigger: on('summon', heal(2, 'eachOwnHere')) },
+      { name: 'Blastoise', art: 'blastoise', from: 6, keywords: { shell: 1 }, trigger: on('attack', dmg(2, 'oneOtherEnemyTargetLoc')) }],
+    stats: { 2: [2, 4], 3: [2, 5], 4: [3, 6], 5: [4, 7], 6: [5, 8], 7: [6, 9] } }),
   path({ id: 'growlithe', series: 'Mid', type: 'Fire', attackType: 'Physical', speed: 'Swift',
-    forms: [{ name: 'Growlithe', art: 'growlithe', from: 2 }, { name: 'Arcanine', art: 'arcanine', from: 5 }],
-    stats: { 2: [3, 3], 3: [3, 4], 4: [4, 5], 5: [5, 6], 6: [6, 7], 7: [7, 8] } }),
+    forms: [{ name: 'Growlithe', art: 'growlithe', from: 2, trigger: on('summon', { op: 'tempAttack', amount: 1, to: 'eachOtherOwnHere' }) },
+      { name: 'Arcanine', art: 'arcanine', from: 5, keywords: { overrun: true }, trigger: on('knockout', draw(1)) }],
+    stats: { 2: [3, 3], 3: [3, 4], 4: [4, 4], 5: [5, 5], 6: [6, 6], 7: [7, 7] } }),
+  path({ id: 'horsea', series: 'Mid', type: 'Water', attackType: 'Special', speed: 'Steady',
+    forms: [{ name: 'Horsea', art: 'horsea', from: 2, trigger: on('summon', dmg(1, 'chosenEnemy')) },
+      { name: 'Seadra', art: 'seadra', from: 4, keywords: { retaliate: 1 }, trigger: on('summon', dmg(1, 'chosenEnemy')) },
+      { name: 'Kingdra', art: 'kingdra', from: 6, speed: 'Swift', keywords: { infiltrator: true }, trigger: on('summon', dmg(2, 'chosenEnemy')) }],
+    stats: { 2: [2, 3], 3: [3, 3], 4: [4, 4], 5: [5, 5], 6: [6, 6], 7: [7, 7] } }),
+  path({ id: 'wooper', series: 'Mid', type: 'Water', attackType: 'Physical', speed: 'Slow', guard: 'Defence',
+    forms: [{ name: 'Wooper', art: 'wooper', from: 2, keywords: { regenerate: 1 }, trigger: on('summon', { op: 'strength', amount: 1, to: 'chosenOtherOwnHere' }) },
+      { name: 'Quagsire', art: 'quagsire', from: 4, keywords: { regenerate: 1, rage: true }, trigger: on('summon', heal(2, 'eachOtherOwnHere')) }],
+    stats: { 2: [2, 4], 3: [2, 5], 4: [3, 7], 5: [4, 8], 6: [4, 9], 7: [5, 10] } }),
   // --- Heavy (Levels 3–8) ---
   path({ id: 'magikarp', series: 'Heavy', type: 'Water', attackType: 'Physical', speed: 'Steady',
-    forms: [{ name: 'Magikarp', art: 'magikarp', from: 3 }, { name: 'Gyarados', art: 'gyarados', from: 6 }],
-    stats: { 3: [1, 4], 4: [1, 5], 5: [2, 5], 6: [7, 8], 7: [8, 9], 8: [9, 10] },
-    ability: (l) => (l < 6 ? { text: 'On Summon: draw 1 card', onSummon: [op('draw', 1)] } : null) }),
+    forms: [{ name: 'Magikarp', art: 'magikarp', from: 3, trigger: on('summon', draw(1)) },
+      { name: 'Gyarados', art: 'gyarados', from: 6, keywords: { rage: true }, trigger: on('summon', dmg(1, 'eachEnemyHere')) }],
+    stats: { 3: [1, 4], 4: [1, 5], 5: [2, 5], 6: [7, 8], 7: [8, 9], 8: [9, 10] } }),
   path({ id: 'charmander', series: 'Heavy', type: 'Fire', attackType: 'Special', speed: 'Steady',
-    forms: [{ name: 'Charmander', art: 'charmander', from: 3 }, { name: 'Charmeleon', art: 'charmeleon', from: 5 }, { name: 'Charizard', art: 'charizard', from: 7, speed: 'Swift' }],
-    stats: { 3: [2, 4], 4: [3, 4], 5: [4, 6], 6: [5, 6], 7: [7, 8], 8: [8, 9] },
-    ability: (l) => (l >= 7 ? { text: 'On Summon: 2 damage to each enemy Pokémon', onSummon: [op('damageAll', 2)] } : null) }),
+    forms: [{ name: 'Charmander', art: 'charmander', from: 3, trigger: on('attack', { op: 'attack', amount: 1, to: 'self' }) },
+      { name: 'Charmeleon', art: 'charmeleon', from: 5, keywords: { rage: true }, trigger: on('summon', dmg(1, 'chosenEnemy')) },
+      { name: 'Charizard', art: 'charizard', from: 7, speed: 'Swift', keywords: { overrun: true }, trigger: on('summon', dmg(2, 'eachEnemy')) }],
+    stats: { 3: [2, 4], 4: [3, 4], 5: [4, 6], 6: [5, 6], 7: [7, 8], 8: [8, 9] } }),
+  path({ id: 'magby', series: 'Heavy', type: 'Fire', attackType: 'Special', speed: 'Steady',
+    forms: [{ name: 'Magby', art: 'magby', from: 3, trigger: on('defeated', dmg(1, 'eachEnemyHere')) },
+      { name: 'Magmar', art: 'magmar', from: 5, keywords: { retaliate: 1 }, trigger: on('summon', dmg(1, 'chosenEnemy')) },
+      { name: 'Magmortar', art: 'magmortar', from: 7, trigger: on('attack', dmg(1, 'otherEnemiesTargetLoc')) }],
+    stats: { 3: [2, 3], 4: [3, 4], 5: [4, 5], 6: [5, 6], 7: [7, 7], 8: [8, 8] } }),
 ];
 export const pathDef = (id) => PATHS.find((p) => p.id === id);
+
+// --- Card text (G2): the trigger's name, then its effect in plain words; keywords as chips. ---
+export const TRIGGER_NAMES = { summon: 'On Summon', attack: 'On Attack', defend: 'On Defend', defeated: 'On Defeated', knockout: 'On Knockout', breakfast: 'On Breakfast' };
+const TO_WORDS = {
+  chosenEnemy: 'an enemy Pokémon', eachEnemy: 'each enemy Pokémon', eachEnemyHere: 'each enemy Pokémon in its Location',
+  eachEnemyTargetLoc: "each enemy Pokémon in the target's Location", otherEnemiesTargetLoc: "each other enemy Pokémon in the target's Location",
+  oneOtherEnemyTargetLoc: "another enemy Pokémon in the target's Location",
+  chosenOwn: 'one of your Pokémon', eachOwnHere: 'each of your Pokémon in its Location', eachOtherOwnHere: 'each of your other Pokémon in its Location',
+  self: 'itself', chosenOtherOwnHere: 'another of your Pokémon in its Location',
+};
+export function opText({ op, amount, to }) {
+  if (op === 'draw') return `draw ${amount} card${amount === 1 ? '' : 's'}`;
+  if (op === 'energy') return `+${amount} Energy this turn`;
+  if (op === 'damage' || op === 'damageAll') return `${amount} damage to ${TO_WORDS[to ?? 'eachEnemy']}`;
+  if (op === 'heal') return to === 'self' ? `heal ${amount}` : `heal ${amount} to ${TO_WORDS[to]}`;
+  if (op === 'tempAttack') return to === 'eachOtherOwnHere' ? `your other Pokémon in its Location get +${amount} Attack until Supper` : `+${amount} Attack until Supper to ${TO_WORDS[to]}`;
+  if (op === 'attack' || op === 'strength') {
+    const stat = op === 'attack' ? 'Attack' : 'Strength';
+    return to === 'self' ? `+${amount} ${stat} (kept)` : `+${amount} ${stat} (kept) to ${TO_WORDS[to]}`;
+  }
+  return op;
+}
+export const triggerText = (t) => (t ? `${TRIGGER_NAMES[t.on]}: ${t.ops.map(opText).join(', then ')}` : '');
+export const KEYWORD_ORDER = ['quickAttack', 'infiltrator', 'overrun', 'shell', 'regenerate', 'retaliate', 'rage'];
+export const KEYWORD_NAMES = { quickAttack: 'Quick Attack', infiltrator: 'Infiltrator', overrun: 'Overrun', shell: 'Shell', regenerate: 'Regenerate', retaliate: 'Retaliate', rage: 'Rage' };
+export const keywordList = (kw = {}) => KEYWORD_ORDER.filter((k) => kw[k]).map((k) => (kw[k] === true ? KEYWORD_NAMES[k] : `${KEYWORD_NAMES[k]} ${kw[k]}`));
+export const cardText = (c) => [keywordList(c.keywords).join(', '), triggerText(c.trigger)].filter(Boolean).join('. ');
+// A chosen target (On Summon only): the ops that ask for one.
+export const CHOSEN = ['chosenEnemy', 'chosenOwn', 'chosenOtherOwnHere'];
+export const needsChoice = (t) => !!t && t.on === 'summon' && t.ops.some((o) => CHOSEN.includes(o.to));
 
 // A Pokémon card at a Level.
 export function pokemonAt(id, level) {
@@ -43,12 +111,13 @@ export function pokemonAt(id, level) {
   const l = Math.max(lo, Math.min(hi, level));
   const form = [...p.forms].reverse().find((f) => l >= f.from);
   const [attack, strength] = p.stats[l];
-  const ab = p.ability(l);
-  return {
+  const card = {
     id: p.id, cardType: 'Pokémon', name: form.name, art: form.art, series: p.series, type: p.type, attackType: p.attackType,
     speed: form.speed ?? p.speed, strengthType: p.guard ?? 'Hitpoints', level: l, cost: costFor(l), attack, strength,
-    text: ab?.text ?? '', onSummon: ab?.onSummon ?? null,
+    trigger: form.trigger ? structuredClone(form.trigger) : null, keywords: { ...(form.keywords ?? {}) },
   };
+  card.text = cardText(card);
+  return card;
 }
 // --- Location Cards (F2; adapted from v2's Locations): placed on 2–4 adjacent free lanes on both
 // sides, for a set number of Rounds. passive: on Pokémon in its lanes. weather: one type.
@@ -155,14 +224,14 @@ export const BAG_SIZE = 6;   // the Inventory Bag (v1: src/engine/game.js BAG_SI
 const partner = (spec) => ({ cardType: 'Pokémon', series: 'Partner', strengthType: 'Hitpoints', partner: true, ...spec });
 const trainer = (id, name, objective, partnerCard, command) => ({ id, name, cardType: 'Trainer', art: id, objective, partner: partnerCard, command });
 export const TRAINERS = [
-  // UX2 (Elliott, Q5 and Q7): Objective targets 8 and 5; stronger Level 8 Partners (cost 4: $4 when defeated).
+  // UX2 (Elliott, Q5 and Q7): Objective targets 8 and 5; stronger Level 8 Partners (cost 4).
   trainer('misty', 'Misty', { kind: 'defeat', need: 8, text: 'Defeat 8 enemy Pokémon', short: 'Defeat 8 Pokémon' },
     partner({ id: 'starmie', name: 'Starmie', art: 'starmie', type: 'Water', attackType: 'Special', speed: 'Swift', level: 8, cost: 4, attack: 8, strength: 10,
-      text: 'On Summon: draw 2 cards', onSummon: [{ op: 'draw', amount: 2 }] }),
+      trigger: { on: 'summon', ops: [{ op: 'draw', amount: 2 }] }, keywords: {}, text: 'On Summon: draw 2 cards' }),
     { cost: 1, ops: [{ op: 'draw', amount: 2 }], text: 'Draw 2 cards' }),
   trainer('blaine', 'Blaine', { kind: 'dominate', need: 5, text: 'Dominate a Location 5 times', short: 'Dominate 5 times' },
     partner({ id: 'ninetales', name: 'Ninetales', art: 'ninetales', type: 'Fire', attackType: 'Special', speed: 'Steady', level: 8, cost: 4, attack: 9, strength: 11,
-      text: 'On Summon: 2 damage to each enemy Pokémon', onSummon: [{ op: 'damageAll', amount: 2 }] }),
+      trigger: { on: 'summon', ops: [{ op: 'damage', amount: 2, to: 'eachEnemy' }] }, keywords: {}, text: 'On Summon: 2 damage to each enemy Pokémon' }),
     { cost: 2, ops: [{ op: 'damageAll', amount: 1 }], text: '1 damage to each enemy Pokémon' }),
 ];
 export const trainerDef = (id) => TRAINERS.find((c) => c.id === id);
@@ -176,13 +245,15 @@ export const cardAtRound = (id, round) => (fixedDef(id) ? structuredClone(fixedD
 // each Command Card and Supporter (F3), three Items and two Trainers (F4).
 export const DEMO_DECK = [
   'cerulean-cape', 'mt-ember', 'lake-of-rage', 'route-119',
-  ...Array(4).fill('ponyta'), ...Array(3).fill('chinchou'),
-  ...Array(4).fill('squirtle'), ...Array(4).fill('growlithe'),
-  ...Array(3).fill('magikarp'), ...Array(2).fill('charmander'),
+  // G2 (gameplay update 5.4): the 15 Pokémon of the new deck (10 lines). Until G3 rebuilds the rest, the
+  // 20 non-Pokémon cards below stay as they were, so the temporary deck has 35 cards.
+  'ponyta', 'ponyta', 'chinchou', 'chinchou', 'shinx',
+  'squirtle', 'squirtle', 'growlithe', 'growlithe', 'horsea', 'wooper',
+  'magikarp', 'charmander', 'charmander', 'magby',
   // F3: Command Cards and Supporters.
   'ember', 'recover', 'x-attack', 'rock-slide', 'nurse-joy', 'professor-oak', 'brock',
   // F4: Items (the other three are only in the PokéMart) and Trainers.
   'potion', 'charcoal', 'choice-band', 'misty', 'blaine',
-  // F5: the final foundation deck (40): a second Ember, Recover, Potion and Professor Oak.
+  // F5: a second Ember, Recover, Potion and Professor Oak.
   'ember', 'recover', 'potion', 'professor-oak',
 ];

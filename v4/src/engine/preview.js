@@ -3,10 +3,10 @@
 // runOps for effects) on a copy of the state and reads the difference, so a preview can never disagree
 // with the result. The attack's number is also split into its parts (base Attack, Location, Weather,
 // Held Item, "until Supper"), which always add up to the engine's damageOf.
-import { RULES } from '../rules.js?v=202611101109';
+import { RULES } from '../rules.js?v=202611101304';
 import {
   applyAction, applyCommand, applyItem, runOps, syncBonuses, damageOf, isReady, locationAt, activeBrackets, opponentOf, pokemonOf,
-} from './game.js?v=202611101109';
+} from './game.js?v=202611101304';
 
 const clone = (s) => structuredClone(s);
 const gain = (before, after, who) => ({
@@ -61,13 +61,20 @@ export function attackPreview(s, who, from, target) {
   const foe = opponentOf(who);
   const a = s.players[who].row[from];
   const d = target.kind === 'pokemon' ? s.players[foe].row[target.space] : null;
-  const damage = damageOf(s, a);
+  const raw = damageOf(s, a);
   const { sim, events } = playAttack(s, who, from, target);
+  // G2: the damage actually dealt (after Shell), and what the keywords and triggers did.
+  const atk = events.find((e) => e.type === 'attack' && e.who === who && e.from === from);
+  const damage = atk?.amount ?? raw;
   const out = {
     // The attacker afterwards (a hit-back, or anything the attack sets off, e.g. a Partner's On Summon).
     attacker: { name: a.name, space: from, before: a.currentStrength, after: strengthAfter(sim, who, from, a.uid), defeated: gone(sim, who, from, a.uid) },
     target: target.kind === 'player' ? { kind: 'player', who: foe } : { kind: 'pokemon', who: foe, space: target.space, name: d.name, before: d.currentStrength, after: strengthAfter(sim, foe, target.space, d.uid), defeated: gone(sim, foe, target.space, d.uid) },
     damage,
+    raw,
+    retaliated: atk?.retaliated ?? 0,
+    keywords: events.filter((e) => e.type === 'keyword').map((e) => ({ who: e.who, space: e.space, kw: e.kw, amount: e.amount, name: e.name })),
+    triggers: events.filter((e) => e.type === 'trigger' || e.type === 'triggerChoice').map((e) => ({ who: e.who, name: e.name, on: e.on, text: e.text })),
     parts: attackParts(s, who, from),
     rewards: gain(s, sim, who),
     tournament: !!s.tournament,
@@ -78,7 +85,7 @@ export function attackPreview(s, who, from, target) {
     changes: [],
   };
   if (d && isReady(s, d)) {
-    const back = damageOf(s, d);
+    const back = atk?.back ?? damageOf(s, d);
     out.hitBack = { name: d.name, damage: back, attackerAfter: strengthAfter(sim, who, from, a.uid), defeated: gone(sim, who, from, a.uid), rewards: gain(s, sim, foe) };
   }
   out.changes = changes(s, sim);
@@ -136,6 +143,13 @@ export function effectPreview(s, who, card, mode, target) {
     text: notes.join(' · '),
     tournament: !!s.tournament,
   };
+}
+
+// G2: what a chosen-target On Summon would do with this target: the engine's own choose action on a copy.
+export function choicePreview(s, target) {
+  const who = s.choice.who;
+  const sim = applyAction(s, { type: 'choose', who, target });
+  return { name: s.choice.name, text: s.choice.text, changes: changes(s, sim), rewards: gain(s, sim, who), foeRewards: gain(s, sim, opponentOf(who)), tournament: !!s.tournament };
 }
 
 export const RECOGNITION_PER_DEFEAT = RULES.perDefeat;

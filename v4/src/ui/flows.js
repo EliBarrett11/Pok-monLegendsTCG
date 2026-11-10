@@ -6,10 +6,10 @@
 import {
   legalTargets, emptySpaces, whyNot, locationStarts, summonCost, commandTargets, commandModesFor, itemTargets, buyReason,
   trainerReason, supporterPlayable, playerGuard, guardOf, energyLeft, locationAt, damageOf,
-} from '../engine/game.js?v=202611101109';
-import { MODE_NAMES } from '../engine/cards.js?v=202611101109';
-import { attackPreview, effectPreview } from '../engine/preview.js?v=202611101109';
-import { attackIcon, strengthIcon, icon } from './icons.js?v=202611101109';
+} from '../engine/game.js?v=202611101304';
+import { MODE_NAMES } from '../engine/cards.js?v=202611101304';
+import { attackPreview, effectPreview, choicePreview } from '../engine/preview.js?v=202611101304';
+import { attackIcon, strengthIcon, icon } from './icons.js?v=202611101304';
 
 const esc = (x) => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const sameHit = (a, b) => a && b && a.kind === b.kind && a.who === b.who && a.space === b.space;
@@ -20,6 +20,8 @@ export function selCard(s, sel) {
   const me = s.players.player;
   if (!sel) return null;
   if (sel.kind === 'attack') return me.row[sel.from];
+  // G2: a chosen-target On Summon: the summoned Pokémon.
+  if (sel.kind === 'choice') return s.choice?.who === 'player' ? me.row[s.choice.space] ?? null : null;
   if (sel.kind === 'item') return sel.from === 'mart' ? s.mart.onSale[sel.slot] : sel.from === 'bag' ? me.bag.find((c) => c.uid === sel.uid) : me.hand.find((c) => c.uid === sel.uid);
   return me.hand.find((c) => c.uid === sel.uid) ?? null;
 }
@@ -27,7 +29,7 @@ const playableModes = (s, c) => commandModesFor(s, 'player', c.uid).filter((m) =
 // Does this choice need a target on the battlefield (an arrow), or just the board?
 export function needsArrow(s, sel) {
   if (!sel) return false;
-  if (['attack', 'command', 'item', 'react'].includes(sel.kind)) return true;
+  if (['attack', 'command', 'item', 'react', 'choice'].includes(sel.kind)) return true;
   const c = selCard(s, sel);
   return sel.kind === 'hand' && (c?.cardType === 'Command' || c?.cardType === 'Item');
 }
@@ -43,6 +45,7 @@ export function hitsFor(s, sel) {
     case 'command':
     case 'react': return commandTargets(s, 'player', c).map((t) => sp(t.who, t.space));
     case 'item': return itemTargets(s, 'player', c).map((t) => sp('player', t.space));
+    case 'choice': return (s.choice?.targets ?? []).map((t) => sp(t.who, t.space));
     case 'hand':
       if (c.cardType === 'Pokémon') return whyNot(s, 'player', 'summon', c) ? [] : emptySpaces(s, 'player').filter((i) => energyLeft(s.players.player) >= summonCost(s, c, i)).map((i) => sp('player', i));
       if (c.cardType === 'Location') return locationStarts(s, c).map((i) => sp('player', i));
@@ -75,6 +78,7 @@ export function evaluate(s, sel, hit) {
     case 'attack': return { legal: true, act: { type: 'attack', who: 'player', from: sel.from, target: hit.kind === 'pc' ? { kind: 'player' } : { kind: 'pokemon', space: hit.space } } };
     case 'command': return { legal: true, act: { type: 'command', who: 'player', uid: c.uid, mode: sel.mode, target } };
     case 'react': return { legal: true, act: { type: 'react', who: 'player', uid: c.uid, target } };
+    case 'choice': return { legal: true, act: { type: 'choose', who: 'player', target } };
     case 'item': return { legal: true, act: sel.from === 'bag' ? { type: 'useItem', who: 'player', uid: c.uid, target: { space: hit.space } } : { type: 'buyItem', who: 'player', from: sel.from, uid: c.uid, slot: sel.slot, then: 'use', target: { space: hit.space } } };
     default: break;
   }
@@ -94,6 +98,7 @@ function reasonAt(s, sel, c, hit) {
   const me = s.players.player;
   const occupant = hit.kind === 'space' ? s.players[hit.who].row[hit.space] : null;
   if (hit.kind === 'board') return '';
+  if (sel.kind === 'choice') return hit.kind === 'pc' ? 'On Summon targets Pokémon only' : occupant ? 'Not a target for this On Summon' : 'No Pokémon here';
   if (sel.kind === 'attack') {
     if (hit.kind === 'pc') { const g = playerGuard(s, 'player', sel.from, 'ai'); return g ? `The Opponent is guarded by ${g.card.name}` : ''; }
     if (hit.who === 'player') return 'Choose an enemy Pokémon or the Opponent';
@@ -164,6 +169,14 @@ export function previewHTML(s, sel, hit) {
       const hb = pv.hitBack;
       html += `<div class="hb">${esc(d.name)} hits back: ${attackIcon(d)} ${hb.damage} → ${esc(a.name)} ${strengthIcon(a)} <s>${a.currentStrength}</s> → <b>${Math.max(0, hb.attackerAfter)}</b>${hb.defeated ? ' (defeated)' : ''}${hb.rewards.recognition || hb.rewards.dollars ? ` · the Opponent ${[hb.rewards.recognition ? rec(hb.rewards.recognition, s) : '', hb.rewards.dollars ? `+$${hb.rewards.dollars}` : ''].filter(Boolean).join(', ')}` : ''}</div>`;
     } else if (pv.attacker.defeated) html += `<div class="hb">${esc(a.name)} is defeated too</div>`;
+    return html;
+  }
+  if (sel.kind === 'choice') {
+    const pv = choicePreview(s, { who: hit.who, space: hit.space });
+    const on = s.players[hit.who].row[hit.space];
+    let html = `<div class="h">${esc(pv.name)} → ${esc(on.name)}</div><div class="sub">${esc(pv.text)}</div>` + pv.changes.map((ch) => changeLine(s, ch)).join('');
+    const chips = rewardChips(pv.rewards, s, pv.changes.some((ch) => ch.defeated && ch.who === 'ai') ? 'Defeats · ' : '');
+    if (chips) html += `<div class="g">${chips}</div>`;
     return html;
   }
   if (c.cardType === 'Pokémon') {

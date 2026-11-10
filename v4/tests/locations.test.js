@@ -11,7 +11,8 @@ import { pokemonAt, cardAtRound, LOCATIONS, DEMO_DECK, WEATHER_BRACKETS } from '
 import { chooseAction, moves } from '../src/ai/ai.js';
 
 let n = 0;
-const mon = (id, level, extra = {}) => { const c = pokemonAt(id, level); return { ...c, uid: `t-${n++}`, currentStrength: c.strength, spent: true, bonusAttack: 0, bonusStrength: 0, ...extra }; };
+// G2: board Pokémon are staged plain (no trigger or keywords): these tests check rules; tests/g2.test.js checks the Pokémon.
+const mon = (id, level, extra = {}) => { const c = pokemonAt(id, level); return { ...c, keywords: {}, trigger: null, uid: `t-${n++}`, currentStrength: c.strength, spent: true, bonusAttack: 0, bonusStrength: 0, ...extra }; };
 const locCard = (id) => ({ ...cardAtRound(id, 1), uid: `L-${n++}` });
 const battle = (seed = 1) => {
   let s = createGame(seed);

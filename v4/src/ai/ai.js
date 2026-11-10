@@ -3,10 +3,10 @@
 // now or store, use from the Bag) and Trainer Commands; UX1: Objectives are tracked from setup, modes come from commandModesFor): a greedy one-move AI like v2's and v3's (adapted from v3/src/ai/ai.js).
 // It plays only through the engine's actions: it tries each legal move on a copy of the state,
 // scores the result, and plays the best (Pass when nothing beats it).
-import { RULES } from '../rules.js?v=202611101109';
-import { applyAction, legalActions, opponentOf, summonable, emptySpaces, attackers, legalTargets, retainable, pokemonOf, isReady, energyLeft, placeable, locationStarts, dominantOf, summonCost,
+import { RULES } from '../rules.js?v=202611101304';
+import { applyAction, legalActions, hasKw, kwNum, opponentOf, summonable, emptySpaces, attackers, legalTargets, retainable, pokemonOf, isReady, energyLeft, placeable, locationStarts, dominantOf, summonCost,
   commandModesFor, commandTargets, playableSupporters, favourMet, resolveStrats,
-  buyableFromHand, buyableFromMart, usableFromBag, itemTargets, buyReason, playableTrainers, tournamentDominant, boosted } from '../engine/game.js?v=202611101109';
+  buyableFromHand, buyableFromMart, usableFromBag, itemTargets, buyReason, playableTrainers, tournamentDominant, boosted } from '../engine/game.js?v=202611101304';
 
 // Pending Strats count at a discount: the state as if they had resolved, blended with as it is.
 export function evaluate(s, who) {
@@ -30,7 +30,12 @@ function evaluateNow(s, who) {
     if (s.mart.soldOut?.by === w) v += 0.4;
     for (const tr of p.trainers.filter((x) => !x.complete)) v += (2 * tr.progress) / tr.objective.need;
     v += p.waiting.length * 3;
-    for (const { card } of pokemonOf(s, w)) v += card.attack * 0.9 + card.currentStrength * 0.45 + (isReady(s, card) ? 0.5 : 0);
+    // G2: keywords are worth a little on the board (Infiltrator's reach, Shell, Retaliate, Regenerate, Rage, Overrun).
+    for (const { card } of pokemonOf(s, w)) {
+      v += card.attack * 0.9 + card.currentStrength * 0.45 + (isReady(s, card) ? 0.5 : 0);
+      v += (hasKw(card, 'infiltrator') ? 0.8 : 0) + kwNum(card, 'shell') * 0.6 + kwNum(card, 'retaliate') * 0.5 + kwNum(card, 'regenerate') * 0.4
+        + (hasKw(card, 'rage') ? 0.4 : 0) + (hasKw(card, 'overrun') ? 0.3 : 0);
+    }
     return v;
   };
   const me = s.players[who];
@@ -51,6 +56,8 @@ function evaluateNow(s, who) {
 export function moves(s, who) {
   const legal = legalActions(s, who);
   const p = s.players[who];
+  // G2: a chosen-target On Summon: one move per legal target.
+  if (legal.includes('choose')) return s.choice.targets.map((target) => ({ type: 'choose', who, target }));
   if (legal.includes('mulligan')) return [{ type: 'mulligan', who, cards: p.hand.filter((c) => c.cost > 1).map((c) => c.uid) }];
   // A React window (an attack, an Adapt, or a Strat resolving): React or let it happen.
   if (legal.includes('decline')) {
@@ -119,6 +126,21 @@ const dedupe = (cards) => { const seen = new Set(); return cards.filter((c) => !
 // How much a card in hand is worth keeping (for choosing what to Release).
 const worth = (c) => (c.cardType === 'Pokémon' ? 1 + c.level : c.cardType === 'Supporter' ? 0.5 : 2);
 
+// After a move, any On Summon target choice of ours resolved greedily (one step deep each).
+function bestChoice(s, who) {
+  for (let i = 0; i < 4 && s.choice?.who === who; i++) {
+    let best = null;
+    let bestScore = -Infinity;
+    for (const target of s.choice.targets) {
+      const n = applyAction(s, { type: 'choose', who, target });
+      const v = evaluate(n, who);
+      if (v > bestScore) { best = n; bestScore = v; }
+    }
+    s = best;
+  }
+  return s;
+}
+
 export function chooseAction(s, who, { rng = Math.random } = {}) {
   const options = moves(s, who);
   if (options[0].type === 'mulligan') return options[0];
@@ -128,6 +150,8 @@ export function chooseAction(s, who, { rng = Math.random } = {}) {
     let next = applyAction(s, m);
     // If the player could React, judge the move as if they let it happen.
     if (next.reactWindow && next.reactWindow.reactor !== who) next = applyAction(next, { type: 'decline', who: next.reactWindow.reactor });
+    // G2: a summon whose On Summon asks for a target: judge it with its best target (greedy).
+    next = bestChoice(next, who);
     const score = evaluate(next, who) + rng() * 0.05;
     if (score > bestScore) { best = m; bestScore = score; }
   }
