@@ -6,7 +6,7 @@
 
 **Scope:** no rule, number or card changes.
 
-**Mockup:** `docs/design/v4-cards-mockup.jpg`, with its source in `docs/design/v4-cards-mockup.html` (sizes, colours and SVG shapes).
+**Mockup (revised 10 November, with unique frames):** `docs/design/v4-cards-mockup.jpg`, with its source in `docs/design/v4-cards-mockup.html` (sizes, colours and SVG shapes).
 
 ---
 
@@ -42,37 +42,38 @@ Every card is drawn by a single renderer (`v4/src/ui/card.js`) at one of four le
 - Hovering a board token shows its Full card beside it.
 - Right-click or **C** opens the Codex.
 
-### 2.2 Anatomy of a Full card
+### 2.2 A unique silhouette for each card type
 
-- **Full-bleed art** fills the whole card. Text sits on a soft dark gradient over the lower third only, so about two-thirds of the illustration stays completely clear.
-- **The metal frame:** a bevelled rim plus an inner hairline, coloured by Type for Pokémon and moves, and by card type for everything else (2.3).
-- **The cost gem** at the top-left, its shape saying what you pay:
-  - a **blue crystal hexagon** for Energy;
-  - a **gold coin** for PokéDollars;
-  - a **red gem** for Release N on Supporters.
-- **The Level ribbon** sits under the cost gem.
-- **The Type crest** sits at the top-right. **Keyword chips** sit under the crest.
-- **The nameplate:** a gold-edged banner with the name in Cinzel. Under it, the type line ("Fire · Special") and Speed chevrons.
-- **Rules text,** centred under the plate:
-  - the trigger name in gold bold, and keywords as linked terms;
-  - **it shrinks to fit and is never cut off.** A test fails if any card can't fit at its smallest allowed size.
-- **Stat gems** sit on the bottom corners, large, their **shape** saying the stat:
-  - a **diamond** for attack (orange Physical, violet Special);
-  - a **heart** for Hitpoints;
-  - a **shield** for Defence;
-  - a **hexagon** for Special Defence.
+Following Legends of Runeterra, the frame's outline is different for each card type. Cost and stats sit in **sockets carved into the frame**, never in generic shapes (diamonds, hearts, hexagons) laid on top. Every frame is an SVG path drawn at 300×420 and scaled, so it's crisp at every size.
 
-  Damaged Strength turns red.
+| Card type | Silhouette | Cost socket | Other built-in parts |
+|---|---|---|---|
+| **Pokémon** | An arched crown over a straight body | A round **Energy medallion** breaking the top-left of the arch, with the Level tag under it | Two **stat bastions** carved into the bottom corners: Attack on the left, Strength on the right. Speed chevrons sit between them. |
+| **Command** (a Pokémon move) | A chamfered shield that narrows to a point | An Energy medallion set into the top edge (the Adapt cost) | The move's Type crest at the point. A **mode ladder** of React, Adapt and Strat rows, each with its own cost. |
+| **Supporter** | A tall arched window | A red **wax seal** for Release N | A gold-edged **Favour box** with ★ and +3 Recognition |
+| **Item** | A shop tag with a punched eyelet | A gold **price coin** | The PokéMart **Stock** pips and "N turns left" built into the base |
+| **Trainer** | A crowned frame | An Energy medallion (its Command cost) | The **Objective track** built into the base, ending in the Partner's portrait |
+| **Location** | A map scroll with rolled ends | none (free) | Lanes and Rounds on the type line, plus Weather and dominance chips |
 
-**By card type:**
+**Stat sockets:** each socket's **enamel colour and small glyph** say which stat it is:
+- **attack:** orange claw for Physical, violet burst for Special;
+- **Strength:** pink heart for Hitpoints, silver shield for Defence, cyan barrier for Special Defence.
 
-| Card type | What changes |
-|---|---|
-| **Command** (a Pokémon move) | The cost gem shows the Adapt cost. The text area becomes a **mode ladder**, one row each for React, Adapt and Strat, with its cost and effect. Modes that don't apply now are dimmed, as in UX1. |
-| **Supporter** | A red Release gem. The Favour line is marked with a gold ★ and shows its +3 Recognition. |
-| **Item** | A gold price coin, Held or Consumed on the type line, and its PokéMart Stock. |
-| **Trainer** | Its Command, its Objective and a live progress track ending in the Partner's portrait. |
-| **Location** | Its passive, lane count and duration pips, and the Weather it adds. It shows no cost element, since it's free. |
+The number sits large and centred, with room for two digits. Damaged Strength turns red.
+
+**Shared parts:**
+- the **name ribbon,** a dark banner with pointed ends set into the frame;
+- the **type line** under it;
+- the **Type crest** (top-right; at the point on Commands);
+- **keyword chips** under the crest.
+
+### 2.2a Neat text, guaranteed
+
+- **Fixed text zones:** every frame defines its zones: name ribbon, type line, rules box, mode rows, Favour box, Stock line and chips. Nothing is placed outside them, and no zone overlaps another.
+- **Names:** one line, at a fixed size. A long name (Pokémon Breeder) uses one tighter letter-spacing step, never a smaller font.
+- **Rules:** 13.5 px on Full cards and hidden on Mini cards. The rules for every card are written to fit their box. Where they can't, the wording on the card is shortened and the full text lives in the Codex. Text never shrinks below a readable size.
+- **Chips** (keywords, tags, mode chips): one line each, stacked with fixed gaps.
+- **The test:** it renders every card in the game at every size and fails on any overflow, overlap, clipped glyph or text outside its zone.
 
 ### 2.3 Colour and finish
 
@@ -94,7 +95,8 @@ Every card is drawn by a single renderer (`v4/src/ui/card.js`) at one of four le
 
 ### 2.4 Board tokens
 
-- **Name** on top and **Level** at the top-right.
+Tokens use the **Pokémon unit frame** with the art filling it and the two stat bastions.
+- **The name** sits in the ribbon near the base, and the **Level** at the top-left.
 - **Keyword chips** at the top-left, and the **Held Item** as a gold-rimmed coin.
 - **Speed** chevrons between the two large stat gems.
 - **Ready:** a pulsing gold glow. **Spent:** greyed and tilted. **Damaged:** a red Strength gem number.
@@ -172,6 +174,6 @@ Each stage follows the usual routine: tests, the layout check at three sizes (in
 
 ## 7. Questions for Elliott
 
-- **Q1:** approve the mockup and the design system (sections 2–4), or tell me what to change.
+- **Q1:** approve the revised mockup (unique frames, carved sockets, neat text zones) and the design system (sections 2–4), or tell me what to change.
 - **Q2:** the holo finish goes on final forms, Partners and Trainers. Should it go on more cards, fewer, or different ones?
 - **Q3:** the two art prompts (section 5). Generate them whenever suits; C1 doesn't need them.
