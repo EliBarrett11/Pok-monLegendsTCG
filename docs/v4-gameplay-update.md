@@ -1,6 +1,6 @@
 # v4 gameplay update: rules, economy and the shared deck
 
-**Status:** a proposal for Elliott's approval (10 November 2026). It replaces UX5 and UX6 for now; those stay in `docs/v4-ux-plan.md` for later.
+**Status:** approved by Elliott on 10 November 2026, with his answers to Q1–Q3 built in. It replaces UX5 and UX6 for now; those stay in `docs/v4-ux-plan.md` for later.
 
 **Why:** Elliott's playtest verdict was that v4 "is working well and very fun, but the basic deck holds back the vision of standard gameplay". This update makes the rule and economy fixes he asked for, and rebuilds the shared deck with more card variety.
 
@@ -34,16 +34,16 @@ These come from 40 AI-vs-AI matches on the current build (per player per match).
 
 **New rule:** **you can't Pass while you have a Ready Pokémon with unmatched Speed.** Unmatched means the opponent has no Active Pokémon of the same Speed. You must attack with it, or take another action, first.
 
-**Proposed detail, to confirm (Q1):** if none of your unmatched Ready Pokémon has a legal target (everything is guarded), you may Pass, and the existing rule applies: those Pokémon become Spent. Otherwise a player could be left with no legal action.
+**Settled (Q1):** a Ready Pokémon can always target something at the moment, because guards are themselves legal targets. If a case ever arises where an unmatched Ready Pokémon has no legal target, you may Pass and it becomes Spent, as now.
 
 ### 2.2 React (point 3)
 
 **New rule:** you can only React when the opponent **attacks with a Pokémon** or **uses a Command Card**. Summons can no longer be Reacted to.
 
-**Proposed detail, to confirm (Q2):**
-- **A Command played as Adapt** opens a React window when it's played, as now.
-- **A Command played as Strat** opens one when it resolves (start of its owner's next turn, or Supper). That's when the move is actually used, and it gives Strats counterplay.
-- **Trainer Commands** are a Trainer's orders, not Pokémon moves, so they can't be Reacted to.
+**Settled (Q2):** you React to a Command when it **resolves**.
+- **An Adapt** opens a React window when it's played, since it resolves at once.
+- **A Strat** opens one when it resolves: at the start of its owner's next turn, or at Supper. Playing a Strat face-down can't be Reacted to.
+- **Trainer Commands** can't be Reacted to.
 - **A React** still can't be Reacted to.
 
 ### 2.3 Pokémon cost (point 4)
@@ -96,7 +96,7 @@ Matches will get a little shorter. The simulation report (section 6) will show b
 
 - **One Item, always on show** in the right-hand column, with its price, effect and a **Stock** counter of pips. There's no PokéMart button or drawer any more.
 - **Stock = turns on sale.** Each turn taken by either player during the Battle Phase uses 1 Stock. At 0, the Item goes back to the pool and a new random Item replaces it. Stock carries over between Rounds; there's no refresh at Breakfast.
-- **When it's bought** (proposed, Q3), a new random Item replaces it at once. Buying it takes it away from the opponent too.
+- **When it's bought** (settled, Q3), the PokéMart shows **Sold out** until the buyer has finished their next turn. Then a new random Item arrives with its full Stock. Buying it takes it away from the opponent too, and there's a short gap between Items. While it's sold out, there's no Stock counting down.
 - **Dearer Items stay on sale for less time:**
 
   | Price | Stock (turns) |
@@ -296,9 +296,17 @@ Anything out of range is reported with a suggested number to change. Elliott's p
 
 ---
 
-## 7. Questions for Elliott
+## 7. Decisions (10 November 2026)
 
-- **Q1, Pass:** if your unmatched Ready Pokémon have no legal target, you may Pass, and they become Spent, as now. OK?
-- **Q2, React:** React to an attack, an Adapt when played, or a Strat when it resolves, but not to Trainer Commands. OK?
-- **Q3, PokéMart:** when the Item is bought, a new one replaces it at once. OK?
-- **Q4:** approve the cost curve, economy, Recognition values, deck shape and card list (sections 2–5), or tell me what to change.
+- **Q1, Pass:** settled as in 2.1.
+- **Q2, React:** settled as in 2.2.
+- **Q3, PokéMart:** settled as in 2.6.
+- **Q4:** sections 2–5 are approved as written.
+
+## 8. Build stages
+
+| Stage | Contents | Prompt |
+|---|---|---|
+| **G1: Rules and economy** | Pass, React, cost curve, Recognition, PokéDollars, the one-Item PokéMart with Stock, and Objective point moments. The deck is unchanged, so the game stays playable | `docs/prompts/v4-G1.md` |
+| **G2: Pokémon** | The trigger and keyword system, the 10 new Pokémon lines, the Electric Physical attack animation, and the AI's understanding of triggers | `docs/prompts/v4-G2.md` |
+| **G3: Cards, deck and balance** | The new Commands, Supporters and Items, the final 40-card deck, the new card animations, and the 200-match balance report | `docs/prompts/v4-G3.md` |
