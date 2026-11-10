@@ -1,6 +1,6 @@
 # v4 card visual overhaul plan
 
-**Status:** a plan for Elliott's approval (10 November 2026).
+**Status:** approved by Elliott on 10 November 2026 (the third-pass mockup). The C1 prompt is `docs/prompts/v4-C1.md`.
 
 **Aim:** cards that look like a premium digital trading card game, in the class of Legends of Runeterra, Hearthstone and Marvel Snap. They should be exciting to collect and see, clear at a glance, and make the most of the full art. The Codex comes back with it.
 
