@@ -8,18 +8,18 @@
 // Earlier stages, kept: F1–F5's actions and screens (Commands, React windows, Strats, Supporters,
 // Items, Trainers, the Tournament), UX1's Objective trackers, commandModesFor, the React window and
 // timer (main.js), no series shown, Recognition shown capped at 100.
-import { RULES } from '../rules.js?v=202611091758';
+import { RULES } from '../rules.js?v=202611100828';
 import {
   isReady, legalTargets, attackers, summonable, emptySpaces, whyNot, passEndsPhase, passSpends, availableExert, energyLeft,
   playerGuard, guardOf, placeable, locationStarts, weatherTotals, activeBrackets, dominantOf, strengthIn,
   actor, commandTargets, playableSupporters, playReason, favourMet,
   commandModesFor, damageOf,
   itemTargets, buyReason, tournamentDominant, tournamentStrength, boosted, buyableFromHand, buyableFromMart, usableFromBag, playableTrainers, trainerReason,
-} from '../engine/game.js?v=202611091758';
-import { WEATHER_BRACKETS, MODES, MODE_NAMES, FAVOURS, modeText, effectText, BAG_SIZE, PATHS, TRAINERS } from '../engine/cards.js?v=202611091758';
-import { baseEnergyFor, EXERT_LIMIT } from '../engine/energy.js?v=202611091758';
-import { icon, speedIcon, attackIcon, strengthIcon, typeIcon, STAT_NAMES, attackKey, strengthKey } from './icons.js?v=202611091758';
-import { hitsFor, commitHit } from './flows.js?v=202611091758';
+} from '../engine/game.js?v=202611100828';
+import { WEATHER_BRACKETS, MODES, MODE_NAMES, FAVOURS, modeText, effectText, BAG_SIZE, PATHS, TRAINERS } from '../engine/cards.js?v=202611100828';
+import { baseEnergyFor, EXERT_LIMIT } from '../engine/energy.js?v=202611100828';
+import { icon, speedIcon, attackIcon, strengthIcon, typeIcon, STAT_NAMES, attackKey, strengthKey } from './icons.js?v=202611100828';
+import { hitsFor, commitHit } from './flows.js?v=202611100828';
 
 // UX3: the key list (the ? overlay and the hint at the bottom-right).
 export const KEY_LIST = [
@@ -75,7 +75,7 @@ function boardCard(s, c, who, space, cls = '') {
   const ready = s.phase === 'battle' && isReady(s, c);
   const strats = s.strats.filter((x) => x.target.who === who && x.target.space === space && x.target.uid === c.uid);
   const badges = strats.map((x) => `<span class="v4-strat ${x.owner}" title="${esc(`${Whose(x.owner)} Strat: ${x.card.name} (${modeText(x.card, 'strat')}), after ${x.owner === 'player' ? 'the Opponent\'s' : 'your'} next turn`)}">⏳ ${esc(x.card.name)}</span>`).join('');
-  return `<div class="v4-card v4-mon${c.partner ? ' partner' : ''}${ready ? ' ready' : ''}${c.spent ? ' spent' : ''} ${cls}" data-who="${who}" data-space="${space}" style="background-image: url('${art(c)}')" title="${esc(`${detail(c)}${ready ? ' · Ready' : c.spent ? ' · Spent' : ' · Active'}`)}">
+  return `<div class="v4-card v4-mon${c.partner ? ' partner' : ''}${ready ? ' ready' : ''}${c.spent ? ' spent' : ''}${c.tempAttack > 0 ? ' aura' : ''} ${cls}" data-uid="${c.uid}" data-who="${who}" data-space="${space}" style="background-image: url('${art(c)}')" title="${esc(`${detail(c)}${ready ? ' · Ready' : c.spent ? ' · Spent' : ' · Active'}`)}">
     <span class="v4-lv">${c.partner ? '★' : `Lv ${c.level}`}</span>${c.partner ? '<span class="v4-chip2 partner">Partner</span>' : ''}
     ${c.held ? `<span class="v4-held" style="background-image: url('${art(c.held)}')" title="${esc(`Holds ${c.held.name}: ${c.held.text}`)}"></span>` : ''}
     ${badges ? `<div class="v4-strats">${badges}</div>` : ''}${statBar(c)}
@@ -113,6 +113,8 @@ export function renderHandCard(s, c, cls = '', tip = detail(c)) {
 // --- The prompt bar ------------------------------------------------------------------------------------
 export function promptFor(s, ui, ctx = {}) {
   const me = s.players.player;
+  // UX4: the AI's pacing: a thinking pause, then its action named (C).
+  if (ui.aiNote) return { tag: 'Opponent', text: esc(ui.aiNote) };
   if (s.phase === 'gameOver') return { tag: s.winner === 'player' ? 'Champion!' : 'Defeat', text: esc(s.log.at(-1)) };
   if (s.phase === 'mulligan') return { tag: 'Round 1 · Mulligan', text: me.mulliganed ? 'The Opponent is choosing…' : 'Choose any cards to put back into your Discard Pile; you draw as many.', gold: !me.mulliganed };
   // The React window (UX1).
@@ -252,7 +254,7 @@ function tracker(s, who, t) {
   const prog = Math.min(t.progress, need);
   const waiting = t.complete && p.waiting.some((c) => c.trainer === t.name);
   const tip = t.complete ? `${t.name}: Objective complete (${t.objective.text}). ${waiting ? `${t.card.partner.name} waits for a free space.` : `${t.card.partner.name} arrived; the card has left the deck.`}` : `${t.name}: ${t.objective.text} (${prog} of ${need}). When it completes, the ${t.name} card leaves the deck, ${partnerText(t.card.partner)} arrives, and +${RULES.perObjective} Recognition.`;
-  return `<div class="v4-tr${t.complete ? ' done' : ''}" title="${esc(tip)}"><span class="a" style="background-image: url('${art(t.card)}')"></span>
+  return `<div class="v4-tr${t.complete ? ' done' : ''}" data-trk="${t.uid}" title="${esc(tip)}"><span class="a" style="background-image: url('${art(t.card)}')"></span>
     <span class="t"><b>${esc(t.name)}</b><small>${esc(waiting ? `${t.card.partner.name} waits for a space` : (t.objective.short ?? t.objective.text))}</small></span>
     ${t.complete ? '<span class="tick">✓</span>' : `<span class="pips">${Array.from({ length: need }, (_, k) => `<i class="${k < prog ? 'on' : ''}"></i>`).join('')}</span>`}
     <span class="pt" style="background-image: url('${art(t.card.partner)}')"></span></div>`;
@@ -272,8 +274,8 @@ function oppHandAndPiles(s) {
   const backs = Array.from({ length: shown }, (_, k) => `<span class="v4-oback" style="left: ${720 + k * 30}px; top: ${92 + Math.abs(k - (shown - 1) / 2) * 3}px; transform: rotate(${(k - (shown - 1) / 2) * 4}deg)"></span>`).join('');
   const top = foe.discard.at(-1);
   return `${backs}<p class="v4-ohand" style="left: ${720 + 46 + Math.max(shown - 1, 0) * 30 + 14}px" title="The Opponent's hand: ${n} card${n === 1 ? '' : 's'} (hidden)">${n} in hand<br><small>Released ${foe.released.length}</small></p>
-    <div class="v4-pile small" style="left: 1340px; top: 84px" title="The Opponent's Draw Pile: ${foe.drawPile.length}"><span class="c">${foe.drawPile.length}</span></div><p class="v4-pcap small" style="left: 1322px; top: 166px">Deck</p>
-    <div class="v4-pile small disc" style="left: 1430px; top: 84px${top ? `; background-image: url('${art(top)}')` : ''}" title="The Opponent's Discard Pile: ${foe.discard.length}${top ? ` (top: ${top.name})` : ''}"><span class="c">${foe.discard.length}</span></div><p class="v4-pcap small" style="left: 1412px; top: 166px">Discard</p>`;
+    <div class="v4-pile small" data-pile="ai-draw" style="left: 1340px; top: 84px" title="The Opponent's Draw Pile: ${foe.drawPile.length}"><span class="c">${foe.drawPile.length}</span></div><p class="v4-pcap small" style="left: 1322px; top: 166px">Deck</p>
+    <div class="v4-pile small disc" data-pile="ai-disc" style="left: 1430px; top: 84px${top ? `; background-image: url('${art(top)}')` : ''}" title="The Opponent's Discard Pile: ${foe.discard.length}${top ? ` (top: ${top.name})` : ''}"><span class="c">${foe.discard.length}</span></div><p class="v4-pcap small" style="left: 1412px; top: 166px">Discard</p>`;
 }
 function youHud(s, ui) {
   const me = s.players.player;
@@ -309,9 +311,20 @@ function board(s, ui) {
     return `<div class="v4-space ${cls}" style="left: ${laneX(i).toFixed(1)}px" data-who="${who}" data-space="${i}"${guard ? ` title="${esc(`Guarded by ${guard.card.name}`)}"` : ''}>${inner}</div>`;
   }).join('');
   return `<section class="v4-board${droppable ? ' droppable' : ''}">
-    ${s.tournament ? tournamentTile(s) : s.locations.map((l) => locationTile(s, l)).join('')}
-    <div class="v4-row opponent">${row('ai')}</div><div class="v4-row player">${row('player')}</div>${reactArrow(s)}
+    ${s.tournament ? tournamentTile(s) : s.locations.map((l) => locationTile(s, l)).join('')}${ambient(s)}
+    <div class="v4-row opponent">${row('ai')}</div><div class="v4-row player">${row('player')}</div>${reactArrow(s)}${sealed(s)}
   </section>`;
+}
+
+// UX4: ambient Weather while a bracket of 2+ is active (CSS only; hidden in low motion).
+function ambient(s) {
+  const on = new Set(activeBrackets(s).map((b) => b.type));
+  return ['Rain', 'Sun'].filter((k) => on.has(k)).map((k) => `<div class="v4-ambient ${k.toLowerCase()}" aria-hidden="true"></div>`).join('');
+}
+// UX4: each pending Strat, sealed: a glowing card back with an hourglass on the board edge of its
+// owner's side (the badge on its target stays).
+function sealed(s) {
+  return ['ai', 'player'].map((who) => s.strats.filter((x) => x.owner === who).map((x, k) => `<span class="v4-sealed ${who}" data-strat="${x.uid}" style="top: ${(who === 'ai' ? 60 : 392) + k * 30}px" title="${esc(`${Whose(who)} Strat, sealed: ${x.card.name} on ${x.targetName}, after ${who === 'player' ? 'the Opponent\'s' : 'your'} next turn (or at Supper)`)}">⏳</span>`).join('')).join('');
 }
 
 // A Location: its art over all its lanes on both sides (a border in its colour), with a plate across
@@ -331,8 +344,8 @@ function locationTile(s, l) {
   const row2 = `<span class="dur">${Array.from({ length: total }, (_, k) => `<i class="${k < l.roundsLeft ? '' : 'off'}"></i>`).join('')}</span>${l.roundsLeft} left<span class="wx ${l.weather.type.toLowerCase()}">${weatherIcon(l.weather.type)} +${l.weather.count} ${l.weather.type}</span>`;
   const x = tileX(l.start);
   const w = l.width * LW;
-  return `<div class="v4-ltile" style="left: ${(x + 3).toFixed(1)}px; width: ${(w - 6).toFixed(1)}px; border-color: ${l.color}; background-image: url('${art(l)}')" title="${esc(tip)}"></div>
-    <div class="v4-lplate" style="left: ${(x + 10).toFixed(1)}px; width: ${(w - 20).toFixed(1)}px">${plate(you, opp, l.color, esc(l.name), esc(l.passive.text), row2, tip)}</div>`;
+  return `<div class="v4-ltile" data-loc="${l.uid}" style="left: ${(x + 3).toFixed(1)}px; width: ${(w - 6).toFixed(1)}px; border-color: ${l.color}; background-image: url('${art(l)}')" title="${esc(tip)}"></div>
+    <div class="v4-lplate" data-plate="${l.uid}" style="left: ${(x + 10).toFixed(1)}px; width: ${(w - 20).toFixed(1)}px">${plate(you, opp, l.color, esc(l.name), esc(l.passive.text), row2, tip)}</div>`;
 }
 // The Pokémon League Tournament: one tile over all 9 lanes (no art yet: a gold frame).
 function tournamentTile(s) {
@@ -427,6 +440,30 @@ function roundBox(s) {
 }
 // Trim a line to n characters with "…" (the full text stays on hover). UX3: lines must fit their boxes.
 const fit = (text, n) => (text.length > n ? `${text.slice(0, n - 1).trimEnd()}…` : text);
+// UX4 G: trim by measured width (canvas measureText, a binary search over the length), in the font the
+// browser actually uses (a fallback font is measured as itself). Without a canvas (Node), by characters.
+const TICKER_TEXT = 276 - 24 - 6;   // the ticker's width, less its padding and a safety margin
+let measureCtx = null;
+function textWidth(text) {
+  if (measureCtx === null) {
+    try { measureCtx = typeof document === 'undefined' ? false : document.createElement('canvas').getContext('2d') || false; } catch { measureCtx = false; }
+  }
+  if (!measureCtx) return null;
+  measureCtx.font = "400 13.5px 'Alegreya Sans', 'Segoe UI', system-ui, sans-serif";
+  return measureCtx.measureText(text).width;
+}
+function fitWidth(text, px) {
+  const w = textWidth(text);
+  if (w === null) return fit(text, Math.floor(px / 7));
+  if (w <= px) return text;
+  let lo = 0;
+  let hi = text.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (textWidth(`${text.slice(0, mid).trimEnd()}…`) <= px) lo = mid; else hi = mid - 1;
+  }
+  return `${text.slice(0, lo).trimEnd()}…`;
+}
 // Short bracket effects for the Weather chip (the full table is on hover).
 const BRACKET_SHORT = { healAll: 'all heal 1 at Breakfast', strength: 'all Pokémon +1 Strength', physical: 'Physical +1 damage', attack: 'all Pokémon +1 Attack' };
 function weatherChip(s) {
@@ -471,7 +508,7 @@ function logLine(line, short) {
   const m = line.match(/([A-Z][\w.'é -]*?) attacked /);
   const who = m && [...NAME_INFO.keys()].find((n) => m[1].endsWith(n));
   const ic = who ? attackIcon({ attackType: NAME_INFO.get(who).attackType }) : '';
-  const text = short ? fit(line, ic ? 34 : 37) : line;
+  const text = short ? fitWidth(line, TICKER_TEXT - (ic ? 24 : 0)) : line;
   return `<p class="${cls}" title="${esc(line)}">${ic}${esc(text)}</p>`;
 }
 function logTicker(s) {
@@ -525,10 +562,12 @@ function myPiles(s, ctx) {
   const me = s.players.player;
   const top = me.discard.at(-1);
   const retained = me.hand.filter((c) => c.retained).length;
-  return `<div class="v4-pile" style="left: 1520px; top: 820px" title="Your Draw Pile: ${me.drawPile.length}"><span class="c">${me.drawPile.length}</span></div><p class="v4-pcap" style="left: 1520px; top: 962px">Deck</p>
-    <div class="v4-pile disc" style="left: 1640px; top: 820px${top ? `; background-image: url('${art(top)}')` : ''}" title="Your Discard Pile: ${me.discard.length}${top ? ` (top: ${top.name})` : ''}"><span class="c">${me.discard.length}</span></div><p class="v4-pcap" style="left: 1640px; top: 962px">Discard</p>
+  return `<div class="v4-pile" data-pile="player-draw" style="left: 1520px; top: 820px" title="Your Draw Pile: ${me.drawPile.length}"><span class="c">${me.drawPile.length}</span></div><p class="v4-pcap" style="left: 1520px; top: 962px">Deck</p>
+    <div class="v4-pile disc" data-pile="player-disc" style="left: 1640px; top: 820px${top ? `; background-image: url('${art(top)}')` : ''}" title="Your Discard Pile: ${me.discard.length}${top ? ` (top: ${top.name})` : ''}"><span class="c">${me.discard.length}</span></div><p class="v4-pcap" style="left: 1640px; top: 962px">Discard</p>
     <div class="v4-keys"><div class="v4-lbl">Keys</div><p><span class="key">1–9</span>card <span class="key">A</span>attack</p><p><span class="key">R</span>retain <span class="key">L</span>log</p><p><span class="key">Tab</span>target <span class="key">?</span>keys</p>
-      <label title="How long a React window waits before letting the action happen">React <select data-setting="reactTimer">${[5, 8, 12, 20].map((v) => `<option value="${v}"${(ctx.reactTimer ?? 5) === v ? ' selected' : ''}>${v} s</option>`).join('')}</select></label></div>
+      <label title="How long a React window waits before letting the action happen">React <select data-setting="reactTimer">${[5, 8, 12, 20].map((v) => `<option value="${v}"${(ctx.reactTimer ?? 5) === v ? ' selected' : ''}>${v} s</option>`).join('')}</select></label>
+      <label title="How fast actions play out (Instant draws each result at once); a click skips the one playing">Speed <select data-setting="speed">${[['slow', 'Slow'], ['normal', 'Normal'], ['fast', 'Fast'], ['instant', 'Instant']].map(([v, n]) => `<option value="${v}"${(ctx.speed ?? 'normal') === v ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
+      <label class="v4-lowm" title="Low motion: fewer particles, no shake, no distortion, no ambient Weather"><input type="checkbox" data-setting="lowMotion"${ctx.lowMotion ? ' checked' : ''}> Low motion</label></div>
     <p class="v4-relline" title="${esc(`Released (for good, never reshuffled): ${me.released.map((c) => c.name).join(', ') || 'none'}. Retained cards stay in your hand through Supper; you draw one fewer per card.`)}">Released ${me.released.length} · Retained ${retained} · drag or click to play</p>`;
 }
 
@@ -546,6 +585,8 @@ function dialogs(s, ui) {
     return `<div class="v4-ask" role="dialog"><div class="v4-panel v4-wide v4-keylist"><h2>Keys</h2><dl>${KEY_LIST.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
       <div class="v4-buttons"><button data-action="keys-close">Close <small>(Esc)</small></button></div></div></div>`;
   }
+  // UX4: the end screen and the Tournament banner wait for the presenter's beats.
+  if (ui.presenting && (s.phase === 'gameOver' || s.tournament)) return '';
   if (s.phase === 'gameOver') return `<div class="v4-ask" role="dialog"><div class="v4-panel v4-over"><h2>${s.winner === 'player' ? 'Pokémon League Champion!' : 'Defeat'}</h2><p>${esc(s.log.at(-1))}</p><p>Round ${s.round} · You ${Math.min(RULES.win, me.recognition)} · Opponent ${Math.min(RULES.win, s.players.ai.recognition)}</p><p class="v4-small">Totals earned: you ${me.recognition}, the Opponent ${s.players.ai.recognition}.</p><button data-action="new">New match</button></div></div>`;
   if (s.tournament && ui.seenTournament !== s.tournament.startedRound && s.phase === 'battle') {
     return `<div class="v4-ask" role="dialog"><div class="v4-panel v4-wide v4-tbanner"><h2>🏆 The Pokémon League Tournament begins!</h2>
@@ -604,8 +645,10 @@ function wire(root, s, ui, ctx) {
   on('[data-action="new"]', () => ctx.newMatch());
 
   on('[data-mull]', (el) => { const u = el.dataset.mull; ui.mull = (ui.mull ?? []).includes(u) ? ui.mull.filter((x) => x !== u) : [...(ui.mull ?? []), u]; ctx.redraw(); });
-  on('[data-action="tournament-ok"]', () => { ui.seenTournament = s.tournament.startedRound; ctx.redraw(); });
+  on('[data-action="tournament-ok"]', () => { ui.seenTournament = s.tournament.startedRound; ctx.redraw(); ctx.tournamentSeen?.(); });
   root.querySelectorAll('[data-setting="reactTimer"]').forEach((el) => el.addEventListener('change', () => ctx.setReactTimer(Number(el.value))));
+  root.querySelectorAll('[data-setting="speed"]').forEach((el) => el.addEventListener('change', () => ctx.setSpeed(el.value)));
+  root.querySelectorAll('[data-setting="lowMotion"]').forEach((el) => el.addEventListener('change', () => ctx.setLowMotion(el.checked)));
   root.querySelectorAll('[data-dontask]').forEach((el) => el.addEventListener('change', () => { if (ui.confirm) ui.confirm.dontAsk = el.checked; }));
   on('[data-action="confirm-yes"]', () => ctx.confirmYes());
   on('[data-action="confirm-no"]', () => ctx.confirmNo());

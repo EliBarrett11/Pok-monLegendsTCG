@@ -347,3 +347,76 @@ button { font-family: inherit; color: inherit; }
 .v4-energy .big { height: 104px; line-height: 80px; padding: 2px 0 22px; }
 /* UX3: dragging never selects text. */
 #stage { user-select: none; -webkit-user-select: none; }
+
+/* --- UX4: motion and effects ------------------------------------------------------------------------ */
+#vfx, #particles { position: absolute; inset: 0; width: 1920px; height: 1080px; z-index: 54; pointer-events: none; }
+#vfx[hidden] { display: none; }
+.v4-anim { position: absolute; inset: 0; z-index: 55; pointer-events: none; }
+.vfx-heat { filter: url(#vfx-heat); }
+.v4-float { position: absolute; transform: translate(-50%, 0); white-space: nowrap; font-family: var(--font-display); font-weight: 800; font-size: 34px; line-height: 1.2;
+  color: #fff; text-shadow: 0 2px 0 #000, 0 0 12px rgba(0, 0, 0, 0.9); }
+.v4-float.damage { color: #ff6b5a; font-size: 44px; }
+.v4-float.heal { color: #9ff07a; font-size: 40px; }
+.v4-float.recognition { color: #ffe08a; font-size: 40px; text-shadow: 0 2px 0 #6b4a10, 0 0 18px rgba(255, 210, 90, 0.8); }
+.v4-float.recognition-hit { color: #ffb07a; font-size: 36px; }
+.v4-float.coins { color: #ffe9a0; font-size: 28px; }
+.v4-float.status { color: #e8ddc8; font-size: 24px; font-family: var(--font-text); }
+.v4-float.level { color: #fff2b8; font-size: 28px; }
+.v4-float.defeat { color: #d8c8b8; font-size: 28px; }
+.v4-float.weather { color: #d8ecff; font-size: 22px; font-family: var(--font-text); }
+.v4-banner { position: absolute; left: 815px; top: 472px; transform: translate(-50%, -50%); padding: 14px 64px 16px; text-align: center; white-space: nowrap;
+  background: linear-gradient(90deg, transparent, rgba(20, 10, 4, 0.92) 18%, rgba(20, 10, 4, 0.92) 82%, transparent); border-top: 2px solid var(--brass); border-bottom: 2px solid var(--brass); }
+.v4-banner b { display: block; font-family: var(--font-display); font-size: 44px; line-height: 1.2; font-weight: 800; color: var(--brass-light); letter-spacing: 0.04em; }
+.v4-banner span { display: block; font-size: 19px; color: var(--muted); }
+.v4-banner.small b { font-size: 34px; }
+.v4-banner.turn b { font-size: 34px; }
+.v4-banner.turn.player b { color: #9cc4ff; } .v4-banner.turn.ai b { color: #ffb27a; }
+.v4-flyer { position: absolute; transform: translate(-50%, -50%); }
+.v4-mini-card { width: 74px; height: 104px; border-radius: 7px; background: center / cover; border: 2px solid var(--brass-mid); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6); }
+.v4-mini-card.back { background: url('../../../assets/ui/card-back.jpg') center / cover; }
+.v4-mini-card.item { width: 56px; height: 56px; border-radius: 50%; }
+.v4-sealcard { width: 92px; height: 128px; border-radius: 9px; background: url('../../../assets/ui/card-back.jpg') center / cover; border: 2px solid #ffe08a; box-shadow: 0 0 22px 6px rgba(255, 210, 90, 0.7); display: grid; place-items: center; }
+.v4-sealcard i { font-style: normal; font-size: 40px; filter: drop-shadow(0 0 6px #000); }
+.v4-coin { display: block; width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff2b0, #e0a020 60%, #8a5a10); color: #5a3a08; font-style: normal; font-weight: 800; text-align: center; line-height: 26px; }
+.v4-reveal { position: absolute; transform: translate(-50%, -50%); }
+.v4-reveal .v4-hcard { position: relative; box-shadow: 0 0 40px 10px rgba(255, 210, 120, 0.55), 0 16px 40px rgba(0, 0, 0, 0.7); }
+.v4-reveal-tag { position: absolute; left: 50%; top: 100%; margin-top: 10px; transform: translateX(-50%); white-space: nowrap; text-align: center; padding: 6px 16px; border-radius: 10px;
+  background: rgba(20, 10, 4, 0.92); border: 1px solid var(--brass); }
+.v4-reveal-tag b { display: block; font-size: 18px; color: var(--brass-light); } .v4-reveal-tag span { display: block; font-size: 14px; color: var(--muted); }
+.v4-favour { position: absolute; transform: translate(-50%, 0); font-family: var(--font-display); font-weight: 800; font-size: 42px; color: #ffe08a; text-shadow: 0 2px 0 #6b4a10, 0 0 22px rgba(255, 210, 90, 0.9); }
+.v4-region { position: absolute; }
+.v4-ghostmon { position: absolute; z-index: 1; }
+.v4-sweep { position: absolute; left: 815px; top: 472px; display: flex; align-items: center; gap: 22px; padding: 14px 70px 14px 24px; white-space: nowrap;
+  background: linear-gradient(90deg, rgba(255, 210, 90, 0.95), rgba(160, 100, 20, 0.95)); border: 3px solid #fff2b8; box-shadow: 0 0 60px rgba(255, 200, 80, 0.7); }
+.v4-sweep .a { width: 120px; height: 120px; border-radius: 12px; background: top / cover; border: 3px solid #fff2b8; }
+.v4-sweep b { font-family: var(--font-display); font-size: 40px; color: #2a1606; } .v4-sweep .n { font-family: var(--font-display); font-size: 34px; color: #fff; text-shadow: 0 2px 0 #6b4a10; }
+.v4-stadium { position: absolute; overflow: hidden; border-radius: 16px; }
+.v4-stadium i { position: absolute; top: 0; bottom: 0; width: 360px; background: linear-gradient(90deg, transparent, rgba(255, 230, 150, 0.55), rgba(255, 255, 230, 0.85), rgba(255, 230, 150, 0.55), transparent); filter: blur(6px); }
+.v4-stamp { position: absolute; font-family: var(--font-display); font-weight: 800; font-size: 30px; color: #2a1606; background: #ffd56a; border: 3px solid #fff2b8; border-radius: 10px; padding: 0 10px; box-shadow: 0 0 20px rgba(255, 210, 90, 0.8); }
+.v4-domglow { position: absolute; border-radius: 10px; }
+.v4-domglow.player { background: linear-gradient(transparent, rgba(110, 170, 255, 0.55)); box-shadow: 0 10px 30px rgba(110, 170, 255, 0.6); }
+.v4-domglow.ai { background: linear-gradient(rgba(255, 150, 80, 0.55), transparent); box-shadow: 0 -10px 30px rgba(255, 150, 80, 0.6); }
+.v4-strip { position: absolute; left: 815px; top: 590px; transform: translateX(-50%); padding: 8px 28px; border-radius: 12px; background: rgba(20, 10, 4, 0.92); border: 2px solid var(--brass); text-align: center; white-space: nowrap; }
+.v4-strip p { margin: 2px 0; font-size: 19px; } .v4-strip .player b { color: #9cc4ff; } .v4-strip .ai b { color: #ffb27a; }
+.v4-lockfx { position: absolute; font-size: 44px; transform: translate(-50%, -50%); }
+.v4-champ { position: absolute; transform: translate(-50%, -50%); font-family: var(--font-display); font-weight: 800; font-size: 46px; color: #ffe08a; text-shadow: 0 3px 0 #6b4a10, 0 0 26px rgba(255, 210, 90, 0.9); white-space: nowrap; }
+/* Sealed Strats on their owner's board edge; X Attack's aura until Supper. */
+.v4-sealed { position: absolute; z-index: 4; left: -18px; width: 40px; height: 56px; border-radius: 5px; background: url('../../../assets/ui/card-back.jpg') center / cover; border: 1.5px solid #ffe08a;
+  box-shadow: 0 0 12px 3px rgba(255, 210, 90, 0.75); display: grid; place-items: center; font-size: 18px; cursor: help; animation: v4-seal 2.2s ease-in-out infinite; }
+.v4-sealed.ai { border-color: var(--opp); } .v4-sealed.player { border-color: var(--you); }
+@keyframes v4-seal { 50% { box-shadow: 0 0 20px 6px rgba(255, 210, 90, 0.95); } }
+.v4-mon.aura { box-shadow: 0 0 0 2px #ff9a3a, 0 0 18px 5px rgba(255, 140, 50, 0.75); animation: v4-aura 1.6s ease-in-out infinite; }
+@keyframes v4-aura { 50% { box-shadow: 0 0 0 2px #ffc070, 0 0 28px 9px rgba(255, 160, 60, 0.9); } }
+/* Ambient Weather while a bracket of 2+ is active: light rain, or shimmer and motes for Sun (CSS: it
+   pauses with the tab; none in low motion). */
+.v4-ambient { position: absolute; inset: 0; z-index: 1; pointer-events: none; border-radius: 16px; overflow: hidden; }
+.v4-ambient::before { content: ''; position: absolute; left: -200px; top: -200px; right: -200px; bottom: -200px; will-change: transform; }
+.v4-ambient.rain::before { background: radial-gradient(ellipse 1.2px 11px at 50% 50%, rgba(180, 215, 255, 0.42), transparent) 0 0 / 46px 96px; transform: rotate(14deg); animation: v4-rain 0.55s linear infinite; }
+@keyframes v4-rain { from { transform: rotate(14deg) translateY(0); } to { transform: rotate(14deg) translateY(96px); } }
+.v4-ambient.sun { background: radial-gradient(ellipse at 20% 0%, rgba(255, 220, 120, 0.16), transparent 60%); }
+.v4-ambient.sun::before { background: radial-gradient(circle, rgba(255, 230, 150, 0.4) 0 1.5px, transparent 2.5px) 0 0 / 90px 90px; animation: v4-sun 9s linear infinite; }
+@keyframes v4-sun { from { transform: translateY(0); } to { transform: translateY(-180px); } }
+.v4-low .v4-ambient, .v4-low .v4-sealed, .v4-low .v4-mon.aura { animation: none; }
+.v4-low .v4-ambient { display: none; }
+.v4-keys .v4-lowm { white-space: nowrap; }
+.v4-keys .v4-lowm input { vertical-align: -2px; margin: 0 3px 0 0; }

@@ -2,9 +2,9 @@
 // and the keyboard. It draws on its own layer (#v4-fx) inside the stage, above the board and below
 // dialogs, so a redraw of the match never loses the arrow. Every choice goes through flows.js, the same
 // path clicks take; nothing is committed until a legal drop, Enter, or the final click.
-import { attackers, commandModesFor, commandTargets } from '../engine/game.js?v=202611091758';
-import { hitsFor, evaluate, previewHTML, needsArrow, placementAt, commitHit, sameHit } from './flows.js?v=202611091758';
-import { reactOpen } from './board.js?v=202611091758';
+import { attackers, commandModesFor, commandTargets } from '../engine/game.js?v=202611100828';
+import { hitsFor, evaluate, previewHTML, needsArrow, placementAt, commitHit, sameHit } from './flows.js?v=202611100828';
+import { reactOpen } from './board.js?v=202611100828';
 
 const W = 1920;
 export function setupInteraction({ stage, ui, ctx, getState }) {
@@ -91,6 +91,17 @@ export function setupInteraction({ stage, ui, ctx, getState }) {
   function refresh() {
     const s = getState();
     if (!s) return hideAll();
+    // UX4 C: the AI's arrow, from its source to its target, for a moment before its beat.
+    if (ui.aim) {
+      hideAll();
+      const { from, to } = ui.aim;
+      const mx = (from.x + to.x) / 2 + 40;
+      const my = Math.min(from.y, to.y) - 30 + Math.abs(from.y - to.y) * 0.25;
+      path.setAttribute('d', `M${from.x.toFixed(0)},${from.y.toFixed(0)} Q${mx.toFixed(0)},${my.toFixed(0)} ${to.x.toFixed(0)},${to.y.toFixed(0)}`);
+      svg.classList.add('snap');
+      svg.style.display = '';
+      return;
+    }
     const sel = currentSel(s);
     if (!sel || dialogOpen(s)) return hideAll();
     const hit = activeHit(s, sel);
@@ -285,5 +296,5 @@ export function setupInteraction({ stage, ui, ctx, getState }) {
     }
   });
 
-  return { refresh, cancel, toClient };
+  return { refresh, cancel, toClient, rectOf };
 }

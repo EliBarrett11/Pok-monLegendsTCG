@@ -517,3 +517,76 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
       - the key list.
 
       No page errors.
+- **UX4 — motion and effects** (`docs/v4-ux-plan.md` 3.5, `docs/vfx.md`). No rule or number changed.
+  - **Reused, copied into v4 (each with a "Copied from …" header):**
+    - `src/ui/vfx/gl.js`, `timeline.js`, `textures.js` and `shared.js` (the root effects library), from `src/ui/vfx/`;
+    - `src/ui/vfx/engine.js` and `src/ui/particles.js`, from v2.
+    - v4's changes are small: local imports; low motion follows v4's setting; textures load from `../assets/vfx/`; the board shake moves `.v4-board`; one frame may advance up to 100 ms, so a slow GPU stays near real time.
+  - **The presenter** (`src/ui/plan.js`, pure; `src/ui/present.js`, the page):
+    - Each action plays beat by beat. First the action on the board as it was; then the new state is drawn (at the first arrival); then the arrivals.
+    - A Pokémon defeated after the new board is drawn keeps a ghost card, so its defeat still plays.
+    - Input is locked while a beat plays. A click, Space or Esc skips to the end of the action.
+    - The presenter only reads `prev` and `next`. `main.js` sets the state once, when it draws.
+    - Without WebGL (`?nowebgl` forces it), 2D particles stand in; numbers, banners and card moves still play.
+  - **The library** (`src/ui/vfx/library.js`, data only):
+    - **`EVENT_BEATS`:** each of the 33 engine event types has a beat, a budget and a sound hook.
+    - **Attacks:** Fire Physical is Flame Wheel; Fire Special is Flamethrower; Water Physical is Waterfall; Water Special is Hydro Pump; Electric Special is forked lightning (the shared bolt plus a second fork).
+    - **Commands:** Ember and Rock Slide use v1's Strategy animations; Recover and X Attack are composed from the shared presets. React is quick, Adapt standard, Strat big.
+    - v4's own moments, and `MS`: every page-animation time at Normal.
+  - **Engine data fields** (data only; the engine does the same):
+    - `hits` (each Pokémon's Strength and Attack before and after, and defeats) on Commands, Items, Supporters, Trainer Commands, On Summons and Breakfast heals;
+    - `from` (the source) on Recognition and $;
+    - names and uids on several events;
+    - a Breakfast `summary` (cards drawn, $, Base Energy);
+    - `emit` now returns its event.
+  - **The beats:**
+    - **Attacks:** hit-stop, shake and bloom scale with the damage; damage numbers; Strength numbers tick down. A hit-back plays the defender's shorter counter. An attack on the Player Character hits the Recognition ring.
+    - **Heals:** green motes and "+N". **Defeats:** the card dissolves (ash, wash or shatter, by the Type that defeated it), then coins fly to the purse and "+N" flies to the ring.
+    - **Commands:** the card rises to centre stage, flares and resolves at its target. X Attack leaves an aura on its Pokémon until Supper.
+    - **Strats:** a played Strat flies to its owner's board edge and stays there, sealed: a glowing card back with an hourglass. When it resolves, it rises from there. A React plays inside the React-window flow.
+    - **Summons** drop in with dust and glow, bigger by Level, then their On Summon. Charizard's and Ninetales's damage uses their own attack animation.
+    - **Partners** (about 2 s): the tracker bursts, the Trainer's art sweeps across, the Partner lands with a gold shockwave, then its On Summon.
+    - **Objectives:** each step fills the next pip with a pulse; completion turns the tracker green with a flare.
+    - **Recognition:** "+N" flies from its source to the ring, and the ring fills smoothly. In the Tournament it reads "+2 → +3". The ring flares at 50, 70 and 90 and stays capped at 100.
+    - **PokéDollars and Items:** coins fly to the purse. A purchase flies the Item from the PokéMart or the hand to the Bag. Using an Item plays a small effect on its target.
+    - **Supporters:** the Released cards burn away, then the effect, then "Favour!" and its Recognition.
+    - **Locations:** a new one unfolds over its lanes and an expiring one folds away. Retaining a card shows a small lock.
+    - **Weather:** ambient rain or sun while a bracket of 2+ is active (CSS transforms; off in low motion). The Weather chip pulses and names a bracket when it is reached.
+    - **Supper:** the Strats resolve; each dominated Location's plate glows on the winner's side, then its Recognition flies; then Objective progress; then the countdowns; then the hand slides to the Discard Pile, and Retained cards stay.
+    - **Breakfast:** "Round N", a summary strip, then the new hand deals in.
+    - **Banners:** "Round N", "Your turn", "Opponent's turn" and "Supper", each 0.7 s at Normal.
+    - **The Tournament:** a stadium sweep across all 9 lanes, then the existing banner; closing the banner stamps "×1.5" on each ring.
+    - **The end of the match:** the winner's ring fills and flares "Champion", then the end screen. The end screen and the Tournament banner wait for the beats.
+  - **AI pacing:** a thinking pause (0.5 s at Normal) with "The Opponent is thinking…" in the prompt bar. Then the prompt bar names the action, and anything with a target gets the arrow from its source to its target for 0.4 s, before the beat.
+  - **Speed:** Slow, Normal, Fast and Instant (×1.5, ×1, ×0.5, none), plus a Low motion toggle, beside the React timer. Both are kept in localStorage inside try/catch.
+    - Low motion is on by default under the OS's reduced-motion setting. It means fewer particles, no shake, no distortion and no ambient Weather.
+    - `?autoplay` uses Fast. The layout tool uses `?speed=instant`.
+    - `?timescale=N` (checks only) stretches every beat, so a slow renderer can be screenshotted mid-beat.
+  - **Sound hooks:** `sfx(name, opts)` in `src/ui/sound.js` is a no-op, called at every beat. The calls are kept for `?debug` checks.
+  - **Performance:** the WebGL loop runs only while an effect is alive. With nothing playing, a frame takes 16.7 ms (60 fps), with WebGL or without. Textures load once from `assets/vfx/manifest.json`. All 25 are present, so no placeholders were drawn.
+  - **Polish:**
+    - The log ticker trims each line by measured width: canvas `measureText` with a binary search, in the font the browser actually uses.
+    - A bug where a new match could leave the AI loop stopped is fixed. It happened when the old loop was still waiting, because the new loop was refused.
+  - **Checks:**
+    - **`node v4/tests/ux4.test.js`** checks, without a browser:
+      - every event type in 30 fixed-seed AI-vs-AI matches has a beat;
+      - every attack combination maps to an animation, and the five named ones are right;
+      - every Command card and mode, Supporter, Item and Trainer Command has an effect;
+      - every timeline, moment and planned beat is within its vfx.md budget at Normal;
+      - a seeded match ends in the same state planned at Instant or Normal.
+    - **`node v4/tools/ux4check.mjs`** runs in the browser:
+      - a seeded match at Normal for 3 Rounds;
+      - frame times;
+      - click-to-skip, Instant, low motion and the no-WebGL fallback;
+      - the mid-beat screenshots.
+    - **Results:**
+      - all nine test files pass, `ux4` with 14,498 checks;
+      - the layout check is ok at all three sizes, at Instant;
+      - `ux4check` passes 11 of 11: 3 Rounds at Normal in 166 s with no page errors; click-to-skip draws the new state in 78 ms.
+      - **Frame times** were measured in headless Chromium, which renders WebGL in software, not on a GPU:
+        - over the 3-Round match: 27.6 ms average, 233 ms worst;
+        - during the Supper → Breakfast → Tournament beat: 25.9 ms average, 183 ms worst;
+        - during a Flamethrower with a hit-back: 125.8 ms average, 217 ms worst;
+        - idle: 16.7 ms.
+
+        60 fps on integrated graphics still needs checking on a real machine.

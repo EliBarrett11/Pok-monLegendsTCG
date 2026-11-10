@@ -30,10 +30,10 @@
 // per Retained card; Round 1: draw 7 then a mulligan, as in v1), Battle (alternating turns, one
 // action each: Summon, Attack, Retain, Pass; two Passes in a row end it), Supper (the hand is
 // discarded except Retained cards). Initiative switches each Round.
-import { RULES, SPEEDS, levelFor } from '../rules.js?v=202611091758';
-import { nextRandom, shuffle } from './random.js?v=202611091758';
-import { newEnergy, refreshEnergy, canPay, payCost, availableExert } from './energy.js?v=202611091758';
-import { DEMO_DECK, cardAtRound, pokemonAt, pathDef, locationDef, WEATHER_BRACKETS, FAVOURS, MODE_NAMES, ITEMS, BAG_SIZE } from './cards.js?v=202611091758';
+import { RULES, SPEEDS, levelFor } from '../rules.js?v=202611100828';
+import { nextRandom, shuffle } from './random.js?v=202611100828';
+import { newEnergy, refreshEnergy, canPay, payCost, availableExert } from './energy.js?v=202611100828';
+import { DEMO_DECK, cardAtRound, pokemonAt, pathDef, locationDef, WEATHER_BRACKETS, FAVOURS, MODE_NAMES, ITEMS, BAG_SIZE } from './cards.js?v=202611100828';
 
 export const PLAYERS = ['player', 'ai'];
 export const NAMES = { player: 'You', ai: 'The Opponent' };
@@ -360,7 +360,7 @@ const ACTIONS = {
     const on = s.players[t.who].row[t.space];
     if (mode === 'strat') {
       s.strats.push({ uid: `strat-${uid}`, owner: who, card: plain, target: t, targetName: on.name, playedRound: s.round });
-      emit(s, 'strat', { who, id: card.id, target: t });
+      emit(s, 'strat', { who, id: card.id, name: card.name, uid: `strat-${uid}`, target: t });
       log(s, `${NAMES[who]} played ${card.name} as a Strat (${cost} Energy) on ${on.name}: it resolves after ${who === 'player' ? 'the Opponent\'s' : 'your'} next turn.`);
       return endTurn(s, who, false);
     }
@@ -382,7 +382,7 @@ const ACTIONS = {
     payCost(p, cost, s.round);
     p.hand = p.hand.filter((c) => c !== card);
     const { retained, ...plain } = card;
-    emit(s, 'react', { who, id: card.id, target: t });
+    emit(s, 'react', { who, id: card.id, name: card.name, uid: card.uid, target: t });
     log(s, `${NAMES[who]} Reacted with ${card.name} (${cost} Energy) on ${s.players[t.who].row[t.space].name}.`);
     applyCommand(s, who, plain, 'react', t);
     p.discard.push(plain);
@@ -413,7 +413,7 @@ const ACTIONS = {
     if (from === 'mart') s.mart.onSale[slot] = null;
     else p.hand = p.hand.filter((c) => c !== item);
     const { retained, ...plain } = item;
-    emit(s, 'itemBought', { who, id: item.id, from: from === 'mart' ? 'mart' : 'hand', then });
+    emit(s, 'itemBought', { who, id: item.id, name: item.name, uid: item.uid, slot: from === 'mart' ? slot : null, from: from === 'mart' ? 'mart' : 'hand', then, price: item.price });
     log(s, `${NAMES[who]} bought ${item.name} from ${from === 'mart' ? 'the PokéMart' : `${who === 'player' ? 'your' : 'their'} hand`} for $${item.price} (now $${p.dollars}).`);
     if (then === 'store') {
       p.bag.push(plain);
@@ -444,9 +444,9 @@ const ACTIONS = {
     payCost(p, card.command.cost, s.round);
     p.hand = p.hand.filter((c) => c !== card);
     const { retained, ...plain } = card;
-    emit(s, 'trainerCommand', { who, id: card.id });
+    const ev = emit(s, 'trainerCommand', { who, id: card.id, name: card.name });
     log(s, `${NAMES[who]} played ${card.name} as a Trainer Command (${card.command.cost} Energy): ${card.command.text}.`);
-    runOps(s, who, card.command.ops);
+    watch(s, ev, () => runOps(s, who, card.command.ops));
     p.discard.push(plain);
     endTurn(s, who, false);
   },
@@ -465,12 +465,12 @@ const ACTIONS = {
     const favour = favourMet(card, paid);
     p.hand = p.hand.filter((c) => c !== card && !paid.includes(c));
     p.released.push(...paid.map(({ retained, ...c }) => c));
-    emit(s, 'supporter', { who, id: card.id, released: paid.map((c) => c.name), favour });
+    const ev = emit(s, 'supporter', { who, id: card.id, name: card.name, uid: card.uid, released: paid.map((c) => c.name), releasedUids: paid.map((c) => c.uid), favour });
     log(s, `${NAMES[who]} played ${card.name}, Releasing ${paid.map((c) => c.name).join(' and ')}${favour ? ` (Favour: ${FAVOURS[card.favour.condition].text})` : ''}.`);
-    runSupporter(s, who, favour ? card.favour : card.effect);
+    watch(s, ev, () => runSupporter(s, who, favour ? card.favour : card.effect));
     const { retained, ...plain } = card;
     p.released.push(plain);
-    if (favour) gainRecognition(s, who, RULES.perFavour, `${card.name}'s Favour`);
+    if (favour) gainRecognition(s, who, RULES.perFavour, `${card.name}'s Favour`, { kind: 'card' });
     endTurn(s, who, false);
   },
 
@@ -485,7 +485,7 @@ const ACTIONS = {
     const { retained, ...plain } = card;
     s.locations.push({ uid: `loc-${uid}`, owner: who, card: plain, id: card.id, name: card.name, art: card.art, color: card.color, start, width: card.width,
       roundsLeft: card.rounds, weather: card.weather, passive: card.passive, placedRound: s.round });
-    emit(s, 'locationPlaced', { who, id: card.id, start, width: card.width });
+    emit(s, 'locationPlaced', { who, id: card.id, uid: `loc-${uid}`, name: card.name, start, width: card.width });
     log(s, `${NAMES[who]} placed ${card.name} over lanes ${start + 1}–${start + card.width} (${card.rounds} Rounds; ${card.weather.count} ${card.weather.type}).`);
     endTurn(s, who, false);
   },
@@ -559,9 +559,9 @@ const RESOLVE = {
     const p = s.players[who];
     if (p.row[space]) { p.discard.push(card); return fizzle(s, who, `${POSS[who]} ${card.name}`, 'its space is taken'); }
     p.row[space] = { ...card, currentStrength: card.strength, spent: true, summonedRound: s.round, bonusAttack: 0, bonusStrength: 0, tempAttack: 0 };
-    emit(s, 'summoned', { who, space, name: card.name, level: card.level });
+    const ev = emit(s, 'summoned', { who, space, id: card.id, name: card.name, level: card.level });
     syncBonuses(s);
-    if (card.onSummon) runOps(s, who, card.onSummon);
+    if (card.onSummon) watch(s, ev, () => runOps(s, who, card.onSummon));
   },
 
   // The attack: the attacker and target must still be there (and the target still legal). A Ready
@@ -576,9 +576,9 @@ const RESOLVE = {
     const hit = damageOf(s, a);
     if (target.kind === 'player') {
       a.spent = true;
-      emit(s, 'attack', { who, from, target, amount: hit });
+      emit(s, 'attack', { who, from, target, amount: hit, name: a.name });
       log(s, `${POSS[who]} ${a.name} attacked ${who === 'player' ? 'the Opponent' : 'you'} for ${hit}.`);
-      return gainRecognition(s, who, hit * RULES.perDamageToPlayer, `${a.name}'s attack`);
+      return gainRecognition(s, who, hit * RULES.perDamageToPlayer, `${a.name}'s attack`, { kind: 'pc', who: foe });
     }
     const trades = isReady(s, d);
     const back = trades ? damageOf(s, d) : 0;
@@ -586,7 +586,7 @@ const RESOLVE = {
     if (trades) a.currentStrength -= back;
     a.spent = true;
     if (trades) d.spent = true;
-    emit(s, 'attack', { who, from, target, amount: hit, back });
+    emit(s, 'attack', { who, from, target, amount: hit, back, name: a.name, targetName: d.name });
     log(s, `${POSS[who]} ${a.name} attacked ${d.name} for ${hit}${trades ? `; ${d.name} was Ready and hit back for ${back}` : ''}.`);
     if (d.currentStrength <= 0) defeat(s, foe, target.space, who);
     if (a.currentStrength <= 0) defeat(s, who, from, foe);
@@ -617,14 +617,16 @@ export function applyCommand(s, who, card, mode, target) {
   const { op, amount } = card.modes[mode];
   const c = s.players[target.who].row[target.space];
   if (!c || (target.uid && c.uid !== target.uid)) { fizzle(s, who, `${POSS[who]} ${card.name}`, 'its target is gone'); return false; }
-  emit(s, 'commandResolved', { who, id: card.id, mode, target });
-  if (op === 'damage') hurt(s, target.who, target.space, amount, who);
-  else if (op === 'heal') heal(c, amount);
-  else if (op === 'attackUp') { c.attack += amount; c.tempAttack = (c.tempAttack ?? 0) + amount; }
-  else if (op === 'damageLocation') {
-    const loc = locationOf(s, target.space);
-    for (const { space } of pokemonOf(s, target.who).filter((x) => locationOf(s, x.space) === loc)) hurt(s, target.who, space, amount, who);
-  } else throw new Error(`Unknown op ${op}`);
+  const ev = emit(s, 'commandResolved', { who, id: card.id, name: card.name, mode, op, target });
+  watch(s, ev, () => {
+    if (op === 'damage') hurt(s, target.who, target.space, amount, who);
+    else if (op === 'heal') heal(c, amount);
+    else if (op === 'attackUp') { c.attack += amount; c.tempAttack = (c.tempAttack ?? 0) + amount; }
+    else if (op === 'damageLocation') {
+      const loc = locationOf(s, target.space);
+      for (const { space } of pokemonOf(s, target.who).filter((x) => locationOf(s, x.space) === loc)) hurt(s, target.who, space, amount, who);
+    } else throw new Error(`Unknown op ${op}`);
+  });
   log(s, `${card.name} (${MODE_NAMES[mode]}): ${cardModeText(card, mode)} on ${c.name}.`);
   return true;
 }
@@ -672,15 +674,17 @@ function checkItemTarget(s, who, item, target) {
 // Using an Item: a Held Item attaches to the Pokémon; a Consumed Item resolves, then goes to the PokéMart.
 export function applyItem(s, who, item, t) {
   const c = s.players[who].row[t.space];
-  emit(s, 'itemUsed', { who, id: item.id, space: t.space });
+  const ev = emit(s, 'itemUsed', { who, id: item.id, name: item.name, itemType: item.itemType, op: item.op, space: t.space });
   if (item.itemType === 'Held') {
     c.held = item;
     log(s, `${POSS[who]} ${c.name} now holds ${item.name} (${item.text}).`);
     return;
   }
-  if (item.op === 'heal') heal(c, item.amount);
-  else if (item.op === 'attackUp') { c.attack += item.amount; c.tempAttack = (c.tempAttack ?? 0) + item.amount; }
-  else throw new Error(`Unknown Item op ${item.op}`);
+  watch(s, ev, () => {
+    if (item.op === 'heal') heal(c, item.amount);
+    else if (item.op === 'attackUp') { c.attack += item.amount; c.tempAttack = (c.tempAttack ?? 0) + item.amount; }
+    else throw new Error(`Unknown Item op ${item.op}`);
+  });
   log(s, `${NAMES[who]} used ${item.name} on ${c.name} (${item.text}).`);
   s.mart.pool.push(item);
 }
@@ -692,9 +696,9 @@ function refreshMart(s) {
   s.mart.pool = pool.slice(RULES.martSize);
   emit(s, 'martRefreshed', { onSale: s.mart.onSale.map((c) => c.id) });
 }
-function gainDollars(s, who, n, source) {
+function gainDollars(s, who, n, source, from = null) {
   s.players[who].dollars += n;
-  emit(s, 'dollars', { who, amount: n, total: s.players[who].dollars, source });
+  emit(s, 'dollars', { who, amount: n, total: s.players[who].dollars, source, from });
   log(s, `${NAMES[who]}: +$${n} (${source}), now $${s.players[who].dollars}.`);
 }
 
@@ -732,16 +736,16 @@ function completeTrainer(s, who, t) {
     emit(s, 'partnerWaiting', { who, name: card.name, trainer: t.name });
     log(s, `${card.name}, ${t.name}'s Partner, waits for a free space.`);
   }
-  gainRecognition(s, who, RULES.perObjective, `${t.name}'s Objective`);
+  gainRecognition(s, who, RULES.perObjective, `${t.name}'s Objective`, { kind: 'tracker', who, uid: t.uid });
 }
 // A Partner Pokémon arrives like a summon (Spent; a snapshot), into the first empty space on your
 // side; then its On Summon effect.
 function partnerInto(s, who, card, space) {
   s.players[who].row[space] = { ...card, currentStrength: card.strength, spent: true, summonedRound: s.round, bonusAttack: 0, bonusStrength: 0, tempAttack: 0 };
-  emit(s, 'partnerArrived', { who, name: card.name, space, trainer: card.trainer });
+  const ev = emit(s, 'partnerArrived', { who, id: card.id, name: card.name, space, trainer: card.trainer });
   log(s, `${card.trainer}'s Partner ${card.name} arrives in lane ${space + 1}!`);
   syncBonuses(s);
-  if (card.onSummon) runOps(s, who, card.onSummon);
+  if (card.onSummon) watch(s, ev, () => runOps(s, who, card.onSummon));
 }
 // Waiting Partners arrive as soon as a space is free (checked after every action and at Breakfast).
 function partnersArrive(s) {
@@ -811,8 +815,8 @@ function defeat(s, who, space, by) {
   emit(s, 'defeated', { who, space, name: card.name, by });
   log(s, `${POSS[who]} ${card.name} was defeated.`);
   // F4: PokéDollars for the defeat (its Energy cost at its Level, at least 1).
-  gainDollars(s, by, Math.max(1, card.cost ?? 0), `defeating ${card.name}`);
-  gainRecognition(s, by, RULES.perDefeat, `defeating ${card.name}`);
+  gainDollars(s, by, Math.max(1, card.cost ?? 0), `defeating ${card.name}`, { kind: 'space', who, space });
+  gainRecognition(s, by, RULES.perDefeat, `defeating ${card.name}`, { kind: 'space', who, space });
   progressTrainers(s, by, 'defeat');
 }
 
@@ -827,12 +831,12 @@ function endTurn(s, who, passed) {
 
 // --- Recognition and winning ------------------------------------------------------------------------
 
-export function gainRecognition(s, who, base, source) {
+export function gainRecognition(s, who, base, source, from = null) {
   if (base <= 0 || s.phase === 'gameOver') return;
   const p = s.players[who];
   const amount = boosted(s, base);
   p.recognition += amount;
-  emit(s, 'recognition', { who, amount, base, total: p.recognition, source });
+  emit(s, 'recognition', { who, amount, base, total: p.recognition, source, from });
   log(s, `${NAMES[who]}: +${amount} Recognition (${source}${amount !== base ? `; Tournament: ${base} +50%` : ''}), now ${p.recognition}.`);
   if (p.recognition >= RULES.win) {
     s.phase = 'gameOver';
@@ -880,7 +884,7 @@ function supper(s) {
     const d = dominantOf(s, l);
     if (d) {
       emit(s, 'dominance', { who: d, uid: l.uid });
-      gainRecognition(s, d, RULES.perDominance, `dominating ${l.name}`);
+      gainRecognition(s, d, RULES.perDominance, `dominating ${l.name}`, { kind: 'location', uid: l.uid });
       if (s.phase === 'gameOver') return;
       progressTrainers(s, d, 'dominate');
       if (s.phase === 'gameOver') return;
@@ -891,7 +895,7 @@ function supper(s) {
     const d = tournamentDominant(s);
     emit(s, 'tournamentDominance', { who: d, player: tournamentStrength(s, 'player'), ai: tournamentStrength(s, 'ai') });
     if (d) {
-      gainRecognition(s, d, RULES.perTournamentDominance, 'dominating the Pokémon League Tournament');
+      gainRecognition(s, d, RULES.perTournamentDominance, 'dominating the Pokémon League Tournament', { kind: 'tournament' });
       if (s.phase === 'gameOver') return;
       progressTrainers(s, d, 'dominate');
       if (s.phase === 'gameOver') return;
@@ -904,7 +908,7 @@ function supper(s) {
     if (l.roundsLeft > 0) continue;
     s.locations = s.locations.filter((x) => x !== l);
     s.players[l.owner].discard.push(l.card);
-    emit(s, 'locationRemoved', { uid: l.uid, id: l.id });
+    emit(s, 'locationRemoved', { uid: l.uid, id: l.id, name: l.name, owner: l.owner, start: l.start, width: l.width });
     log(s, `${l.name} leaves: its lanes are the Default Location again.`);
   }
   syncBonuses(s);
@@ -926,28 +930,33 @@ function supper(s) {
 function startRound(s, round) {
   s.round = round;
   s.initiative = opponentOf(s.initiative);
-  emit(s, 'breakfast', { round });
+  const ev = emit(s, 'breakfast', { round });
+  const hand0 = Object.fromEntries(PLAYERS.map((w) => [w, s.players[w].hand.length]));
   log(s, `Round ${round} · Breakfast.`);
   // F5: first, the Pokémon League Tournament may begin.
   if (!s.tournament && (round >= RULES.tournamentRound || PLAYERS.some((w) => s.players[w].recognition >= RULES.tournamentRecognition))) beginTournament(s, round);
-  for (const who of PLAYERS) {
-    const p = s.players[who];
-    const recovered = refreshEnergy(p, round);
-    if (recovered.length) log(s, `${NAMES[who]}: ${recovered.length} Exhaust recovered into Exert.`);
-    for (const { card } of pokemonOf(s, who)) card.spent = false;
-    p.dollars += RULES.dollarsPerRound;
-    // Breakfast heals: Lake of Rage's passive, Rain 2.
-    const rain = activeBrackets(s).filter((b) => b.kind === 'healAll').reduce((n, b) => n + b.amount, 0);
-    for (const { card, space } of pokemonOf(s, who)) {
-      const l = locationAt(s, space);
-      const n = rain + (l?.passive.kind === 'heal' ? l.passive.amount : 0) + (card.held?.op === 'healBreakfast' ? card.held.amount : 0);
-      if (n) heal(card, n);
+  watch(s, ev, () => {
+    for (const who of PLAYERS) {
+      const p = s.players[who];
+      const recovered = refreshEnergy(p, round);
+      if (recovered.length) log(s, `${NAMES[who]}: ${recovered.length} Exhaust recovered into Exert.`);
+      for (const { card } of pokemonOf(s, who)) card.spent = false;
+      p.dollars += RULES.dollarsPerRound;
+      // Breakfast heals: Lake of Rage's passive, Rain 2.
+      const rain = activeBrackets(s).filter((b) => b.kind === 'healAll').reduce((n, b) => n + b.amount, 0);
+      for (const { card, space } of pokemonOf(s, who)) {
+        const l = locationAt(s, space);
+        const n = rain + (l?.passive.kind === 'heal' ? l.passive.amount : 0) + (card.held?.op === 'healBreakfast' ? card.held.amount : 0);
+        if (n) heal(card, n);
+      }
+      for (const pile of ['hand', 'drawPile', 'discard']) p[pile] = p[pile].map((c) => (c.cardType === 'Pokémon' ? { ...cardAtRound(c.id, round), uid: c.uid, ...(c.retained ? { retained: false } : {}) } : c));
+      for (const c of p.hand) c.retained = false;
+      draw(s, who, Math.max(0, RULES.handDraw - p.retainedNext));
+      p.retainedNext = 0;
     }
-    for (const pile of ['hand', 'drawPile', 'discard']) p[pile] = p[pile].map((c) => (c.cardType === 'Pokémon' ? { ...cardAtRound(c.id, round), uid: c.uid, ...(c.retained ? { retained: false } : {}) } : c));
-    for (const c of p.hand) c.retained = false;
-    draw(s, who, Math.max(0, RULES.handDraw - p.retainedNext));
-    p.retainedNext = 0;
-  }
+  });
+  // UX4: what Breakfast gave each player, for the summary strip (data only).
+  ev.summary = Object.fromEntries(PLAYERS.map((w) => [w, { drew: s.players[w].hand.length - hand0[w], dollars: RULES.dollarsPerRound, energy: s.players[w].baseEnergy }]));
   refreshMart(s);
   partnersArrive(s);
   syncBonuses(s);
@@ -968,7 +977,25 @@ function beginTournament(s, round) {
   log(s, `The Pokémon League Tournament begins (${reason})!${removed.length ? ` ${removed.join(', ')} ${removed.length === 1 ? 'is' : 'are'} removed.` : ''} It covers the whole battlefield: Recognition +50%, and its dominance gives +${RULES.perTournamentDominance} at Supper.`);
 }
 
-function emit(s, type, data = {}) { s.events.push({ type, ...data }); }
+function emit(s, type, data = {}) { const e = { type, ...data }; s.events.push(e); return e; }
+
+// UX4 (data only, for the presenter): runs fn and records on the event every Pokémon whose
+// Strength or Attack it changed: { who, space, name, before, after, max, attackBefore, attackAfter,
+// defeated }. It only watches; the rules are untouched.
+function watch(s, ev, fn) {
+  const before = PLAYERS.flatMap((who) => pokemonOf(s, who).map(({ card, space }) => ({ who, space, uid: card.uid, name: card.name, cs: card.currentStrength, atk: card.attack })));
+  fn();
+  const hits = [];
+  for (const b of before) {
+    const now = s.players[b.who].row[b.space];
+    const here = now?.uid === b.uid ? now : null;
+    const gone = here ? null : s.players[b.who].released.find((c) => c.uid === b.uid);
+    const cs = here ? here.currentStrength : Math.max(0, gone?.currentStrength ?? 0);
+    const atk = here ? here.attack : b.atk;
+    if (cs !== b.cs || atk !== b.atk || !here) hits.push({ who: b.who, space: b.space, name: b.name, before: b.cs, after: Math.max(0, cs), max: here?.strength ?? null, attackBefore: b.atk, attackAfter: atk, defeated: !here });
+  }
+  ev.hits = [...(ev.hits ?? []), ...hits];
+}
 function log(s, line) { s.log.push(line); }
 
 export { levelFor, pokemonAt, pathDef, availableExert };

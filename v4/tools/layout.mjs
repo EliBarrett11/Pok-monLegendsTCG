@@ -316,7 +316,7 @@ for (const [w, h] of SIZES) {
     const page = await browser.newPage({ viewport: { width: w, height: h } });
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
-        await page.goto(`${BASE}?debug&seed=7`);
+        await page.goto(`${BASE}?debug&seed=7&speed=instant`);
     await settle(page, 600);
     try {
       await setup(page);

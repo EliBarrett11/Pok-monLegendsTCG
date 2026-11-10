@@ -1,0 +1,294 @@
+// v4's effects library (UX4). Adapted from v2/src/ui/vfx/library.js: the shared library (./shared.js,
+// a copy of the root src/ui/vfx/library.js) is used unchanged for its presets, attack timelines,
+// counters, Strategy openings, summons, defeats, heals and endings. This file adds what v4 needs on
+// top, as data only (no DOM: it is tested in Node):
+//   - which animation each v4 card plays (v4's cards carry `type`, not `pokemonType`);
+//   - Commands by mode (React quick, Adapt standard, Strat big), Supporters, Items, Trainer Commands;
+//   - v4's own moments (Recognition, PokéDollars, Locations, the Tournament, Partners, Supper,
+//     Breakfast, banners), built only from the shared presets;
+//   - EVENT_BEATS: every engine event type and the beat that shows it (tests/ux4.test.js checks the
+//     engine emits nothing without one);
+//   - MS: every page-animation time the presenter uses, at Normal speed (checked against BUDGETS).
+import {
+  TIMELINES, BUDGETS as ROOT_BUDGETS, COUNTERS, SUMMONS, attackAnimation, composeAttack, composeCounter,
+  STRATEGY_OPENING, tintOf, impactScale, timelineDuration, MAX_SCALE,
+} from './shared.js?v=202611100828';
+
+export { TIMELINES, composeAttack, composeCounter, tintOf, impactScale, timelineDuration, MAX_SCALE };
+
+// --- Budgets (docs/vfx.md 1): the shared ones, plus v4's own moments, ms at Normal -----------------
+
+export const BUDGETS = {
+  ...ROOT_BUDGETS,
+  react: { min: 300, max: 1100 },        // a React: quick, inside the React window
+  adapt: { min: 1200, max: 2500 },       // an Adapt: the card rises (~0.3 s), flares and resolves: "about 2–2.5 s"
+  strat: { min: 1500, max: 2800 },       // a Strat resolving: big (a longer rise, a bigger flare)
+  seal: { min: 300, max: 900 },          // a Strat sealed on its owner's board edge
+  recognition: { min: 300, max: 1300 },  // "+N" flying to the ring, the ring filling
+  coins: { min: 300, max: 1000 },
+  item: { min: 300, max: 1200 },
+  location: { min: 400, max: 1300 },     // unfolding over its lanes, or folding away
+  partner: { min: 1600, max: 2600 },     // "about 2 s"
+  tracker: { min: 200, max: 1000 },      // a pip filling, a tracker turning green
+  tournament: { min: 2000, max: 3200 },  // the stadium sweep, the banner, the ×1.5 stamps
+  supper: { min: 300, max: 1400 },       // each Supper moment (a Location's dominance, the hand going)
+  breakfast: { min: 600, max: 1800 },    // the summary strip and the new hand dealing in
+  banner: { min: 200, max: 800 },        // "never blocking more than ~0.8 s"
+  champion: { min: 1200, max: 2600 },    // the winner's ring filling and flaring "Champion"
+  think: { min: 300, max: 700 },         // the AI's "thinking" pause (~0.5 s)
+  aim: { min: 250, max: 600 },           // the AI's arrow before its beat (~0.4 s)
+  note: { min: 300, max: 1200 },         // a word floating off something
+};
+
+// --- Attacks (B1): Type + attack type -------------------------------------------------------------
+
+// The animation each v4 Pokémon line plays (its Type and attack type), by name, for the report and tests.
+export const ATTACK_NAMES = {
+  'fire-physical': 'Flame Wheel', 'fire-special': 'Flamethrower', 'water-physical': 'Waterfall',
+  'water-special': 'Hydro Pump', 'electric-special': 'forked lightning',
+};
+// Electric Special in v4: forked lightning, the shared bolt with a second, later fork.
+const FORKED = (() => {
+  const def = TIMELINES['electric-special'];
+  const beats = [...def.beats, { at: 350, end: 500, beam: 'lightningBolt', on: 'attacker' }, { at: 380, emit: 'boltSparks', on: 'impact', countScale: 0.6 }];
+  return { ...def, id: 'v4-electric-forked', beats };
+})();
+export const V4_TIMELINES = { 'v4-electric-forked': FORKED };
+export const attackFor = (card) => {
+  const id = attackAnimation({ pokemonType: card?.type, attackType: card?.attackType });
+  return id === 'electric-special' ? 'v4-electric-forked' : id;
+};
+export const counterFor = (card) => COUNTERS[attackAnimation({ pokemonType: card?.type, attackType: card?.attackType })] ?? 'generic-counter';
+export const tintFor = (card) => tintOf(card?.type);
+// An attack's definition, with the defender's counter cue when it hits back.
+export function attackDef(card, { trade = false } = {}) {
+  const id = attackFor(card);
+  if (V4_TIMELINES[id]) {
+    const def = V4_TIMELINES[id];
+    const hit = def.beats.find((b) => b.cue === 'impact')?.at ?? 0;
+    return trade ? { ...def, beats: [...def.beats, { at: hit, cue: 'trade', keyword: 'trade' }] } : def;
+  }
+  return composeAttack(id, { trade });
+}
+export const counterDef = (card) => composeCounter(counterFor(card));
+
+// --- Commands (B3): the card rises, flares, and resolves at the target ------------------------------
+
+// Each Command's effect. Ember and Rock Slide are v1's Strategy animations; Recover and X Attack are
+// composed here from the shared presets (X Attack leaves an aura on the Pokémon until Supper).
+const RECOVER = {
+  id: 'v4-recover', budget: 'effect', duration: 950,
+  beats: [
+    { at: 0, end: 360, projectile: 'orb', on: 'path', glow: '#9ff07a', size: 0.6 },
+    { at: 0, end: 360, emit: 'healSparkle', on: 'projectile' },
+    { at: 360, cue: 'heal', bloom: 0.5 },
+    { at: 360, emit: 'healRise', on: 'target' },
+    { at: 360, emit: 'healGlints', on: 'target' },
+    { at: 360, end: 900, emit: 'healSparkle', on: 'target' },
+    { at: 360, end: 900, track: 'target', motion: 'healGlow' },
+  ],
+};
+const X_ATTACK = {
+  id: 'v4-x-attack', budget: 'effect', duration: 1000,
+  beats: [
+    { at: 0, end: 320, projectile: 'orb', on: 'path', glow: '#ff9a3a', size: 0.6 },
+    { at: 0, end: 320, emit: 'chargeSparks', on: 'projectile' },
+    { at: 320, end: 900, emit: 'spiralFlames', on: 'target', countScale: 0.6 },
+    { at: 320, end: 900, track: 'target', motion: 'charging' },
+    { at: 820, cue: 'aura', emit: 'chargeBurst', on: 'target', flash: 'type', bloom: 0.8 },
+    { at: 820, emit: 'auraMotes', on: 'target' },
+  ],
+};
+// Effect damage that isn't an attack (Rock Slide's single target, a Trainer Command, an On Summon
+// when the source isn't a Pokémon on the board): a short hit on each Pokémon.
+const EFFECT_HIT = {
+  id: 'v4-effect-hit', budget: 'effect', duration: 520,
+  beats: [
+    { at: 0, cue: 'impact', shake: 5, flash: 'type', bloom: 0.5 },
+    { at: 0, emit: 'impactStar', on: 'target' },
+    { at: 0, emit: 'genericSparks', on: 'target' },
+    { at: 0, end: 480, track: 'target', motion: 'recoil' },
+  ],
+};
+Object.assign(V4_TIMELINES, { 'v4-recover': RECOVER, 'v4-x-attack': X_ATTACK, 'v4-effect-hit': EFFECT_HIT });
+
+export const COMMAND_ANIMS = { ember: 'strategy-ember', 'rock-slide': 'strategy-rock-slide', recover: 'v4-recover', 'x-attack': 'v4-x-attack' };
+export const COMMAND_TYPES = { ember: 'Fire', 'rock-slide': 'Rock', recover: 'Grass', 'x-attack': 'Fighting' };
+export const commandTint = (id) => tintOf(COMMAND_TYPES[id] ?? 'Normal');
+// Rock Slide's sweep, and any single-target version of it, roll across the hit Pokémon.
+export const SWEEP_COMMANDS = ['rock-slide'];
+const timeline = (id) => V4_TIMELINES[id] ?? TIMELINES[id];
+
+// How big each mode plays: React is quick (no rise, played faster, no opening); Adapt is standard (the
+// card rises, the shared opening, the effect); Strat is big (a longer rise, the fuller version, a
+// bigger flare and shake).
+export const MODE_STYLE = {
+  react: { rise: 0, opening: false, rate: 1.5, scale: 0.85, budget: 'react' },
+  adapt: { rise: 320, opening: true, rate: 1, scale: 1, budget: 'adapt' },
+  strat: { rise: 420, opening: true, rate: 1, scale: 1.35, budget: 'strat', fuller: true },
+};
+// A Command's timeline in a mode (the opening in front of the effect, as composeStrategy does).
+export function commandDef(id, mode) {
+  const style = MODE_STYLE[mode];
+  const def = timeline(COMMAND_ANIMS[id] ?? 'strategy-generic');
+  if (!style.opening) return { ...def, id: `${def.id ?? COMMAND_ANIMS[id]}@${mode}`, budget: style.budget };
+  const off = STRATEGY_OPENING.length;
+  const opening = style.fuller
+    ? [...STRATEGY_OPENING.beats.map((b) => (b.cue === 'flare' ? { ...b, bloom: 1.3, shake: 6 } : b)), { at: 0, emit: 'epicFlare', on: 'card' }]
+    : STRATEGY_OPENING.beats;
+  const beats = [...opening, ...def.beats.map((b) => ({ ...b, at: b.at + off, ...(b.end !== undefined ? { end: b.end + off } : {}) }))];
+  return { ...def, id: `${COMMAND_ANIMS[id]}@${mode}`, budget: style.budget, beats, duration: def.duration + off, effectStart: off };
+}
+// The whole beat's length at Normal, the rise included (for the budgets).
+export const commandMs = (id, mode) => MODE_STYLE[mode].rise + timelineDuration(commandDef(id, mode)) / MODE_STYLE[mode].rate + MS.commandOut;
+
+// --- Supporters, Items, Trainer Commands (B7, B8) ----------------------------------------------------
+
+export const SUPPORTER_ANIMS = { 'nurse-joy': 'heal-glow', 'professor-oak': 'v4-search', brock: 'v4-strength' };
+export const ITEM_ANIMS = { heal: 'heal-glow', attackUp: 'v4-x-attack', attack: 'v4-held', strength: 'v4-held', healBreakfast: 'v4-held' };
+export const TRAINER_COMMAND_ANIMS = { draw: 'v4-search', damageAll: 'v4-effect-hit' };
+Object.assign(V4_TIMELINES, {
+  // Searching or drawing: motes rising from the Draw Pile.
+  'v4-search': { id: 'v4-search', budget: 'effect', duration: 700, beats: [{ at: 0, cue: 'search', bloom: 0.4 }, { at: 0, end: 600, emit: 'evolveMotes', on: 'target' }, { at: 0, emit: 'flareRing', on: 'target' }] },
+  // Brock's Strength: a sturdy gold flare on each Pokémon.
+  'v4-strength': { id: 'v4-strength', budget: 'heal', duration: 700, beats: [{ at: 0, cue: 'heal', bloom: 0.5 }, { at: 0, emit: 'landRing', on: 'target' }, { at: 0, emit: 'healGlints', on: 'target' }, { at: 0, end: 600, track: 'target', motion: 'healGlow' }] },
+  // A Held Item settling onto its Pokémon.
+  'v4-held': { id: 'v4-held', budget: 'item', duration: 600, beats: [{ at: 0, cue: 'held', bloom: 0.4 }, { at: 0, emit: 'flareRing', on: 'target' }, { at: 0, emit: 'healGlints', on: 'target' }] },
+  // Recognition reaching the ring; the ring flaring at 50, 70 and 90; Champion.
+  'v4-recognition': { id: 'v4-recognition', budget: 'recognition', duration: 520, beats: [{ at: 0, cue: 'fill', bloom: 0.4 }, { at: 0, emit: 'healGlints', on: 'target', tint: ['#ffd36b', '#fff6c8'] }] },
+  'v4-ring-flare': { id: 'v4-ring-flare', budget: 'recognition', duration: 800, beats: [{ at: 0, cue: 'flare', bloom: 1, flash: 'sun' }, { at: 0, emit: 'crestRing', on: 'target' }, { at: 0, emit: 'crestSparkle', on: 'target' }] },
+  // A Location unfolding (dust and a gold ring); a Partner's gold shockwave; the Tournament's sweep.
+  'v4-location': { id: 'v4-location', budget: 'location', duration: 700, beats: [{ at: 0, cue: 'place', bloom: 0.5 }, { at: 0, emit: 'landDust', on: 'target' }, { at: 0, emit: 'flareRing', on: 'target' }] },
+  'v4-partner': {
+    id: 'v4-partner', budget: 'summon', duration: 1100,
+    beats: [
+      { at: 0, end: 260, track: 'target', motion: 'slamDown' },
+      { at: 260, cue: 'land', shake: 9, bloom: 1.1, distort: 'shockwave', flash: 'sun' },
+      { at: 260, emit: 'bigLandRing', on: 'ground' },
+      { at: 260, emit: 'crestRing', on: 'target' },
+      { at: 260, emit: 'confettiGold', on: 'target', countScale: 0.3 },
+      { at: 260, emit: 'landDust', on: 'ground' },
+      { at: 260, end: 560, track: 'target', motion: 'settleLand' },
+    ],
+  },
+  'v4-tracker': { id: 'v4-tracker', budget: 'tracker', duration: 700, beats: [{ at: 0, cue: 'flare', bloom: 0.8 }, { at: 0, emit: 'crestRing', on: 'target' }, { at: 0, emit: 'healGlints', on: 'target', tint: ['#7fe08a', '#e6ffd8'] }] },
+  'v4-tournament': { id: 'v4-tournament', budget: 'tournament', duration: 2100, beats: [{ at: 0, cue: 'stadium', bloom: 1 }, { at: 0, end: 1100, emit: 'confettiGold', on: 'screen' }, { at: 1100, cue: 'stamp', flash: 'sun', bloom: 1.2 }, { at: 1100, emit: 'crestSparkle', on: 'target' }] },
+  'v4-dominance': { id: 'v4-dominance', budget: 'supper', duration: 650, beats: [{ at: 0, cue: 'glow', bloom: 0.6 }, { at: 0, emit: 'healGlints', on: 'target', tint: ['#ffd36b', '#fff6c8'] }, { at: 0, emit: 'flareRing', on: 'target' }] },
+  'v4-champion': { id: 'v4-champion', budget: 'ending', duration: 3000, beats: [{ at: 0, cue: 'victory', bloom: 1.2 }, { at: 0, emit: 'crestRing', on: 'target' }, { at: 0, emit: 'crestSparkle', on: 'target' }, { at: 300, end: 2800, emit: 'confettiGold', on: 'screen' }] },
+});
+export const SUMMON_ANIMS = { low: SUMMONS.Common, mid: SUMMONS.Rare, high: SUMMONS.Epic };
+// A summon by Level: 1–3 plain, 4–6 a bigger flare, 7+ the Epic landing.
+export const summonFor = (card) => (card?.level >= 7 ? SUMMON_ANIMS.high : card?.level >= 4 ? SUMMON_ANIMS.mid : SUMMON_ANIMS.low);
+// How a defeated Pokémon goes, by what defeated it (a Type): burnt to ash, washed away or shattered.
+export const defeatFor = (type) => (type === 'Fire' ? 'defeat-ash' : type === 'Water' ? 'defeat-wash' : 'defeat-shatter');
+export const RING_FLARES = [50, 70, 90];
+
+// Every timeline id → its definition (shared or v4's).
+export const defOf = (id) => (typeof id === 'string' ? timeline(id) : id);
+
+// --- Page animation times at Normal (ms): the presenter uses only these -------------------------------
+
+export const MS = {
+  think: 500,          // C: the AI's thinking pause
+  aim: 400,            // C: the AI's arrow before its beat
+  banner: 700,         // B11: in, hold, out: never more than ~0.8 s
+  number: 1100,        // a damage or heal number rising
+  tick: 450,           // a Strength number ticking to its new value
+  fly: 650,            // "+N" flying to the ring
+  ring: 500,           // the ring filling
+  coins: 600,
+  itemFly: 600,
+  seal: 520,           // a Strat flying to its owner's board edge, sealed
+  rise: 320,           // a card rising to centre stage
+  commandOut: 120,     // the card fading after its effect
+  burn: 650,           // Released cards burning away
+  favour: 900,
+  defeat: 260,         // the card fading after its dissolve
+  locationIn: 650,
+  locationOut: 500,
+  lock: 600,           // Retaining: a small lock
+  pip: 450,
+  tracker: 700,
+  partnerBurst: 350,   // the tracker bursting
+  partnerSweep: 650,   // the Trainer's art sweeping across
+  stadium: 1100,       // the Tournament's sweep across all 9 lanes
+  stamp: 450,          // "×1.5" stamped on each ring
+  dominance: 650,
+  handOut: 500,        // Supper: the hand sliding to the Discard Pile
+  strip: 1100,         // Breakfast: the summary strip
+  deal: 600,           // the new hand dealing in
+  champion: 1800,
+  note: 900,
+  weatherPulse: 900,
+};
+
+// Each composed moment's total at Normal (for the budget check in tests/ux4.test.js).
+export const MOMENTS = {
+  partner: { budget: 'partner', ms: MS.partnerBurst + MS.partnerSweep + timelineDuration(V4_TIMELINES['v4-partner'], 1) },
+  tournament: { budget: 'tournament', ms: Math.max(MS.stadium + MS.stamp, timelineDuration(V4_TIMELINES['v4-tournament'], 1)) + MS.banner },
+  recognition: { budget: 'recognition', ms: MS.fly + MS.ring },
+  coins: { budget: 'coins', ms: MS.coins },
+  seal: { budget: 'seal', ms: MS.seal },
+  banner: { budget: 'banner', ms: MS.banner },
+  breakfast: { budget: 'breakfast', ms: MS.strip + MS.deal },
+  supperHand: { budget: 'supper', ms: MS.handOut },
+  dominance: { budget: 'supper', ms: MS.dominance },
+  locationIn: { budget: 'location', ms: MS.locationIn },
+  locationOut: { budget: 'location', ms: MS.locationOut },
+  tracker: { budget: 'tracker', ms: MS.tracker },
+  pip: { budget: 'tracker', ms: MS.pip },
+  item: { budget: 'item', ms: MS.itemFly },
+  champion: { budget: 'champion', ms: MS.champion },
+  think: { budget: 'think', ms: MS.think },
+  aim: { budget: 'aim', ms: MS.aim },
+  note: { budget: 'note', ms: MS.note },
+};
+
+// --- Every engine event type and the beat that shows it ----------------------------------------------
+//   when  'before' (on the board as it was) · 'after' (on the new board) · 'banner' · 'quiet' (the
+//         interface already shows it, e.g. the React window opening)
+//   beat  the presenter's handler · sfx: the sound hook it calls (src/ui/sound.js)
+export const EVENT_BEATS = {
+  attack: { when: 'before', beat: 'attack', budget: 'attack', sfx: 'attack-<type>' },
+  commandResolved: { when: 'before', beat: 'command', budget: 'adapt', sfx: 'command-adapt' },
+  react: { when: 'before', beat: 'react', budget: 'react', sfx: 'react' },
+  strat: { when: 'before', beat: 'seal', budget: 'seal', sfx: 'command-strat' },
+  decline: { when: 'before', beat: 'note', budget: 'note', sfx: null },
+  reactWindow: { when: 'quiet', beat: null, budget: null, sfx: null },
+  fizzled: { when: 'before', beat: 'note', budget: 'note', sfx: null },
+  summoned: { when: 'after', beat: 'summon', budget: 'summon', sfx: 'summon' },
+  partnerArrived: { when: 'after', beat: 'partner', budget: 'partner', sfx: 'partner' },
+  partnerWaiting: { when: 'after', beat: 'note', budget: 'note', sfx: null },
+  objectiveProgress: { when: 'after', beat: 'pip', budget: 'tracker', sfx: null },
+  objectiveComplete: { when: 'after', beat: 'trackerComplete', budget: 'tracker', sfx: null },
+  trainerTaken: { when: 'after', beat: 'note', budget: 'note', sfx: null },
+  trainerCommand: { when: 'before', beat: 'trainerCommand', budget: 'adapt', sfx: 'command-adapt' },
+  supporter: { when: 'before', beat: 'supporter', budget: 'supporter', sfx: 'command-adapt' },
+  itemBought: { when: 'before', beat: 'itemBought', budget: 'item', sfx: 'coins' },
+  itemUsed: { when: 'before', beat: 'itemUsed', budget: 'item', sfx: 'heal' },
+  martRefreshed: { when: 'after', beat: 'mart', budget: 'note', sfx: null },
+  dollars: { when: 'after', beat: 'coins', budget: 'coins', sfx: 'coins' },
+  recognition: { when: 'after', beat: 'recognition', budget: 'recognition', sfx: 'recognition' },
+  defeated: { when: 'before', beat: 'defeat', budget: 'defeat', sfx: 'defeat' },
+  gameOver: { when: 'banner', beat: 'champion', budget: 'champion', sfx: 'victory' },
+  battle: { when: 'banner', beat: 'round', budget: 'banner', sfx: 'turn' },
+  supper: { when: 'banner', beat: 'supper', budget: 'banner', sfx: null },
+  dominance: { when: 'before', beat: 'dominance', budget: 'supper', sfx: null },
+  tournamentDominance: { when: 'before', beat: 'dominance', budget: 'supper', sfx: null },
+  locationPlaced: { when: 'after', beat: 'locationPlaced', budget: 'location', sfx: 'location-place' },
+  locationRemoved: { when: 'before', beat: 'locationRemoved', budget: 'location', sfx: null },
+  breakfast: { when: 'banner', beat: 'breakfast', budget: 'breakfast', sfx: 'turn' },
+  tournament: { when: 'after', beat: 'tournament', budget: 'tournament', sfx: 'tournament' },
+  retained: { when: 'before', beat: 'retain', budget: 'note', sfx: null },
+  pass: { when: 'before', beat: 'note', budget: 'note', sfx: null },
+  reshuffled: { when: 'after', beat: 'note', budget: 'note', sfx: null },
+};
+
+// The sound hooks (src/ui/sound.js names them; every beat calls one).
+export const SFX = ['attack-fire-physical', 'attack-fire-special', 'attack-water-physical', 'attack-water-special', 'attack-electric-special',
+  'hit', 'defeat', 'heal', 'summon', 'partner', 'recognition', 'coins', 'command-adapt', 'command-strat', 'react', 'location-place',
+  'tournament', 'turn', 'victory'];
+export const attackSfx = (card) => `attack-${String(card?.type).toLowerCase()}-${String(card?.attackType).toLowerCase()}`;
+
+// Speed (D): timeline ms per real ms is 1 / factor. Instant draws at once.
+export const SPEEDS = { slow: 1.5, normal: 1, fast: 0.5, instant: 0 };
