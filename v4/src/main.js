@@ -2,18 +2,18 @@
 // Pokémon Legends v4 — entry point (F1): you against the AI, on a fixed 1920×1080 stage scaled
 // to fit the window. ?seed=123 replays the same shuffle and AI choices; ?autoplay lets the AI play
 // both sides; ?debug exposes window.__v4 for the layout check (v4/tools/layout.mjs).
-import { createGame, applyAction, actor, energyLeft, playReason, passReason } from './engine/game.js?v=202611101410';
-import { chooseAction } from './ai/ai.js?v=202611101410';
-import { renderMatch, reactOpen } from './ui/board.js?v=202611101410';
-import { pokemonAt, cardAtRound } from './engine/cards.js?v=202611101410';
-import { setupInteraction } from './ui/interact.js?v=202611101410';
-import { present, setupPresenter, isPresenting, resetFx, stampRings, skip } from './ui/present.js?v=202611101410';
-import { speedFactor, setSpeed, speedName, lowMotion, setLowMotionSetting } from './ui/settings.js?v=202611101410';
-import { MS } from './ui/vfx/library.js?v=202611101410';
-import { played } from './ui/sound.js?v=202611101410';
-import { MODE_NAMES } from './engine/cards.js?v=202611101410';
+import { createGame, applyAction, actor, energyLeft, playReason, passReason } from './engine/game.js?v=202611101851';
+import { chooseAction } from './ai/ai.js?v=202611101851';
+import { renderMatch, reactOpen } from './ui/board.js?v=202611101851';
+import { pokemonAt, cardAtRound } from './engine/cards.js?v=202611101851';
+import { setupInteraction } from './ui/interact.js?v=202611101851';
+import { present, setupPresenter, isPresenting, resetFx, stampRings, skip } from './ui/present.js?v=202611101851';
+import { speedFactor, setSpeed, speedName, lowMotion, setLowMotionSetting } from './ui/settings.js?v=202611101851';
+import { MS } from './ui/vfx/library.js?v=202611101851';
+import { played } from './ui/sound.js?v=202611101851';
+import { MODE_NAMES } from './engine/cards.js?v=202611101851';
 
-export const BUILD = 'G3 — the nine Commands, five Supporters, the PokéMart pool and the final 40-card deck';
+export const BUILD = 'C1 — the card renderer: the new card designs everywhere a card appears';
 
 const STAGE = { width: 1920, height: 1080 };
 const stage = document.getElementById('stage');

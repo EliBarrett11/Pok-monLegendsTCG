@@ -120,11 +120,12 @@ const nextRound = (s) => { const r = s.round; while (s.round === r && s.phase !=
   const s = battle();
   const loc = card('lake-of-rage');
   const locHtml = renderHandCard(s, loc);
-  assert.ok(!locHtml.includes('v4-gem'), 'a Location card has no cost element');
-  assert.ok(renderHandCard(s, card('potion')).includes('v4-gem money'), 'an Item has a $ gem');
-  assert.ok(renderHandCard(s, mon('ponyta', 1)).includes('v4-gem'), 'a Pokémon has an Energy gem');
+  // C1: the cost well of the card renderer (src/ui/card.js).
+  assert.ok(!locHtml.includes('cd-cost'), 'a Location card has no cost element');
+  assert.ok(/cd-cost[^>]*>\$2</.test(renderHandCard(s, card('potion'))), 'an Item has a $ cost well');
+  assert.ok(renderHandCard(s, mon('ponyta', 1)).includes('cd-cost'), 'a Pokémon has an Energy cost well');
   s.players.player.baseEnergy = 0;
-  assert.ok(renderHandCard(s, mon('charmander', 7)).includes('v4-gem no'), 'red when you can\'t afford it');
+  assert.ok(renderHandCard(s, mon('charmander', 7)).includes(' poor'), 'red when you can\'t afford it');
   // Every card type in hand and on the board, across screens: no Light, Mid or Heavy.
   const html = [];
   const root = { set innerHTML(v) { html.push(v); }, querySelectorAll: () => [] };

@@ -385,6 +385,26 @@ const SCENARIOS = {
   keys: async (p) => { await to(p, 3); await v4(p, () => window.__v4.set((s, ui) => { ui.keys = true; })); },
   confirm: async (p) => { await to(p, 3); await v4(p, () => window.__v4.set((s, ui) => { ui.confirm = { kind: 'pass', text: 'End turn with 3 Energy unused?', action: { type: 'pass', who: 'player' }, dontAsk: false }; })); },
   'big-hand': async (p) => { await to(p, 6); await v4(p, () => { for (let i = 0; i < 6; i++) window.__v4.give('charmander', 7); }); },
+  // C1: hover replaces tooltips: a hand card, a board token (each side) and the PokéMart card at Full size;
+  // the Discard and Released viewers.
+  'zoom-hand': async (p) => { await to(p, 5); await hover(p, '.v4-hand .v4-slot:last-child .v4-hcard'); },
+  'zoom-hand-first': async (p) => { await to(p, 5); await hover(p, '.v4-hand .v4-slot:first-child .v4-hcard'); },
+  'zoom-token': async (p) => {
+    await to(p, 5);
+    await v4(p, async () => {
+      const C = await import('/v4/src/engine/cards.js');
+      window.__v4.set((s) => {
+        const mon = (id, level, extra) => ({ ...C.pokemonAt(id, level), uid: `z-${id}-${level}`, currentStrength: C.pokemonAt(id, level).strength, spent: false, summonedRound: 0, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...extra });
+        s.players.player.row[0] = mon('charmander', 8, { held: C.itemDef('charcoal') });
+        s.players.ai.row[8] = mon('squirtle', 7, { currentStrength: 2 });
+      });
+    });
+    await hover(p, '.v4-row.player .v4-space[data-space="0"] .v4-mon');
+  },
+  'zoom-token-right': async (p) => { await to(p, 5); await v4(p, async () => { const C = await import('/v4/src/engine/cards.js'); window.__v4.set((s) => { s.players.ai.row[8] = { ...C.pokemonAt('magby', 8), uid: 'z-m', currentStrength: 3, spent: true, bonusAttack: 0, bonusStrength: 0, tempAttack: 0 }; }); }); await hover(p, '.v4-row.opponent .v4-space[data-space="8"] .v4-mon'); },
+  'zoom-mart': async (p) => { await to(p, 3); await hover(p, '.v4-martslot'); },
+  'discard-viewer': async (p) => { await to(p, 6); await v4(p, () => window.__v4.set((s, ui) => { ui.drawer = 'view:player-disc'; })); },
+  'released-viewer': async (p) => { await to(p, 6); await v4(p, () => window.__v4.set((s, ui) => { ui.drawer = 'view:ai-rel'; })); },
 };
 
 // --- Run ------------------------------------------------------------------------------------

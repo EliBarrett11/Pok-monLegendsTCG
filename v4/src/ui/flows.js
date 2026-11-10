@@ -6,10 +6,10 @@
 import {
   legalTargets, emptySpaces, whyNot, locationStarts, summonCost, commandTargets, commandModesFor, itemTargets, buyReason,
   trainerReason, supporterPlayable, playerGuard, guardOf, energyLeft, locationAt, damageOf, pokemonOf,
-} from '../engine/game.js?v=202611101410';
-import { MODE_NAMES, modeTarget } from '../engine/cards.js?v=202611101410';
-import { attackPreview, effectPreview, choicePreview } from '../engine/preview.js?v=202611101410';
-import { attackIcon, strengthIcon, icon } from './icons.js?v=202611101410';
+} from '../engine/game.js?v=202611101851';
+import { MODE_NAMES, modeTarget } from '../engine/cards.js?v=202611101851';
+import { attackPreview, effectPreview, choicePreview } from '../engine/preview.js?v=202611101851';
+import { attackIcon, strengthIcon, icon } from './icons.js?v=202611101851';
 
 const esc = (x) => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const sameHit = (a, b) => a && b && a.kind === b.kind && a.who === b.who && a.space === b.space;

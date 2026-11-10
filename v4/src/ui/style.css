@@ -244,7 +244,7 @@ button { font-family: inherit; color: inherit; }
 .v4-hcard.reactable { border-color: #ff9a6a; box-shadow: 0 0 16px 5px rgba(255, 140, 90, 0.75); }
 
 /* --- Dialogs (kept from earlier stages; restyled in UX5) --- */
-.v4-ask { position: absolute; inset: 0; z-index: 50; display: grid; place-items: center; background: rgba(10, 5, 2, 0.5); }
+.v4-ask { position: absolute; inset: 0; z-index: 62; display: grid; place-items: center; background: rgba(10, 5, 2, 0.5); }
 .v4-ask .v4-panel { width: 620px; padding: 18px 24px; text-align: center; border-color: var(--brass); }
 .v4-ask .v4-wide { width: 900px; }
 .v4-ask p { margin: 0 0 12px; font-size: 19px; }
@@ -477,3 +477,153 @@ button { font-family: inherit; color: inherit; }
 .v4-kws.board .v4-kw { font-size: 10px; line-height: 13px; padding: 0 4px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.7); }
 .v4-float.trigger { color: #ffe08a; font-size: 26px; text-shadow: 0 2px 0 #6b4a10, 0 0 14px rgba(255, 210, 90, 0.8); }
 .v4-float.kw { color: #fff; font-size: 22px; font-family: var(--font-text); font-weight: 800; padding: 1px 10px; border-radius: 8px; background: rgba(120, 70, 20, 0.85); border: 1.5px solid #f0c860; text-shadow: none; }
+
+/* --- C1: the card renderer (src/ui/card.js; docs/design/v4-cards-mockup.html) --- */
+.cd { position: relative; flex: none; }
+.cd-in { position: absolute; left: 0; top: 0; width: 340px; height: 476px; transform-origin: 0 0; }
+.cd-art { position: absolute; left: 0; top: 0; width: 340px; height: 476px; background-repeat: no-repeat; background-size: 100% 100%, cover; }
+.cd-fr { position: absolute; left: 0; top: 0; overflow: visible; filter: drop-shadow(0 18px 26px rgba(0, 0, 0, 0.7)) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6)); }
+.cd-mini .cd-fr, .cd-token .cd-fr { filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.7)); }
+.cd-t { position: absolute; display: flex; align-items: center; justify-content: center; text-align: center; font-family: var(--font-text); color: #ece2cc; overflow: visible; }
+.cd-name { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.06em; color: #f3ead6; white-space: nowrap; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9); }
+.cd-name.tight { letter-spacing: 0.01em; }
+.cd-type { font-size: 10.5px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; white-space: nowrap; }
+.cd-rules { font-size: 14.5px; line-height: 1.28; color: #e4d9c2; flex-direction: column; gap: 4px; }
+.cd-rules b { font-weight: 700; color: #e9cf93; }
+.cd-rules > div { max-width: 100%; }
+.cd-kw { font-family: var(--font-display); font-weight: 600; font-size: 11.5px; letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap; }
+.cd-fav { font-size: 13.5px; justify-content: flex-start; }
+.cd-favl { font-family: var(--font-display); font-weight: 600; font-size: 11.5px; letter-spacing: 0.14em; color: #e6cf9a; text-transform: uppercase; }
+.cd-num { font-family: var(--font-display); font-weight: 600; color: #f6efe0; line-height: 1; text-shadow: 0 1px 2px #000; white-space: nowrap; }
+.cd-tab.hurt { color: #e0705e; }
+.cd-lvs { gap: 10px; font-family: var(--font-display); letter-spacing: 0.14em; color: #b8a57e; white-space: nowrap; }
+.cd-chev { display: inline-block; color: #8fc9a0; letter-spacing: -0.05em; line-height: 1.3; }
+.cd-mrow { justify-content: flex-start; font-size: 14px; color: #e4d9c2; white-space: nowrap; }
+.cd-mrow b { flex: none; width: 70px; text-align: left; font-family: var(--font-display); font-weight: 700; font-size: 12px; letter-spacing: 0.14em; color: #d9be86; text-transform: uppercase; }
+.cd-mrow .tx { flex: 1; text-align: left; }
+.cd-mrow .c { flex: none; font-family: var(--font-display); font-weight: 600; font-size: 13px; color: #bfd8f2; display: flex; align-items: center; gap: 4px; }
+.cd-mrow.off { opacity: 0.32; }
+.cd-chips { gap: 8px; }
+.cd-chips.left { justify-content: flex-start; }
+.cd-chip { font-family: var(--font-display); font-weight: 600; letter-spacing: 0.12em; color: #e6cf9a; padding: 0.15em 0.6em; border: 1px solid rgba(194, 163, 106, 0.55); border-radius: 3px; background: rgba(10, 7, 5, 0.78); white-space: nowrap; text-transform: uppercase; line-height: 1.25; }
+.cd-chip.ret { color: #fff0b0; border-color: #e6cf9a; background: rgba(60, 40, 10, 0.9); }
+.cd-chip.strat { color: #ffe08a; text-transform: none; letter-spacing: 0.02em; }
+.cd-held, .cd-portrait { position: absolute; border-radius: 50%; background-size: cover; border: 2px solid #c2a36a; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.7); }
+.cd-portrait { width: 38px; height: 38px; border: 0; }
+.cd-stamp { font-family: var(--font-display); font-weight: 700; font-size: 40px; letter-spacing: 0.1em; color: #ffd0b0; text-transform: uppercase; border: 3px solid #ff8a5a; border-radius: 8px; background: rgba(40, 12, 4, 0.82); transform: rotate(-8deg); }
+.cd-chipart { display: inline-block; flex: none; border-radius: 50%; background-size: cover; border: 1.5px solid var(--brass-mid); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6); vertical-align: middle; }
+/* States. */
+.cd-ok .cd-fr { filter: drop-shadow(0 0 6px rgba(255, 213, 106, 0.85)) drop-shadow(0 10px 14px rgba(0, 0, 0, 0.7)); }
+.cd-no { filter: brightness(0.55) saturate(0.6); }
+.cd-ready .cd-fr { filter: drop-shadow(0 0 7px rgba(240, 190, 90, 0.9)) drop-shadow(0 0 16px rgba(240, 170, 60, 0.45)); animation: cd-ready 1.8s ease-in-out infinite; }
+@keyframes cd-ready { 50% { filter: drop-shadow(0 0 11px rgba(255, 210, 110, 1)) drop-shadow(0 0 24px rgba(240, 170, 60, 0.6)); } }
+.cd-spent .cd-in { filter: grayscale(0.85) brightness(0.55); }
+.cd-spent { transform: rotate(-4deg); }
+.cd-sel .cd-fr { filter: drop-shadow(0 0 10px rgba(255, 240, 176, 1)) drop-shadow(0 0 22px rgba(255, 230, 140, 0.8)); }
+.cd-target .cd-fr { filter: drop-shadow(0 0 6px #ffe08a) drop-shadow(0 0 16px rgba(255, 215, 110, 0.85)); }
+.cd-illegal { filter: brightness(0.5) saturate(0.5); }
+@media (prefers-reduced-motion: reduce) { .cd-ready .cd-fr { animation: none; } }
+.lowmotion .cd-ready .cd-fr { animation: none; }
+
+/* --- C1: the cards in the interface ------------------------------------------------------------------------ */
+/* The board: 164×230 tokens; the rows 14 from the top and the bottom; the Location plate in the band between. */
+.v4-row { height: 230px; }
+.v4-row.opponent { top: 14px; } .v4-row.player { top: 340px; }
+.v4-space { width: 164px; height: 230px; }
+.v4-mon { position: absolute; inset: 0; z-index: 2; border: 0; border-radius: 0; background: none; box-shadow: none; overflow: visible; transition: transform 0.15s; cursor: default; }
+.v4-mon.ready, .v4-mon.partner, .v4-mon.aura { border: 0; box-shadow: none; animation: none; }
+.v4-mon.spent { filter: none; transform: none; }
+.v4-mon.can-attack { cursor: pointer; }
+.v4-mon.incoming { opacity: 0.85; }
+.v4-mon.aura .cd-fr { filter: drop-shadow(0 0 6px #ff9a3a) drop-shadow(0 0 14px rgba(255, 140, 50, 0.7)); }
+.v4-space.target .v4-mon { box-shadow: none; }
+.v4-space.target .v4-mon .cd-fr, .v4-space.committed .v4-mon .cd-fr { filter: drop-shadow(0 0 6px #ffe08a) drop-shadow(0 0 16px rgba(255, 215, 110, 0.9)); }
+.v4-space.committed .v4-mon { box-shadow: none; }
+.choosing .v4-space:not(.target):not(.attacking) .v4-mon.spent { filter: none; }
+.v4-space::before { border-radius: 6px; }
+/* The Location plate: the cards' hairline, panel rule and type-line styling. */
+.v4-lplate { top: 248px; height: 88px; }
+.v4-plate { height: 88px; padding: 6px 14px 0; border-radius: 4px; border: 1px solid #050302; outline: 1px solid rgba(194, 163, 106, 0.85); outline-offset: -3px;
+  background: linear-gradient(rgba(10, 7, 5, 0.78), rgba(7, 5, 4, 0.94)); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.6), inset 0 0 0 6px rgba(10, 7, 5, 0.3); }
+.v4-plate h3 { font-family: var(--font-display); font-weight: 700; font-size: 19px; letter-spacing: 0.06em; color: #f3ead6 !important; text-shadow: 0 1px 2px #000; }
+.v4-plate h3::after { content: ''; display: block; height: 1px; margin: 3px 60px 0 0; background: linear-gradient(90deg, var(--plate, #c2a36a), rgba(194, 163, 106, 0.25)); }
+.v4-plate .pas { margin: 3px 0 0; font-size: 14.5px; color: #e4d9c2; }
+.v4-plate .row2 { margin-top: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #c2a36a; }
+.v4-plate .row2 .wx { letter-spacing: 0.06em; }
+/* The hand: 200×280 Mini cards. */
+.v4-hcard { width: 200px; height: 280px; border: 0; border-radius: 0; background: none; box-shadow: none; overflow: visible; }
+.v4-hcard.ok { border: 0; box-shadow: none; }
+.v4-hcard.ok .cd-fr { filter: drop-shadow(0 0 5px rgba(255, 213, 106, 0.95)) drop-shadow(0 10px 14px rgba(0, 0, 0, 0.7)); }
+.v4-hcard.reactable { border: 0; box-shadow: none; }
+.v4-hcard.reactable .cd-fr { filter: drop-shadow(0 0 7px #ff9a6a) drop-shadow(0 0 16px rgba(255, 140, 90, 0.75)); }
+.v4-slot.picked .v4-hcard { border: 0; box-shadow: none; }
+.v4-slot.picked .v4-hcard .cd-fr { filter: drop-shadow(0 0 10px #fff0b0) drop-shadow(0 0 22px rgba(255, 230, 140, 0.85)); }
+.v4-hcard.poor .cd-cost { color: #ff8a7a; }
+.v4-ghostcard .v4-hcard { box-shadow: none; }
+.v4-reveal .v4-hcard { box-shadow: none; }
+/* The hover zoom (display only). */
+.v4-zoom { position: absolute; z-index: 70; display: none; pointer-events: none; }
+.v4-zoomwhy { width: 340px; margin: 6px 0 0; padding: 4px 10px; text-align: center; font-size: 15px; font-weight: 700; color: #ffd0b0; background: rgba(20, 10, 4, 0.92); border: 1px solid #a8603a; border-radius: 6px; }
+/* The right column, repacked for the PokéMart's Mini card. */
+.v4-round { top: 76px; height: 74px; padding: 8px 14px; }
+.v4-wx { top: 158px; height: 64px; padding: 6px 14px; }
+.v4-wx p { margin-top: 1px; }
+.v4-energy { top: 230px; height: 156px; padding: 8px 14px; }
+.v4-energy .big { font-size: 52px; line-height: 0.95; }
+.v4-energy .of { font-size: 15px; }
+.v4-energy .dia { margin: 4px 0 2px; }
+.v4-pass { top: 392px; height: 68px; }
+.v4-martcard { top: 468px; height: 298px; padding: 8px; display: flex; gap: 8px; }
+.v4-martslot { flex: none; width: 200px; height: 280px; }
+.v4-martside { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px; padding-top: 4px; }
+.v4-mlbl { writing-mode: vertical-rl; font-family: var(--font-display); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--brass); font-size: 13px; }
+.v4-martside .stock { display: flex; flex-direction: column; gap: 5px; align-items: center; }
+.v4-martside button { margin-top: auto; height: 34px; width: 100%; padding: 0; }
+.v4-martcard.sold { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.v4-martcard.sold .v4-mlbl { writing-mode: horizontal-tb; }
+.v4-martback { position: relative; width: 140px; height: 196px; border-radius: 8px; background: url('../../../assets/ui/card-back.jpg') center / cover; border: 1px solid var(--brass-mid); filter: brightness(0.75); }
+.v4-martback .v4-soldout { position: absolute; left: -10px; top: 66px; width: 160px; height: 60px; font-size: 22px; line-height: 1.2; }
+.v4-ticker { top: 772px; height: 44px; padding: 3px 12px; }
+.v4-ticker p { display: flex; align-items: center; gap: 4px; }
+.v4-logchip { margin-right: 2px; }
+.v4-loglist p { display: flex; align-items: center; gap: 6px; }
+/* Trackers and the Bag: art chips. */
+.v4-tr .a, .v4-tr .pt { background-color: transparent; }
+.v4-bslot.full { border: 0; display: flex; }
+.v4-bslot.full .cd-chipart { border-radius: 6px; width: 30px; height: 30px; }
+/* Piles open their viewers. */
+.v4-pile.disc { cursor: pointer; }
+.v4-link.small { font-size: 12px; font-weight: 700; color: var(--muted); }
+.v4-ohand .v4-link.small { font-size: 12px; }
+/* The React window: Full cards. */
+.v4-rbanner { top: 250px; }
+.v4-ropts { left: 160px; top: 424px; width: 1440px; height: 650px; align-items: flex-start; gap: 28px; }
+.v4-ropt { width: 340px; height: auto; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; overflow: visible; display: flex; flex-direction: column; align-items: stretch; }
+.v4-ropt.sel { border: 0; box-shadow: none; }
+.v4-ropt .v4-reff { margin: 6px 0 0; height: 40px; font-size: 15px; line-height: 1.3; text-align: center; color: var(--cream); }
+.v4-ropt .v4-rcost { margin: 2px 0 6px; font-size: 13px; text-align: center; color: #ffd0b0; }
+.v4-ropt button { height: 40px; }
+/* The mode picker: the Full card beside the mode buttons. */
+.v4-picker { width: auto; flex-direction: row; gap: 14px; padding: 10px 12px; }
+.v4-pickcol { width: 290px; display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+/* Card rows in dialogs (the Release choice, the Discard picker, the mulligan). */
+.v4-ask .v4-release { width: 1840px; max-height: 1060px; overflow-y: auto; }
+.v4-cardrow { display: flex; gap: 12px; margin: 0 0 12px; padding: 6px 4px 10px; overflow-x: auto; }
+.v4-cardrow.mini { justify-content: center; flex-wrap: wrap; }
+.v4-cardrow.full { justify-content: safe center; }
+.v4-ask .v4-cbtn { position: relative; flex: none; padding: 0; border: 0; border-radius: 0; background: none; cursor: pointer; }
+.v4-cbtn em, .v4-cbtn i { position: absolute; top: 60px; padding: 2px 8px; border-radius: 4px; font-style: normal; font-size: 14px; font-weight: 800; z-index: 2; }
+.v4-cbtn em { left: 50%; transform: translateX(-50%); color: #fff; background: #c83a2a; }
+.v4-cbtn i { top: 96px; left: 50%; transform: translateX(-50%); color: var(--ink); background: #ffd76a; }
+.v4-cbtn.on .cd { transform: translateY(-6px); }
+.v4-cbtn.meets .cd-fr { filter: drop-shadow(0 0 4px #ffd76a) drop-shadow(0 10px 14px rgba(0, 0, 0, 0.7)); }
+.v4-ask .v4-panel.v4-mullp { width: 1600px; }
+/* The Discard and Released viewers. */
+.v4-drawer.pileview { left: 40px; top: 76px; width: 1840px; height: 990px; display: flex; flex-direction: column; }
+.v4-pilegrid { flex: 1; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 16px; overflow-y: auto; padding: 6px; }
+/* C1: the Energy tile in its shorter space: the number beside "of N this turn". */
+.v4-energy { display: flex; flex-direction: column; align-items: center; }
+.v4-energy .big { display: inline-block; font-size: 46px; height: auto; line-height: 1.32; padding: 0; }
+.v4-energy .of { display: inline-block; margin-left: 8px; }
+.v4-energy .enrow { display: flex; align-items: baseline; justify-content: center; }
+.v4-energy small { line-height: 1.25; }

@@ -57,9 +57,14 @@ async function stage(src) {
 // 1. A hand showing several new Pokémon.
 await stage("s.players.player.hand = [hand('shinx', 1), hand('shinx', 4), hand('horsea', 5), hand('wooper', 3), hand('wooper', 6), hand('magby', 3), hand('magby', 8), hand('squirtle', 5), hand('ponyta', 5)]; s.players.ai.row[3] = mon('growlithe', 4, { spent: true });");
 await page.screenshot({ path: `${OUT}/1-hand-new-pokemon.png` });
-const chips = await page.evaluate(() => document.querySelectorAll('.v4-hand .v4-kw').length);
-const trigs = await page.evaluate(() => document.querySelectorAll('.v4-hand .v4-trig').length);
-report('a hand of new Pokémon shows keyword chips and trigger lines', chips >= 4 && trigs >= 8, `${chips} chips, ${trigs} trigger lines`);
+// C1: Mini cards show one trigger tag each; the Full card on hover shows the keywords and the trigger line.
+const chips = await page.evaluate(() => document.querySelectorAll('.v4-hand .cd-chip').length);
+const hb = await (await page.$('.v4-hand .v4-hcard[data-uid="h-magby-8"]')).boundingBox();
+await page.mouse.move(hb.x + hb.width / 2, hb.y + 40, { steps: 2 });
+await page.waitForTimeout(200);
+const zoom = await page.evaluate(() => ({ kw: document.querySelector('.v4-zoom .cd-kw')?.textContent ?? '', rules: document.querySelector('.v4-zoom .cd-rules')?.textContent ?? '' }));
+report('a hand of new Pokémon shows trigger tags; hover shows keywords and the trigger line', chips >= 8 && /On Attack/.test(zoom.rules), `${chips} tags; zoom: "${zoom.kw}" "${zoom.rules.slice(0, 60)}"`);
+await page.mouse.move(960, 20);
 
 // 2. A chosen-target On Summon by the player (Horsea: 1 damage to an enemy Pokémon).
 await stage("s.players.player.hand = [hand('horsea', 2)]; s.players.ai.row[2] = mon('ponyta', 2, { spent: true }); s.players.ai.row[6] = mon('wooper', 3, { spent: true });");

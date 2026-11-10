@@ -65,7 +65,8 @@ async function show(action, shot = null, at = 600) {
 await stage("s.players.player.hand = ['thunderbolt', 'heat-wave', 'surf', 'bubble-beam', 'flame-charge', 'dive', 'flannery', 'pokemon-breeder', 'quick-claw', 'x-attack'].map(card); s.players.player.row[4] = mon('squirtle', 4); s.players.ai.row[4] = mon('growlithe', 4, { spent: true });");
 await page.screenshot({ path: `${OUT}/1-hand-new-cards.png` });
 const handText = await page.evaluate(() => document.querySelector('.v4-hand').innerText.replace(/\s+/g, ' '));
-report('the hand shows the new cards with short mode lines', /Thunderbolt/.test(handText) && /dmg to all|to all/.test(handText) && /to hand/.test(handText) && /Atk kept/.test(handText) && /Pokémon from Discard/.test(handText) && /Speed one step higher/.test(handText),
+// C1: Mini cards show the name and one tag (the Command's mode chips, the Supporter's Release, the Item's kind).
+report('the hand shows the new cards (Mini: names and mode chips)', /Thunderbolt/.test(handText) && /ADAPT 3/i.test(handText) && /Dive/.test(handText) && /Flannery/.test(handText) && /Release 1/i.test(handText) && /Quick Claw/.test(handText),
   handText.slice(0, 160));
 
 // 2. Every new Command as Adapt (Surf on a lane: the wave over its Location).
@@ -159,8 +160,9 @@ const row = p1.players.player.row;
 report('Choice Band, Quick Claw, X Attack, Rocky Helmet and Amulet Coin used',
   row[2].held?.id === 'choice-band' && row[2].attack === p0.players.player.row[2].attack + 3 && row[6].held?.id === 'quick-claw' && row[7].tempAttack === 2 && row[8].held?.id === 'rocky-helmet' && p1.players.player.recognition === p0.players.player.recognition + 3,
   `Recognition ${p0.players.player.recognition} → ${p1.players.player.recognition}`);
-const speedTitle = await page.evaluate(() => document.querySelector('.v4-row.player .v4-space[data-space="6"] .v4-mon')?.getAttribute('title') ?? '');
-report('Quick Claw: the card shows the higher Speed', /Steady \(Slow, Quick Claw\)/.test(speedTitle), speedTitle.slice(0, 100));
+// C1: the token shows the higher Speed as its chevrons (Quagsire is Slow: one; with Quick Claw, Steady: two).
+const chev = await page.evaluate(() => document.querySelector('.v4-row.player .v4-space[data-space="6"] .cd-chev')?.textContent ?? '');
+report('Quick Claw: the card shows the higher Speed', chev === '››', `chevrons "${chev}"`);
 
 report('no page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 await browser.close();
