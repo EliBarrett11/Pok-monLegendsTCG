@@ -180,7 +180,7 @@ Stats are **Attack / Strength** at each Level. Speed is Slow, Steady or Swift. A
 | Line (copies) | Type, attack, Speed, guard | Forms by Level | Stats L1→L6 | Triggers and keywords |
 |---|---|---|---|---|
 | **Ponyta → Rapidash** (2) | Fire, Physical, Swift | Ponyta 1–3, Rapidash 4–6 | 2/2, 3/2, 3/3, 4/4, 5/4, 6/5 | **Ponyta:** On Defeated: draw 1 card. **Rapidash:** Quick Attack. On Knockout: +1 Attack (kept). |
-| **Chinchou → Lanturn** (2) | Electric, Special, Steady, Sp. Def guard | Chinchou 1–3, Lanturn 4–6 | 1/3, 2/3, 2/4, 3/5, 4/6, 4/7 | **Chinchou:** On Summon: +1 Energy this turn. **Lanturn:** On Attack: 1 damage to each enemy Pokémon in its Location. |
+| **Chinchou → Lanturn** (2) | Electric, Special, Steady, Sp. Def guard | Chinchou 1–3, Lanturn 4–6 | 1/3, 2/3, 2/4, 3/5, 4/6, 4/7 | **Chinchou:** On Summon: +1 Energy this Round. **Lanturn:** On Attack: 1 damage to each enemy Pokémon in its Location. |
 | **Shinx → Luxio → Luxray** (1) *new* | Electric, Physical, Swift | Shinx 1–2, Luxio 3–4, Luxray 5–6 | 2/2, 2/3, 3/3, 4/4, 5/5, 6/5 | **Shinx:** On Summon: 1 damage to an enemy Pokémon. **Luxio:** Infiltrator. On Knockout: draw 1 card. **Luxray:** Infiltrator. On Summon: 2 damage to an enemy Pokémon. |
 
 **Mid (Levels 2–7):**

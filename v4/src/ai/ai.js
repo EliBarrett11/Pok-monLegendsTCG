@@ -3,10 +3,10 @@
 // now or store, use from the Bag) and Trainer Commands; UX1: Objectives are tracked from setup, modes come from commandModesFor): a greedy one-move AI like v2's and v3's (adapted from v3/src/ai/ai.js).
 // It plays only through the engine's actions: it tries each legal move on a copy of the state,
 // scores the result, and plays the best (Pass when nothing beats it).
-import { RULES } from '../rules.js?v=202611101304';
+import { RULES } from '../rules.js?v=202611101410';
 import { applyAction, legalActions, hasKw, kwNum, opponentOf, summonable, emptySpaces, attackers, legalTargets, retainable, pokemonOf, isReady, energyLeft, placeable, locationStarts, dominantOf, summonCost,
   commandModesFor, commandTargets, playableSupporters, favourMet, resolveStrats,
-  buyableFromHand, buyableFromMart, usableFromBag, itemTargets, buyReason, playableTrainers, tournamentDominant, boosted } from '../engine/game.js?v=202611101304';
+  buyableFromHand, buyableFromMart, usableFromBag, itemTargets, buyReason, playableTrainers, tournamentDominant, boosted } from '../engine/game.js?v=202611101410';
 
 // Pending Strats count at a discount: the state as if they had resolved, blended with as it is.
 export function evaluate(s, who) {
@@ -64,7 +64,7 @@ export function moves(s, who) {
     const out = [{ type: 'decline', who }];
     // UX1: the React options come from commandModesFor, the same helper the hand display uses.
     const reacts = p.hand.filter((c) => commandModesFor(s, who, c.uid).some((m) => m.mode === 'react'));
-    for (const c of dedupe(reacts)) for (const target of commandTargets(s, who, c)) out.push({ type: 'react', who, uid: c.uid, target });
+    for (const c of dedupe(reacts)) for (const target of commandTargets(s, who, c, 'react')) out.push({ type: 'react', who, uid: c.uid, target });
     return out;
   }
   // G1: Pass only when it's legal (not while an unmatched Ready Pokémon can attack).
@@ -72,16 +72,20 @@ export function moves(s, who) {
   if (legal.includes('command')) {
     for (const mode of ['adapt', 'strat']) {
       const cards = p.hand.filter((c) => commandModesFor(s, who, c.uid).some((m) => m.mode === mode && !m.reason));
-      for (const c of dedupe(cards)) for (const target of commandTargets(s, who, c)) out.push({ type: 'command', who, uid: c.uid, mode, target });
+      for (const c of dedupe(cards)) for (const target of commandTargets(s, who, c, mode)) out.push({ type: 'command', who, uid: c.uid, mode, target });
     }
   }
   // Supporters: Release the least useful cards; or, when it can, one that meets the Favour.
   if (legal.includes('supporter')) {
     for (const c of dedupe(playableSupporters(s, who))) {
       const others = p.hand.filter((x) => x !== c).sort((a, b) => worth(a) - worth(b));
-      out.push({ type: 'supporter', who, uid: c.uid, release: others.slice(0, c.release).map((x) => x.uid) });
+      const plain = others.slice(0, c.release);
+      out.push({ type: 'supporter', who, uid: c.uid, release: plain.map((x) => x.uid), pick: recoverPick(s, who, c, plain) });
       const fav = others.find((x) => favourMet(c, [x]));
-      if (fav) out.push({ type: 'supporter', who, uid: c.uid, release: [fav, ...others.filter((x) => x !== fav)].slice(0, c.release).map((x) => x.uid) });
+      if (fav) {
+        const rel = [fav, ...others.filter((x) => x !== fav)].slice(0, c.release);
+        out.push({ type: 'supporter', who, uid: c.uid, release: rel.map((x) => x.uid), pick: recoverPick(s, who, c, rel) });
+      }
     }
   }
   if (legal.includes('summon')) {
@@ -120,6 +124,13 @@ export function moves(s, who) {
     if (best) out.push({ type: 'retain', who, uid: best.uid });
   }
   return out;
+}
+
+// G3: Pokémon Breeder: take back the highest-Level Pokémon cards from the Discard Pile (its normal choice).
+function recoverPick(s, who, card, release) {
+  const eff = favourMet(card, release) ? card.favour : card.effect;
+  if (eff.op !== 'recover') return [];
+  return s.players[who].discard.filter((c) => c.cardType === 'Pokémon').sort((a, b) => b.level - a.level).slice(0, eff.amount).map((c) => c.uid);
 }
 
 const dedupe = (cards) => { const seen = new Set(); return cards.filter((c) => !seen.has(c.id) && seen.add(c.id)); };

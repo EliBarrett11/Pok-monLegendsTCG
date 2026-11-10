@@ -259,6 +259,8 @@ button { font-family: inherit; color: inherit; }
 .v4-release p { margin: 0 0 8px; font-size: 16px; }
 .v4-release .fav { color: #ffd76a; }
 .v4-release .v4-mini button.meets { outline: 2px solid #ffd76a; outline-offset: 1px; }
+.v4-release .v4-pickt { margin: 4px 0 6px; }
+.v4-release .v4-picks button.on { border-color: #b8ffb0; box-shadow: 0 0 14px 4px rgba(150, 255, 140, 0.7); }
 .v4-release .v4-mini button em { position: absolute; left: 4px; top: 4px; padding: 0 5px; border-radius: 4px; font-style: normal; font-size: 12px; font-weight: 800; color: #fff; background: #c83a2a; }
 .v4-release .v4-mini button i { position: absolute; right: 4px; top: 4px; padding: 0 5px; border-radius: 4px; font-style: normal; font-size: 12px; font-weight: 800; color: var(--ink); background: #ffd76a; }
 .v4-relsum { font-size: 15px; }

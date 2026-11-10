@@ -39,9 +39,9 @@ const stock = (s, id, slot = 0) => {
 // --- The cards ---------------------------------------------------------------------------------------------------------
 {
   const V4 = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-  assert.equal(ITEMS.length, 6);
+  assert.equal(ITEMS.length, 10, 'G3: the 5.3 pool');
   assert.ok(ITEMS.filter((c) => c.itemType === 'Held').length >= 2 && ITEMS.filter((c) => c.itemType === 'Consumed').length >= 2);
-  assert.equal(ITEMS.filter((c) => DEMO_DECK.includes(c.id)).length, 3, '3 Items in the deck; the others only in the PokéMart');
+  assert.equal(ITEMS.filter((c) => DEMO_DECK.includes(c.id)).length, 5, 'G3: 5 Items in the deck; the others only in the PokéMart');
   for (const c of [...ITEMS, ...TRAINERS, ...TRAINERS.map((t) => t.partner)]) assert.ok(existsSync(join(V4, '..', 'assets/cards', `${c.art}.jpg`)), `${c.name}: art`);
   assert.equal(TRAINERS.filter((c) => DEMO_DECK.includes(c.id)).length, 2);
   assert.equal(BAG_SIZE, 6);
@@ -72,13 +72,13 @@ const stock = (s, id, slot = 0) => {
 
 // --- Purchase Item: from hand or the PokéMart; use now or store; the Bag limit; play from the Bag -------------------------------------
 {
-  // From hand, used now: Potion heals 3; $2 paid; then it goes to the PokéMart's pool.
+  // From hand, used now: Potion heals 4 (G3); $2 paid; then it goes to the PokéMart's pool.
   let s = battle();
   s.players.player.row[0] = mon('squirtle', 4, { currentStrength: 1 });
   const potion = give(s, 'player', 'potion');
   const poolBefore = s.mart.pool.length;
   s = applyAction(s, { type: 'buyItem', who: 'player', from: 'hand', uid: potion, then: 'use', target: { space: 0 } });
-  assert.equal(s.players.player.row[0].currentStrength, 4);
+  assert.equal(s.players.player.row[0].currentStrength, 5);
   assert.equal(s.players.player.dollars, 8);
   assert.equal(s.players.player.hand.length, 0);
   assert.equal(s.mart.pool.length, poolBefore + 1, 'a used Item returns to the pool');
@@ -145,14 +145,14 @@ const stock = (s, id, slot = 0) => {
     s = nextRound(s);
     assert.ok(s.mart.onSale[0], 'restocked');
     assert.ok(s.mart.onSale[0].id !== bought && !s.mart.pool.some((c) => c.id === bought), 'a bought Item is not in the PokéMart');
-    assert.equal(martIds(s).length, 5, 'unsold Items went back to the pool');
+    assert.equal(martIds(s).length, ITEMS.length - 1, 'unsold Items went back to the pool');
     seen.add(s.mart.onSale[0].id);
   }
   assert.ok(seen.size > 1, 'different Items over the Rounds');
   // A used Consumed Item and a lost Held Item return to the pool.
   s = battle();
   s.players.player.row[0] = mon('ponyta', 2, { currentStrength: 1 });
-  s.players.player.bag = [card('choice-band'), card('leftovers')];
+  s.players.player.bag = [card('x-attack'), card('leftovers')];
   const before = martIds(s).length;
   s = applyAction(s, { type: 'useItem', who: 'player', uid: s.players.player.bag[1].uid, target: { space: 0 } });
   assert.equal(martIds(s).length, before, 'a Held Item stays on its Pokémon');
@@ -172,18 +172,18 @@ const stock = (s, id, slot = 0) => {
   let s = battle();
   s.players.player.row[0] = mon('ponyta', 2);
   const atk = s.players.player.row[0].attack;
-  s.players.player.bag = [card('charcoal'), card('mystic-water'), card('choice-band')];
+  s.players.player.bag = [card('charcoal'), card('mystic-water'), card('x-attack')];
   s = applyAction(s, { type: 'useItem', who: 'player', uid: s.players.player.bag[0].uid, target: { space: 0 } });
   assert.equal(s.players.player.row[0].attack, atk + 1, 'Charcoal: +1 Attack while held');
   s.turn = 'player';
   assert.equal(whyNot(s, 'player', 'useItem', s.players.player.bag[0]), 'No Pokémon of yours without a Held Item', 'one Held Item each');
   assert.throws(() => applyAction(s, { type: 'useItem', who: 'player', uid: s.players.player.bag[0].uid, target: { space: 0 } }));
-  // Consumed Choice Band: +2 Attack until Supper (on top of the Held Item).
+  // Consumed X Attack (G3): +2 Attack until Supper (on top of the Held Item).
   s = applyAction(s, { type: 'useItem', who: 'player', uid: s.players.player.bag[1].uid, target: { space: 0 } });
   assert.equal(s.players.player.row[0].attack, atk + 3);
   s = nextRound(s);
-  assert.equal(s.players.player.row[0].attack, atk + 1, 'the Choice Band ends at Supper; the Charcoal stays');
-  // Leftovers: heal 1 at Breakfast.
+  assert.equal(s.players.player.row[0].attack, atk + 1, 'the X Attack ends at Supper; the Charcoal stays');
+  // Leftovers (G3: Regenerate 1): heal 1 at Breakfast.
   s = battle();
   s.players.player.row[0] = mon('squirtle', 4, { currentStrength: 2 });
   s.players.player.bag = [card('leftovers')];

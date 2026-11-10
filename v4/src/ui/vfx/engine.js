@@ -15,12 +15,12 @@
 // fewer particles, no shake and no distortion. If WebGL isn't available,
 // initVfx() returns false and the game keeps its 2D effects (particles.js).
 
-import { createRenderer } from './gl.js?v=202611101304';
-import { loadTextures } from './textures.js?v=202611101304';
-import { Timeline } from './timeline.js?v=202611101304';
+import { createRenderer } from './gl.js?v=202611101410';
+import { loadTextures } from './textures.js?v=202611101410';
+import { Timeline } from './timeline.js?v=202611101410';
 import {
   EMITTERS, TIMELINES, RIBBONS, BEAMS, SWEEPS, STATUS_VISUALS, tintOf, impactScale,
-} from './shared.js?v=202611101304';
+} from './shared.js?v=202611101410';
 
 const MAX_PARTICLES = 2600;
 const motionQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
@@ -373,6 +373,9 @@ const MOTIONS = {
   shatterOut: (k) => ({ s: 1 + 0.1 * k, filter: `opacity(${1 - k})` }),
   // Healing: a warm glow lifting the card a little.
   healGlow: (k) => { const t = Math.sin(k * Math.PI); return { y: -4 * t, filter: `brightness(${1 + 0.35 * t}) saturate(${1 + 0.3 * t})` }; },
+  // G3: Bubble Beam's target dimming to Spent; Dive's Pokémon sinking into its ripple.
+  dimSpent: (k) => ({ filter: `brightness(${1 - 0.35 * k}) saturate(${1 - 0.45 * k})` }),
+  sinkAway: (k) => { const e = ease.inQuad(k); return { y: 26 * e, s: 1 - 0.3 * e, filter: `brightness(${1 - 0.3 * e}) hue-rotate(${-20 * e}deg) opacity(${1 - e})` }; },
   healGlowSoft: (k) => { const t = Math.sin(k * Math.PI); return { y: -2 * t, filter: `brightness(${1 + 0.18 * t})` }; },
   // A Trainer flinching: knocked back (away from the hit) and springing back.
   knockBack: (k, c) => {

@@ -8,18 +8,18 @@
 // Earlier stages, kept: F1–F5's actions and screens (Commands, React windows, Strats, Supporters,
 // Items, Trainers, the Tournament), UX1's Objective trackers, commandModesFor, the React window and
 // timer (main.js), no series shown, Recognition shown capped at 100.
-import { RULES } from '../rules.js?v=202611101304';
+import { RULES } from '../rules.js?v=202611101410';
 import {
   isReady, legalTargets, attackers, summonable, emptySpaces, whyNot, passEndsPhase, passSpends, passReason, passBlockers, availableExert, energyLeft,
   playerGuard, guardOf, placeable, locationStarts, weatherTotals, activeBrackets, dominantOf, strengthIn,
   actor, commandTargets, playableSupporters, playReason, favourMet,
-  commandModesFor, damageOf,
+  commandModesFor, damageOf, effectiveSpeed, locationAt,
   itemTargets, buyReason, tournamentDominant, tournamentStrength, boosted, buyableFromHand, buyableFromMart, usableFromBag, playableTrainers, trainerReason,
-} from '../engine/game.js?v=202611101304';
-import { WEATHER_BRACKETS, MODES, MODE_NAMES, FAVOURS, modeText, effectText, BAG_SIZE, PATHS, TRAINERS, TRIGGER_NAMES, KEYWORD_ORDER, KEYWORD_NAMES, opText } from '../engine/cards.js?v=202611101304';
-import { baseEnergyFor, EXERT_LIMIT } from '../engine/energy.js?v=202611101304';
-import { icon, speedIcon, attackIcon, strengthIcon, typeIcon, STAT_NAMES, attackKey, strengthKey } from './icons.js?v=202611101304';
-import { hitsFor, commitHit } from './flows.js?v=202611101304';
+} from '../engine/game.js?v=202611101410';
+import { WEATHER_BRACKETS, MODES, MODE_NAMES, FAVOURS, modeText, shortModeText, modeTarget, effectText, BAG_SIZE, PATHS, TRAINERS, TRIGGER_NAMES, KEYWORD_ORDER, KEYWORD_NAMES, opText } from '../engine/cards.js?v=202611101410';
+import { baseEnergyFor, EXERT_LIMIT } from '../engine/energy.js?v=202611101410';
+import { icon, speedIcon, attackIcon, strengthIcon, typeIcon, STAT_NAMES, attackKey, strengthKey } from './icons.js?v=202611101410';
+import { hitsFor, commitHit } from './flows.js?v=202611101410';
 
 // UX3: the key list (the ? overlay and the hint at the bottom-right).
 export const KEY_LIST = [
@@ -30,7 +30,7 @@ export const KEY_LIST = [
 ];
 
 const ASSETS = '../assets';
-import { glossaryText } from '../engine/glossary.js?v=202611101304';
+import { glossaryText } from '../engine/glossary.js?v=202611101410';
 // G2: a Pokémon's keywords as small chips (the glossary on hover), and its trigger: the name in bold,
 // then the effect in plain words.
 const kwChips = (c, cls = 'v4-kws') => {
@@ -63,16 +63,18 @@ const locDetail = (c) => `${c.name} · Location · covers ${c.width} adjacent la
 const bonusText = (c) => [c.bonusAttack ? `+${c.bonusAttack} Attack` : '', c.bonusStrength ? `+${c.bonusStrength} Strength` : ''].filter(Boolean).join(', ');
 const cmdDetail = (c) => `${c.name} · Command Card · ${MODES.map((m) => `${MODE_NAMES[m]} (${c.modes[m].cost} Energy): ${modeText(c, m)}`).join(' · ')} · Adapt resolves now; React only in reply to the opponent's attack, Adapt or resolving Strat, before it; Strat face-down, resolving after the opponent's next turn`;
 const supDetail = (c) => `${c.name} · Supporter · no Energy · Release ${c.release} other card${c.release === 1 ? '' : 's'} from hand (permanently), then this card · ${effectText(c.effect)} · Favour (Release ${FAVOURS[c.favour.condition].text}): ${effectText(c.favour)}, +${RULES.perFavour} Recognition`;
-const shortMode = (c, m) => { const { op, amount } = c.modes[m]; return { damage: `${amount} dmg`, heal: `heal ${amount}`, attackUp: `+${amount} Atk`, damageLocation: `${amount} each there` }[op]; };
-const longMode = (c, m) => { const { op, amount } = c.modes[m]; return { damage: `${amount} damage`, heal: `heal ${amount}`, attackUp: `+${amount} Attack`, damageLocation: `${amount} damage to each there` }[op]; };
-const shortEffect = ({ op, amount }) => ({ healAll: `Heal each of yours ${amount}`, search: `Search ${amount} Pokémon`, strengthAll: `+${amount} Strength to yours` }[op]);
-const shortFavour = { water: 'Water', location: 'Location', bigPokemon: 'Lv 4+ Pokémon' };
+// G3: each mode's effect from cards.js (a few words on the card; a sentence elsewhere).
+const shortMode = shortModeText;
+const longMode = modeText;
+const shortEffect = ({ op, amount }) => ({ healAll: `Heal each of yours ${amount}`, search: `Search ${amount} Pokémon`, strengthAll: `+${amount} Strength to yours`,
+  attackAll: `Yours +${amount} Atk to Supper`, recover: `${amount} Pokémon from Discard` }[op]);
+const shortFavour = { water: 'Water', location: 'Location', bigPokemon: 'Lv 4+ Pokémon', fire: 'Fire Pokémon', item: 'Item' };
 const itemDetail = (c) => `${c.name} · Item · ${c.itemType} · $${c.price} · ${c.text}${c.itemType === 'Held' ? ' (one Held Item per Pokémon; lost when it is defeated)' : ' (then it goes to the PokéMart)'}`;
 const partnerText = (pc) => `${pc.name} (Level ${pc.level} · ${pc.type} · ${pc.speed} · ${statWords(pc)}${pc.text ? ` · ${pc.text}` : ''})`;
 const trainerDetail = (c) => `${c.name} · Trainer · played only as its Trainer Command (${c.command.cost} Energy): ${c.command.text}, then discarded (it keeps cycling) · its Objective (${c.objective.text}) is tracked from the start; when it completes, this card leaves the deck, its Partner ${partnerText(c.partner)} arrives and you earn +${RULES.perObjective} Recognition`;
 const detail = (c) => (isItem(c) ? itemDetail(c) : isTrainer(c) ? trainerDetail(c) : isCmd(c) ? cmdDetail(c) : isSup(c) ? supDetail(c) : isLoc(c) ? locDetail(c)
-  : `${c.name} · Level ${c.level} · ${c.type} · ${c.speed} · ${statWords(c)} · cost ${c.cost}${c.text ? ` · ${c.text}` : ''}${c.held ? ` · holds ${c.held.name} (${c.held.text})` : ''}${c.partner ? ` · ${c.trainer}'s Partner` : ''}${bonusText(c) ? ` · includes ${bonusText(c)} from Location, Weather or Item` : ''}`);
-const statBar = (c, str = c.currentStrength ?? c.strength) => `<div class="v4-st"><span>${attackIcon(c)} ${c.attack}</span>${speedIcon(c.speed)}<span class="str${str < c.strength ? ' hurt' : ''}">${strengthIcon(c)} ${str}</span></div>`;
+  : `${c.name} · Level ${c.level} · ${c.type} · ${effectiveSpeed(c)}${effectiveSpeed(c) !== c.speed ? ` (${c.speed}, Quick Claw)` : ''} · ${statWords(c)} · cost ${c.cost}${c.text ? ` · ${c.text}` : ''}${c.held ? ` · holds ${c.held.name} (${c.held.text})` : ''}${c.partner ? ` · ${c.trainer}'s Partner` : ''}${bonusText(c) ? ` · includes ${bonusText(c)} from Location, Weather or Item` : ''}`);
+const statBar = (c, str = c.currentStrength ?? c.strength) => `<div class="v4-st"><span>${attackIcon(c)} ${c.attack}</span>${speedIcon(effectiveSpeed(c))}<span class="str${str < c.strength ? ' hurt' : ''}">${strengthIcon(c)} ${str}</span></div>`;
 const weatherIcon = (type) => (type === 'Rain' ? '☂' : '☀');
 const whose = (w) => (w === 'player' ? 'your' : 'the Opponent\'s');
 const Whose = (w) => (w === 'player' ? 'Your' : 'The Opponent\'s');
@@ -401,17 +403,27 @@ export function reactSentence(s) {
     if (p.target.kind === 'player') return `${Whose(p.who)} ${a.name} is attacking ${foe === 'player' ? 'you' : 'the Opponent'} for ${n}.`;
     return `${Whose(p.who)} ${a.name} is attacking ${whose(foe)} ${s.players[foe].row[p.target.space].name} for ${n}.`;
   }
-  const on = s.players[p.target.who].row[p.target.space];
-  if (p.type === 'strat') return `${Whose(p.who)} Strat ${p.card.name} is resolving${p.at === 'supper' ? ' at Supper' : ''}: ${longMode(p.card, 'strat')} on ${whose(p.target.who)} ${on?.name ?? 'Pokémon'}.`;
-  return `${p.who === 'player' ? 'You are' : 'The Opponent is'} playing ${p.card.name} (Adapt): ${longMode(p.card, 'adapt')} on ${whose(p.target.who)} ${on.name}.`;
+  const mode = p.type === 'strat' ? 'strat' : 'adapt';
+  const on = targetWords(s, p.target);
+  if (p.type === 'strat') return `${Whose(p.who)} Strat ${p.card.name} is resolving${p.at === 'supper' ? ' at Supper' : ''}: ${longMode(p.card, mode)}${on ? ` (${on})` : ''}.`;
+  return `${p.who === 'player' ? 'You are' : 'The Opponent is'} playing ${p.card.name} (Adapt): ${longMode(p.card, mode)}${on ? ` (${on})` : ''}.`;
+}
+// G3: a Command's target in words: a Pokémon by name, a Location or lane, or every enemy Pokémon.
+function targetWords(s, t) {
+  if (!t) return '';
+  if (t.all) return '';
+  if (t.lane) return s.tournament ? 'the Tournament' : locationAt(s, t.space) ? locationAt(s, t.space).name : `lane ${t.space + 1}`;
+  const on = s.players[t.who]?.row[t.space];
+  return on ? `${whose(t.who)} ${on.name}` : '';
 }
 // A React card's effect in plain words, aimed at the actual target when there's only one.
+// G3: the React mode's own effect and target (the attacker, your Pokémon being attacked, ...), named.
 export function reactEffect(s, card, targets) {
-  const { op, amount } = card.modes.react;
-  const tgt = targets.length === 1 ? `${whose(targets[0].who)} ${s.players[targets[0].who].row[targets[0].space].name}` : (card.target === 'enemy' ? 'an enemy Pokémon (choose)' : 'one of your Pokémon (choose)');
   const what = { attack: 'the attack', strat: 'their Strat resolves', command: 'their Command' }[s.reactWindow?.pending.type] ?? 'their Command';
-  const verb = { damage: `${amount} damage to ${tgt}`, heal: `Heal ${amount} on ${tgt}`, attackUp: `+${amount} Attack to ${tgt} until Supper`, damageLocation: `${amount} damage to each enemy Pokémon in the Location of ${tgt}` }[op];
-  return `${verb.charAt(0).toUpperCase()}${verb.slice(1)}, before ${what}.`;
+  const verb = longMode(card, 'react');
+  const one = targets.length === 1 ? targetWords(s, targets[0]) : '';
+  const choose = targets.length > 1 ? ' (choose)' : '';
+  return `${verb.charAt(0).toUpperCase()}${verb.slice(1)}${one ? `: ${one}` : choose}, before ${what}.`;
 }
 // Whether the player's React window is showing (not behind the Tournament banner).
 export const reactOpen = (s, ui) => s.phase === 'battle' && s.reactWindow?.reactor === 'player' && !ui.locked && !(s.tournament && ui.seenTournament !== s.tournament.startedRound);
@@ -421,7 +433,7 @@ function picker(s, ui) {
   if (!pk) return '';
   const c = s.players.player.hand.find((x) => x.uid === pk.uid);
   if (!c) return '';
-  const on = s.players[pk.target.who].row[pk.target.space];
+  const on = { name: pk.target.all ? 'each enemy Pokémon' : targetWords(s, pk.target).replace(/^(your|the Opponent's) /, '') };
   const x = Math.max(12, Math.min(1920 - 312, pk.x - 150));
   const y = Math.max(76, Math.min(1080 - 60 - pk.modes.length * 64, pk.y - 20));
   return `<div class="v4-panel v4-picker" role="dialog" style="left: ${x}px; top: ${y}px"><p class="t">Play <b>${esc(c.name)}</b> on ${esc(on?.name ?? '')} as</p>${pk.modes.map((m) => `<button data-pick="${m}"><b>${MODE_NAMES[m].toUpperCase()}</b><span>${esc(longMode(c, m))}${m === 'strat' ? ', after their next turn' : ''}</span><i>${icon('energy')}${c.modes[m].cost}</i></button>`).join('')}<button class="cancel" data-action="cancel">Cancel <small>(Esc)</small></button></div>`;
@@ -434,7 +446,7 @@ function reactOverlay(s, ui) {
   const clock = ui.reactClock;
   const bar = clock ? `<div class="v4-rtimer"><i style="animation-duration: ${clock.ms}ms; animation-delay: -${Math.max(0, Date.now() - clock.start)}ms"></i></div>` : '';
   const cards = opts.map((c) => {
-    const targets = commandTargets(s, 'player', c);
+    const targets = commandTargets(s, 'player', c, 'react');
     const cost = c.modes.react.cost;
     return `<div class="v4-ropt${ui.select?.uid === c.uid ? ' sel' : ''}">
       <div class="v4-art" style="background-image: url('${art(c)}')"></div>
@@ -630,6 +642,14 @@ function dialogs(s, ui) {
     const others = me.hand.filter((c) => c !== sup);
     const fav = favourMet(sup, others.filter((c) => chosen.includes(c.uid)));
     const cond = FAVOURS[sup.favour.condition];
+    // G3: Pokémon Breeder: choose the Pokémon cards to take back from your Discard Pile (1, or 2 with the Favour).
+    const eff = fav ? sup.favour : sup.effect;
+    const pool = eff.op === 'recover' ? me.discard.filter((c) => isMon(c)) : [];
+    const want = Math.min(eff.amount, pool.length);
+    const picks = (ui.select.pick ?? []).filter((u) => pool.some((c) => c.uid === u)).slice(0, want);
+    const pickRow = eff.op === 'recover' ? `<p class="v4-pickt">Then take back <b>${want}</b> Pokémon card${want === 1 ? '' : 's'} from your Discard Pile${pool.length ? '' : ' (it has none)'}:</p>
+      <div class="v4-mini v4-picks">${pool.map((c) => `<button class="${picks.includes(c.uid) ? 'on' : ''}" data-pickd="${c.uid}" style="background-image: url('${art(c)}')" title="${esc(detail(c))}">${picks.includes(c.uid) ? '<em>Take</em>' : ''}<span>${esc(c.name)}</span></button>`).join('')}</div>` : '';
+    const ready = chosen.length === sup.release && picks.length === want;
     return `<div class="v4-ask" role="dialog"><div class="v4-panel v4-wide v4-release">
       <p><b>${esc(sup.name)}</b>: choose <b>${sup.release}</b> other card${sup.release === 1 ? '' : 's'} to Release. Released cards leave the match for good (the Released Pile is never reshuffled); then ${esc(sup.name)} is Released too.</p>
       <p>Effect: ${esc(effectText(sup.effect))}. <span class="fav">★ Favour: Release ${esc(cond.text)} → ${esc(effectText(sup.favour))}, and +${RULES.perFavour} Recognition.</span></p>
@@ -638,8 +658,8 @@ function dialogs(s, ui) {
         const on = chosen.includes(c.uid);
         return `<button class="${on ? 'on' : ''}${meets ? ' meets' : ''}" data-rel="${c.uid}" style="background-image: url('${art(c)}')" title="${esc(detail(c))}">${on ? '<em>Release</em>' : ''}${meets ? '<i>★ Favour</i>' : ''}<span>${esc(c.name)}${isMon(c) ? ` L${c.level}` : ''}</span></button>`;
       }).join('')}</div>
-      <p class="v4-relsum">${chosen.length} of ${sup.release} chosen · ${fav ? '<b class="fav">★ Favour met: the enhanced effect and Recognition</b>' : 'Favour not met'}</p>
-      <div class="v4-buttons"><button data-action="sup-done"${chosen.length === sup.release ? '' : ' disabled'}>Release ${sup.release} and play ${esc(sup.name)}</button><button data-action="cancel">Cancel</button></div></div></div>`;
+      <p class="v4-relsum">${chosen.length} of ${sup.release} chosen · ${fav ? '<b class="fav">★ Favour met: the enhanced effect and Recognition</b>' : 'Favour not met'}</p>${pickRow}
+      <div class="v4-buttons"><button data-action="sup-done"${ready ? '' : ' disabled'}>Release ${sup.release} and play ${esc(sup.name)}</button><button data-action="cancel">Cancel</button></div></div></div>`;
   }
   if (s.phase === 'mulligan' && !me.mulliganed && !ui.locked) {
     const chosen = ui.mull ?? [];
@@ -694,7 +714,7 @@ function wire(root, s, ui, ctx) {
     on('[data-action="decline"]', () => ctx.act({ type: 'decline', who: 'player' }));
     on('[data-react]', (el) => {
       const c = s.players.player.hand.find((x) => x.uid === el.dataset.react);
-      const targets = commandTargets(s, 'player', c);
+      const targets = commandTargets(s, 'player', c, 'react');
       if (targets.length === 1) return ctx.act({ type: 'react', who: 'player', uid: c.uid, target: targets[0] });
       ui.select = { kind: 'react', uid: c.uid };
       ctx.redraw();
@@ -722,7 +742,24 @@ function wire(root, s, ui, ctx) {
     ui.select.release = r.includes(u) ? r.filter((x) => x !== u) : [...(r.length >= sup.release ? r.slice(1) : r), u];
     ctx.redraw();
   });
-  on('[data-action="sup-done"]', () => ctx.release({ type: 'supporter', who: 'player', uid: ui.select.uid, release: ui.select.release }, ui.select.release.length));
+  on('[data-pickd]', (el) => {
+    const sup = s.players.player.hand.find((c) => c.uid === ui.select.uid);
+    const fav = favourMet(sup, s.players.player.hand.filter((c) => ui.select.release.includes(c.uid)));
+    const want = (fav ? sup.favour : sup.effect).amount;
+    const r = ui.select.pick ?? [];
+    const u = el.dataset.pickd;
+    ui.select.pick = r.includes(u) ? r.filter((x) => x !== u) : [...(r.length >= want ? r.slice(1) : r), u];
+    ctx.redraw();
+  });
+  on('[data-action="sup-done"]', () => {
+    // G3: only as many picks as the effect allows (the Favour can change with the Released cards).
+    const sup = s.players.player.hand.find((c) => c.uid === ui.select.uid);
+    const fav = favourMet(sup, s.players.player.hand.filter((c) => ui.select.release.includes(c.uid)));
+    const eff = fav ? sup.favour : sup.effect;
+    const pool = s.players.player.discard.filter((c) => c.cardType === 'Pokémon');
+    const pick = eff.op === 'recover' ? (ui.select.pick ?? []).filter((u) => pool.some((c) => c.uid === u)).slice(0, Math.min(eff.amount, pool.length)) : [];
+    ctx.release({ type: 'supporter', who: 'player', uid: ui.select.uid, release: ui.select.release, pick }, ui.select.release.length);
+  });
   // A click on a glowing place: the same flow as a drop or Enter (flows.js).
   on('.v4-space.target', (el) => commitHit(s, ui, ctx, ui.select, { kind: 'space', who: el.dataset.who, space: Number(el.dataset.space) }, null));
   on('.v4-row.player .v4-card.can-attack', (el) => { ui.select = { kind: 'attack', from: Number(el.dataset.space) }; ui.focus = null; ctx.redraw(); });

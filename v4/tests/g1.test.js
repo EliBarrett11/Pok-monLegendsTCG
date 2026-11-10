@@ -200,8 +200,9 @@ eq([RULES.perDominance, RULES.perFavour, RULES.perTournamentDominance, RULES.per
 
 // --- F. The PokéMart (2.6) -------------------------------------------------------------------------------
 eq(Object.fromEntries(ITEMS.map((c) => [c.id, [c.price, c.stock]])), {
-  'oran-berry': [1, 8], potion: [2, 6], 'choice-band': [2, 6], charcoal: [2, 6], 'mystic-water': [2, 6], leftovers: [3, 4],
-}, 'prices and Stock');
+  'oran-berry': [1, 8], potion: [2, 6], 'x-attack': [2, 6], charcoal: [2, 6], 'mystic-water': [2, 6], 'quick-claw': [3, 4],
+  'rocky-helmet': [3, 4], leftovers: [3, 4], 'choice-band': [4, 3], 'amulet-coin': [4, 3],
+}, 'prices and Stock (G3: the 5.3 pool)');
 {
   // Stock counts down one per turn (either player), React decisions aren't turns; replaced at 0.
   let s = battle();

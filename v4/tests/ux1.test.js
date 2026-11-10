@@ -37,10 +37,10 @@ const battle = (seed = 31, turn = 'player') => {
       assert.equal(t.startedRound, 1, 'active from Round 1');
       assert.ok([...p.drawPile, ...p.hand].some((c) => c.uid === t.cardUid && c.cardType === 'Trainer'), 'linked to its card\'s uid');
     }
-    assert.equal(p.drawPile.length + p.hand.length, 35, 'G2: the temporary 35-card deck');
+    assert.equal(p.drawPile.length + p.hand.length, 40, 'G3: the 40-card deck');
     assert.equal([...p.drawPile, ...p.hand].filter((c) => c.cardType === 'Trainer').length, 2, 'both Trainers stay in the deck');
   }
-  assert.equal(DEMO_DECK.length, 35, 'G2: the temporary 35-card deck until G3');
+  assert.equal(DEMO_DECK.length, 40, 'G3: the final 40-card deck');
 }
 
 // --- No Objective action; a Trainer in hand is only a Trainer Command, discarded, its Objective untouched ------------------------------
@@ -60,7 +60,7 @@ const battle = (seed = 31, turn = 'player') => {
   assert.ok(after.players.player.discard.some((x) => x.uid === c.uid), 'to the Discard Pile (it keeps cycling)');
   const t2 = after.players.player.trainers.find((t) => t.name === 'Misty');
   assert.deepEqual([t2.progress, t2.complete], [0, false], 'its Objective stays active');
-  assert.equal(deckCount(after.players.player), 35, 'G2: the temporary 35-card deck');
+  assert.equal(deckCount(after.players.player), 40, 'G3: the 40-card deck');
 }
 
 // --- Completing an Objective takes the card from the Draw Pile, the hand or the Discard Pile ---------------------------------------
@@ -75,7 +75,7 @@ for (const where of ['drawPile', 'hand', 'discard']) {
   p[from] = p[from].filter((x) => x !== c);
   if (where === 'hand') c.retained = true;   // Retained or not, it's taken
   p[where].push(c);
-  assert.equal(deckCount(p), 35, 'G2: the temporary 35-card deck');
+  assert.equal(deckCount(p), 40, 'G3: the 40-card deck');
   tr.progress = tr.objective.need - 1;   // one defeat short
   p.row[0] = mon('growlithe', 7, { spent: false });
   s.players.ai.row[3] = mon('ponyta', 1, { currentStrength: 1 });

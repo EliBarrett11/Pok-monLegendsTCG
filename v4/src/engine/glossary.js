@@ -21,7 +21,18 @@ export const GLOSSARY = [
   { id: 'rage', term: 'Rage', kind: 'keyword', text: '+1 Attack for good each time this Pokémon survives damage.' },
   // --- Terms the triggers use ---
   { id: 'in-its-location', term: 'In its Location', kind: 'rule', text: 'The lanes of the Location it stands in (all 9 in the Pokémon League Tournament); in a lane with no Location, just its own lane.' },
-  { id: 'ready', term: 'Ready', kind: 'rule', text: 'An Active Pokémon of the highest Speed among all Active Pokémon on both sides. Only Ready Pokémon attack, and a Ready target hits back.' },
+  { id: 'ready', term: 'Ready', kind: 'rule', text: 'An Active Pokémon of the highest Speed among all Active Pokémon on both sides (Quick Claw counts one step higher). Only Ready Pokémon attack, and a Ready target hits back (not one holding Choice Band).' },
+  // --- G3 (gameplay update 5.1–5.3): Command targets and effects, Items, Supporters ---
+  { id: 'command-modes', term: 'Adapt · React · Strat', kind: 'rule', text: 'Each Command has three ways to play, each with its own Energy cost and target. Adapt: at once. React: cheaper and weaker, in reply to the opponent\'s attack, Adapt or resolving Strat, before it. Strat: dearer and stronger, after the opponent\'s next turn.' },
+  { id: 'location-target', term: 'Choose a Location', kind: 'rule', text: 'Rock Slide and Surf: choose a Location (or a lane with no Location); each enemy Pokémon there is hit. In the Tournament, the whole battlefield.' },
+  { id: 'all-enemies', term: 'Each enemy Pokémon', kind: 'rule', text: 'Heat Wave hits every enemy Pokémon on the battlefield; there is nothing to choose.' },
+  { id: 'react-targets', term: 'The attacker · the Pokémon being attacked', kind: 'rule', text: 'Some React modes act on the attack they reply to: Heat Wave damages the attacker; Surf heals your Pokémon being attacked; Bubble Beam makes the attacker Spent after its attack; Dive returns your Pokémon being attacked to your hand, so the attack fizzles.' },
+  { id: 'dive', term: 'Dive', kind: 'rule', text: 'Return one of your Pokémon to your hand (not a Partner). The card develops again with the Rounds; its Held Item goes back to the PokéMart; damage and anything it kept are lost.' },
+  { id: 'kept', term: 'Kept', kind: 'rule', text: 'A bonus that stays for the rest of the match (unlike "until Supper"), e.g. Flame Charge\'s Attack.' },
+  { id: 'spent', term: 'Spent', kind: 'rule', text: 'A Pokémon that has attacked, was summoned, or was made Spent this Round (by a Pass, or Bubble Beam). It can\'t attack and isn\'t Ready until Breakfast.' },
+  { id: 'recover', term: 'From your Discard Pile', kind: 'rule', text: 'Pokémon Breeder: choose Pokémon cards from your Discard Pile and put them into your hand (1, or 2 with its Favour).' },
+  { id: 'held', term: 'Held Item', kind: 'rule', text: 'Attaches to one of your Pokémon in play, one Item each. Choice Band: +3 Attack, but it can\'t hit back. Quick Claw: Speed one step higher (Swift stays Swift). Rocky Helmet: Retaliate 2 (adds to a printed Retaliate). Leftovers: Regenerate 1.' },
+  { id: 'consumed', term: 'Consumed Item', kind: 'rule', text: 'Resolves at once, then goes back to the PokéMart\'s pool. Amulet Coin has no target: buy it to use, and you gain 3 Recognition at once.' },
 ];
 export const glossaryEntry = (id) => GLOSSARY.find((g) => g.id === id);
 export const glossaryText = (id) => { const g = glossaryEntry(id); return g ? `${g.term}: ${g.text}` : ''; };

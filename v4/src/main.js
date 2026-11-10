@@ -2,18 +2,18 @@
 // Pokémon Legends v4 — entry point (F1): you against the AI, on a fixed 1920×1080 stage scaled
 // to fit the window. ?seed=123 replays the same shuffle and AI choices; ?autoplay lets the AI play
 // both sides; ?debug exposes window.__v4 for the layout check (v4/tools/layout.mjs).
-import { createGame, applyAction, actor, energyLeft, playReason, passReason } from './engine/game.js?v=202611101304';
-import { chooseAction } from './ai/ai.js?v=202611101304';
-import { renderMatch, reactOpen } from './ui/board.js?v=202611101304';
-import { pokemonAt, cardAtRound } from './engine/cards.js?v=202611101304';
-import { setupInteraction } from './ui/interact.js?v=202611101304';
-import { present, setupPresenter, isPresenting, resetFx, stampRings, skip } from './ui/present.js?v=202611101304';
-import { speedFactor, setSpeed, speedName, lowMotion, setLowMotionSetting } from './ui/settings.js?v=202611101304';
-import { MS } from './ui/vfx/library.js?v=202611101304';
-import { played } from './ui/sound.js?v=202611101304';
-import { MODE_NAMES } from './engine/cards.js?v=202611101304';
+import { createGame, applyAction, actor, energyLeft, playReason, passReason } from './engine/game.js?v=202611101410';
+import { chooseAction } from './ai/ai.js?v=202611101410';
+import { renderMatch, reactOpen } from './ui/board.js?v=202611101410';
+import { pokemonAt, cardAtRound } from './engine/cards.js?v=202611101410';
+import { setupInteraction } from './ui/interact.js?v=202611101410';
+import { present, setupPresenter, isPresenting, resetFx, stampRings, skip } from './ui/present.js?v=202611101410';
+import { speedFactor, setSpeed, speedName, lowMotion, setLowMotionSetting } from './ui/settings.js?v=202611101410';
+import { MS } from './ui/vfx/library.js?v=202611101410';
+import { played } from './ui/sound.js?v=202611101410';
+import { MODE_NAMES } from './engine/cards.js?v=202611101410';
 
-export const BUILD = 'G2 — Pokémon triggers and keywords, and the 10 new lines';
+export const BUILD = 'G3 — the nine Commands, five Supporters, the PokéMart pool and the final 40-card deck';
 
 const STAGE = { width: 1920, height: 1080 };
 const stage = document.getElementById('stage');
@@ -229,6 +229,8 @@ async function aiLoop(id) {
         await wait(thinkMs());
       }
       if (id !== match) return;
+      // The state may have changed during the pause (e.g. the debug hooks): choose for whoever acts now.
+      if (actor(state) !== who) continue;
       const action = chooseAction(state, who, { rng: aiRng });
       const next = applyAction(state, action);
       if (k > 0) {

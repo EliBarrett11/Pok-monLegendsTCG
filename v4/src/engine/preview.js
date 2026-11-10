@@ -3,10 +3,10 @@
 // runOps for effects) on a copy of the state and reads the difference, so a preview can never disagree
 // with the result. The attack's number is also split into its parts (base Attack, Location, Weather,
 // Held Item, "until Supper"), which always add up to the engine's damageOf.
-import { RULES } from '../rules.js?v=202611101304';
+import { RULES } from '../rules.js?v=202611101410';
 import {
-  applyAction, applyCommand, applyItem, runOps, syncBonuses, damageOf, isReady, locationAt, activeBrackets, opponentOf, pokemonOf,
-} from './game.js?v=202611101304';
+  applyAction, applyCommand, applyItem, runOps, syncBonuses, damageOf, canHitBack, locationAt, activeBrackets, opponentOf, pokemonOf,
+} from './game.js?v=202611101410';
 
 const clone = (s) => structuredClone(s);
 const gain = (before, after, who) => ({
@@ -84,7 +84,7 @@ export function attackPreview(s, who, from, target) {
     foeRewards: gain(s, sim, foe),
     changes: [],
   };
-  if (d && isReady(s, d)) {
+  if (d && canHitBack(s, d)) {
     const back = atk?.back ?? damageOf(s, d);
     out.hitBack = { name: d.name, damage: back, attackerAfter: strengthAfter(sim, who, from, a.uid), defeated: gone(sim, who, from, a.uid), rewards: gain(s, sim, foe) };
   }
@@ -99,6 +99,11 @@ function changes(before, after) {
     for (const { card, space } of pokemonOf(before, who)) {
       const now = after.players[who].row[space];
       const defeated = now?.uid !== card.uid;
+      // G3: Dive: back in its owner's hand, not defeated.
+      if (defeated && after.players[who].hand.some((c) => c.uid === card.uid)) {
+        out.push({ who, space, name: card.name, stat: 'returned', before: card.currentStrength, after: null, defeated: false, returned: true });
+        continue;
+      }
       if (defeated) {
         // A defeated Pokémon's card goes to the Released Pile with the Strength it fell to.
         const fell = after.players[who].released.find((c) => c.uid === card.uid);
@@ -107,6 +112,7 @@ function changes(before, after) {
       }
       if (now.currentStrength !== card.currentStrength || now.strength !== card.strength) out.push({ who, space, name: card.name, stat: 'strength', before: card.currentStrength, after: now.currentStrength, max: now.strength, defeated: false });
       if (now.attack !== card.attack) out.push({ who, space, name: card.name, stat: 'attack', before: card.attack, after: now.attack, defeated: false });
+      if (now.spent && !card.spent) out.push({ who, space, name: card.name, stat: 'spent', before: false, after: true, defeated: false });
     }
   }
   return out;
@@ -122,12 +128,16 @@ export function effectPreview(s, who, card, mode, target) {
   const foe = opponentOf(who);
   const notes = [];
   if (card.cardType === 'Command') {
-    const t = { ...target, uid: s.players[target.who].row[target.space]?.uid };
+    const t = { ...target, uid: target.space === null || target.lane ? undefined : s.players[target.who].row[target.space]?.uid };
     applyCommand(sim, who, card, mode, t);
-    if (card.modes[mode].op === 'attackUp') notes.push(`+${card.modes[mode].amount} Attack until Supper`);
+    const { op, amount } = card.modes[mode];
+    if (op === 'attackUp') notes.push(`+${amount} Attack until Supper`);
+    if (op === 'attackKept') notes.push(`+${amount} Attack, kept`);
+    if (op === 'spend') notes.push('The attacker becomes Spent after its attack');
+    if (op === 'dive') notes.push(mode === 'react' ? 'Back to your hand: the attack fizzles' : `Back to your hand${amount ? `; draw ${amount}` : ''}`);
   } else if (card.cardType === 'Item') {
-    applyItem(sim, who, card, { who, space: target.space });
-    if (card.itemType === 'Held') notes.push(card.op === 'healBreakfast' ? `Held: heals ${card.amount} at each Breakfast` : `Held: ${card.text.replace(/^Held: /, '')} while it holds it`);
+    applyItem(sim, who, card, { who, space: card.noTarget ? null : target.space });
+    if (card.itemType === 'Held') notes.push(`Held: ${card.text.replace(/^Held: /, '')} while it holds it`);
     if (card.op === 'attackUp') notes.push(`+${card.amount} Attack until Supper`);
   } else if (card.cardType === 'Trainer') {
     runOps(sim, who, card.command.ops);

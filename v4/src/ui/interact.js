@@ -2,9 +2,9 @@
 // and the keyboard. It draws on its own layer (#v4-fx) inside the stage, above the board and below
 // dialogs, so a redraw of the match never loses the arrow. Every choice goes through flows.js, the same
 // path clicks take; nothing is committed until a legal drop, Enter, or the final click.
-import { attackers, commandModesFor, commandTargets } from '../engine/game.js?v=202611101304';
-import { hitsFor, evaluate, previewHTML, needsArrow, placementAt, commitHit, sameHit } from './flows.js?v=202611101304';
-import { reactOpen } from './board.js?v=202611101304';
+import { attackers, commandModesFor, commandTargets } from '../engine/game.js?v=202611101410';
+import { hitsFor, evaluate, previewHTML, needsArrow, placementAt, commitHit, sameHit } from './flows.js?v=202611101410';
+import { reactOpen } from './board.js?v=202611101410';
 
 const W = 1920;
 export function setupInteraction({ stage, ui, ctx, getState }) {
@@ -243,7 +243,7 @@ export function setupInteraction({ stage, ui, ctx, getState }) {
         done();
         const opts = s.players.player.hand.filter((c) => commandModesFor(s, 'player', c.uid).length);
         if (opts.length !== 1) return;
-        const targets = commandTargets(s, 'player', opts[0]);
+        const targets = commandTargets(s, 'player', opts[0], 'react');
         if (targets.length === 1) ctx.act({ type: 'react', who: 'player', uid: opts[0].uid, target: targets[0] });
       }
       return;

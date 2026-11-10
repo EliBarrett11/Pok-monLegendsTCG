@@ -5,19 +5,19 @@
 // action. The presenter never changes the state: it gets prev and next and calls draw() once.
 // Without WebGL the 2D particles stand in (particles.js); numbers, banners and moves are page elements
 // and always play. Every beat calls a sound hook (sound.js).
-import { initVfx, vfxReady, playTimeline, skipTimelines, clearVfx, coins, rectOf, reducedMotion } from './vfx/engine.js?v=202611101304';
-import { burst, clearParticles } from './particles.js?v=202611101304';
-import { plan } from './plan.js?v=202611101304';
+import { initVfx, vfxReady, playTimeline, skipTimelines, clearVfx, coins, rectOf, reducedMotion } from './vfx/engine.js?v=202611101410';
+import { burst, clearParticles } from './particles.js?v=202611101410';
+import { plan } from './plan.js?v=202611101410';
 import {
-  MS, attackDef, counterDef, tintFor, commandDef, MODE_STYLE, commandTint, SWEEP_COMMANDS, COMMAND_TYPES, summonFor, defeatFor, defOf,
-  RING_FLARES, SUPPORTER_ANIMS, ITEM_ANIMS, attackSfx, tintOf,
-} from './vfx/library.js?v=202611101304';
-import { sfx } from './sound.js?v=202611101304';
-import { speedFactor } from './settings.js?v=202611101304';
-import { RULES } from '../rules.js?v=202611101304';
-import { activeBrackets } from '../engine/game.js?v=202611101304';
-import { commandDef as cardCommand, itemDef, supporterDef, trainerDef, TRIGGER_NAMES } from '../engine/cards.js?v=202611101304';
-import { renderHandCard } from './board.js?v=202611101304';
+  MS, attackDef, counterDef, tintFor, commandDef, MODE_STYLE, commandRate, commandTint, SWEEP_COMMANDS, COMMAND_TYPES, summonFor, defeatFor, defOf,
+  RING_FLARES, SUPPORTER_ANIMS, itemAnim, attackSfx, tintOf,
+} from './vfx/library.js?v=202611101410';
+import { sfx } from './sound.js?v=202611101410';
+import { speedFactor } from './settings.js?v=202611101410';
+import { RULES } from '../rules.js?v=202611101410';
+import { activeBrackets, lanesHere } from '../engine/game.js?v=202611101410';
+import { commandDef as cardCommand, itemDef, supporterDef, trainerDef, TRIGGER_NAMES } from '../engine/cards.js?v=202611101410';
+import { renderHandCard } from './board.js?v=202611101410';
 
 const GOLD = ['#ffd36b', '#fff6c8'];
 const NAME = { player: 'You', ai: 'The Opponent' };
@@ -265,13 +265,13 @@ const BEATS = {
     a.classList.remove('fx-attacker');
   },
 
-  async command({ prev, e, t }) {
+  async command({ prev, next, e, t, i }) {
     const style = MODE_STYLE[e.mode];
     const { card, from } = playedCommand(prev, e);
     const tag = `<b>${NAME[e.who]}: ${esc(card.name)}</b><span>${e.mode === 'strat' ? 'Strat resolves' : 'Adapt'}</span>`;
     sfx(e.mode === 'strat' ? 'command-strat' : 'command-adapt', { id: e.id, who: e.who });
     const el = await reveal(prev, e.who, card, from, t, { rise: style.rise, scale: e.mode === 'strat' ? 1.1 : 1, tag });
-    await commandEffect(prev, e, el, t, style);
+    await commandEffect(prev, e, el, t, style, next.events.slice(i + 1));
     await fadeOut(el, t);
   },
 
@@ -281,12 +281,12 @@ const BEATS = {
     const res = r ? next.events.slice(i + 1).find((x) => x.type === 'commandResolved' && x.mode === 'react' && x.who === e.who) : e;
     const card = prev.players[e.who].hand.find((c) => c.uid === r?.uid) ?? { ...cardCommand(e.id), uid: r?.uid ?? `x-${e.id}` };
     sfx('react', { id: e.id, who: e.who });
-    const tEl = cardEl(e.target.who, e.target.space);
+    const tEl = e.target.space === null || e.target.space === undefined ? null : cardEl(e.target.who, e.target.space);
     const at = pointOf(tEl) ?? STAGE_MID;
     const el = await reveal(prev, e.who, card, fromHand(e.who, card.uid), t, { rise: 160, scale: 0.7, tag: `<b>${NAME[e.who]} React: ${esc(card.name)}</b>` });
     el.style.left = `${Math.max(140, Math.min(1500, at.x + (at.x > 900 ? -230 : 230)))}px`;
     el.style.top = `${Math.max(200, Math.min(760, at.y))}px`;
-    if (res) await commandEffect(prev, res, el, t, MODE_STYLE.react);
+    if (res) await commandEffect(prev, res, el, t, MODE_STYLE.react, next.events.slice(i + 1));
     await fadeOut(el, t);
   },
 
@@ -328,11 +328,20 @@ const BEATS = {
       return wait(t(90 * k)).then(() => fly(html, fromHand(e.who, uid), sink, t(MS.burn), { cls: 'burning', end: { scale: 0.4, opacity: 0, filter: 'sepia(1) brightness(0.3)' } }));
     });
     await Promise.all(burns);
-    // Then the effect: on each of the player's Pokémon, or a search of the Draw Pile.
+    // Then the effect: on each of the player's Pokémon, a search of the Draw Pile, or (G3, Pokémon
+    // Breeder) Pokémon cards taken back from the Discard Pile into the hand.
     const hits = e.hits ?? [];
     const anim = SUPPORTER_ANIMS[e.id];
-    if (hits.length) await Promise.all(hits.map((h, k) => wait(t(70 * k)).then(() => play(anim, { target: cardEl(h.who, h.space), tint: tintOf('Grass'), on: { heal: () => showHit(h, t) } }, t))));
-    else { floatText(pileEl(e.who, 'draw'), 'Search', 'status', t(MS.note)); await play(anim, { target: pileEl(e.who, 'draw'), tint: GOLD }, t); }
+    const tint = e.id === 'flannery' ? tintOf('Fire') : tintOf('Grass');
+    const took = e.recovered ?? [];
+    if (hits.length) await Promise.all(hits.map((h, k) => wait(t(70 * k)).then(() => play(anim, { target: cardEl(h.who, h.space), tint, on: { heal: () => showHit(h, t), aura: () => showHit(h, t) } }, t))));
+    else if (e.id === 'pokemon-breeder') {
+      const pile = pileEl(e.who, 'disc') ?? ringEl(e.who);
+      floatText(pile, took.length ? `${took.length} back to hand` : 'Discard Pile empty', 'status', t(MS.note));
+      await play(anim, { target: pile, tint: tintOf('Grass') }, t);
+      await Promise.all(took.map((c, k) => wait(t(80 * k)).then(() => fly(e.who === 'player' ? `<div class="v4-mini-card" style="background-image: url('../assets/cards/${c.art}.jpg')"></div>` : '<div class="v4-mini-card back"></div>',
+        pointOf(pile), fromHand(e.who, null), t(MS.diveFly), { end: { scale: 0.8, opacity: 0.8 } }))));
+    } else { floatText(pileEl(e.who, 'draw'), 'Search', 'status', t(MS.note)); await play(anim, { target: pileEl(e.who, 'draw'), tint: GOLD }, t); }
     hits.forEach((h) => showHit(h, t));
     if (e.favour && !skipping) {
       const f = add('v4-favour', 'Favour!', pointOf(el));
@@ -353,11 +362,13 @@ const BEATS = {
   },
 
   async itemUsed({ e, t }) {
-    const el = cardEl(e.who, e.space);
-    sfx('heal', { who: e.who, item: e.id });
+    // G3: an Item with no target (Amulet Coin) plays on its user's Recognition ring.
+    const el = e.space === null ? ringEl(e.who) : cardEl(e.who, e.space);
+    sfx(e.op === 'recognition' ? 'coins' : 'heal', { who: e.who, item: e.id });
     floatText(el, e.itemType === 'Held' ? `Holds ${e.name}` : e.name, 'status', t(MS.note));
     const hits = e.hits ?? [];
-    await play(ITEM_ANIMS[e.op] ?? 'v4-held', { target: el, tint: e.op === 'attackUp' ? tintOf('Fighting') : tintOf('Grass'), on: { heal: () => hits.forEach((h) => showHit(h, t)), aura: () => hits.forEach((h) => showHit(h, t)) } }, t);
+    const tint = e.op === 'attackUp' || e.id === 'choice-band' ? tintOf('Fighting') : e.op === 'recognition' ? GOLD : e.id === 'rocky-helmet' ? tintOf('Rock') : tintOf('Grass');
+    await play(itemAnim(e.id, e.op), { target: el, tint, on: { heal: () => hits.forEach((h) => showHit(h, t)), aura: () => hits.forEach((h) => showHit(h, t)) } }, t);
     hits.forEach((h) => showHit(h, t));
   },
 
@@ -671,24 +682,45 @@ const BEATS = {
   },
 };
 
-// A Command's effect at its target (Ember, Rock Slide, Recover, X Attack), from the revealed card.
-async function commandEffect(prev, e, el, t, style) {
+// A Command's effect at its target, from the revealed card. G3: an area target (a lane: Rock Slide
+// and Surf sweep across its Location's lanes; all enemies: Heat Wave's wall across the enemy side);
+// Bubble Beam's target dims to Spent; Dive's Pokémon sinks and its card flies back to the hand.
+async function commandEffect(prev, e, el, t, style, after = []) {
   const hits = e.hits ?? [];
-  const target = cardEl(e.target.who, e.target.space);
+  const area = e.target.all || e.target.lane;
+  const target = e.target.space === null || e.target.space === undefined || e.target.lane ? null : cardEl(e.target.who, e.target.space);
   cause = COMMAND_TYPES[e.id] ?? 'Normal';
   const sweep = SWEEP_COMMANDS.includes(e.id);
-  const sweepTargets = sweep ? hits.map((h) => ({ el: cardEl(h.who, h.space), side: 'enemy', h })).filter((x) => x.el) : [];
-  const region = sweep ? regionOver(sweepTargets.map((x) => x.el.closest('.v4-space') ?? x.el)) : null;
+  const sweepTargets = sweep ? hits.map((h) => ({ el: cardEl(h.who, h.space), side: h.who === e.who ? 'friend' : 'enemy', h })).filter((x) => x.el) : [];
+  // The region a sweep rolls across: the target lane's Location (or the lane), all the enemy side, or the hit Pokémon.
+  const lanes = e.target.lane ? lanesHere(prev, e.target.space) : e.target.all ? Array.from({ length: RULES.lanes }, (_, k) => k) : null;
+  const regionSpaces = lanes ? lanes.map((l) => spaceEl(e.target.who, l)).filter(Boolean) : sweepTargets.map((x) => x.el.closest('.v4-space') ?? x.el);
+  const region = sweep ? regionOver(regionSpaces) : null;
+  const firstHit = hits[0] ? cardEl(hits[0].who, hits[0].space) : null;
+  const returned = after.find((x) => x.type === 'returned');
   const shown = new Set();
   const hit = (h) => { if (!h || shown.has(h)) return; shown.add(h); showHit(h, t); };
   const all = () => hits.forEach(hit);
+  const spentAt = target ?? firstHit;
   await play(commandDef(e.id, e.mode), {
-    attacker: el, target: target ?? el, damage: Math.max(1, ...hits.map((h) => h.before - h.after)) * (style.scale ?? 1), tint: commandTint(e.id),
-    fire: e.id === 'ember', full: !!style.fuller, region, casterBelow: e.who === 'player', sweepTargets,
-    on: { catch: all, impact: all, heal: all, aura: all, sweepHit: ({ index }) => hit(sweepTargets[index]?.h) },
-  }, t, style.rate);
+    attacker: el, target: target ?? firstHit ?? (area ? regionSpaces[0] : null) ?? el, damage: Math.max(1, ...hits.map((h) => h.before - h.after)) * (style.scale ?? 1), tint: commandTint(e.id),
+    fire: e.id === 'ember' || e.id === 'heat-wave', full: !!style.fuller, region, casterBelow: e.who === 'player', sweepTargets,
+    on: {
+      catch: all, impact: all, heal: all, aura: all, sweepHit: ({ index }) => hit(sweepTargets[index]?.h),
+      spent: () => { if (spentAt) floatText(spentAt, 'Spent', 'status', t(MS.note)); },
+    },
+  }, t, commandRate(e.id, e.mode));
   all();
   region?.remove();
+  if ((e.op === 'spend') && target) floatText(target, 'Spent after its attack', 'status', t(MS.note));
+  // Dive: the card flies back to its owner's hand (the space is empty on the new board).
+  if (returned) {
+    const from = pointOf(spaceEl(returned.who, returned.space)) ?? STAGE_MID;
+    const card = prev.players[returned.who].row[returned.space];
+    floatText(spaceEl(returned.who, returned.space), e.mode === 'react' ? 'Dived: the attack fizzles' : 'Back to hand', 'status', t(MS.note));
+    if (target) target.style.opacity = '0';
+    await fly(`<div class="v4-mini-card" style="background-image: url('../assets/cards/${card?.art ?? returned.id}.jpg')"></div>`, from, fromHand(returned.who, null), t(MS.diveFly), { end: { scale: 0.7, opacity: 0.85 } });
+  }
   if (!skipping) await wait(t(120));
 }
 

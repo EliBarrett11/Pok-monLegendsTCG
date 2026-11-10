@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { createGame, applyAction, legalActions, actor, attackers, legalTargets, syncBonuses, locationAt, activeBrackets, damageOf, commandTargets, pokemonOf } from '../src/engine/game.js';
 import { attackPreview, attackParts, effectPreview } from '../src/engine/preview.js';
 import { chooseAction } from '../src/ai/ai.js';
-import { pokemonAt, cardAtRound, COMMANDS, ITEMS, TRAINERS, MODES } from '../src/engine/cards.js';
+import { pokemonAt, cardAtRound, COMMANDS, ITEMS, TRAINERS, MODES, modeTarget } from '../src/engine/cards.js';
 
 let k = 12345;
 const rnd = () => { k = (k * 1103515245 + 12345) % 2147483648; return k / 2147483648; };
@@ -107,6 +107,11 @@ function agree(before, after, pv, label) {
   for (const who of ['player', 'ai']) {
     for (const { card: c, space } of pokemonOf(before, who)) {
       const now = after.players[who].row[space];
+      // G3: Dive: back in hand, not defeated.
+      if (now?.uid !== c.uid && after.players[who].hand.some((x) => x.uid === c.uid)) {
+        assert.ok(pv.changes.some((x) => x.who === who && x.space === space && x.returned), `${label}: ${c.name}'s return to hand is previewed`);
+        continue;
+      }
       const defeated = now?.uid !== c.uid;
       const strengthChange = defeated || now.currentStrength !== c.currentStrength || now.strength !== c.strength;
       const p = pv.changes.find((x) => x.who === who && x.space === space && x.stat === 'strength');
@@ -130,15 +135,34 @@ const setBoard = (s) => {
   s.players.player.row[4] = mon('ponyta', 3);
 };
 let effects = 0;
+const seenModes = new Set();
+// A React window: the Opponent attacks (with 0 Attack, so the attack itself changes nothing) when the
+// mode's target is the attacker or the attacked Pokémon (G3); otherwise it plays Recover as Adapt on a
+// Pokémon at full Strength (no change). G1: summons can't be Reacted to.
+function openWindow(s, c) {
+  const tg = modeTarget(c, 'react');
+  if (tg === 'attacker' || tg === 'attacked') {
+    s.players.ai.row[8] = mon('ponyta', 2, { spent: false, attack: 0 });
+    const target = legalTargets(s, 'ai', 8).find((t) => t.kind === 'pokemon' && t.space === 3) ?? legalTargets(s, 'ai', 8).find((t) => t.kind === 'pokemon');
+    return applyAction(s, { type: 'attack', who: 'ai', from: 8, target });
+  }
+  s.players.ai.row[8] = mon('ponyta', 2);
+  s.players.ai.hand = [{ ...cardAtRound('recover', 1), uid: 'opp-adapt' }];
+  return applyAction(s, { type: 'command', who: 'ai', uid: 'opp-adapt', mode: 'adapt', target: { who: 'ai', space: 8 } });
+}
 for (const c of COMMANDS) {
   for (const mode of MODES) {
-    for (const space of [1, 2, 3, 4]) {
-      let s = battle(mode === 'react' ? 'ai' : 'player');
-      setBoard(s);
-      const target = c.target === 'enemy' ? { who: 'ai', space: space < 3 ? space : 6 } : { who: 'player', space: space % 2 ? 3 : 4 };
-      if (!commandTargets(s, 'player', c).some((t) => t.who === target.who && t.space === target.space)) continue;
-      const cc = card(c.id);
-      s.players.player.hand = [cc];
+    let s0 = battle(mode === 'react' ? 'ai' : 'player');
+    setBoard(s0);
+    const cc0 = card(c.id);
+    s0.players.player.hand = [cc0];
+    if (mode === 'react') s0 = openWindow(s0, c);
+    // (Not the Pokémon the Opponent's Recover is about to heal: that would hide the React's change.)
+    const targets = commandTargets(s0, 'player', cc0, mode).filter((t) => !(s0.reactWindow?.pending.type === 'command' && t.who === 'ai' && t.space === 8));
+    assert.ok(targets.length, `${c.name} ${mode}: has targets on the test board`);
+    for (const target of targets.slice(0, 4)) {
+      let s = structuredClone(s0);
+      const cc = s.players.player.hand[0];
       let before;
       let after;
       let pv;
@@ -153,33 +177,31 @@ for (const c of COMMANDS) {
         after = applyAction(after, { type: 'pass', who: 'ai' });   // the Strat resolves at the start of the player's next turn
         assert.equal(after.strats.length, 0);
       } else {
-        // A React window (G1: summons can't be Reacted to): the Opponent plays Recover as Adapt on a
-        // Pokémon at full Strength (no change), and the player Reacts.
-        s.players.ai.row[8] = mon('ponyta', 2);
-        s.players.ai.hand = [{ ...cardAtRound('recover', 1), uid: 'opp-adapt' }];
-        s = applyAction(s, { type: 'command', who: 'ai', uid: 'opp-adapt', mode: 'adapt', target: { who: 'ai', space: 8 } });
         assert.equal(s.reactWindow?.reactor, 'player');
         before = s;
         pv = effectPreview(s, 'player', cc, 'react', target);
         after = applyAction(s, { type: 'react', who: 'player', uid: cc.uid, target });
       }
-      agree(before, after, pv, `${c.name} ${mode} → ${target.who} ${target.space}`);
+      agree(before, after, pv, `${c.name} ${mode} → ${target.who} ${target.space}${target.lane ? ' (lane)' : ''}${target.all ? ' (all)' : ''}`);
+      seenModes.add(`${c.id}:${mode}`);
       effects += 1;
     }
   }
 }
+assert.equal(seenModes.size, COMMANDS.length * 3, 'every Command mode previewed');
 for (const it of ITEMS) {
   for (const space of [3, 4]) {
     const s = battle();
     setBoard(s);
     const ic = card(it.id);
     s.players.player.hand = [ic];
-    const pv = effectPreview(s, 'player', ic, 'use', { who: 'player', space });
-    const after = applyAction(s, { type: 'buyItem', who: 'player', from: 'hand', uid: ic.uid, then: 'use', target: { space } });
+    const t = it.noTarget ? { who: 'player', space: null } : { who: 'player', space };
+    const pv = effectPreview(s, 'player', ic, 'use', t);
+    const after = applyAction(s, { type: 'buyItem', who: 'player', from: 'hand', uid: ic.uid, then: 'use', target: t });
     // Buying costs $: the preview is of the effect, so compare the effect's own rewards (none) on the board.
     agree(s, after, { ...pv, rewards: gainOf(s, after, 'player') }, `${it.name} → ${space}`);
-    assert.deepEqual(pv.rewards, { recognition: 0, dollars: 0 }, `${it.name}: the effect itself gives nothing`);
-    if (it.op === 'healBreakfast') assert.match(pv.text, /Breakfast/);
+    // G3: Amulet Coin's effect is Recognition; every other Item's effect gives nothing.
+    assert.deepEqual(pv.rewards, { recognition: it.op === 'recognition' ? it.amount : 0, dollars: 0 }, `${it.name}: the effect's own rewards`);
     effects += 1;
   }
 }

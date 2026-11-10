@@ -31,10 +31,10 @@
 // per Retained card; Round 1: draw 7 then a mulligan, as in v1), Battle (alternating turns, one
 // action each: Summon, Attack, Retain, Pass; two Passes in a row end it), Supper (the hand is
 // discarded except Retained cards). Initiative switches each Round.
-import { RULES, SPEEDS, levelFor } from '../rules.js?v=202611101304';
-import { nextRandom, shuffle } from './random.js?v=202611101304';
-import { newEnergy, refreshEnergy, canPay, payCost, availableExert } from './energy.js?v=202611101304';
-import { DEMO_DECK, cardAtRound, pokemonAt, pathDef, locationDef, WEATHER_BRACKETS, FAVOURS, MODE_NAMES, ITEMS, BAG_SIZE, TRIGGER_NAMES, opText, CHOSEN } from './cards.js?v=202611101304';
+import { RULES, SPEEDS, levelFor } from '../rules.js?v=202611101410';
+import { nextRandom, shuffle } from './random.js?v=202611101410';
+import { newEnergy, refreshEnergy, canPay, payCost, availableExert } from './energy.js?v=202611101410';
+import { DEMO_DECK, cardAtRound, pokemonAt, pathDef, locationDef, WEATHER_BRACKETS, FAVOURS, MODE_NAMES, ITEMS, BAG_SIZE, TRIGGER_NAMES, opText, CHOSEN, modeTarget, modeText } from './cards.js?v=202611101410';
 
 export const PLAYERS = ['player', 'ai'];
 export const NAMES = { player: 'You', ai: 'The Opponent' };
@@ -122,7 +122,11 @@ const cheapest = (s, who, card) => Math.min(...emptySpaces(s, who).map((i) => su
 
 export const pokemonOf = (s, who) => s.players[who].row.map((card, space) => (card ? { card, space } : null)).filter(Boolean);
 const allPokemon = (s) => PLAYERS.flatMap((who) => pokemonOf(s, who).map((p) => ({ ...p, who })));
-const speedRank = (card) => SPEEDS.indexOf(card.speed);
+// G3: Quick Claw (Held): one step higher (Slow → Steady → Swift; Swift stays Swift). Every Speed check uses it.
+const speedRank = (card) => Math.min(SPEEDS.length - 1, SPEEDS.indexOf(card.speed) + (card.held?.op === 'speed' ? card.held.amount : 0));
+export const effectiveSpeed = (card) => SPEEDS[speedRank(card)];
+// G3: Choice Band: the holder can't hit back.
+export const canHitBack = (s, card) => isReady(s, card) && !card.held?.noHitBack;
 
 // Ready (as in v3): Active, and of the highest Speed among all Active Pokémon on both sides.
 export const topSpeed = (s) => Math.max(-1, ...allPokemon(s).filter(({ card }) => !card.spent).map(({ card }) => speedRank(card)));
@@ -165,12 +169,31 @@ export const retainable = (s, who) => (canPay(s.players[who], RULES.retainCost) 
 export const energyLeft = (p) => p.baseEnergy + availableExert(p);
 
 // --- Command Cards and Supporters (F3) ---
-// A Command's targets: { who, space } of a Pokémon (an enemy one or one of yours, per card).
-export function commandTargets(s, who, card) {
-  const side = card.target === 'enemy' ? opponentOf(who) : who;
-  return pokemonOf(s, side).map(({ space }) => ({ who: side, space }));
+// A Command's targets in a mode (G3: each mode has its own): { who, space } of a Pokémon (an enemy one
+// or one of yours); for a Location, { who: foe, space: lane, lane: true } for each lane whose Location
+// (or the lane alone, with no Location) holds an enemy Pokémon; for all enemies, one { who: foe, all: true };
+// in a React window, the attacker or your Pokémon being attacked.
+export function commandTargets(s, who, card, mode = 'adapt') {
+  const foe = opponentOf(who);
+  const tg = modeTarget(card, mode);
+  if (tg === 'enemy') return pokemonOf(s, foe).map(({ space }) => ({ who: foe, space }));
+  // Dive can't return a Partner (it isn't a deck card).
+  if (tg === 'own') return pokemonOf(s, who).filter(({ card: c }) => card.modes[mode].op !== 'dive' || !c.partner).map(({ space }) => ({ who, space }));
+  if (tg === 'location') {
+    return Array.from({ length: RULES.lanes }, (_, lane) => lane).filter((lane) => lanesHere(s, lane).some((l) => s.players[foe].row[l])).map((lane) => ({ who: foe, space: lane, lane: true }));
+  }
+  if (tg === 'allEnemies') return pokemonOf(s, foe).length ? [{ who: foe, space: null, all: true }] : [];
+  const p = s.reactWindow?.reactor === who && s.reactWindow.pending.type === 'attack' ? s.reactWindow.pending : null;
+  if (!p) return [];
+  if (tg === 'attacker') return s.players[p.who].row[p.from] ? [{ who: p.who, space: p.from }] : [];
+  if (tg === 'attacked') {
+    const d = p.target.kind === 'pokemon' ? s.players[who].row[p.target.space] : null;
+    if (!d || (card.modes[mode].op === 'dive' && d.partner)) return [];
+    return [{ who, space: p.target.space }];
+  }
+  return [];
 }
-export const canCommand = (s, who, card, mode) => card.cardType === 'Command' && canPay(s.players[who], card.modes[mode].cost) && commandTargets(s, who, card).length > 0;
+export const canCommand = (s, who, card, mode) => card.cardType === 'Command' && canPay(s.players[who], card.modes[mode].cost) && commandTargets(s, who, card, mode).length > 0;
 export const playableCommands = (s, who, mode) => s.players[who].hand.filter((c) => canCommand(s, who, c, mode));
 // React: only the other player, only during a React window opened by an eligible action.
 export const reactOptions = (s, who) => playableCommands(s, who, 'react');
@@ -211,7 +234,8 @@ export function passSpends(s, who) {
 
 // --- Items, the Bag and the PokéMart (F4) ---
 // An Item's targets: your Pokémon in play (for a Held Item, one not already holding an Item).
-export const itemTargets = (s, who, item) => pokemonOf(s, who).filter(({ card }) => item.itemType !== 'Held' || !card.held).map(({ space }) => ({ who, space }));
+// G3: an Item with no target (Amulet Coin) has one pseudo-target, the player.
+export const itemTargets = (s, who, item) => item.noTarget ? [{ who, space: null, self: true }] : pokemonOf(s, who).filter(({ card }) => item.itemType !== 'Held' || !card.held).map(({ space }) => ({ who, space }));
 // Why an Item can't be bought now to use ('use') or store ('store'); with no `then`, either way.
 export function buyReason(s, who, item, then) {
   const p = s.players[who];
@@ -271,7 +295,7 @@ export function whyNot(s, who, action, card, mode) {
       if (mode === 'react' && !s.reactWindow) return 'React only in response to an opponent\'s attack, Adapt or resolving Strat';
       const cost = card.modes[mode].cost;
       if (!canPay(p, cost)) return `${MODE_NAMES[mode]} needs ${cost} Energy · you have ${energyLeft(p)}`;
-      if (!commandTargets(s, who, card).length) return card.target === 'enemy' ? 'No target: no enemy Pokémon' : 'No target: none of your Pokémon';
+      if (!commandTargets(s, who, card, mode).length) return { enemy: 'No target: no enemy Pokémon', location: 'No target: no enemy Pokémon', allEnemies: 'No target: no enemy Pokémon', own: 'No target: none of your Pokémon', attacker: 'React to an attack only', attacked: 'Only when one of your Pokémon is attacked' }[modeTarget(card, mode)];
       return null;
     }
     case 'buyItem': return buyReason(s, who, card, mode);
@@ -376,20 +400,21 @@ const ACTIONS = {
     if (!['adapt', 'strat'].includes(mode)) throw new Error(mode === 'react' ? 'React only in response to an opponent\'s action' : 'Choose Adapt or Strat');
     const why = whyNot(s, who, 'command', card, mode);
     if (why) throw new Error(`${card.name}: ${why}`);
-    const t = checkTarget(s, who, card, target);
+    const t = checkTarget(s, who, card, target, mode);
     const { cost } = card.modes[mode];
     payCost(p, cost, s.round);
     p.hand = p.hand.filter((c) => c !== card);
     const { retained, ...plain } = card;
-    const on = s.players[t.who].row[t.space];
+    const on = t.space === null ? null : s.players[t.who].row[t.space];
+    const onName = t.all ? 'each enemy Pokémon' : t.lane ? (locationAt(s, t.space)?.name ?? `lane ${t.space + 1}`) : on.name;
     if (mode === 'strat') {
-      s.strats.push({ uid: `strat-${uid}`, owner: who, card: plain, target: t, targetName: on.name, playedRound: s.round });
+      s.strats.push({ uid: `strat-${uid}`, owner: who, card: plain, target: t, targetName: onName, playedRound: s.round });
       emit(s, 'strat', { who, id: card.id, name: card.name, uid: `strat-${uid}`, target: t });
-      log(s, `${NAMES[who]} played ${card.name} as a Strat (${cost} Energy) on ${on.name}: it resolves after ${who === 'player' ? 'the Opponent\'s' : 'your'} next turn.`);
+      log(s, `${NAMES[who]} played ${card.name} as a Strat (${cost} Energy) on ${onName}: it resolves after ${who === 'player' ? 'the Opponent\'s' : 'your'} next turn.`);
       return endTurn(s, who, false);
     }
-    log(s, `${NAMES[who]} played ${card.name} (Adapt, ${cost} Energy) on ${on.name}.`);
-    commit(s, { type: 'command', who, card: plain, target: t, text: `${NAMES[who]} ${who === 'player' ? 'are' : 'is'} playing ${card.name} (Adapt: ${cardModeText(card, 'adapt')}) on ${on.name}` });
+    log(s, `${NAMES[who]} played ${card.name} (Adapt, ${cost} Energy) on ${onName}.`);
+    commit(s, { type: 'command', who, card: plain, target: t, text: `${NAMES[who]} ${who === 'player' ? 'are' : 'is'} playing ${card.name} (Adapt: ${modeText(card, 'adapt')}) on ${onName}` });
   },
 
   // React (F3): during a React window, pay the React cost; its weaker effect resolves now, then the
@@ -401,13 +426,13 @@ const ACTIONS = {
     if (!card || card.cardType !== 'Command') throw new Error('Choose a Command Card from your hand');
     const why = whyNot(s, who, 'react', card);
     if (why) throw new Error(`${card.name}: ${why}`);
-    const t = checkTarget(s, who, card, target);
+    const t = checkTarget(s, who, card, target, 'react');
     const { cost } = card.modes.react;
     payCost(p, cost, s.round);
     p.hand = p.hand.filter((c) => c !== card);
     const { retained, ...plain } = card;
     emit(s, 'react', { who, id: card.id, name: card.name, uid: card.uid, target: t });
-    log(s, `${NAMES[who]} Reacted with ${card.name} (${cost} Energy) on ${s.players[t.who].row[t.space].name}.`);
+    log(s, `${NAMES[who]} Reacted with ${card.name} (${cost} Energy): ${modeText(card, 'react')}${t.space === null ? '' : ` (${s.players[t.who].row[t.space].name})`}.`);
     applyCommand(s, who, plain, 'react', t);
     p.discard.push(plain);
     s.reactWindow = null;
@@ -495,7 +520,7 @@ const ACTIONS = {
   // of other cards from hand (permanently: to the Released Pile, never reshuffled), then its effect
   // (enhanced if a Released card meets the Favour, which also earns Recognition), then the Supporter
   // itself is Released.
-  supporter(s, { who, uid, release = [] }) {
+  supporter(s, { who, uid, release = [], pick = [] }) {
     const p = s.players[who];
     const card = p.hand.find((c) => c.uid === uid);
     if (!card || card.cardType !== 'Supporter') throw new Error('Choose a Supporter from your hand');
@@ -503,11 +528,18 @@ const ACTIONS = {
     const paid = release.map((r) => p.hand.find((c) => c.uid === r && c !== card));
     if (paid.some((c) => !c)) throw new Error('Release cards from your hand (not the Supporter itself)');
     const favour = favourMet(card, paid);
+    // G3: Pokémon Breeder: the Pokémon cards chosen from the Discard Pile (as many as it allows and there are).
+    const eff = favour ? card.favour : card.effect;
+    if (eff.op === 'recover') {
+      const want = Math.min(eff.amount, p.discard.filter((c) => c.cardType === 'Pokémon').length);
+      if (pick.length !== want || new Set(pick).size !== pick.length || pick.some((u) => !p.discard.some((c) => c.uid === u && c.cardType === 'Pokémon'))) throw new Error(`${card.name}: choose ${want} Pokémon card${want === 1 ? '' : 's'} from your Discard Pile`);
+    }
     p.hand = p.hand.filter((c) => c !== card && !paid.includes(c));
     p.released.push(...paid.map(({ retained, ...c }) => c));
-    const ev = emit(s, 'supporter', { who, id: card.id, name: card.name, uid: card.uid, released: paid.map((c) => c.name), releasedUids: paid.map((c) => c.uid), favour });
+    const ev = emit(s, 'supporter', { who, id: card.id, name: card.name, uid: card.uid, released: paid.map((c) => c.name), releasedUids: paid.map((c) => c.uid), favour,
+      recovered: pick.map((u) => p.discard.find((c) => c.uid === u)).filter(Boolean).map((c) => ({ id: c.id, name: c.name, art: c.art, uid: c.uid })) });
     log(s, `${NAMES[who]} played ${card.name}, Releasing ${paid.map((c) => c.name).join(' and ')}${favour ? ` (Favour: ${FAVOURS[card.favour.condition].text})` : ''}.`);
-    watch(s, ev, () => runSupporter(s, who, favour ? card.favour : card.effect));
+    watch(s, ev, () => runSupporter(s, who, eff, pick));
     const { retained, ...plain } = card;
     p.released.push(plain);
     if (favour) gainRecognition(s, who, RULES.perFavour, `${card.name}'s Favour`, { kind: 'card' });
@@ -579,11 +611,14 @@ const ACTIONS = {
 const REACTABLE = ['attack', 'command'];
 function commit(s, pending) {
   const foe = opponentOf(pending.who);
+  // G3: React targets can depend on the action (the attacker, the attacked Pokémon), so the options
+  // are counted with the window in place.
+  s.reactWindow = { reactor: foe, pending };
   if (REACTABLE.includes(pending.type) && reactOptions(s, foe).length) {
-    s.reactWindow = { reactor: foe, pending };
     emit(s, 'reactWindow', { reactor: foe, action: pending.type });   // (UX3: not "type", which named the event itself)
     return;
   }
+  s.reactWindow = null;
   resolvePending(s, pending);
 }
 
@@ -644,7 +679,7 @@ const RESOLVE = {
     // good to each survivor of damage. Then the triggers, in order (FOUNDATION_ASSUMPTIONS.md 5):
     // the attacker's On Attack and On Knockout, then the defender's On Defend (or On Knockout from its
     // hit-back), then On Defeated.
-    const trades = isReady(s, d);
+    const trades = canHitBack(s, d);
     const rawBack = trades ? damageOf(s, d) : 0;
     const left = d.currentStrength;
     const hit = damage(s, foe, target.space, raw);
@@ -682,35 +717,56 @@ const RESOLVE = {
 
 // A Command target: { who, space } of a Pokémon on the right side; remembers that Pokémon's uid so
 // a later resolution can tell if it's gone.
-function checkTarget(s, who, card, target) {
-  if (!commandTargets(s, who, card).some((t) => t.who === target?.who && t.space === target.space)) {
-    throw new Error(`${card.name}: choose ${card.target === 'enemy' ? 'an enemy Pokémon' : 'one of your Pokémon'}`);
-  }
-  return { who: target.who, space: target.space, uid: s.players[target.who].row[target.space].uid };
+function checkTarget(s, who, card, target, mode = 'adapt') {
+  const ts = commandTargets(s, who, card, mode);
+  const t = ts.find((x) => (x.all ? true : x.who === target?.who && x.space === target?.space));
+  if (!t) throw new Error(`${card.name}: choose ${modeText(card, mode).replace(/^.*? to /, '')}`);
+  if (t.all) return { who: t.who, space: null, all: true };
+  if (t.lane) return { who: t.who, space: t.space, lane: true };
+  return { who: t.who, space: t.space, uid: s.players[t.who].row[t.space].uid };
 }
-const cardModeText = (card, m) => {
-  const { op, amount } = card.modes[m];
-  return { damage: `${amount} damage`, heal: `heal ${amount}`, attackUp: `+${amount} Attack until Supper`, damageLocation: `${amount} damage to each enemy Pokémon in that Location` }[op];
-};
+const cardModeText = (card, m) => modeText(card, m);
 
 // A Command's effect in a mode. Returns false if it fizzles (its target is gone).
 export function applyCommand(s, who, card, mode, target) {
   const { op, amount } = card.modes[mode];
-  const c = s.players[target.who].row[target.space];
-  if (!c || (target.uid && c.uid !== target.uid)) { fizzle(s, who, `${POSS[who]} ${card.name}`, 'its target is gone'); return false; }
+  const area = target.all || target.lane;
+  const c = area ? null : s.players[target.who].row[target.space];
+  if (!area && (!c || (target.uid && c.uid !== target.uid))) { fizzle(s, who, `${POSS[who]} ${card.name}`, 'its target is gone'); return false; }
   const ev = emit(s, 'commandResolved', { who, id: card.id, name: card.name, mode, op, target });
+  // G3: the Pokémon an area effect hits: each enemy Pokémon (Heat Wave), or each in a Location or a
+  // lane with no Location (Rock Slide, Surf).
+  const foe = target.who;
+  const hitArea = () => (target.all ? pokemonOf(s, foe).map(({ space }) => space) : lanesHere(s, target.space).filter((l) => s.players[foe].row[l]));
   watch(s, ev, () => {
-    if (op === 'damage') hurt(s, target.who, target.space, amount, who);
-    else if (op === 'heal') heal(c, amount);
+    if (op === 'damage') {
+      if (area) { const dealt = hitArea().map((sp) => ({ sp, n: damage(s, foe, sp, amount) })); for (const t of dealt) settle(s, foe, t.sp, who, t.n); }
+      else hurt(s, target.who, target.space, amount, who);
+    } else if (op === 'heal') heal(c, amount);
     else if (op === 'attackUp') { c.attack += amount; c.tempAttack = (c.tempAttack ?? 0) + amount; }
+    else if (op === 'attackKept') c.attack += amount;
+    else if (op === 'damageSpent') { hurt(s, target.who, target.space, amount, who); const still = s.players[target.who].row[target.space]; if (still?.uid === c.uid) still.spent = true; }
+    else if (op === 'spend') c.spent = true;
+    else if (op === 'dive') { returnToHand(s, target.who, target.space); if (amount) draw(s, who, amount); }
     else if (op === 'damageLocation') {
       const loc = locationOf(s, target.space);
       for (const { space } of pokemonOf(s, target.who).filter((x) => locationOf(s, x.space) === loc)) hurt(s, target.who, space, amount, who);
     } else throw new Error(`Unknown op ${op}`);
   });
-  log(s, `${card.name} (${MODE_NAMES[mode]}): ${cardModeText(card, mode)} on ${c.name}.`);
+  log(s, `${card.name} (${MODE_NAMES[mode]}): ${modeText(card, mode)}${c ? ` (${c.name})` : ''}.`);
   drainTriggers(s);
   return true;
+}
+// G3: Dive: the Pokémon goes back to its owner's hand as a card again (it develops with the Rounds);
+// its Held Item goes back to the PokéMart's pool; damage and anything kept are lost.
+function returnToHand(s, who, space) {
+  const c = s.players[who].row[space];
+  if (!c) return;
+  s.players[who].row[space] = null;
+  if (c.held) { s.mart.pool.push(c.held); log(s, `${c.held.name} goes back to the PokéMart.`); }
+  s.players[who].hand.push({ ...cardAtRound(c.id, s.round), uid: c.uid });
+  emit(s, 'returned', { who, space, id: c.id, name: c.name, uid: c.uid });
+  log(s, `${POSS[who]} ${c.name} returns to ${who === 'player' ? 'your' : 'their'} hand.`);
 }
 // One instance of damage to a Pokémon (G2: Shell first, minimum 1), then defeat or Rage.
 function hurt(s, side, space, n, by) {
@@ -867,10 +923,11 @@ export function resolveStrats(s, owner = null, at = owner ? 'turn' : 'supper') {
     if (!x) return true;
     s.strats = s.strats.filter((y) => y !== x);
     const foe = opponentOf(x.owner);
-    if (reactOptions(s, foe).length) {
-      const pending = { type: 'strat', who: x.owner, strat: x, owner, at, card: x.card, target: x.target,
-        text: `${POSS[x.owner]} Strat ${x.card.name} (${cardModeText(x.card, 'strat')}) is resolving on ${x.targetName}${at === 'supper' ? ' at Supper' : ''}` };
-      s.reactWindow = { reactor: foe, pending };
+    const pending = { type: 'strat', who: x.owner, strat: x, owner, at, card: x.card, target: x.target,
+      text: `${POSS[x.owner]} Strat ${x.card.name} (${cardModeText(x.card, 'strat')}) is resolving on ${x.targetName}${at === 'supper' ? ' at Supper' : ''}` };
+    s.reactWindow = { reactor: foe, pending };
+    if (!reactOptions(s, foe).length) s.reactWindow = null;
+    else {
       emit(s, 'reactWindow', { reactor: foe, action: 'strat' });
       log(s, `${POSS[x.owner]} Strat ${x.card.name} is resolving: ${NAMES[foe]} may React.`);
       return false;
@@ -886,8 +943,18 @@ function resolveStratNow(s, x) {
 }
 
 // A Supporter's effect.
-function runSupporter(s, who, { op, amount }) {
+function runSupporter(s, who, { op, amount }, pick = []) {
   const p = s.players[who];
+  if (op === 'attackAll') { for (const { card } of pokemonOf(s, who)) { card.attack += amount; card.tempAttack = (card.tempAttack ?? 0) + amount; } return; }
+  if (op === 'recover') {
+    for (const u of pick) {
+      const c = p.discard.find((x) => x.uid === u);
+      p.discard = p.discard.filter((x) => x !== c);
+      p.hand.push({ ...cardAtRound(c.id, s.round), uid: c.uid });
+      log(s, `${NAMES[who]} took ${c.name} from the Discard Pile.`);
+    }
+    return;
+  }
   if (op === 'healAll') for (const { card } of pokemonOf(s, who)) heal(card, amount);
   else if (op === 'strengthAll') for (const { card } of pokemonOf(s, who)) { card.strength += amount; card.currentStrength += amount; }
   else if (op === 'search') {
@@ -903,11 +970,20 @@ function runSupporter(s, who, { op, amount }) {
 
 // --- Items (F4) ---
 function checkItemTarget(s, who, item, target) {
+  if (item.noTarget) return { who, space: null };
   if (!itemTargets(s, who, item).some((t) => t.space === target?.space && (target.who ?? who) === who)) throw new Error(`${item.name}: choose one of your Pokémon${item.itemType === 'Held' ? ' without a Held Item' : ''}`);
   return { who, space: target.space };
 }
 // Using an Item: a Held Item attaches to the Pokémon; a Consumed Item resolves, then goes to the PokéMart.
 export function applyItem(s, who, item, t) {
+  if (item.noTarget) {
+    emit(s, 'itemUsed', { who, id: item.id, name: item.name, itemType: item.itemType, op: item.op, space: null });
+    log(s, `${NAMES[who]} used ${item.name} (${item.text}).`);
+    s.mart.pool.push(item);
+    if (item.op === 'recognition') gainRecognition(s, who, item.amount, item.name, { kind: 'card' });
+    else throw new Error(`Unknown Item op ${item.op}`);
+    return;
+  }
   const c = s.players[who].row[t.space];
   const ev = emit(s, 'itemUsed', { who, id: item.id, name: item.name, itemType: item.itemType, op: item.op, space: t.space });
   if (item.itemType === 'Held') {
@@ -1219,7 +1295,7 @@ function startRound(s, round) {
       for (const { card, space } of pokemonOf(s, who)) {
         const l = locationAt(s, space);
         // G2: Regenerate X heals X at Breakfast too.
-        const n = rain + (l?.passive.kind === 'heal' ? l.passive.amount : 0) + (card.held?.op === 'healBreakfast' ? card.held.amount : 0) + kwNum(card, 'regenerate');
+        const n = rain + (l?.passive.kind === 'heal' ? l.passive.amount : 0) + kwNum(card, 'regenerate');
         if (n) heal(card, n);
       }
       for (const pile of ['hand', 'drawPile', 'discard']) p[pile] = p[pile].map((c) => (c.cardType === 'Pokémon' ? { ...cardAtRound(c.id, round), uid: c.uid, ...(c.retained ? { retained: false } : {}) } : c));

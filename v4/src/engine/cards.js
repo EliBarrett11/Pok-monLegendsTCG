@@ -14,7 +14,7 @@
 //   attack N / strength N (kept) to: 'self' · 'chosenOtherOwnHere'
 // "Here" (its Location): a placed Location's lanes, all 9 in the Tournament, or just its own lane.
 // Keywords (4.1): { quickAttack, infiltrator, overrun, rage: true; shell, regenerate, retaliate: N }.
-import { SERIES_RANGE, levelFor, costFor } from '../rules.js?v=202611101304';
+import { SERIES_RANGE, levelFor, costFor } from '../rules.js?v=202611101410';
 
 const on = (when, ...ops) => ({ on: when, ops });
 const draw = (n) => ({ op: 'draw', amount: n });
@@ -85,7 +85,7 @@ const TO_WORDS = {
 };
 export function opText({ op, amount, to }) {
   if (op === 'draw') return `draw ${amount} card${amount === 1 ? '' : 's'}`;
-  if (op === 'energy') return `+${amount} Energy this turn`;
+  if (op === 'energy') return `+${amount} Energy this Round`;
   if (op === 'damage' || op === 'damageAll') return `${amount} damage to ${TO_WORDS[to ?? 'eachEnemy']}`;
   if (op === 'heal') return to === 'self' ? `heal ${amount}` : `heal ${amount} to ${TO_WORDS[to]}`;
   if (op === 'tempAttack') return to === 'eachOtherOwnHere' ? `your other Pokémon in its Location get +${amount} Attack until Supper` : `+${amount} Attack until Supper to ${TO_WORDS[to]}`;
@@ -141,32 +141,66 @@ export const WEATHER_BRACKETS = [
   { type: 'Sun', at: 4, kind: 'attack', amount: 1, text: 'every Pokémon has +1 Attack' },
 ];
 
-// --- Command Cards (F3, section 4B): three ways to play, each with its own Energy cost.
-//   Adapt: standard cost and effect, at once. React: lower cost, weaker effect, in response to an
-//   eligible opponent action, before it resolves. Strat: higher cost, stronger effect, after the
-//   opponent's next turn.
-//   target: 'enemy' (an enemy Pokémon) · 'own' (one of your Pokémon).
-//   ops: 'damage' (N to the target) · 'heal' (N, not above its Strength) · 'attackUp' (+N Attack
-//        until Supper) · 'damageLocation' (N to each enemy Pokémon in the target's Location).
-const mode = (cost, op, amount) => ({ cost, op, amount });
-const command = (id, name, target, adapt, react, strat) => ({ id, name, cardType: 'Command', art: id, target, modes: { adapt, react, strat } });
+// --- Command Cards (F3; G3: gameplay update 5.1, one copy each): three ways to play, each with its own
+//   Energy cost and its own target. Adapt: standard, at once. React: cheaper, weaker, in reply to an
+//   attack, an Adapt or a resolving Strat, before it. Strat: dearer, stronger, after the opponent's
+//   next turn.
+//   targets: 'enemy' (an enemy Pokémon) · 'own' (one of your Pokémon) · 'location' (a Location, or a
+//            lane with no Location: each enemy Pokémon there) · 'allEnemies' (no choice) ·
+//            React only: 'attacker' (the attacking Pokémon) · 'attacked' (your Pokémon being attacked)
+//   ops: 'damage' · 'heal' · 'attackUp' (+N Attack until Supper) · 'attackKept' (+N Attack, kept) ·
+//        'damageSpent' (N damage, then it becomes Spent) · 'spend' (it becomes Spent) ·
+//        'dive' (return it to your hand; draw N cards)
+const mode = (cost, op, amount, target) => ({ cost, op, amount, target });
+const command = (id, name, target, adapt, react, strat) => ({ id, name, cardType: 'Command', art: id, target,
+  modes: { adapt: { target, ...adapt }, react: { target, ...react }, strat: { target, ...strat } } });
+const strip = (m) => Object.fromEntries(Object.entries(m).filter(([, v]) => v !== undefined));
+const M = (cost, op, amount, target) => strip(mode(cost, op, amount, target));
 export const COMMANDS = [
-  command('ember', 'Ember', 'enemy', mode(2, 'damage', 3), mode(1, 'damage', 2), mode(3, 'damage', 5)),
-  command('recover', 'Recover', 'own', mode(2, 'heal', 4), mode(1, 'heal', 2), mode(3, 'heal', 8)),
-  command('x-attack', 'X Attack', 'own', mode(2, 'attackUp', 2), mode(1, 'attackUp', 1), mode(3, 'attackUp', 4)),
-  command('rock-slide', 'Rock Slide', 'enemy', mode(3, 'damageLocation', 1), mode(2, 'damage', 1), mode(4, 'damageLocation', 2)),
+  command('ember', 'Ember', 'enemy', M(2, 'damage', 3), M(1, 'damage', 2), M(3, 'damage', 5)),
+  command('thunderbolt', 'Thunderbolt', 'enemy', M(3, 'damage', 4), M(2, 'damage', 2), M(4, 'damage', 6)),
+  command('rock-slide', 'Rock Slide', 'location', M(3, 'damage', 1), M(2, 'damage', 1, 'enemy'), M(4, 'damage', 2)),
+  command('heat-wave', 'Heat Wave', 'allEnemies', M(3, 'damage', 1), M(2, 'damage', 1, 'attacker'), M(5, 'damage', 2)),
+  command('surf', 'Surf', 'location', M(3, 'damage', 2), M(1, 'heal', 2, 'attacked'), M(4, 'damage', 3)),
+  command('bubble-beam', 'Bubble Beam', 'enemy', M(2, 'damageSpent', 2), M(1, 'spend', 0, 'attacker'), M(3, 'damageSpent', 3)),
+  command('recover', 'Recover', 'own', M(2, 'heal', 4), M(1, 'heal', 2), M(3, 'heal', 8)),
+  command('flame-charge', 'Flame Charge', 'own', M(2, 'attackKept', 1), M(1, 'attackUp', 1), M(3, 'attackKept', 2)),
+  command('dive', 'Dive', 'own', M(1, 'dive', 0), M(1, 'dive', 0, 'attacked'), M(2, 'dive', 1)),
 ];
 export const commandDef = (id) => COMMANDS.find((c) => c.id === id);
 export const MODES = ['adapt', 'react', 'strat'];
 export const MODE_NAMES = { adapt: 'Adapt', react: 'React', strat: 'Strat' };
+export const modeTarget = (card, m) => card.modes[m].target ?? card.target;
+const TARGET_WORDS = {
+  enemy: 'an enemy Pokémon', own: 'one of your Pokémon', location: 'each enemy Pokémon in a Location', allEnemies: 'each enemy Pokémon',
+  attacker: 'the attacker', attacked: 'your Pokémon being attacked',
+};
 // A mode's effect in words.
 export function modeText(card, m) {
   const { op, amount } = card.modes[m];
-  const t = card.target === 'enemy' ? 'an enemy Pokémon' : 'one of your Pokémon';
+  const tg = modeTarget(card, m);
+  const t = TARGET_WORDS[tg];
   if (op === 'damage') return `${amount} damage to ${t}`;
-  if (op === 'heal') return `heal ${t} ${amount}`;
+  if (op === 'heal') return tg === 'attacked' ? `heal ${amount} to the Pokémon being attacked` : `heal ${t} ${amount}`;
   if (op === 'attackUp') return `+${amount} Attack to ${t} until Supper`;
-  if (op === 'damageLocation') return `${amount} damage to each enemy Pokémon in a target's Location`;
+  if (op === 'attackKept') return `+${amount} Attack (kept) to ${t}`;
+  if (op === 'damageSpent') return `${amount} damage to ${t}, and it becomes Spent`;
+  if (op === 'spend') return 'the attacker becomes Spent after its attack';
+  if (op === 'dive') return tg === 'attacked' ? 'return the attacked Pokémon to your hand (the attack fizzles)' : `return ${t} to your hand${amount ? ` and draw ${amount} card${amount === 1 ? '' : 's'}` : ''}`;
+  return op;
+}
+// A mode's effect in a few words (hand cards, the mode picker).
+export function shortModeText(card, m) {
+  const { op, amount } = card.modes[m];
+  const tg = modeTarget(card, m);
+  const where = { location: ' in area', allEnemies: ' to all', attacker: ' to attacker' }[tg] ?? '';
+  if (op === 'damage') return `${amount} dmg${where}`;
+  if (op === 'heal') return tg === 'attacked' ? `heal ${amount} (attacked)` : `heal ${amount}`;
+  if (op === 'attackUp') return `+${amount} Atk to Supper`;
+  if (op === 'attackKept') return `+${amount} Atk kept`;
+  if (op === 'damageSpent') return `${amount} dmg + Spent`;
+  if (op === 'spend') return 'attacker Spent';
+  if (op === 'dive') return tg === 'attacked' ? 'save the attacked' : amount ? `hand + draw ${amount}` : 'to hand';
   return op;
 }
 
@@ -180,36 +214,48 @@ export const FAVOURS = {
   water: { text: 'a Water Pokémon', test: (c) => c.cardType === 'Pokémon' && c.type === 'Water' },
   location: { text: 'a Location', test: (c) => c.cardType === 'Location' },
   bigPokemon: { text: 'a Pokémon of Level 4 or more', test: (c) => c.cardType === 'Pokémon' && c.level >= 4 },
+  // G3 (gameplay update 5.2).
+  fire: { text: 'a Fire Pokémon', test: (c) => c.cardType === 'Pokémon' && c.type === 'Fire' },
+  item: { text: 'an Item', test: (c) => c.cardType === 'Item' },
 };
 const supporter = (id, name, release, effect, favour) => ({ id, name, cardType: 'Supporter', art: id, release, effect, favour });
 export const SUPPORTERS = [
   supporter('nurse-joy', 'Nurse Joy', 1, { op: 'healAll', amount: 2 }, { condition: 'water', op: 'healAll', amount: 4 }),
   supporter('professor-oak', 'Professor Oak', 1, { op: 'search', amount: 1 }, { condition: 'location', op: 'search', amount: 2 }),
   supporter('brock', 'Brock', 2, { op: 'strengthAll', amount: 1 }, { condition: 'bigPokemon', op: 'strengthAll', amount: 2 }),
+  // G3 (gameplay update 5.2).
+  supporter('flannery', 'Flannery', 1, { op: 'attackAll', amount: 1 }, { condition: 'fire', op: 'attackAll', amount: 2 }),
+  supporter('pokemon-breeder', 'Pokémon Breeder', 1, { op: 'recover', amount: 1 }, { condition: 'item', op: 'recover', amount: 2 }),
 ];
 export const supporterDef = (id) => SUPPORTERS.find((c) => c.id === id);
 export function effectText({ op, amount }) {
   if (op === 'healAll') return `heal each of your Pokémon ${amount}`;
   if (op === 'search') return `put ${amount === 1 ? 'a Pokémon card' : `${amount} Pokémon cards`} from your Draw Pile into your hand`;
   if (op === 'strengthAll') return `+${amount} Strength to each of your Pokémon (kept)`;
+  if (op === 'attackAll') return `each of your Pokémon +${amount} Attack until Supper`;
+  if (op === 'recover') return `put ${amount === 1 ? 'a Pokémon card' : `${amount} Pokémon cards`} from your Discard Pile into your hand`;
   return op;
 }
 
-// --- Item Cards (F4, section 4E; the shape follows v1's Items): a PokéDollar price; Held (attaches
-// to one of your Pokémon in play, one Item each) or Consumed (resolves, then goes to the PokéMart).
-// Every Item targets one of your Pokémon.
-//   Consumed ops: 'heal' (N) · 'attackUp' (+N Attack until Supper)
-//   Held ops:     'attack' (+N Attack) · 'strength' (+N Strength) · 'healBreakfast' (heal N at Breakfast)
-// G1 (gameplay update 2.6): each Item's Stock: how many turns it stays on sale in the PokéMart's one
-// slot (dearer Items stay for less time: $1 → 8, $2 → 6, $3 → 4, $4 → 3).
-const item = (id, name, price, itemType, op, amount, text, stock) => ({ id, name, cardType: 'Item', art: id, price, itemType, op, amount, text, stock });
+// --- Item Cards (F4; G3: gameplay update 5.3): a PokéDollar price and Stock (turns on sale in the
+// PokéMart's one slot: $1 → 8, $2 → 6, $3 → 4, $4 → 3); Held (attaches to one of your Pokémon in play,
+// one Item each) or Consumed (resolves, then goes back to the PokéMart's pool).
+//   Consumed ops: 'heal' (N) · 'attackUp' (+N Attack until Supper) · 'recognition' (gain N; no target)
+//   Held ops:     'attack' (+N Attack) · 'strength' (+N Strength) · 'speed' (one step higher) ·
+//                 'keyword' (its keywords: Retaliate 2, Regenerate 1)
+//   noHitBack: the holder can't hit back (Choice Band).
+const item = (id, name, price, itemType, op, amount, text, stock, extra = {}) => ({ id, name, cardType: 'Item', art: id, price, itemType, op, amount, text, stock, ...extra });
 export const ITEMS = [
-  item('potion', 'Potion', 2, 'Consumed', 'heal', 3, 'Heal one of your Pokémon 3', 6),
   item('oran-berry', 'Oran Berry', 1, 'Consumed', 'heal', 2, 'Heal one of your Pokémon 2', 8),
-  item('choice-band', 'Choice Band', 2, 'Consumed', 'attackUp', 2, 'One of your Pokémon has +2 Attack until Supper', 6),
+  item('potion', 'Potion', 2, 'Consumed', 'heal', 4, 'Heal one of your Pokémon 4', 6),
+  item('x-attack', 'X Attack', 2, 'Consumed', 'attackUp', 2, 'One of your Pokémon has +2 Attack until Supper', 6),
   item('charcoal', 'Charcoal', 2, 'Held', 'attack', 1, 'Held: +1 Attack', 6),
   item('mystic-water', 'Mystic Water', 2, 'Held', 'strength', 2, 'Held: +2 Strength', 6),
-  item('leftovers', 'Leftovers', 3, 'Held', 'healBreakfast', 1, 'Held: heal 1 at each Breakfast', 4),
+  item('quick-claw', 'Quick Claw', 3, 'Held', 'speed', 1, 'Held: Speed one step higher', 4),
+  item('rocky-helmet', 'Rocky Helmet', 3, 'Held', 'keyword', 0, 'Held: Retaliate 2', 4, { keywords: { retaliate: 2 } }),
+  item('leftovers', 'Leftovers', 3, 'Held', 'keyword', 0, 'Held: Regenerate 1', 4, { keywords: { regenerate: 1 } }),
+  item('choice-band', 'Choice Band', 4, 'Held', 'attack', 3, 'Held: +3 Attack, but it can\'t hit back', 3, { noHitBack: true }),
+  item('amulet-coin', 'Amulet Coin', 4, 'Consumed', 'recognition', 3, 'Gain 3 Recognition', 3, { noTarget: true }),
 ];
 export const itemDef = (id) => ITEMS.find((c) => c.id === id);
 export const BAG_SIZE = 6;   // the Inventory Bag (v1: src/engine/game.js BAG_SIZE)
@@ -244,16 +290,19 @@ export const cardAtRound = (id, round) => (fixedDef(id) ? structuredClone(fixedD
 // guard (Squirtle) and a Special Defence guard (Chinchou)), one of each Location (F2), and one of
 // each Command Card and Supporter (F3), three Items and two Trainers (F4).
 export const DEMO_DECK = [
+  // G3 (gameplay update 5.4): the final 40.
+  // Locations (4).
   'cerulean-cape', 'mt-ember', 'lake-of-rage', 'route-119',
-  // G2 (gameplay update 5.4): the 15 Pokémon of the new deck (10 lines). Until G3 rebuilds the rest, the
-  // 20 non-Pokémon cards below stay as they were, so the temporary deck has 35 cards.
+  // Pokémon (15).
   'ponyta', 'ponyta', 'chinchou', 'chinchou', 'shinx',
   'squirtle', 'squirtle', 'growlithe', 'growlithe', 'horsea', 'wooper',
   'magikarp', 'charmander', 'charmander', 'magby',
-  // F3: Command Cards and Supporters.
-  'ember', 'recover', 'x-attack', 'rock-slide', 'nurse-joy', 'professor-oak', 'brock',
-  // F4: Items (the other three are only in the PokéMart) and Trainers.
-  'potion', 'charcoal', 'choice-band', 'misty', 'blaine',
-  // F5: a second Ember, Recover, Potion and Professor Oak.
-  'ember', 'recover', 'potion', 'professor-oak',
+  // Commands (9).
+  'ember', 'thunderbolt', 'rock-slide', 'heat-wave', 'surf', 'bubble-beam', 'recover', 'flame-charge', 'dive',
+  // Supporters (5).
+  'nurse-joy', 'professor-oak', 'brock', 'flannery', 'pokemon-breeder',
+  // Items (5).
+  'potion', 'oran-berry', 'x-attack', 'charcoal', 'quick-claw',
+  // Trainers (2).
+  'misty', 'blaine',
 ];

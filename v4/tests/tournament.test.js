@@ -31,7 +31,7 @@ const place = (s, who, id, start) => { s.players[who].hand.push(card(id)); s.tur
 
 // --- The final foundation deck (section 9): 40 cards, the same for both players, every feature --------------------------------
 {
-  assert.equal(DEMO_DECK.length, 35, 'G2: the temporary deck (15 new Pokémon + the 20 other cards) until G3');
+  assert.equal(DEMO_DECK.length, 40, 'G3: the final 40-card deck (5.4)');
   const s = createGame(3);
   const ids = (w) => [...s.players[w].hand, ...s.players[w].drawPile].map((c) => c.id).sort();
   assert.deepEqual(ids('player'), [...DEMO_DECK].sort());
@@ -41,9 +41,9 @@ const place = (s, who, id, start) => { s.players[who].hand.push(card(id)); s.tur
   assert.ok(has(PATHS).some((p) => p.forms.length === 3), 'Pokémon with several evolution Levels');
   assert.equal(has(LOCATIONS).length, 4);
   assert.equal(new Set(has(LOCATIONS).map((l) => l.weather.type)).size, 2, 'both Weather types');
-  assert.equal(has(COMMANDS).length, 4, 'Command Cards (Adapt, React, Strat)');
-  assert.equal(has(SUPPORTERS).length, 3, 'Supporters with Favours');
-  assert.equal(has(ITEMS).length, 3, 'Items in the deck (the others in the PokéMart)');
+  assert.equal(has(COMMANDS).length, 9, 'Command Cards (Adapt, React, Strat)');
+  assert.equal(has(SUPPORTERS).length, 5, 'Supporters with Favours');
+  assert.equal(has(ITEMS).length, 5, 'Items in the deck (the others in the PokéMart)');
   assert.ok(has(ITEMS).some((i) => i.itemType === 'Held') && has(ITEMS).some((i) => i.itemType === 'Consumed'));
   assert.equal(has(TRAINERS).length, 2, 'Trainers (Objective or Command)');
 }

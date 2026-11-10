@@ -33,7 +33,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   3. Base Energy and the Exert maximum are set.
   4. Spent Pokémon become Active.
   5. +$1.
-  6. Breakfast heals: Lake of Rage, the Rain 2 bracket, Leftovers.
+  6. Breakfast heals: Lake of Rage, the Rain 2 bracket, Regenerate (G3: Leftovers is Regenerate 1).
   7. Cards off the battlefield take this Round's Level.
   8. Draw 7, less one per card Retained.
   9. Waiting Partners arrive.
@@ -41,7 +41,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   G1: the PokéMart no longer refreshes at Breakfast; its Item and Stock carry over between Rounds (section 9).
 
   In Round 1, after the draw, each player may mulligan (v1).
-- **Match setup (UX1, Elliott's rule):** each player's deck (40 cards; 35 in the G2 temporary deck) is shuffled into the Draw Pile, Trainers included. For each Trainer card in the deck, an Objective tracker goes into that player's Trainer area, linked to the card. It is active from Round 1, costs nothing and starts at progress 0. Then comes Round 1's Breakfast.
+- **Match setup (UX1, Elliott's rule):** each player's deck (40 cards, gameplay update 5.4) is shuffled into the Draw Pile, Trainers included. For each Trainer card in the deck, an Objective tracker goes into that player's Trainer area, linked to the card. It is active from Round 1, costs nothing and starts at progress 0. Then comes Round 1's Breakfast.
 - **Supper order:**
   1. Pending Strats resolve, in the order played. G1: each may open a React window for the other player as it resolves; Supper waits for the window, then goes on.
   2. Dominance: placed Locations, or the Tournament.
@@ -84,7 +84,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   | Line (copies) | Type, attack, Speed, guard | Forms by Level | Stats by Level | Triggers and keywords |
   |---|---|---|---|---|
   | Ponyta → Rapidash (2) | Fire, Physical, Swift | Ponyta 1–3, Rapidash 4–6 | 2/2, 3/2, 3/3, 4/4, 5/4, 6/5 | Ponyta: On Defeated: draw 1 card. Rapidash: Quick Attack; On Knockout: +1 Attack (kept) |
-  | Chinchou → Lanturn (2) | Electric, Special, Steady, Sp. Def guard | Chinchou 1–3, Lanturn 4–6 | 1/3, 2/3, 2/4, 3/5, 4/6, 4/7 | Chinchou: On Summon: +1 Energy this turn. Lanturn: On Attack: 1 damage to each enemy Pokémon in its Location |
+  | Chinchou → Lanturn (2) | Electric, Special, Steady, Sp. Def guard | Chinchou 1–3, Lanturn 4–6 | 1/3, 2/3, 2/4, 3/5, 4/6, 4/7 | Chinchou: On Summon: +1 Energy this Round. Lanturn: On Attack: 1 damage to each enemy Pokémon in its Location |
   | Shinx → Luxio → Luxray (1) | Electric, Physical, Swift | Shinx 1–2, Luxio 3–4, Luxray 5–6 | 2/2, 2/3, 3/3, 4/4, 5/5, 6/5 | Shinx: On Summon: 1 damage to an enemy Pokémon. Luxio: Infiltrator; On Knockout: draw 1 card. Luxray: Infiltrator; On Summon: 2 damage to an enemy Pokémon |
   | Squirtle → Wartortle → Blastoise (2) | Water, Special, Steady, Def guard | Squirtle 2–3, Wartortle 4–5, Blastoise 6–7 | 2/4, 2/5, 3/6, 4/7, 5/8, 6/9 | Squirtle: On Summon: heal 2 to one of your Pokémon. Wartortle: Shell 1; On Summon: heal 2 to each of your Pokémon in its Location. Blastoise: Shell 1; On Attack: 2 damage to another enemy Pokémon in the target's Location |
   | Growlithe → Arcanine (2) | Fire, Physical, Swift | Growlithe 2–4, Arcanine 5–7 | 3/3, 3/4, 4/4, 5/5, 6/6, 7/7 | Growlithe: On Summon: your other Pokémon in its Location get +1 Attack until Supper. Arcanine: Overrun; On Knockout: draw 1 card |
@@ -96,7 +96,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
 
   Light: Ponyta, Chinchou, Shinx (Levels 1–6). Mid: Squirtle, Growlithe, Horsea, Wooper (2–7). Heavy: Magikarp, Charmander, Magby (3–8). Partners: Starmie (On Summon: draw 2 cards), Ninetales (On Summon: 2 damage to each enemy Pokémon).
   - **Approval:** No (Elliott, 10 November 2026); numbers are starting values for the simulation.
-- **The temporary deck (G2, until G3):** the 15 Pokémon of the new deck list (gameplay update 5.4) plus the 20 other cards of the foundation deck, 35 in all. Nothing depends on 40: the deck size is just the list's length.
+- **The deck (G3):** the final 40 cards of gameplay update 5.4 (G2's temporary 35-card deck is gone). Nothing depends on 40: the deck size is just the list's length.
 
 ## 4b. Triggers and keywords (G2, gameplay update 4.1)
 
@@ -107,7 +107,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   - **On Defeated:** when it's defeated, by anything; its effects use the lane it stood in.
   - **On Knockout:** when its attack, or its hit-back, defeats an enemy Pokémon, if it's still in play (as v2). A defeat by Retaliate alone isn't its hit-back.
   - **On Breakfast:** at each Breakfast while it's in play (after Breakfast's heals and draw, the initiative player's first).
-- **Effects:** draw; +N Energy (added to Base Energy: usable this turn and the rest of the Round); damage to a chosen enemy Pokémon (On Summon only), to each enemy Pokémon, to each in its Location, or in the target's Location (each, each other, or "another": the weakest other one there, then the lowest lane); heal one of your Pokémon (chosen), each in its Location (optionally not itself), or itself; +N Attack until Supper to your other Pokémon in its Location; +N Attack or Strength (kept) to itself or to a chosen other Pokémon of yours in its Location.
+- **Effects:** draw; +N Energy this Round (added to Base Energy, so it lasts the rest of the Round); damage to a chosen enemy Pokémon (On Summon only), to each enemy Pokémon, to each in its Location, or in the target's Location (each, each other, or "another": the weakest other one there, then the lowest lane); heal one of your Pokémon (chosen), each in its Location (optionally not itself), or itself; +N Attack until Supper to your other Pokémon in its Location; +N Attack or Strength (kept) to itself or to a chosen other Pokémon of yours in its Location.
   - **In its Location:** a placed Location's lanes; all 9 in the Tournament; otherwise just its own lane.
   - **The target's Location** for an attack on the Player Character: there is none, so that effect does nothing.
   - **Chosen targets:** the summoner picks with the targeting arrow and its preview (the AI through its normal choice). The summon can't be cancelled; until the target is chosen, choosing is the only legal action. With no legal target that part fizzles, with a log line.
@@ -210,19 +210,32 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   - The timer is interface-only: the engine has no timer, and tests and autoplay never wait.
   - **Approval:** No (Elliott's plan).
 - **"Until Supper" effects:**
-  - **Chosen:** X Attack and Choice Band last until that Round's Supper. So an X Attack Strat that resolves at Supper has no effect.
+  - **Chosen:** Flame Charge's React, Flannery and X Attack (an Item since G3) last until that Round's Supper. So an until-Supper effect from a Strat that resolves at Supper has no effect.
   - **Why:** one simple end point.
   - **Approval:** **Needed**.
-- **The four Commands** (React cheaper and Strat dearer than Adapt; placeholder values):
+- **The nine Commands (G3, gameplay update 5.1, one copy each):** each mode has its own cost and target.
 
-  | Card | Target | Adapt | React | Strat |
+  | Card | Target | React | Adapt | Strat |
   |---|---|---|---|---|
-  | Ember | an enemy Pokémon | 2 Energy: 3 damage | 1: 2 damage | 3: 5 damage |
-  | Recover | one of yours | 2: heal 4 | 1: heal 2 | 3: heal 8 |
-  | X Attack | one of yours | 2: +2 Attack until Supper | 1: +1 | 3: +4 |
-  | Rock Slide | an enemy Pokémon | 3: 1 damage to each enemy Pokémon in its Location | 2: 1 damage to it | 4: 2 damage to each |
+  | Ember | an enemy Pokémon | 1: 2 damage | 2: 3 damage | 3: 5 damage |
+  | Thunderbolt | an enemy Pokémon | 2: 2 damage | 3: 4 damage | 4: 6 damage |
+  | Rock Slide | a Location | 2: 1 damage to one enemy | 3: 1 damage to each enemy there | 4: 2 damage to each enemy there |
+  | Heat Wave | all enemies | 2: 1 damage to the attacker | 3: 1 damage to each enemy Pokémon | 5: 2 damage to each enemy Pokémon |
+  | Surf | a Location | 1: heal 2 to the Pokémon being attacked | 3: 2 damage to each enemy there | 4: 3 damage to each enemy there |
+  | Bubble Beam | an enemy Pokémon | 1: the attacker becomes Spent after its attack | 2: 2 damage, and it becomes Spent | 3: 3 damage, and it becomes Spent |
+  | Recover | one of your Pokémon | 1: heal 2 | 2: heal 4 | 3: heal 8 |
+  | Flame Charge | one of your Pokémon | 1: +1 Attack until Supper | 2: +1 Attack (kept) | 3: +2 Attack (kept) |
+  | Dive | one of your Pokémon | 1: return the attacked Pokémon to your hand (the attack fizzles) | 1: return it to your hand | 2: return it to your hand and draw 1 card |
 
-  **Approval:** **Needed**.
+  - **A Location target (Rock Slide, Surf):** you choose a lane on the enemy side. If a Location covers it, every enemy Pokémon in that Location is hit; in a lane with no Location, just that lane's; in the Tournament, every enemy Pokémon. A lane is a target only if that area holds an enemy Pokémon. **Settled here:** the lane is picked on the enemy row (a Location covers both rows, so this is the same Location). **Needed**.
+  - **All enemies (Heat Wave):** no choice; a Strat of it resolves on whatever enemies are there then (it never fizzles while one is).
+  - **React targets:** a React mode that names "the attacker" or "the Pokémon being attacked" (Heat Wave, Surf, Bubble Beam, Dive) is offered only against an attack by a Pokémon on a Pokémon, not against an Adapt or a resolving Strat. The other React modes (Ember, Thunderbolt, Rock Slide, Recover, Flame Charge) work in every React window as before. **Settled here**, from the table's wording. **Needed**.
+  - **"Becomes Spent" (Bubble Beam):** the target is Spent at once (it can't attack or hit back this Round). Its React makes the attacker Spent, but an attacker is always Spent after attacking, so **the React has no effect in v4** (reported in `docs/balance-g3.md` with a suggestion). **For Elliott to decide**.
+  - **Kept (Flame Charge):** the Attack stays for the rest of the match while the Pokémon is in play (like Brock's Strength); Dive loses it.
+  - **Dive:** the Pokémon's card goes back to its owner's hand (the same card); it develops with the Rounds again (this Round's Level); its Held Item goes back to the PokéMart's pool; damage and anything kept are lost. A Partner can't Dive (it isn't a deck card). Dive's React fizzles the attack (the attacker is still Spent; no defeat, no Recognition). **Needed** (Partners).
+  - React windows: the options are counted with the window in place, so a React whose only target is the attacker or the attacked Pokémon opens a window.
+
+  **Approval:** No for the values (Elliott, 10 November 2026); **Needed** for the "settled here" points.
 
 ## 8. Supporters: Release and Favour
 
@@ -238,6 +251,11 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   | Nurse Joy | 1 | heal each of your Pokémon 2 | a Water Pokémon | heal 4 |
   | Professor Oak | 1 | the first Pokémon card in your Draw Pile into your hand | a Location | 2 Pokémon cards |
   | Brock | 2 | +1 Strength (kept) to each of your Pokémon | a Pokémon of Level 4+ | +2 |
+  | Flannery (G3) | 1 | each of your Pokémon +1 Attack until Supper | a Fire Pokémon | +2 |
+  | Pokémon Breeder (G3) | 1 | a Pokémon card from your Discard Pile into your hand | an Item | 2 Pokémon cards |
+
+  - **G3 (gameplay update 5.2):** one copy each (one Professor Oak). A Favour gives the enhanced effect and **+3 Recognition**.
+  - **Pokémon Breeder's choice:** the player picks the cards in the Release dialog (a small Discard picker under the Release cards, 1 or 2 by the Favour); the AI picks the highest-Level Pokémon cards. A recovered card takes this Round's Level. With fewer Pokémon cards in the Discard Pile than allowed, it takes them all (none: nothing happens). Released cards go to the Released Pile, not the Discard Pile, so they can't be taken back by the same play. **Settled here**. **Needed**.
 
 ## 9. Items, the PokéMart and the Inventory Bag
 
@@ -249,14 +267,14 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   - **Why:** v1's buying without its extra delay step.
   - **Approval:** **Needed** (no In Delivery).
 - **Held and Consumed:**
-  - **Chosen:** every Item targets one of your Pokémon in play.
+  - **Chosen:** every Item targets one of your Pokémon in play, except Amulet Coin (G3), which has no target: buying it to use resolves at once.
     - **Held:** one per Pokémon; lost when that Pokémon is defeated.
     - **Consumed:** resolves, then leaves play.
     - Used and lost Items go to the PokéMart's pool, including deck copies (as in v1), so the pool can hold duplicates.
   - **Why:** v1's rule.
   - **Approval:** **Needed** (one Held Item each).
 - **The PokéMart:**
-  - **Chosen (G1, gameplay update 2.6):** one shared pool with one copy of each of the six Items, and **one Item on sale**, always on show in the right-hand column with its **Stock** (turns on sale):
+  - **Chosen (G1, gameplay update 2.6):** one shared pool with one copy of each Item (ten since G3), and **one Item on sale**, always on show in the right-hand column with its **Stock** (turns on sale):
     - Each turn taken by either player in the Battle Phase uses 1 Stock (React decisions and resolving Strats aren't turns; the Pass that ends the Battle Phase is). At 0 the Item goes back to the pool and a random Item from the pool replaces it, with full Stock.
     - Stock carries over between Rounds; there's no refresh at Breakfast.
     - When it's bought, the PokéMart shows **Sold out** until the buyer has finished their next turn (the turn of the purchase doesn't count); then a random Item arrives with full Stock. Nothing counts down while it's Sold out.
@@ -264,18 +282,27 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   - **Why:** Elliott's rule (Q3, 10 November 2026).
   - **Approval:** No.
   - **Settled here (not in the update):** the replacement Item is chosen from the pool without the one that just ran out, when the pool has another, so the Item on show always changes. **Needed**.
-- **The six Items** (placeholder values; G1 adds their Stock: $1 → 8, $2 → 6, $3 → 4): Potion, Charcoal and Choice Band are in the deck; the others are only in the PokéMart.
+- **The Items (G3, gameplay update 5.3):** Potion, Oran Berry, X Attack, Charcoal and Quick Claw are in the deck (one copy each); the PokéMart's pool has one copy of every Item. Stock by price: $1 → 8, $2 → 6, $3 → 4, $4 → 3.
 
-  | Item | Price | Type | Effect |
-  |---|---|---|---|
-  | Potion | $2 | Consumed | heal 3 |
-  | Oran Berry | $1 | Consumed | heal 2 |
-  | Choice Band | $2 | Consumed | +2 Attack until Supper |
-  | Charcoal | $2 | Held | +1 Attack |
-  | Mystic Water | $2 | Held | +2 Strength |
-  | Leftovers | $3 | Held | heal 1 at each Breakfast |
+  | Item | Price | Stock | Type | Effect |
+  |---|---|---|---|---|
+  | Oran Berry | $1 | 8 | Consumed | heal 2 |
+  | Potion | $2 | 6 | Consumed | heal 4 |
+  | X Attack | $2 | 6 | Consumed | +2 Attack until Supper (was a Command) |
+  | Charcoal | $2 | 6 | Held | +1 Attack |
+  | Mystic Water | $2 | 6 | Held | +2 Strength |
+  | Quick Claw | $3 | 4 | Held | Speed one step higher (Slow → Steady → Swift; Swift stays Swift) |
+  | Rocky Helmet | $3 | 4 | Held | Retaliate 2 |
+  | Leftovers | $3 | 4 | Held | Regenerate 1 |
+  | Choice Band | $4 | 3 | Held | +3 Attack, but the holder can't hit back |
+  | Amulet Coin | $4 | 3 | Consumed | gain 3 Recognition (no target) |
 
-  **Approval:** **Needed**.
+  - **Quick Claw:** every Speed check uses the higher Speed: who is Ready, the Pass rule's unmatched Speed, and the card's Speed shown on the board.
+  - **Rocky Helmet:** its Retaliate adds to a printed Retaliate (Seadra: 1 + 2 = 3), like any keyword number.
+  - **Choice Band:** the holder is still Ready (it can attack and blocks a Pass as usual) but never hits back when attacked.
+  - **Amulet Coin:** its Recognition counts as "other" in the balance report (not one of section 6's five sources).
+
+  **Approval:** No (Elliott, 10 November 2026).
 
 ## 10. Trainers and Partners (UX1: Objectives are active from the start)
 
@@ -353,7 +380,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
 
 ## 12. The demo deck and the AI
 
-- **The deck:** one list, the same for both players (see `v4/README.md`). G2: 35 cards for now (the 15 new Pokémon and the foundation's 20 other cards) until G3's 40-card deck.
+- **The deck:** one list, the same for both players (see `v4/README.md`): G3's final 40 cards (gameplay update 5.4).
   - **Why:** section 9.
   - **Approval:** **Needed** (the counts).
 - **The AI:**
@@ -361,6 +388,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   - It judges its own committed actions as if you let them happen.
   - It values a pending Strat as 70% resolved, PokéDollars and Bag Items by price, and active Objectives by their progress.
   - G2: it reads triggers and keywords through the results it scores (Retaliate defeating its attacker, Shell, Overrun's Recognition), adds a little value for keywords on the board (Infiltrator's reach most), and picks an On Summon target by trying each one.
+  - G3: it plays each Command mode on its own targets (a lane for Rock Slide and Surf, all enemies for Heat Wave, the attacker or the attacked Pokémon as a React). Dive as a React is judged like any move: it saves a Pokémon from a lethal attack when that is worth more than the card on the board. Pokémon Breeder takes back its highest-Level Pokémon cards. PokéMart Items are valued by their result (Amulet Coin's Recognition counts at once).
   - It never tries to play an Objective (UX1). It gets its Command modes, React included, from `commandModesFor`, the same helper as the hand display, and its React decisions are instant.
   - **Why:** section 16.
   - **Approval:** No.

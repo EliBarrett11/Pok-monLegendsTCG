@@ -37,14 +37,14 @@ The rules for Ready, the unmatched-Speed Pass and trades follow v3's engine.
 
 **URL options:** `?seed=123` replays the same match; `?autoplay` lets the AI play both sides; `?debug` exposes `window.__v4` for checks.
 
-## The deck (G2: a temporary 35 cards, the same list for both players)
+## The deck (G3: the final 40 cards, the same list for both players)
 
-One neutral deck that shows every approved feature. Card data lives in `v4/src/engine/cards.js` (`DEMO_DECK`). G2 replaced the 20 old Pokémon with the 15 of the new deck (`docs/v4-gameplay-update.md` 4.2 and 5.4). The other 20 cards stay until G3 rebuilds them into the final 40. Nothing depends on a 40-card deck: the size is the list's length, and the tests check 35 for now.
+One neutral deck that shows every approved feature: exactly the list of `docs/v4-gameplay-update.md` 5.4. Card data lives in `v4/src/engine/cards.js` (`DEMO_DECK`); `tests/g3.test.js` checks it card for card.
 
-| Card | Type | Count | Triggers and keywords |
+| Card | Type | Count | Text |
 |---|---|---|---|
 | Ponyta → Rapidash | Pokémon, Light (L1–6) | 2 | On Defeated: draw 1 · Rapidash: Quick Attack, On Knockout: +1 Attack |
-| Chinchou → Lanturn | Pokémon, Light (L1–6) | 2 | On Summon: +1 Energy · Lanturn: On Attack: 1 to each enemy in its Location |
+| Chinchou → Lanturn | Pokémon, Light (L1–6) | 2 | On Summon: +1 Energy this Round · Lanturn: On Attack: 1 to each enemy in its Location |
 | Shinx → Luxio → Luxray | Pokémon, Light (L1–6) | 1 | On Summon: 1 damage to an enemy · Luxio, Luxray: Infiltrator |
 | Squirtle → Wartortle → Blastoise | Pokémon, Mid (L2–7) | 2 | heals · Wartortle, Blastoise: Shell 1 · Blastoise: On Attack splash |
 | Growlithe → Arcanine | Pokémon, Mid (L2–7) | 2 | On Summon: +1 Attack to your others · Arcanine: Overrun, On Knockout: draw 1 |
@@ -57,22 +57,31 @@ One neutral deck that shows every approved feature. Card data lives in `v4/src/e
 | Mt. Ember | Location (3 lanes, 3 Rounds) | 1 | +1 Attack passive, Sun |
 | Lake of Rage | Location (2 lanes, 2 Rounds) | 1 | heal at Breakfast, Sun |
 | Route 119 | Location (4 lanes, 2 Rounds) | 1 | summoning discount, Rain |
-| Ember | Command | 2 | Adapt, React and Strat: damage |
-| Recover | Command | 2 | Adapt, React and Strat: healing |
-| X Attack | Command | 1 | Adapt, React and Strat: a temporary stat boost |
-| Rock Slide | Command | 1 | Adapt, React and Strat: a battlefield effect (a whole Location) |
-| Nurse Joy | Supporter (Release 1) | 1 | healing; Favour: a Water Pokémon |
-| Professor Oak | Supporter (Release 1) | 2 | searching for a Pokémon; Favour: a Location |
-| Brock | Supporter (Release 2) | 1 | a battlefield benefit (+Strength); Favour: a Pokémon of Level 4+ |
-| Potion | Item, Consumed, $2 | 2 | an Item from the deck; use now or store |
-| Charcoal | Item, Held, $2 | 1 | a Held Item |
-| Choice Band | Item, Consumed, $2 | 1 | a temporary stat boost |
+| Ember | Command: an enemy | 1 | React 1: 2 dmg · Adapt 2: 3 dmg · Strat 3: 5 dmg |
+| Thunderbolt | Command: an enemy | 1 | React 2: 2 dmg · Adapt 3: 4 dmg · Strat 4: 6 dmg |
+| Rock Slide | Command: a Location | 1 | React 2: 1 dmg to one enemy · Adapt 3: 1 to each enemy there · Strat 4: 2 to each |
+| Heat Wave | Command: all enemies | 1 | React 2: 1 dmg to the attacker · Adapt 3: 1 to each enemy · Strat 5: 2 to each |
+| Surf | Command: a Location | 1 | React 1: heal 2 to the attacked · Adapt 3: 2 to each enemy there · Strat 4: 3 to each |
+| Bubble Beam | Command: an enemy | 1 | React 1: the attacker Spent after its attack · Adapt 2: 2 dmg + Spent · Strat 3: 3 dmg + Spent |
+| Recover | Command: one of yours | 1 | React 1: heal 2 · Adapt 2: heal 4 · Strat 3: heal 8 |
+| Flame Charge | Command: one of yours | 1 | React 1: +1 Attack until Supper · Adapt 2: +1 kept · Strat 3: +2 kept |
+| Dive | Command: one of yours | 1 | React 1: save the attacked (the attack fizzles) · Adapt 1: to hand · Strat 2: to hand, draw 1 |
+| Nurse Joy | Supporter (Release 1) | 1 | heal each of yours 2; Favour (a Water Pokémon): heal 4 |
+| Professor Oak | Supporter (Release 1) | 1 | a Pokémon card from the Draw Pile; Favour (a Location): 2 |
+| Brock | Supporter (Release 2) | 1 | +1 Strength (kept) to each of yours; Favour (a Pokémon of Level 4+): +2 |
+| Flannery | Supporter (Release 1) | 1 | each of yours +1 Attack until Supper; Favour (a Fire Pokémon): +2 |
+| Pokémon Breeder | Supporter (Release 1) | 1 | a Pokémon card from your Discard Pile into your hand; Favour (an Item): 2 |
+| Potion | Item, Consumed, $2 | 1 | heal 4 |
+| Oran Berry | Item, Consumed, $1 | 1 | heal 2 |
+| X Attack | Item, Consumed, $2 | 1 | +2 Attack until Supper |
+| Charcoal | Item, Held, $2 | 1 | +1 Attack |
+| Quick Claw | Item, Held, $3 | 1 | Speed one step higher |
 | Misty | Trainer | 1 | Objective "Defeat 8 enemy Pokémon" → Starmie (Level 8); Trainer Command: draw 2 |
 | Blaine | Trainer | 1 | Objective "Dominate a Location 5 times" → Ninetales (Level 8); Trainer Command: 1 damage to each enemy Pokémon |
 
-**In total (G2):** 15 Pokémon, 4 Locations, 6 Command Cards, 4 Supporters, 4 Items and 2 Trainers: 35 cards.
+**In total:** 15 Pokémon, 4 Locations, 9 Commands, 5 Supporters, 5 Items and 2 Trainers: 40 cards.
 
-The PokéMart has its own pool of one each of the six Items: Potion, Oran Berry, Choice Band, Charcoal, Mystic Water and Leftovers. So Oran Berry, Mystic Water and Leftovers can only be bought there.
+The PokéMart has its own pool of one each of the ten Items (5.3): Oran Berry $1 (Stock 8), Potion $2 (6), X Attack $2 (6), Charcoal $2 (6), Mystic Water $2 (6), Quick Claw $3 (4), Rocky Helmet $3 (4), Leftovers $3 (4), Choice Band $4 (3), Amulet Coin $4 (3). Mystic Water, Rocky Helmet, Leftovers, Choice Band and Amulet Coin can only be bought there.
 
 ## Validation (spec sections 12 and 14)
 
@@ -669,3 +678,28 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
       - each line is summoned in 68% (Magby) to 99% (Charmander) of the matches where it's drawn;
       - 5.3 On Summon target choices per match;
       - keywords acting per match: Rage 5.6, Shell 3.8, Quick Attack 1.2, Overrun 1.0, Retaliate 0.7.
+- **G3 — the nine Commands, five Supporters, the PokéMart pool and the final 40-card deck** (`docs/v4-gameplay-update.md` section 5; approved by Elliott).
+  - **G2 follow-up:** Chinchou reads "+1 Energy this Round" on the card, in the glossary, in `FOUNDATION_ASSUMPTIONS.md` and in section 4.2.
+  - **Commands (5.1)**, one copy each, exactly as the table says; X Attack is no longer a Command. Each mode has its own cost and target:
+    - **a Location** (Rock Slide, Surf): pick a lane; each enemy Pokémon in its Location is hit (just that lane with no Location; the whole battlefield in the Tournament);
+    - **all enemies** (Heat Wave): no choice;
+    - **damage, then Spent** (Bubble Beam); **+Attack kept** (Flame Charge);
+    - **Dive:** the Pokémon goes back to its owner's hand and develops with the Rounds again; its Held Item returns to the PokéMart's pool; damage and anything kept are lost. Partners can't Dive.
+    - **React modes on the attack:** Heat Wave hits the attacker; Surf heals the Pokémon being attacked; Bubble Beam makes the attacker Spent after its attack; Dive returns the attacked Pokémon to hand, so the attack fizzles. The React window names the target ("your Charmeleon", "the attacker").
+    - Card text gives each mode's cost and effect in one short line.
+  - **Supporters (5.2):** Flannery (+1 Attack until Supper to each of yours; Favour a Fire Pokémon: +2) and Pokémon Breeder (a Pokémon card from your Discard Pile into your hand; Favour an Item: 2). One Professor Oak. The player picks Breeder's cards in a small Discard picker in the Release dialog; the AI takes its highest-Level ones.
+  - **Items (5.3):** the ten-Item pool with its prices and Stock. X Attack is a Consumed Item (+2 Attack until Supper). Choice Band: Held, +3 Attack, can't hit back. Quick Claw: Speed one step higher everywhere Speed is checked (Ready, Pass, the card). Rocky Helmet: Retaliate 2, adding to a printed Retaliate. Leftovers: Regenerate 1. Amulet Coin: +3 Recognition, no target (buy-to-use resolves at once).
+  - **The deck (5.4):** `DEMO_DECK` is exactly the 40-card list; the deck table above is updated.
+  - **Presentation:** a beat for every new card. Thunderbolt, Heat Wave, Flame Charge, Rock Slide and Ember use v1's Strategy animations; Surf (a wave sweeping the target's lanes), Bubble Beam (a bubble stream, then the target dims to Spent) and Dive (the Pokémon sinks into a ripple; its card flies back to the hand) are composed from the water presets. Each new Item and Supporter has a small effect of its own. Floating text stays inside the stage.
+  - **The AI** plays every new card through `applyAction`: per-mode targets, Dive as a React when a lethal attack would cost more than the card, Breeder picks, and the new Items through the results it scores.
+  - **Fixes on the way:** a React window now counts its options with the window in place (so a React whose only target is the attacker opens one); the AI loop re-checks who acts after its thinking pause.
+  - **Checks:**
+    - **`node v4/tests/g3.test.js`** (205 checks): every Command mode, Supporter (with and without Favour) and Item against section 5 (written out independently), Dive returning a card and fizzling an attack, Quick Claw changing Ready, Choice Band stopping a hit-back, Rocky Helmet stacking, Amulet Coin's Recognition, the deck card for card, and the AI (Dive saving a Charizard; 12 whole matches playing every new card).
+    - **`ux3.test.js`** previews every mode of every Command and every Item against the real result.
+    - The older tests are updated for the new pool and the 40-card deck.
+    - **`node v4/tools/g3check.mjs`** (browser): plays every new card, Dive as a React in the React window, the Breeder picker and the PokéMart's new Items, with no page errors.
+    - **`node v4/tools/balance.mjs`** writes the 200-match report, `v4/docs/balance-g3.md`.
+  - **Results:**
+    - All 13 test files pass. The layout check is ok at 1920×1080, 1366×768 and 1280×720. `g3check` passes 16 of 16.
+    - **The 200-match report:** median 8 Rounds (middle half 7–8); the first player wins 48%; Recognition: damage 42%, defeats 21%, dominance 22%, Favours 11%, Objectives 3%; $13.9 earned and 6.1 Items bought per player; 3.2 different PokéMart Items per Round; 33 of 35 cards played in ≥30% of the matches where drawn (Heat Wave 22%, Quick Claw 15%); no card above 60% wins when played.
+    - **Suggestions (not applied):** `perFavour` 3 → 2; `perObjective` 2 → 5 (or Misty 8 → 6 defeats); `dollarsPerRound` 1 → 2; Heat Wave's Adapt 3 → 2; Quick Claw $3 → $2; a real effect for Bubble Beam's React.

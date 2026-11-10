@@ -5,11 +5,11 @@
 // pure preview helpers.
 import {
   legalTargets, emptySpaces, whyNot, locationStarts, summonCost, commandTargets, commandModesFor, itemTargets, buyReason,
-  trainerReason, supporterPlayable, playerGuard, guardOf, energyLeft, locationAt, damageOf,
-} from '../engine/game.js?v=202611101304';
-import { MODE_NAMES } from '../engine/cards.js?v=202611101304';
-import { attackPreview, effectPreview, choicePreview } from '../engine/preview.js?v=202611101304';
-import { attackIcon, strengthIcon, icon } from './icons.js?v=202611101304';
+  trainerReason, supporterPlayable, playerGuard, guardOf, energyLeft, locationAt, damageOf, pokemonOf,
+} from '../engine/game.js?v=202611101410';
+import { MODE_NAMES, modeTarget } from '../engine/cards.js?v=202611101410';
+import { attackPreview, effectPreview, choicePreview } from '../engine/preview.js?v=202611101410';
+import { attackIcon, strengthIcon, icon } from './icons.js?v=202611101410';
 
 const esc = (x) => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const sameHit = (a, b) => a && b && a.kind === b.kind && a.who === b.who && a.space === b.space;
@@ -26,6 +26,19 @@ export function selCard(s, sel) {
   return me.hand.find((c) => c.uid === sel.uid) ?? null;
 }
 const playableModes = (s, c) => commandModesFor(s, 'player', c.uid).filter((m) => !m.reason);
+// G3: the mode whose targets a choice shows (a mode chosen, React, or the first playable from hand:
+// Adapt and Strat always share their target kind).
+const modeOf = (s, sel, c) => (sel.kind === 'command' ? sel.mode : sel.kind === 'react' ? 'react' : playableModes(s, c)[0]?.mode ?? 'adapt');
+// A Command's targets as places on the board: a Pokémon's space; a lane (Rock Slide, Surf: its
+// Location, or the lane alone); all enemies (Heat Wave): any enemy Pokémon's space stands for them all.
+const cmdHits = (s, c, mode) => commandTargets(s, 'player', c, mode).flatMap((t) => (t.all ? pokemonOf(s, t.who).map(({ space }) => ({ kind: 'space', who: t.who, space })) : [{ kind: 'space', who: t.who, space: t.space }]));
+// The engine target behind a place (G3: with its lane or all flag).
+export function cmdTarget(s, c, mode, hit) {
+  const ts = commandTargets(s, 'player', c, mode);
+  return ts.find((t) => t.all) ?? ts.find((t) => t.who === hit.who && t.space === hit.space) ?? { who: hit.who, space: hit.space };
+}
+// G3: an Item with no target (Amulet Coin): dropped anywhere on the board.
+const noTargetItem = (c) => c?.cardType === 'Item' && c.noTarget;
 // Does this choice need a target on the battlefield (an arrow), or just the board?
 export function needsArrow(s, sel) {
   if (!sel) return false;
@@ -43,14 +56,14 @@ export function hitsFor(s, sel) {
   switch (sel.kind) {
     case 'attack': return legalTargets(s, 'player', sel.from).map((t) => (t.kind === 'player' ? { kind: 'pc', who: 'ai' } : sp('ai', t.space)));
     case 'command':
-    case 'react': return commandTargets(s, 'player', c).map((t) => sp(t.who, t.space));
-    case 'item': return itemTargets(s, 'player', c).map((t) => sp('player', t.space));
+    case 'react': return cmdHits(s, c, modeOf(s, sel, c));
+    case 'item': return noTargetItem(c) ? [{ kind: 'board' }] : itemTargets(s, 'player', c).map((t) => sp('player', t.space));
     case 'choice': return (s.choice?.targets ?? []).map((t) => sp(t.who, t.space));
     case 'hand':
       if (c.cardType === 'Pokémon') return whyNot(s, 'player', 'summon', c) ? [] : emptySpaces(s, 'player').filter((i) => energyLeft(s.players.player) >= summonCost(s, c, i)).map((i) => sp('player', i));
       if (c.cardType === 'Location') return locationStarts(s, c).map((i) => sp('player', i));
-      if (c.cardType === 'Command') return playableModes(s, c).length ? commandTargets(s, 'player', c).map((t) => sp(t.who, t.space)) : [];
-      if (c.cardType === 'Item') return buyReason(s, 'player', c, 'use') ? [] : itemTargets(s, 'player', c).map((t) => sp('player', t.space));
+      if (c.cardType === 'Command') return playableModes(s, c).length ? cmdHits(s, c, modeOf(s, sel, c)) : [];
+      if (c.cardType === 'Item') return buyReason(s, 'player', c, 'use') ? [] : noTargetItem(c) ? [{ kind: 'board' }] : itemTargets(s, 'player', c).map((t) => sp('player', t.space));
       if (c.cardType === 'Trainer') return trainerReason(s, 'player', c) ? [] : [{ kind: 'board' }];
       if (c.cardType === 'Supporter') return supporterPlayable(s, 'player', c) ? [{ kind: 'board' }] : [];
       return [];
@@ -69,11 +82,16 @@ export function evaluate(s, sel, hit) {
   const boardOnly = hits.length && hits.every((h) => h.kind === 'board');
   if (boardOnly && (hit.kind === 'board' || hit.kind === 'space')) {
     if (c.cardType === 'Trainer') return { legal: true, act: { type: 'trainerCommand', who: 'player', uid: c.uid } };
+    if (noTargetItem(c)) {
+      const t = { who: 'player', space: null };
+      if (sel.kind === 'item' && sel.from === 'bag') return { legal: true, act: { type: 'useItem', who: 'player', uid: c.uid, target: t } };
+      return { legal: true, act: { type: 'buyItem', who: 'player', from: sel.kind === 'item' ? sel.from : 'hand', uid: c.uid, slot: sel.slot, then: 'use', target: t } };
+    }
     return { legal: true, open: 'supporter' };
   }
   const legal = hits.some((h) => sameHit(h, hit));
   if (!legal) return { legal: false, reason: reasonAt(s, sel, c, hit) };
-  const target = hit.kind === 'pc' ? { kind: 'player' } : { who: hit.who, space: hit.space };
+  const target = hit.kind === 'pc' ? { kind: 'player' } : c.cardType === 'Command' ? cmdTarget(s, c, modeOf(s, sel, c), hit) : { who: hit.who, space: hit.space };
   switch (sel.kind) {
     case 'attack': return { legal: true, act: { type: 'attack', who: 'player', from: sel.from, target: hit.kind === 'pc' ? { kind: 'player' } : { kind: 'pokemon', space: hit.space } } };
     case 'command': return { legal: true, act: { type: 'command', who: 'player', uid: c.uid, mode: sel.mode, target } };
@@ -109,8 +127,11 @@ function reasonAt(s, sel, c, hit) {
   if (hit.kind === 'pc') return 'Not a target for this card';
   if (sel.kind === 'command' || sel.kind === 'react' || (sel.kind === 'hand' && c.cardType === 'Command')) {
     if (sel.kind === 'hand') { const m = commandModesFor(s, 'player', c.uid); if (!m.some((x) => !x.reason)) return m[0]?.reason ?? 'Not now'; }
+    const tg = modeTarget(c, modeOf(s, sel, c));
+    if (tg === 'location') return hit.who === 'player' ? 'Choose a Location (or lane) with an enemy Pokémon' : 'No enemy Pokémon in this Location';
     if (!occupant) return 'No Pokémon here';
-    return c.target === 'enemy' ? 'Choose an enemy Pokémon' : 'Choose one of your Pokémon';
+    return { enemy: 'Choose an enemy Pokémon', allEnemies: 'It hits each enemy Pokémon: choose any of them', attacker: 'Only the attacker', attacked: 'Only your Pokémon being attacked' }[tg]
+      ?? (c.modes[modeOf(s, sel, c)].op === 'dive' && occupant.partner ? 'A Partner can\'t Dive (it isn\'t a deck card)' : 'Choose one of your Pokémon');
   }
   if (sel.kind === 'item' || (sel.kind === 'hand' && c.cardType === 'Item')) {
     if (sel.kind === 'hand') { const why = buyReason(s, 'player', c, 'use'); if (why) return why; }
@@ -187,10 +208,11 @@ export function previewHTML(s, sel, hit) {
   if (c.cardType === 'Location') return `<div class="h">Place ${esc(c.name)}</div><div class="m">Lanes ${hit.space + 1}–${hit.space + c.width} · ${c.rounds} Rounds · no Energy</div><div class="sub">${esc(c.passive.text)} · +${c.weather.count} ${c.weather.type}</div>`;
   if (r.open === 'supporter') return `<div class="h">Play ${esc(c.name)}</div><div class="sub">Then choose ${c.release} card${c.release === 1 ? '' : 's'} to Release</div>`;
   // Effects: Commands (the chosen mode, or each available mode), Items, Trainer Commands.
-  const target = hit.kind === 'space' ? { who: hit.who, space: hit.space } : null;
+  const target = hit.kind === 'space' ? (c.cardType === 'Command' ? cmdTarget(s, c, modeOf(s, sel, c), hit) : { who: hit.who, space: hit.space }) : noTargetItem(c) ? { who: 'player', space: null } : null;
   const modes = c.cardType === 'Command' ? (sel.kind === 'command' ? [sel.mode] : sel.kind === 'react' ? ['react'] : playableModes(s, c).map((m) => m.mode)) : [c.cardType === 'Item' ? 'use' : 'command'];
-  const on = target ? s.players[target.who].row[target.space] : null;
-  let html = `<div class="h">${esc(c.name)}${on ? ` → ${esc(on.name)}` : ''}</div>`;
+  const on = target && target.space !== null && !target.lane && !target.all ? s.players[target.who].row[target.space] : null;
+  const area = target?.all ? 'each enemy Pokémon' : target?.lane ? (locationAt(s, target.space)?.name ? `each enemy in ${locationAt(s, target.space).name}` : `each enemy in lane ${target.space + 1}`) : '';
+  let html = `<div class="h">${esc(c.name)}${on ? ` → ${esc(on.name)}` : area ? ` → ${esc(area)}` : ''}</div>`;
   for (const m of modes) {
     const pv = effectPreview(s, 'player', c, m, target);
     const head = c.cardType === 'Command' && modes.length > 1 ? `<div class="mode-h">${MODE_NAMES[m]} · ${icon('energy')}${c.modes[m].cost}${m === 'strat' ? ' · after their next turn' : ''}</div>` : '';

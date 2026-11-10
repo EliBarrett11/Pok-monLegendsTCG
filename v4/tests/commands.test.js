@@ -29,14 +29,14 @@ const types = (s) => s.events.map((e) => e.type);
 // --- The cards ------------------------------------------------------------------------------------------------------------
 {
   const V4 = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-  assert.equal(COMMANDS.length, 4);
+  assert.equal(COMMANDS.length, 9, 'G3: the nine Commands of 5.1');
   for (const c of COMMANDS) {
     const { adapt, react, strat } = c.modes;
-    assert.ok(react.cost < adapt.cost && adapt.cost < strat.cost, `${c.name}: React cheaper than Adapt, Strat dearer`);
+    assert.ok(react.cost <= adapt.cost && adapt.cost < strat.cost, `${c.name}: React no dearer than Adapt, Strat dearer`);
     assert.ok(existsSync(join(V4, '..', 'assets/cards', `${c.art}.jpg`)), `${c.name}: art`);
     assert.ok(DEMO_DECK.includes(c.id));
   }
-  assert.equal(SUPPORTERS.length, 3);
+  assert.equal(SUPPORTERS.length, 5, 'G3: Flannery and Pokémon Breeder');
   for (const c of SUPPORTERS) {
     assert.ok(c.release >= 1 && c.favour, `${c.name}: a Release cost and a Favour`);
     assert.ok(existsSync(join(V4, '..', 'assets/cards', `${c.art}.jpg`)), `${c.name}: art`);
@@ -56,19 +56,25 @@ const types = (s) => s.events.map((e) => e.type);
   assert.equal(s.players.player.baseEnergy, 6 - 2, 'Adapt costs 2');
   assert.ok(s.players.player.discard.some((c) => c.id === 'ember'), 'then discarded');
   assert.equal(s.turn, 'ai', 'it is the turn\'s action');
-  // X Attack: +2 Attack until Supper.
+  // Flame Charge React: +1 Attack until Supper (G3: X Attack is an Item now).
   s = battle();
   s.players.player.row[0] = mon('ponyta', 2);
+  s.players.ai.row[5] = mon('squirtle', 4, { spent: false });
+  give(s, 'player', 'flame-charge');
+  s.turn = 'ai';
   const atk = s.players.player.row[0].attack;
-  s = applyAction(s, { type: 'command', who: 'player', uid: give(s, 'player', 'x-attack'), mode: 'adapt', target: { who: 'player', space: 0 } });
-  assert.equal(s.players.player.row[0].attack, atk + 2);
+  s = applyAction(s, { type: 'attack', who: 'ai', from: 5, target: { kind: 'player' } });
+  s = applyAction(s, { type: 'react', who: 'player', uid: s.players.player.hand[0].uid, target: { who: 'player', space: 0 } });
+  assert.equal(s.players.player.row[0].attack, atk + 1);
   while (s.round === 1) { for (const sp of passBlockers(s, s.turn)) s.players[s.turn].row[sp].spent = true; s = applyAction(s, { type: 'pass', who: s.turn }); }
   assert.equal(s.players.player.row[0].attack, atk, 'gone at Supper');
-  // Rock Slide: 1 damage to each enemy Pokémon in the target's Location (here the Default Location).
+  // Rock Slide (G3): pick a Location, or a lane with no Location: 1 damage to each enemy Pokémon there.
+  // No Locations here, so only lane 5's Pokémon is hit.
   s = battle();
   for (const i of [0, 4, 8]) s.players.ai.row[i] = mon('squirtle', 4);
-  s = applyAction(s, { type: 'command', who: 'player', uid: give(s, 'player', 'rock-slide'), mode: 'adapt', target: { who: 'ai', space: 4 } });
-  for (const i of [0, 4, 8]) assert.equal(s.players.ai.row[i].currentStrength, s.players.ai.row[i].strength - 1);
+  s = applyAction(s, { type: 'command', who: 'player', uid: give(s, 'player', 'rock-slide'), mode: 'adapt', target: { who: 'ai', space: 4, lane: true } });
+  for (const i of [0, 8]) assert.equal(s.players.ai.row[i].currentStrength, s.players.ai.row[i].strength);
+  assert.equal(s.players.ai.row[4].currentStrength, s.players.ai.row[4].strength - 1);
 }
 
 // --- React: a window opens only with an affordable React; it resolves before the committed action ---------------------------

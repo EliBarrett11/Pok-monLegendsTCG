@@ -12,7 +12,7 @@
 import {
   TIMELINES, BUDGETS as ROOT_BUDGETS, COUNTERS, SUMMONS, attackAnimation, composeAttack, composeCounter,
   STRATEGY_OPENING, tintOf, impactScale, timelineDuration, MAX_SCALE,
-} from './shared.js?v=202611101304';
+} from './shared.js?v=202611101410';
 
 export { TIMELINES, composeAttack, composeCounter, tintOf, impactScale, timelineDuration, MAX_SCALE };
 
@@ -119,13 +119,52 @@ const EFFECT_HIT = {
     { at: 0, end: 480, track: 'target', motion: 'recoil' },
   ],
 };
-Object.assign(V4_TIMELINES, { 'v4-recover': RECOVER, 'v4-x-attack': X_ATTACK, 'v4-effect-hit': EFFECT_HIT });
+// G3: Surf, Bubble Beam and Dive, composed from the shared water presets.
+// Surf: a wave sweeps across the target's lanes (the region the presenter passes), crashing over each enemy there.
+const SURF = {
+  id: 'v4-surf', budget: 'effect', duration: 1150,
+  beats: [
+    { at: 0, end: 1000, sweep: 'surfWave', on: 'board' },
+    { at: 1000, cue: 'waveDone', shake: 6, bloom: 0.5 },
+  ],
+};
+// Bubble Beam: a bubble stream from the card, pops on the target, then the target dims to Spent.
+const BUBBLE_BEAM = {
+  id: 'v4-bubble-beam', budget: 'effect', duration: 1050,
+  beats: [
+    { at: 0, end: 560, emit: 'bubbleStream', on: 'card' },
+    { at: 0, end: 560, emit: 'bubbleSmall', on: 'card' },
+    { at: 320, cue: 'impact', hitstop: 50, shake: 6, flash: 'water', bloom: 0.6 },
+    { at: 320, end: 700, emit: 'bubblePops', on: 'target' },
+    { at: 320, emit: 'sprayDroplets', on: 'target', countScale: 0.5 },
+    { at: 320, end: 760, track: 'target', motion: 'drenched' },
+    { at: 640, cue: 'spent' },
+    { at: 640, end: 1040, track: 'target', motion: 'dimSpent' },
+  ],
+};
+// Dive: the Pokémon sinks into a ripple (the presenter then flies its card back to the hand).
+const DIVE = {
+  id: 'v4-dive', budget: 'effect', duration: 900,
+  beats: [
+    { at: 0, end: 820, emit: 'ringRipples', on: 'target' },
+    { at: 0, end: 700, emit: 'ringDroplets', on: 'target' },
+    { at: 120, emit: 'splashCrown', on: 'target', countScale: 0.5 },
+    { at: 120, end: 860, track: 'target', motion: 'sinkAway' },
+    { at: 860, cue: 'dived' },
+  ],
+};
+Object.assign(V4_TIMELINES, { 'v4-recover': RECOVER, 'v4-x-attack': X_ATTACK, 'v4-effect-hit': EFFECT_HIT, 'v4-surf': SURF, 'v4-bubble-beam': BUBBLE_BEAM, 'v4-dive': DIVE });
 
-export const COMMAND_ANIMS = { ember: 'strategy-ember', 'rock-slide': 'strategy-rock-slide', recover: 'v4-recover', 'x-attack': 'v4-x-attack' };
-export const COMMAND_TYPES = { ember: 'Fire', 'rock-slide': 'Rock', recover: 'Grass', 'x-attack': 'Fighting' };
+// G3 (gameplay update 5.1): the nine Commands. Thunderbolt, Heat Wave, Flame Charge, Rock Slide and
+// Ember are v1's Strategy animations; Surf, Bubble Beam and Dive are composed above; Recover as before.
+export const COMMAND_ANIMS = {
+  ember: 'strategy-ember', thunderbolt: 'strategy-thunderbolt', 'rock-slide': 'strategy-rock-slide', 'heat-wave': 'strategy-heat-wave',
+  surf: 'v4-surf', 'bubble-beam': 'v4-bubble-beam', recover: 'v4-recover', 'flame-charge': 'strategy-flame-charge', dive: 'v4-dive',
+};
+export const COMMAND_TYPES = { ember: 'Fire', thunderbolt: 'Electric', 'rock-slide': 'Rock', 'heat-wave': 'Fire', surf: 'Water', 'bubble-beam': 'Water', recover: 'Grass', 'flame-charge': 'Fire', dive: 'Water' };
 export const commandTint = (id) => tintOf(COMMAND_TYPES[id] ?? 'Normal');
-// Rock Slide's sweep, and any single-target version of it, roll across the hit Pokémon.
-export const SWEEP_COMMANDS = ['rock-slide'];
+// The sweeps (Rock Slide, Heat Wave, Surf), and any single-target version of them, roll across the hit Pokémon.
+export const SWEEP_COMMANDS = ['rock-slide', 'heat-wave', 'surf'];
 const timeline = (id) => V4_TIMELINES[id] ?? TIMELINES[id];
 
 // How big each mode plays: React is quick (no rise, played faster, no opening); Adapt is standard (the
@@ -149,12 +188,20 @@ export function commandDef(id, mode) {
   return { ...def, id: `${COMMAND_ANIMS[id]}@${mode}`, budget: style.budget, beats, duration: def.duration + off, effectStart: off };
 }
 // The whole beat's length at Normal, the rise included (for the budgets).
-export const commandMs = (id, mode) => MODE_STYLE[mode].rise + timelineDuration(commandDef(id, mode)) / MODE_STYLE[mode].rate + MS.commandOut;
+// G3: v1's Thunderbolt and Heat Wave are a little long for Adapt's budget: they play a touch faster.
+const COMMAND_TEMPO = { thunderbolt: 1.05, 'heat-wave': 1.05 };
+export const commandRate = (id, mode) => MODE_STYLE[mode].rate * (COMMAND_TEMPO[id] ?? 1);
+export const commandMs = (id, mode) => MODE_STYLE[mode].rise + timelineDuration(commandDef(id, mode)) / commandRate(id, mode) + MS.commandOut;
 
 // --- Supporters, Items, Trainer Commands (B7, B8) ----------------------------------------------------
 
-export const SUPPORTER_ANIMS = { 'nurse-joy': 'heal-glow', 'professor-oak': 'v4-search', brock: 'v4-strength' };
-export const ITEM_ANIMS = { heal: 'heal-glow', attackUp: 'v4-x-attack', attack: 'v4-held', strength: 'v4-held', healBreakfast: 'v4-held' };
+export const SUPPORTER_ANIMS = { 'nurse-joy': 'heal-glow', 'professor-oak': 'v4-search', brock: 'v4-strength', flannery: 'v4-flannery', 'pokemon-breeder': 'v4-breeder' };
+// By Item id first (G3: a small effect of its own for each new Item), then by op.
+export const ITEM_ANIMS = {
+  heal: 'heal-glow', attackUp: 'v4-x-attack', attack: 'v4-held', strength: 'v4-held', speed: 'v4-held', keyword: 'v4-held', recognition: 'v4-amulet',
+  'x-attack': 'v4-x-attack', 'choice-band': 'v4-choice-band', 'quick-claw': 'v4-quick-claw', 'rocky-helmet': 'v4-rocky-helmet', leftovers: 'v4-leftovers', 'amulet-coin': 'v4-amulet',
+};
+export const itemAnim = (id, op) => ITEM_ANIMS[id] ?? ITEM_ANIMS[op] ?? 'v4-held';
 export const TRAINER_COMMAND_ANIMS = { draw: 'v4-search', damageAll: 'v4-effect-hit' };
 Object.assign(V4_TIMELINES, {
   // Searching or drawing: motes rising from the Draw Pile.
@@ -163,6 +210,15 @@ Object.assign(V4_TIMELINES, {
   'v4-strength': { id: 'v4-strength', budget: 'heal', duration: 700, beats: [{ at: 0, cue: 'heal', bloom: 0.5 }, { at: 0, emit: 'landRing', on: 'target' }, { at: 0, emit: 'healGlints', on: 'target' }, { at: 0, end: 600, track: 'target', motion: 'healGlow' }] },
   // A Held Item settling onto its Pokémon.
   'v4-held': { id: 'v4-held', budget: 'item', duration: 600, beats: [{ at: 0, cue: 'held', bloom: 0.4 }, { at: 0, emit: 'flareRing', on: 'target' }, { at: 0, emit: 'healGlints', on: 'target' }] },
+  // G3: the new Items, each a small effect on its holder (Amulet Coin: on the Recognition ring).
+  'v4-choice-band': { id: 'v4-choice-band', budget: 'item', duration: 650, beats: [{ at: 0, cue: 'held', bloom: 0.5, flash: 'type' }, { at: 0, emit: 'chargeBurst', on: 'target', countScale: 0.6 }, { at: 0, end: 560, track: 'target', motion: 'charging' }] },
+  'v4-quick-claw': { id: 'v4-quick-claw', budget: 'item', duration: 600, beats: [{ at: 0, cue: 'held', bloom: 0.4 }, { at: 0, emit: 'speedLines', on: 'target', countScale: 0.5 }, { at: 0, emit: 'chargeSparks', on: 'target', countScale: 0.6 }, { at: 0, end: 500, track: 'target', motion: 'jolt' }] },
+  'v4-rocky-helmet': { id: 'v4-rocky-helmet', budget: 'item', duration: 600, beats: [{ at: 0, cue: 'held', bloom: 0.4 }, { at: 0, emit: 'rockShards', on: 'target', countScale: 0.5 }, { at: 0, emit: 'flareRing', on: 'target' }, { at: 0, end: 500, track: 'target', motion: 'bound' }] },
+  'v4-leftovers': { id: 'v4-leftovers', budget: 'item', duration: 650, beats: [{ at: 0, cue: 'held', bloom: 0.4 }, { at: 0, emit: 'regenSparkle', on: 'target' }, { at: 0, end: 600, track: 'target', motion: 'healGlowSoft' }] },
+  'v4-amulet': { id: 'v4-amulet', budget: 'item', duration: 650, beats: [{ at: 0, cue: 'fill', bloom: 0.6, flash: 'sun' }, { at: 0, emit: 'crestSparkle', on: 'target' }, { at: 0, emit: 'healGlints', on: 'target', tint: ['#ffd36b', '#fff6c8'] }] },
+  // G3: Flannery: a small flame aura on each of your Pokémon; Pokémon Breeder: motes rising from the Discard Pile.
+  'v4-flannery': { id: 'v4-flannery', budget: 'heal', duration: 750, beats: [{ at: 0, end: 520, emit: 'spiralEmbers', on: 'target', countScale: 0.5 }, { at: 0, end: 600, track: 'target', motion: 'charging' }, { at: 520, cue: 'aura', emit: 'auraMotes', on: 'target', bloom: 0.5 }] },
+  'v4-breeder': { id: 'v4-breeder', budget: 'effect', duration: 700, beats: [{ at: 0, cue: 'search', bloom: 0.4 }, { at: 0, end: 600, emit: 'healSparkle', on: 'target' }, { at: 0, emit: 'flareRing', on: 'target' }] },
   // Recognition reaching the ring; the ring flaring at 50, 70 and 90; Champion.
   'v4-recognition': { id: 'v4-recognition', budget: 'recognition', duration: 520, beats: [{ at: 0, cue: 'fill', bloom: 0.4 }, { at: 0, emit: 'healGlints', on: 'target', tint: ['#ffd36b', '#fff6c8'] }] },
   'v4-ring-flare': { id: 'v4-ring-flare', budget: 'recognition', duration: 800, beats: [{ at: 0, cue: 'flare', bloom: 1, flash: 'sun' }, { at: 0, emit: 'crestRing', on: 'target' }, { at: 0, emit: 'crestSparkle', on: 'target' }] },
@@ -241,6 +297,8 @@ export const MS = {
   triggerFlash: 380,
   triggerEffect: 650,
   keyword: 700,
+  // G3: Dive's card flying back to the hand; a card taken back from the Discard Pile.
+  diveFly: 550,
 };
 
 // Each composed moment's total at Normal (for the budget check in tests/ux4.test.js).
@@ -312,6 +370,8 @@ export const EVENT_BEATS = {
   trigger: { when: 'after', beat: 'trigger', budget: 'trigger', sfx: 'trigger' },
   keyword: { when: 'after', beat: 'keyword', budget: 'keyword', sfx: 'keyword' },
   triggerChoice: { when: 'quiet', beat: null, budget: null, sfx: null },
+  // G3: Dive: a Pokémon back to its owner's hand (shown within the Command's own beat, so quiet here).
+  returned: { when: 'quiet', beat: null, budget: null, sfx: null },
 };
 
 // The sound hooks (src/ui/sound.js names them; every beat calls one).

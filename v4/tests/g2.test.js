@@ -31,7 +31,7 @@ const SPEC = {
     forms: [['Ponyta', 1, 'On Defeated: draw 1 card', []], ['Rapidash', 4, 'On Knockout: +1 Attack (kept)', ['Quick Attack']]],
     stats: [[2, 2], [3, 2], [3, 3], [4, 4], [5, 4], [6, 5]] },
   chinchou: { series: 'Light', type: 'Electric', at: 'Special', speed: 'Steady', guard: 'Special Defence', copies: 2,
-    forms: [['Chinchou', 1, 'On Summon: +1 Energy this turn', []], ['Lanturn', 4, 'On Attack: 1 damage to each enemy Pokémon in its Location', []]],
+    forms: [['Chinchou', 1, 'On Summon: +1 Energy this Round', []], ['Lanturn', 4, 'On Attack: 1 damage to each enemy Pokémon in its Location', []]],
     stats: [[1, 3], [2, 3], [2, 4], [3, 5], [4, 6], [4, 7]] },
   shinx: { series: 'Light', type: 'Electric', at: 'Physical', speed: 'Swift', guard: null, copies: 1,
     forms: [['Shinx', 1, 'On Summon: 1 damage to an enemy Pokémon', []], ['Luxio', 3, 'On Knockout: draw 1 card', ['Infiltrator']], ['Luxray', 5, 'On Summon: 2 damage to an enemy Pokémon', ['Infiltrator']]],
@@ -74,7 +74,7 @@ for (const [id, sp] of Object.entries(SPEC)) {
   }
   eq(DEMO_DECK.filter((x) => x === id).length, sp.copies, `${id}: copies in the deck`);
 }
-eq(DEMO_DECK.length, 35, 'the temporary deck: 15 Pokémon + the 20 other cards');
+eq(DEMO_DECK.length, 40, 'G3: the final 40-card deck (5.4)');
 eq(DEMO_DECK.filter((x) => PATHS.some((p) => p.id === x)).length, 15);
 eq(TRAINERS.map((t) => triggerText(t.partner.trigger)), ['On Summon: draw 2 cards', 'On Summon: 2 damage to each enemy Pokémon'], 'Partner triggers');
 // The glossary has every trigger and keyword.
