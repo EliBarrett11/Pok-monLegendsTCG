@@ -432,7 +432,6 @@ button { font-family: inherit; color: inherit; }
 .v4-martcard .a .v4-gem { left: -8px; top: -8px; width: 30px; height: 30px; font-size: 13px; }
 .v4-martcard .t { min-width: 0; line-height: 1.15; }
 .v4-martcard .t .v4-lbl { font-size: 11px; line-height: 1.2; }
-.v4-martcard .t b { display: block; font-size: 16px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .v4-martcard .t small { display: block; font-size: 12.5px; line-height: 1.2; color: var(--cream-muted, #d8c8a8); max-height: 31px; overflow: hidden; }
 .v4-martcard .row { grid-column: 1 / 3; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .v4-martcard .stock { display: flex; gap: 4px; align-items: center; }
@@ -441,7 +440,6 @@ button { font-family: inherit; color: inherit; }
 @keyframes v4-pip { 50% { opacity: 0.35; transform: scale(0.8); } }
 .v4-martcard button { height: 28px; padding: 0 18px; font-weight: 800; font-size: 14px; border-radius: 8px; border: 1.5px solid var(--brass); background: linear-gradient(#5a3a16, #3a240c); cursor: pointer; }
 .v4-martcard button:disabled { opacity: 0.45; cursor: help; }
-.v4-martcard .note { grid-column: 1 / 3; margin: 0; font-size: 11.5px; line-height: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .v4-martcard.sold { display: block; text-align: center; }
 .v4-martcard.sold .v4-lbl { text-align: left; }
 .v4-soldout { display: inline-block; margin: 14px 0 6px; padding: 2px 14px; font-family: var(--font-display); font-weight: 800; font-size: 26px; line-height: 1.2; letter-spacing: 0.08em; color: #ff8a6a;
@@ -627,3 +625,36 @@ button { font-family: inherit; color: inherit; }
 .v4-energy .of { display: inline-block; margin-left: 8px; }
 .v4-energy .enrow { display: flex; align-items: baseline; justify-content: center; }
 .v4-energy small { line-height: 1.25; }
+
+/* --- C2: the hand's visible strips; nothing is ever shown cut --- */
+.cd-name.strip { justify-content: flex-start; text-align: left; }
+.cd-cut { visibility: hidden !important; }
+/* The Weather chip: whole lines; the ticker: one entry on up to two lines, the L key at the right. */
+.v4-wx p { font-size: 14px; white-space: nowrap; }
+.v4-ticker { padding: 3px 34px 3px 10px; }
+.v4-ticker p { display: flex; align-items: flex-start; gap: 4px; white-space: normal; line-height: 1.3; height: 36px; overflow: visible; }
+.v4-ticker p span { display: block; }
+.v4-ticker .key.open { position: absolute; right: 8px; top: 12px; margin: 0; color: var(--brass); }
+.v4-loglist p > span { display: block; }
+
+/* --- C2: the collectable finish (holo sheen, tilt) --- */
+.cd-holo { position: absolute; left: 0; top: 0; width: 340px; height: 476px; pointer-events: none; }
+/* Final forms: one fine diagonal band, warm then cool, that slides with the pointer (against the tilt). */
+.cd-holo.final { background: linear-gradient(115deg, transparent 40%, rgba(255, 232, 190, 0.16) 46%, rgba(255, 250, 235, 0.32) 50%, rgba(185, 215, 255, 0.16) 54%, transparent 60%);
+  background-size: 260% 100%; background-position: calc((1 - var(--mx, 0.35)) * 100%) 0; }
+/* Partners and Trainers: the band plus a slow, faint iridescent drift (gold, rose, teal) on its own layer,
+   moved by a transform only (no repaint while it drifts). */
+.cd-holo.rich { overflow: hidden; background: linear-gradient(115deg, transparent 40%, rgba(255, 232, 190, 0.2) 46%, rgba(255, 250, 235, 0.38) 50%, rgba(185, 215, 255, 0.2) 54%, transparent 60%);
+  background-size: 260% 100%; background-position: calc((1 - var(--mx, 0.35)) * 100%) 0; }
+.cd-holo.rich::before { content: ''; position: absolute; left: 0; top: 0; width: 300%; height: 100%; will-change: transform;
+  background: linear-gradient(60deg, rgba(255, 200, 110, 0.12), rgba(230, 130, 170, 0.1) 17%, rgba(100, 210, 200, 0.12) 34%, rgba(255, 200, 110, 0.12) 50%, rgba(230, 130, 170, 0.1) 67%, rgba(100, 210, 200, 0.12) 84%, rgba(255, 200, 110, 0.12));
+  animation: cd-iris 9s ease-in-out infinite alternate; }
+@keyframes cd-iris { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+/* Every Full card tilts gently under the pointer. */
+.cd-full { transform: perspective(1100px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform 0.18s ease-out; transform-style: flat; }
+.cd-full.cd-tilting { transition: transform 0.06s linear; }
+/* Low motion: no tilt, no moving sheen; the still sheen stays. */
+.v4-low .cd-full { transform: none; transition: none; }
+.v4-low .cd-holo.final, .v4-low .cd-holo.rich { background-position: 65% 0; }
+.v4-low .cd-holo.rich::before { animation: none; transform: translateX(-25%); }
+@media (prefers-reduced-motion: reduce) { .cd-holo.rich::before { animation: none; } .cd-full { transition: none; } }

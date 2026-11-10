@@ -8,19 +8,19 @@
 // Earlier stages, kept: F1–F5's actions and screens (Commands, React windows, Strats, Supporters,
 // Items, Trainers, the Tournament), UX1's Objective trackers, commandModesFor, the React window and
 // timer (main.js), no series shown, Recognition shown capped at 100.
-import { RULES } from '../rules.js?v=202611101851';
+import { RULES } from '../rules.js?v=202611102039';
 import {
   isReady, legalTargets, attackers, summonable, emptySpaces, whyNot, passEndsPhase, passSpends, passReason, passBlockers, availableExert, energyLeft,
   playerGuard, guardOf, placeable, locationStarts, weatherTotals, activeBrackets, dominantOf, strengthIn,
   actor, commandTargets, playableSupporters, playReason, favourMet,
   commandModesFor, damageOf, effectiveSpeed, locationAt,
   itemTargets, buyReason, tournamentDominant, tournamentStrength, boosted, buyableFromHand, buyableFromMart, usableFromBag, playableTrainers, trainerReason,
-} from '../engine/game.js?v=202611101851';
-import { COMMANDS, SUPPORTERS, ITEMS, LOCATIONS, WEATHER_BRACKETS, MODE_NAMES, FAVOURS, modeText, effectText, opText, BAG_SIZE, PATHS, TRAINERS } from '../engine/cards.js?v=202611101851';
-import { baseEnergyFor, EXERT_LIMIT } from '../engine/energy.js?v=202611101851';
-import { icon, attackIcon, STAT_NAMES, attackKey, strengthKey } from './icons.js?v=202611101851';
-import { hitsFor, commitHit } from './flows.js?v=202611101851';
-import { cardHTML, CARD_DEFS, SIZES, H as CARD_H, W as CARD_W } from './card.js?v=202611101851';
+} from '../engine/game.js?v=202611102039';
+import { COMMANDS, SUPPORTERS, ITEMS, LOCATIONS, WEATHER_BRACKETS, MODE_NAMES, FAVOURS, modeText, effectText, opText, BAG_SIZE, PATHS, TRAINERS } from '../engine/cards.js?v=202611102039';
+import { baseEnergyFor, EXERT_LIMIT } from '../engine/energy.js?v=202611102039';
+import { icon, attackIcon, STAT_NAMES, attackKey, strengthKey } from './icons.js?v=202611102039';
+import { hitsFor, commitHit } from './flows.js?v=202611102039';
+import { cardHTML, CARD_DEFS, SIZES, H as CARD_H, W as CARD_W, artFocus } from './card.js?v=202611102039';
 
 // UX3: the key list (the ? overlay and the hint at the bottom-right).
 export const KEY_LIST = [
@@ -76,12 +76,34 @@ function boardCard(s, c, who, space, cls = '', why = '') {
 }
 
 // --- Hand cards (C1: Mini, 200 px): art, cost, name, stat tabs and one tag ------------------------------------
-export function renderHandCard(s, c, cls = '', why = '') {
+export function renderHandCard(s, c, cls = '', why = '', strip = null) {
   const me = s.players.player;
   const state = { retained: !!c.retained };
   if (isCmd(c)) state.modes = commandModesFor(s, 'player', c.uid);
   const afford = isMon(c) ? energyLeft(me) >= c.cost : isItem(c) ? me.dollars >= c.price : isTrainer(c) ? energyLeft(me) >= c.command.cost : true;
-  return `<div class="v4-card v4-hcard k-${String(c.cardType).toLowerCase().replace('é', 'e')} ${cls}${afford ? '' : ' poor'}" data-uid="${c.uid}" data-zoom="${zoomKey(c, state)}"${why ? ` data-why="${esc(why)}"` : ''}>${cardHTML(c, { size: 'mini', state })}</div>`;
+  return `<div class="v4-card v4-hcard k-${String(c.cardType).toLowerCase().replace('é', 'e')} ${cls}${afford ? '' : ' poor'}" data-uid="${c.uid}" data-zoom="${zoomKey(c, state)}"${why ? ` data-why="${esc(why)}"` : ''}>${cardHTML(c, { size: 'mini', state, strip })}</div>`;
+}
+// C2: in the fanned hand a card's text must show in full or not at all. After drawing, any text element
+// of a hand card that reaches under the card on top of it is hidden (its Full card still shows on hover).
+export function fitHandStrips(root) {
+  if (typeof root?.querySelectorAll !== 'function') return;
+  const slots = [...root.querySelectorAll('.v4-hand .v4-slot')];
+  slots.forEach((slot, i) => {
+    for (const el of slot.querySelectorAll('.cd-cut')) el.classList.remove('cd-cut');
+    const above = slots.slice(i + 1).map((x) => x.querySelector('.cd')?.getBoundingClientRect()).filter(Boolean);
+    if (!above.length) return;
+    const coverLeft = Math.min(...above.map((r) => r.left)) - 2;
+    // Each chip on its own (a tag row keeps the chips that fit), then any other piece of text.
+    for (const el of slot.querySelectorAll('.cd-chip, .cd-t:not(.cd-chips)')) {
+      if (el.closest('.cd-cut')) continue;
+      // The text itself (a name wider than its zone spills past the zone's box).
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const right = Math.max(el.getBoundingClientRect().right, ...[...range.getClientRects()].map((q) => q.right));
+      // Also a name wider than its strip's zone (it would overflow its box even where nothing covers it).
+      if (right > coverLeft || (el.matches('.cd-t') && el.scrollWidth > el.clientWidth + 1)) el.classList.add('cd-cut');
+    }
+  });
 }
 
 // --- The prompt bar ------------------------------------------------------------------------------------
@@ -327,7 +349,9 @@ function locationTile(s, l) {
   const row2 = `<span class="dur">${Array.from({ length: total }, (_, k) => `<i class="${k < l.roundsLeft ? '' : 'off'}"></i>`).join('')}</span>${l.roundsLeft} left<span class="wx ${l.weather.type.toLowerCase()}">${weatherIcon(l.weather.type)} +${l.weather.count} ${l.weather.type}</span>`;
   const x = tileX(l.start);
   const w = l.width * LW;
-  return `<div class="v4-ltile" data-loc="${l.uid}" style="left: ${(x + 3).toFixed(1)}px; width: ${(w - 6).toFixed(1)}px; border-color: ${l.color}; background-image: url('${art(l)}')" title="${esc(tip)}"></div>
+  // C2: the portrait art shown wide across 2–4 lanes, framed on the Location's landmark (focus.json "tile").
+  const tf = artFocus(l.art).tile ?? { x: 50, y: 50 };
+  return `<div class="v4-ltile" data-loc="${l.uid}" style="left: ${(x + 3).toFixed(1)}px; width: ${(w - 6).toFixed(1)}px; border-color: ${l.color}; background-image: url('${art(l)}'); background-position: ${tf.x}% ${tf.y}%" title="${esc(tip)}"></div>
     <div class="v4-lplate" data-plate="${l.uid}" style="left: ${(x + 10).toFixed(1)}px; width: ${(w - 20).toFixed(1)}px">${plate(you, opp, l.color, esc(l.name), esc(l.passive.text), row2, tip)}</div>`;
 }
 // The Pokémon League Tournament: one tile over all 9 lanes (no art yet: a gold frame).
@@ -419,6 +443,9 @@ function reactOverlay(s, ui) {
       <p class="v4-rcost">React · ${cost} Energy · you'll have ${energyLeft(me) - cost} left</p>
       <button data-react="${c.uid}">${targets.length === 1 ? 'React' : ui.select?.uid === c.uid ? 'Choose a target…' : 'React'}</button></div>`;
   }).join('');
+  // C2: choosing the React's target: the cards and the banner step aside so every glowing target on the
+  // board can be clicked (the prompt bar says what to do; Esc lets the action happen).
+  if (ui.select?.kind === 'react') return '<div class="v4-rblock"></div>';
   return `<div class="v4-rblock"></div>
     <div class="v4-rbanner" role="dialog"><h2>REACT?</h2><p>${esc(reactSentence(s))}</p>${bar}
       <div class="v4-buttons"><button data-action="decline">Let it happen <small>(Esc)</small></button></div></div>
@@ -433,11 +460,9 @@ function roundBox(s) {
   return `<section class="v4-panel v4-col v4-round" title="${esc(s.tournament ? 'The Pokémon League Tournament: all Recognition ×1.5' : `The Pokémon League Tournament begins at Breakfast in Round ${RULES.tournamentRound}, or at the first Breakfast where either player has ${RULES.tournamentRecognition}+ Recognition`)}"><div class="v4-lbl">Round</div>
     <div class="r">${s.round} <small>${when}</small></div><div class="v4-phases"><span class="v4-phase">${phase}</span>${s.tournament ? '<span class="v4-phase gold">🏆 TOURNAMENT</span>' : ''}</div></section>`;
 }
-// Trim a line to n characters with "…" (the full text stays on hover). UX3: lines must fit their boxes.
-const fit = (text, n) => (text.length > n ? `${text.slice(0, n - 1).trimEnd()}…` : text);
 // UX4 G: trim by measured width (canvas measureText, a binary search over the length), in the font the
 // browser actually uses (a fallback font is measured as itself). Without a canvas (Node), by characters.
-const TICKER_TEXT = 276 - 24 - 6;   // the ticker's width, less its padding and a safety margin
+const TICKER_TEXT = 276 - 44 - 4;   // the ticker's text width (less its padding and the L key) and a margin
 let measureCtx = null;
 function textWidth(text) {
   if (measureCtx === null) {
@@ -447,32 +472,54 @@ function textWidth(text) {
   measureCtx.font = "400 13.5px 'Alegreya Sans', 'Segoe UI', system-ui, sans-serif";
   return measureCtx.measureText(text).width;
 }
-function fitWidth(text, px) {
+// C2: a log entry's short form for the ticker: the sentence rewritten to its point ("Gyarados hit
+// Charizard for 6", "Gyarados: On Summon, 1 damage to each enemy Pokémon"); whose it is shows in its
+// colour. If it still doesn't fit two lines, whole clauses are dropped from the end (never words cut).
+const SHORT_LOG = [
+  [/^The Pokémon League Tournament begins/, () => 'The Pokémon League Tournament begins!'],
+  [/^Round (\d+) · Breakfast\./, (m) => `Round ${m[1]} · Breakfast`],
+  [/^(?:Your|The Opponent's) (.+?) attacked (.+?) for (\d+)(?:; .+? hit back for (\d+))?(?:; Retaliate: (\d+) back)?\./, (m) => `${m[1]} hit ${m[2]} for ${m[3]}${m[4] ? `; hit back for ${m[4]}` : ''}${m[5] ? `; Retaliate ${m[5]}` : ''}`],
+  [/^(You|The Opponent) played (.+?), Releasing (.+?)( \(Favour[^)]*\))?\.$/, (m) => `${m[2]}${m[4] ? ' with its Favour' : ''}; Released ${m[3]}`],
+  [/^(You|The Opponent) played (.+?) as a Strat \(\d+ Energy\) on (.+?):/, (m) => `${m[2]} sealed as a Strat on ${m[3]}`],
+  [/^(You|The Opponent) played (.+?) as a Trainer Command \(\d+ Energy\): (.+?)\.$/, (m) => `${m[2]}'s Trainer Command: ${m[3]}`],
+  [/^(You|The Opponent) Reacted with (.+?) \(\d+ Energy\):.*?(?: \(([^()]+)\))?\.$/, (m) => `React: ${m[2]}${m[3] ? ` on ${m[3]}` : ''}`],
+  [/^(?:Your|The Opponent's) (.+?): (On [A-Z]\w+): (.+?)\.$/, (m) => `${m[1]}: ${m[2]}, ${m[3]}`],
+  [/^(You|The Opponent) used (.+?) on (.+?) \(/, (m) => `${m[2]} used on ${m[3]}`],
+  [/^(?:Your|The Opponent's) (.+?) now holds (.+?) \(/, (m) => `${m[1]} holds ${m[2]}`],
+  [/^(You|The Opponent): \+(\d+) Recognition \(([^;)]+)[^)]*\), now (\d+)\./, (m) => `+${m[2]} Recognition: ${m[3]} (now ${m[4]})`],
+  [/^([A-Z][\w .é'-]+?) \((Adapt|React|Strat)\): .*?(?: \(([^()]+)\))?\.$/, (m) => `${m[1]} (${m[2]})${m[3] ? ` on ${m[3]}` : ''}`],
+];
+export function shortLog(line) {
+  for (const [re, f] of SHORT_LOG) { const m = line.match(re); if (m) return f(m); }
+  return line.replace(/^(?:Your|The Opponent's) /, '').replace(/\.$/, '');
+}
+// Whole clauses only: the longest start of the short form, at a clause break, that fits `px` (two lines).
+function fitClauses(text, px) {
   const w = textWidth(text);
-  if (w === null) return fit(text, Math.floor(px / 7));
-  if (w <= px) return text;
-  let lo = 0;
-  let hi = text.length;
-  while (lo < hi) {
-    const mid = Math.ceil((lo + hi) / 2);
-    if (textWidth(`${text.slice(0, mid).trimEnd()}…`) <= px) lo = mid; else hi = mid - 1;
-  }
-  return `${text.slice(0, lo).trimEnd()}…`;
+  const fits = (t) => (w === null ? t.length * 6.6 : textWidth(t)) <= px;
+  if (fits(text)) return text;
+  const cuts = [...text.matchAll(/[;:,]|\s\(/g)].map((m) => m.index).reverse();
+  for (const i of cuts) { const t = text.slice(0, i).trim(); if (t && fits(t)) return t; }
+  return null;
 }
 // Short bracket effects for the Weather chip (the full table is on hover).
 const BRACKET_SHORT = { healAll: 'all heal 1 at Breakfast', strength: 'all Pokémon +1 Strength', physical: 'Physical +1 damage', attack: 'all Pokémon +1 Attack' };
+// C2: every line shown in full: one line per Weather in play (its chip and its strongest active effect),
+// then the next bracket, only when there's a line left for it.
 function weatherChip(s) {
   const all = WEATHER_BRACKETS.map((b) => `${b.type} ${b.at}+: ${b.text}`).join('\n');
   if (s.tournament) return `<section class="v4-panel v4-col v4-wx" title="${esc(`The Pokémon League Tournament replaced every Location and its Weather.\n${all}`)}"><div class="v4-lbl">Weather</div><p>None in the Tournament</p><p class="sub">Locations and Weather are gone</p></section>`;
   const t = weatherTotals(s);
   const on = activeBrackets(s);
-  const chips = ['Sun', 'Rain'].filter((k) => t[k]).map((k) => `<span class="wx ${k.toLowerCase()}">${weatherIcon(k)} ${k} ${t[k]}</span>`).join(' ');
-  // The strongest active bracket of each type.
-  const top = ['Sun', 'Rain'].map((k) => on.filter((b) => b.type === k).at(-1)).filter(Boolean);
-  const effects = top.map((b) => BRACKET_SHORT[b.kind]).join('; ');
+  const types = ['Sun', 'Rain'].filter((k) => t[k]);
+  const lines = types.map((k) => {
+    const top = on.filter((b) => b.type === k).at(-1);
+    return `<p><span class="wx ${k.toLowerCase()}">${weatherIcon(k)} ${k} ${t[k]}</span> ${esc(top ? BRACKET_SHORT[top.kind] : 'no bracket yet')}</p>`;
+  });
   const next = WEATHER_BRACKETS.filter((b) => t[b.type] < b.at).sort((a, b) => (a.at - t[a.type]) - (b.at - t[b.type]))[0];
-  return `<section class="v4-panel v4-col v4-wx" title="${esc(`Weather counts add up across placed Locations; brackets apply to both players.\n${all}`)}"><div class="v4-lbl">Weather</div>
-    <p>${chips || 'None'} ${esc(fit(effects || (chips ? 'no bracket yet' : ''), Math.max(8, 30 - ['Sun', 'Rain'].filter((k) => t[k]).length * 10)))}</p>${next ? `<p class="sub">At ${next.type} ${next.at}: ${BRACKET_SHORT[next.kind]}</p>` : ''}</section>`;
+  if (!lines.length) lines.push('<p>None</p>');
+  if (lines.length < 2 && next) lines.push(`<p class="sub">At ${next.type} ${next.at}: ${BRACKET_SHORT[next.kind]}</p>`);
+  return `<section class="v4-panel v4-col v4-wx" title="${esc(`Weather counts add up across placed Locations; brackets apply to both players.\n${all}`)}"><div class="v4-lbl">Weather</div>${lines.join('')}</section>`;
 }
 function energyTile(s) {
   const me = s.players.player;
@@ -535,11 +582,14 @@ function logLine(line, short) {
   const ic = who ? attackIcon({ attackType: NAME_INFO.get(who).attackType }) : '';
   const c = cardInLine(line);
   const chip = c ? cardHTML(c, { size: 'chip', px: 24, cls: 'v4-logchip' }) : '';
-  const text = short ? fitWidth(line, TICKER_TEXT - (ic ? 24 : 0) - (chip ? 30 : 0)) : line;
-  return `<p class="${cls}" title="${esc(line)}">${chip}${ic}${esc(text)}</p>`;
+  if (!short) return `<p class="${cls}">${chip}${ic}<span>${esc(line)}</span></p>`;
+  // Two lines of the ticker, less the chip and icon on the first and a margin for word wrapping.
+  const room = 2 * TICKER_TEXT - (ic ? 24 : 0) - (chip ? 30 : 0) - 36;
+  const text = fitClauses(shortLog(line), room);
+  return text ? `<p class="${cls}">${chip}${ic}<span>${esc(text)}</span></p>` : '';
 }
 function logTicker(s) {
-  return `<button class="v4-panel v4-col v4-ticker" data-action="open-log" title="Open the full log (L)">${s.log.slice(-1).map((l) => logLine(l, true)).join('')}<span class="open">Open log <span class="key">L</span></span></button>`;
+  return `<button class="v4-panel v4-col v4-ticker" data-action="open-log" title="Open the full log (L)">${s.log.slice(-1).map((l) => logLine(l, true)).join('')}<span class="key open">L</span></button>`;
 }
 
 // --- Drawers -----------------------------------------------------------------------------------------------
@@ -564,14 +614,15 @@ function pileDrawer(s, ui) {
 
 // --- Your hand, piles and key hints ----------------------------------------------------------------------------
 // The fan: cards drop at most 14 px and tilt at most 4° at the edges, so a full hand stays on screen.
-const HAND = { left: 448, right: 1500, top: 778 };
+const HAND = { left: 450, right: 1510, top: 778 };
 function hand(s, ui) {
   const me = s.players.player;
   const myTurn = s.phase === 'battle' && s.turn === 'player' && !ui.locked && !s.reactWindow;
   const reacting = s.reactWindow?.reactor === 'player' && !ui.locked;
   const n = me.hand.length;
   const W = HAND.right - HAND.left;
-  const step = n > 1 ? Math.min(150, (W - SIZES.mini) / (n - 1)) : 0;
+  // C2: spread across all the room the hand has before overlapping more (up to an 8-px gap).
+  const step = n > 1 ? Math.min(SIZES.mini + 8, (W - SIZES.mini) / (n - 1)) : 0;
   const total = SIZES.mini + step * (n - 1);
   const x0 = (HAND.left + HAND.right) / 2 - total / 2;
   const mid = (n - 1) / 2;
@@ -582,8 +633,10 @@ function hand(s, ui) {
     const picked = ui.select?.uid === c.uid && !ui.drag;
     const dragging = ui.drag?.uid === c.uid;
     const drop = Math.min(4, d * d * 0.6 * (step / 150));
+    // The visible strip: what the next card doesn't cover (the last card shows whole).
+    const strip = k < n - 1 && step < SIZES.mini ? step - 6 : null;
     const tilt = Math.max(-4, Math.min(4, d * 1.3));
-    return `<div class="v4-slot${picked ? ' picked' : ''}${dragging ? ' dragging' : ''}" style="left: ${Math.round(x0 + step * k)}px; top: ${Math.round(HAND.top + drop)}px; --r: ${tilt.toFixed(2)}deg; z-index: ${k + 1}">${renderHandCard(s, c, cls, why ?? '')}</div>`;
+    return `<div class="v4-slot${picked ? ' picked' : ''}${dragging ? ' dragging' : ''}" style="left: ${Math.round(x0 + step * k)}px; top: ${Math.round(HAND.top + drop)}px; --r: ${tilt.toFixed(2)}deg; z-index: ${k + 1}">${renderHandCard(s, c, cls, why ?? '', strip)}</div>`;
   }).join('')}</div>`;
 }
 function myPiles(s, ctx) {
@@ -676,7 +729,10 @@ export function renderMatch(root, s, ui, ctx) {
     ${dialogs(s, ui)}
   </div>`;
   wire(root, s, ui, ctx);
+  fitHandStrips(root);
+  if (!fontsHooked && typeof document !== 'undefined' && document.fonts?.ready) { fontsHooked = true; document.fonts.ready.then(() => fitHandStrips(root)); }
 }
+let fontsHooked = false;
 
 // C1: hover zoom. A card under the pointer (data-zoom) shows at Full size: above a hand card, beside a board
 // token (on whichever side has room), left of the PokéMart card, beside a chip; its reason (data-why) as
@@ -793,4 +849,6 @@ function wire(root, s, ui, ctx) {
   on('.v4-space.target', (el) => commitHit(s, ui, ctx, ui.select, { kind: 'space', who: el.dataset.who, space: Number(el.dataset.space) }, null));
   on('.v4-row.player .v4-card.can-attack', (el) => { ui.select = { kind: 'attack', from: Number(el.dataset.space) }; ui.focus = null; ctx.redraw(); });
   on('.v4-ring.target', () => commitHit(s, ui, ctx, ui.select, { kind: 'pc', who: 'ai' }, null));
+  // C2: a choice played on the board as a whole (an Item with no target, e.g. Amulet Coin): a click anywhere on it.
+  on('.v4-board.droppable', () => commitHit(s, ui, ctx, ui.select, { kind: 'board' }, null));
 }

@@ -9,6 +9,7 @@
 // and no page errors.
 import { createRequire } from 'node:module';
 import { mkdirSync } from 'node:fs';
+import { realInput } from './realinput.mjs';
 const { chromium } = createRequire(import.meta.url)('playwright');
 
 const OUT = process.argv[2] ?? 'g2-shots';
@@ -26,6 +27,7 @@ page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
 await page.goto(`${BASE}?debug&seed=7&speed=normal&timescale=${TS}`);
 await page.waitForFunction(() => window.__v4 && window.__v4.webgl !== undefined, null, { timeout: 20000 });
 const sfxSeen = (name) => page.waitForFunction((n) => window.__v4.played.some((x) => x.name === n), name, { timeout: 90000 });
+const input = realInput(page);
 const idle = () => page.waitForFunction(() => !window.__v4.isPresenting(), null, { timeout: 90000 });
 
 // A staged board: rows as given, empty hands for the Opponent (no React), the player's turn.
@@ -68,7 +70,7 @@ await page.mouse.move(960, 20);
 
 // 2. A chosen-target On Summon by the player (Horsea: 1 damage to an enemy Pokémon).
 await stage("s.players.player.hand = [hand('horsea', 2)]; s.players.ai.row[2] = mon('ponyta', 2, { spent: true }); s.players.ai.row[6] = mon('wooper', 3, { spent: true });");
-await page.evaluate(() => { window.__v4.show({ type: 'summon', who: 'player', uid: 'h-horsea-2', space: 4 }); });
+await input.play({ type: 'summon', who: 'player', uid: 'h-horsea-2', space: 4 });
 await page.waitForFunction(() => window.__v4.state.choice?.who === 'player' && !window.__v4.isPresenting(), null, { timeout: 90000 });
 await page.waitForTimeout(300);
 const promptText = await page.evaluate(() => document.querySelector('.v4-prompt').innerText.replace(/\s+/g, ' '));
@@ -89,7 +91,7 @@ report('chosen-target On Summon: prompt, glowing targets, preview, click', /choo
 // each enemy Pokémon in its Location: here its lane, Luxio isn't in it; a Growlithe is placed beside to be hit).
 await stage("s.players.player.row[4] = mon('shinx', 4); s.players.ai.row[4] = mon('magby', 3, { currentStrength: 1, spent: true }); s.players.ai.row[0] = mon('wooper', 2, { spent: true }); const loc = { ...C.cardAtRound('route-119', 1) }; s.locations = [{ uid: 'loc-x', owner: 'ai', card: loc, id: loc.id, name: loc.name, art: loc.art, color: loc.color, start: 3, width: 4, roundsLeft: 2, weather: loc.weather, passive: loc.passive, placedRound: s.round }];");
 const hand0 = await page.evaluate(() => window.__v4.state.players.player.hand.length);
-await page.evaluate(() => { window.__v4.show({ type: 'attack', who: 'player', from: 4, target: { kind: 'pokemon', space: 4 } }); });
+await input.play({ type: 'attack', who: 'player', from: 4, target: { kind: 'pokemon', space: 4 } });
 await sfxSeen('trigger');
 await page.waitForTimeout(250 * TS);
 await page.screenshot({ path: `${OUT}/3-trigger-beat-on-knockout.png` });
@@ -102,7 +104,7 @@ report('On Knockout chain: Luxio draws, Magby\'s On Defeated hits back in its Lo
 
 // 4. Retaliate defeating an attacker: Ponyta (2/2, Strength 1 left) attacks Seadra (Retaliate 1).
 await stage("s.players.player.row[1] = mon('ponyta', 1, { currentStrength: 1 }); s.players.ai.row[1] = mon('horsea', 4, { spent: true });");
-await page.evaluate(() => { window.__v4.show({ type: 'attack', who: 'player', from: 1, target: { kind: 'pokemon', space: 1 } }); });
+await input.play({ type: 'attack', who: 'player', from: 1, target: { kind: 'pokemon', space: 1 } });
 await sfxSeen('keyword');
 await page.waitForTimeout(120 * TS);
 await page.screenshot({ path: `${OUT}/4-keyword-callouts-retaliate.png` });
@@ -112,7 +114,7 @@ report('Retaliate defeats the attacker (callout shown)', !ret.attacker && ret.kw
 
 // 5. Keyword callouts: Shell and Rage (Quagsire with Rage hit by Arcanine; Wartortle's Shell).
 await stage("s.players.player.row[2] = mon('growlithe', 6); s.players.ai.row[2] = mon('wooper', 6, { spent: true });");
-await page.evaluate(() => { window.__v4.show({ type: 'attack', who: 'player', from: 2, target: { kind: 'pokemon', space: 2 } }); });
+await input.play({ type: 'attack', who: 'player', from: 2, target: { kind: 'pokemon', space: 2 } });
 await sfxSeen('keyword');
 await page.waitForTimeout(150 * TS);
 await page.screenshot({ path: `${OUT}/5-keyword-callout-rage.png` });
@@ -120,7 +122,7 @@ await idle();
 
 // 6. The Electric Physical attack (Luxray).
 await stage("s.players.player.row[5] = mon('shinx', 6); s.players.ai.row[5] = mon('magikarp', 8, { spent: true });");
-await page.evaluate(() => { window.__v4.show({ type: 'attack', who: 'player', from: 5, target: { kind: 'pokemon', space: 5 } }); });
+await input.play({ type: 'attack', who: 'player', from: 5, target: { kind: 'pokemon', space: 5 } });
 await sfxSeen('attack-electric-physical');
 await page.waitForTimeout(330 * TS);
 await page.screenshot({ path: `${OUT}/6-electric-physical-luxray.png` });

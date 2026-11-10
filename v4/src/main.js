@@ -2,18 +2,20 @@
 // Pokémon Legends v4 — entry point (F1): you against the AI, on a fixed 1920×1080 stage scaled
 // to fit the window. ?seed=123 replays the same shuffle and AI choices; ?autoplay lets the AI play
 // both sides; ?debug exposes window.__v4 for the layout check (v4/tools/layout.mjs).
-import { createGame, applyAction, actor, energyLeft, playReason, passReason } from './engine/game.js?v=202611101851';
-import { chooseAction } from './ai/ai.js?v=202611101851';
-import { renderMatch, reactOpen } from './ui/board.js?v=202611101851';
-import { pokemonAt, cardAtRound } from './engine/cards.js?v=202611101851';
-import { setupInteraction } from './ui/interact.js?v=202611101851';
-import { present, setupPresenter, isPresenting, resetFx, stampRings, skip } from './ui/present.js?v=202611101851';
-import { speedFactor, setSpeed, speedName, lowMotion, setLowMotionSetting } from './ui/settings.js?v=202611101851';
-import { MS } from './ui/vfx/library.js?v=202611101851';
-import { played } from './ui/sound.js?v=202611101851';
-import { MODE_NAMES } from './engine/cards.js?v=202611101851';
+import { createGame, applyAction, actor, energyLeft, playReason, passReason } from './engine/game.js?v=202611102039';
+import { chooseAction } from './ai/ai.js?v=202611102039';
+import { renderMatch, reactOpen } from './ui/board.js?v=202611102039';
+import { pokemonAt, cardAtRound } from './engine/cards.js?v=202611102039';
+import { setupInteraction } from './ui/interact.js?v=202611102039';
+import { present, setupPresenter, isPresenting, resetFx, stampRings, skip } from './ui/present.js?v=202611102039';
+import { speedFactor, setSpeed, speedName, lowMotion, setLowMotionSetting } from './ui/settings.js?v=202611102039';
+import { MS } from './ui/vfx/library.js?v=202611102039';
+import { loadArtFocus } from './ui/card.js?v=202611102039';
+import { initFinish } from './ui/finish.js?v=202611102039';
+import { played } from './ui/sound.js?v=202611102039';
+import { MODE_NAMES } from './engine/cards.js?v=202611102039';
 
-export const BUILD = 'C1 — the card renderer: the new card designs everywhere a card appears';
+export const BUILD = 'C2 — C1 fixes, art framing and the collectable finish';
 
 const STAGE = { width: 1920, height: 1080 };
 const stage = document.getElementById('stage');
@@ -273,6 +275,8 @@ if (params.has('debug')) {
     // UX4: the presenter, for checks.
     skip, isPresenting, played, speed: () => speedName(), setSpeed: ctx.setSpeed, setLowMotion: ctx.setLowMotion, show: (action) => act(action),
     set(fn) { fn(state, ui); redraw(); },
+    // C2: whether the player can act now (their move, nothing playing, the interface not locked), for checks.
+    ready: () => actor(state) === 'player' && !ui.locked && !isPresenting(),
     // F2: give a Location card, or place one for either side (through the engine's action).
     giveLocation(id) { const c = { ...cardAtRound(id, 1), uid: `dbg-${Math.random().toString(36).slice(2, 7)}` }; state.players.player.hand.push(c); redraw(); return c.uid; },
     place(who, id, start) {
@@ -295,4 +299,7 @@ if (params.has('debug')) {
 // (?nowebgl forces the 2D fallback).
 interaction = setupInteraction({ stage, ui, ctx, getState: () => state });
 setupPresenter(stage, { webgl: !params.has('nowebgl') }).then((r) => { if (window.__v4) window.__v4.webgl = r.webgl; });
+// C2: the art's focal points (assets/cards/focus.json) before the first drawing.
+await loadArtFocus();
+initFinish(document);
 newMatch();

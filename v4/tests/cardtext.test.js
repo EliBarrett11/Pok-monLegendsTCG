@@ -17,7 +17,7 @@ import { createRequire } from 'node:module';
 
 const { chromium } = createRequire(import.meta.url)('playwright');
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.jpg': 'image/jpeg', '.png': 'image/png' };
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.svg': 'image/svg+xml', '.css': 'text/css', '.json': 'application/json', '.jpg': 'image/jpeg', '.png': 'image/png' };
 const PAGE = `<!doctype html><html><head><meta charset="utf-8">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;0,800;1,400&family=Cinzel:wght@600;700;800&display=swap">
 <link rel="stylesheet" href="/v4/src/ui/style.css"><style>body{margin:0;background:#120d09;overflow:auto}#grid{display:flex;flex-wrap:wrap;gap:24px;padding:24px;align-items:flex-start}</style>
@@ -26,7 +26,8 @@ const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://x');
     if (url.pathname === '/__cardtest.html') { res.writeHead(200, { 'content-type': 'text/html' }); res.end(PAGE); return; }
-    const path = normalize(decodeURIComponent(url.pathname));
+    let path = normalize(decodeURIComponent(url.pathname));
+    if (path.endsWith('/')) path += 'index.html';
     const body = await readFile(join(ROOT, path));
     res.writeHead(200, { 'content-type': TYPES[extname(path)] ?? 'application/octet-stream' });
     res.end(body);
@@ -130,9 +131,61 @@ const result = await page.evaluate(async () => {
   }
   return { cards: cases.length, texts, problems };
 });
+// --- C2: the fanned hand. Hands of 5, 7, 9 and 11 cards (long names, every kind) in the game itself: no
+// visible text element may be partly covered by another card (sampled with elementFromPoint).
+await page.goto(`${BASE}/v4/?debug&seed=7&speed=instant`);
+await page.waitForFunction(() => window.__v4 && window.__v4.webgl !== undefined, null, { timeout: 20000 });
+await page.evaluate(() => window.__v4.fastForward(3));
+await page.waitForTimeout(400);
+await page.evaluate(() => document.fonts.ready);
+const handProblems = [];
+let handTexts = 0;
+for (const n of [5, 7, 9, 11]) {
+  await page.evaluate(async (count) => {
+    const C = await import('/v4/src/engine/cards.js');
+    const ids = ['squirtle', 'pokemon-breeder', 'magby', 'thunderbolt', 'rocky-helmet', 'growlithe', 'cerulean-cape', 'professor-oak', 'flame-charge', 'misty', 'charmander', 'bubble-beam'];
+    window.__v4.set((s) => { s.players.player.hand = ids.slice(0, count).map((id, k) => ({ ...C.cardAtRound(id, 6), uid: `hh-${k}`, ...(k === 2 ? { retained: true } : {}) })); });
+  }, n);
+  await page.mouse.move(960, 20);
+  await page.waitForTimeout(300);
+  const r = await page.evaluate(() => {
+    const out = [];
+    let count = 0;
+    const slots = [...document.querySelectorAll('.v4-hand .v4-slot')];
+    for (const slot of slots) {
+      for (const el of slot.querySelectorAll('.cd-t, .cd-chip')) {
+        if (![...el.childNodes].some((x) => x.nodeType === 3 && x.textContent.trim()) && !el.matches('.cd-chip')) continue;
+        if (getComputedStyle(el).visibility === 'hidden') continue;
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        const rs = [...range.getClientRects()].filter((q) => q.width > 0.5);
+        if (!rs.length) continue;
+        count += 1;
+        const box = { l: Math.min(...rs.map((q) => q.left)), t: Math.min(...rs.map((q) => q.top)), r: Math.max(...rs.map((q) => q.right)), b: Math.max(...rs.map((q) => q.bottom)) };
+        let covered = 0;
+        for (let i = 0; i <= 6; i++) for (let j = 1; j <= 3; j++) {
+          const x = box.l + ((box.r - box.l) * i) / 6 + (i === 0 ? 0.5 : i === 6 ? -0.5 : 0);
+          const y = box.t + ((box.b - box.t) * j) / 4;
+          const at = document.elementFromPoint(x, y);
+          if (at && !slot.contains(at)) covered += 1;
+        }
+        if (covered) out.push(`"${el.textContent.trim().slice(0, 24)}" in card ${slots.indexOf(slot) + 1} is partly covered (${covered} points)`);
+      }
+    }
+    return { out, count };
+  });
+  handTexts += r.count;
+  for (const p of r.out) handProblems.push(`${n}-card hand: ${p}`);
+}
 await browser.close();
 server.close();
 if (errors.length) { console.error('page errors:', errors); process.exit(1); }
+if (handProblems.length) {
+  console.error(`cardtext: ${handProblems.length} hand problems:`);
+  for (const p of handProblems.slice(0, 60)) console.error(`  ${p}`);
+  process.exit(1);
+}
+console.log(`v4 cardtext: hands of 5, 7, 9 and 11 cards: ${handTexts} visible text elements, none partly covered — ok`);
 if (result.problems.length) {
   console.error(`cardtext: ${result.problems.length} problems in ${result.cards} card renders:`);
   for (const p of result.problems.slice(0, 80)) console.error(`  ${p}`);

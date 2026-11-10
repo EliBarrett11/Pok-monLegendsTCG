@@ -8,7 +8,7 @@
 import {
   EVENT_BEATS, MS, MOMENTS, attackDef, counterDef, commandMs, summonFor, defeatFor, timelineDuration, impactScale, defOf, V4_TIMELINES,
   SUPPORTER_ANIMS, ITEM_ANIMS, TRAINER_COMMAND_ANIMS,
-} from './vfx/library.js?v=202611101851';
+} from './vfx/library.js?v=202611102039';
 
 const NEED = {
   attack: 'old', command: 'old', react: 'old', seal: 'old', trainerCommand: 'old', supporter: 'old', itemBought: 'old', itemUsed: 'old',

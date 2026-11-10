@@ -11,9 +11,9 @@
 // returns the element. Every piece of text sits in its frame's fixed zone (tests/cardtext.test.js).
 // No engine state is read here: the caller passes what the card needs to show (its modes now, Stock,
 // Objective progress) in opts.state.
-import { RULES } from '../rules.js?v=202611101851';
-import { FAVOURS, KEYWORD_NAMES, KEYWORD_ORDER, TRIGGER_NAMES, MODE_NAMES, effectText, opText, modeTarget } from '../engine/cards.js?v=202611101851';
-import { effectiveSpeed } from '../engine/game.js?v=202611101851';
+import { RULES } from '../rules.js?v=202611102039';
+import { PATHS, FAVOURS, KEYWORD_NAMES, KEYWORD_ORDER, TRIGGER_NAMES, MODE_NAMES, effectText, opText, modeTarget } from '../engine/cards.js?v=202611102039';
+import { effectiveSpeed } from '../engine/game.js?v=202611102039';
 
 export const W = 340;
 export const H = 476;
@@ -26,12 +26,32 @@ const low = (t) => (t ? t.charAt(0).toLowerCase() + t.slice(1) : t);
 const stop = (t) => (/[.!]$/.test(t) ? t : `${t}.`);
 
 // --- Art framing ------------------------------------------------------------------------------------
-// C1: one default focal point for every piece (50% across, 35% down); C2 replaces this with a focal point
-// per piece of art. Everything reads it from here.
-export const artFocus = (/* cardId */) => ({ x: 50, y: 35 });
+// C2: a focal point per piece of art, from assets/cards/focus.json (loaded once by loadArtFocus; without
+// it, 50% across and 35% down): { x, y } the subject's centre, face { x, y } a chip's centre, zoom a chip's
+// zoom, tile { x, y } a Location's wide crop on the board, w and h the image's size. Everything reads it here.
+let FOCUS = {};
+export const setArtFocus = (map) => { FOCUS = map ?? {}; };
+export async function loadArtFocus(url = `${ASSETS}/cards/focus.json`) {
+  try { const r = await fetch(url); if (r.ok) setArtFocus(await r.json()); } catch { /* defaults */ }
+  return FOCUS;
+}
+export const artFocus = (art) => ({ x: 50, y: 35, ...(FOCUS[art] ?? {}) });
+// A round crop of S px centred on the face at its zoom (background-size and -position in px), always
+// covering the circle: the face sits as close to the centre as the image allows.
+export function chipCrop(art, S) {
+  const f = artFocus(art);
+  const face = f.face ?? { x: f.x, y: f.y };
+  const ar = f.w && f.h ? f.h / f.w : 1.4;
+  const z = Math.max(1, f.zoom ?? 1.6);
+  const bw = z * S;
+  const bh = bw * ar;
+  const ox = Math.min(0, Math.max(S - bw, S / 2 - (face.x / 100) * bw));
+  const oy = Math.min(0, Math.max(S - bh, S / 2 - (face.y / 100) * bh));
+  return `background-size:${bw.toFixed(1)}px ${bh.toFixed(1)}px;background-position:${ox.toFixed(1)}px ${oy.toFixed(1)}px`;
+}
 
 // --- Colours and glyphs (the mockup's) -------------------------------------------------------------------
-const ACC = { Fire: '#d9773f', Water: '#5f9bd6', Electric: '#d7b440', Rock: '#b39a6c', Grass: '#7fb069', Normal: '#b7ad9a',
+const ACC = { Fire: '#d9773f', Water: '#5f9bd6', Electric: '#d7b440', Rock: '#b39a6c', Normal: '#b7ad9a',
   Supporter: '#c46a6a', Item: '#5fb59a', Trainer: '#a786d6', Location: '#c2a36a' };
 const G = {
   pa: '<path d="M5 16C7 11 10 7 15 4M9 19.5c2.5-5 5.5-8.5 11-11.5M13 22c2-3.5 4.5-6 8-8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
@@ -43,8 +63,6 @@ const G = {
   Water: '<path d="M12 3.5s5.6 6.6 5.6 10.4a5.6 5.6 0 0 1-11.2 0c0-3.8 5.6-10.4 5.6-10.4z" fill="currentColor"/>',
   Electric: '<path d="M13 2.5L5.5 13.5h5.6l-1 8 7.4-11h-5.6z" fill="currentColor"/>',
   Rock: '<path d="M4 18l4.5-9 4.5 3 3-6 4 12z" fill="currentColor"/>',
-  // (not in the mockup) Grass, for Recover: a leaf in the same weight.
-  Grass: '<path d="M19.5 4.5C9 4.5 4.5 9.5 4.5 15.5c0 1.6.4 2.9 1 4 5.8-.4 14-4.8 14-15z" fill="currentColor"/><path d="M5.5 19.5c3-4 6-6.5 10-9" stroke="#0b0806" stroke-width="1.2" fill="none"/>',
   Normal: '<circle cx="12" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="2.2"/>',
   Supporter: '<circle cx="12" cy="8" r="3.6" fill="currentColor"/><path d="M5 20c0-4.4 3.4-6.4 7-6.4s7 2 7 6.4z" fill="currentColor"/>',
   Item: '<path d="M9.5 3.5h5v2.8l2.8 3.6v8.6a1.8 1.8 0 0 1-1.8 1.8H8.5a1.8 1.8 0 0 1-1.8-1.8V9.9l2.8-3.6z" fill="currentColor"/>',
@@ -56,7 +74,7 @@ const SC = { pa: '#d98a55', sa: '#a98ad8', hp: '#d9798a', def: '#b9c3cf', sdef: 
 const glyph = (k, x, y, s, col) => `<svg x="${x}" y="${y}" width="${s}" height="${s}" viewBox="0 0 24 24" style="color:${col}">${G[k] ?? ''}</svg>`;
 const statKeys = (c) => [c.attackType === 'Special' ? 'sa' : 'pa', { Defence: 'def', 'Special Defence': 'sdef' }[c.strengthType] ?? 'hp'];
 // A Command's colour: the Type of the move (data for the type line and the crest only).
-export const COMMAND_TYPE = { ember: 'Fire', thunderbolt: 'Electric', 'rock-slide': 'Rock', 'heat-wave': 'Fire', surf: 'Water', 'bubble-beam': 'Water', recover: 'Grass', 'flame-charge': 'Fire', dive: 'Water' };
+export const COMMAND_TYPE = { ember: 'Fire', thunderbolt: 'Electric', 'rock-slide': 'Rock', 'heat-wave': 'Fire', surf: 'Water', 'bubble-beam': 'Water', recover: 'Normal', 'flame-charge': 'Fire', dive: 'Water' };
 
 // --- Silhouettes: near-rectangles with one trait each (the mockup's paths; i = inset) ---------------------------
 const R = 10;
@@ -172,12 +190,28 @@ function levelSpeed(c, px) {
 }
 function heldInset(c, cx, cy, r) {
   if (!c.held) return '';
-  const f = artFocus(c.held.art);
-  return `<span class="cd-held" style="left:${cx - r}px;top:${cy - r}px;width:${2 * r}px;height:${2 * r}px;background-image:url('${artUrl(c.held.art)}');background-position:${f.x}% ${f.y}%"></span>`;
+  return `<span class="cd-held" style="left:${cx - r}px;top:${cy - r}px;width:${2 * r}px;height:${2 * r}px;background-image:url('${artUrl(c.held.art)}');${chipCrop(c.held.art, 2 * r)}"></span>`;
 }
 
 // --- The frame: art (clipped to the silhouette, framed by its focal point), the panel's shade, the lines --------------
-function frame(kind, art, acc, panel, size) {
+// C2 (docs/v4-card-overhaul.md 2.3): the collectable finish. A soft holo sheen on the Full and Mini sizes of
+// each line's final form; a richer animated holo on Partners and Trainers at every size. A fine diagonal
+// band that follows the pointer (src/ui/finish.js sets --mx and --my), clipped to the frame and faded
+// out above the text panel, so it never touches the text.
+const FINAL_FORMS = new Set(PATHS.map((p) => p.forms.at(-1).name));
+export function holoKind(c, size) {
+  if (size === 'chip') return null;
+  if (c.partner || c.cardType === 'Trainer') return 'rich';
+  if (c.cardType === 'Pokémon' && FINAL_FORMS.has(c.name) && (size === 'full' || size === 'mini')) return 'final';
+  return null;
+}
+function holoDiv(kind, o, panel, holo) {
+  if (!holo) return '';
+  const p = (y) => ((100 * y) / H).toFixed(1);
+  const mask = `linear-gradient(180deg, #000 0%, #000 ${p(panel - 110)}%, transparent ${p(panel - 30)}%)`;
+  return `<div class="cd-holo ${holo}" style="clip-path:path('${o}');-webkit-mask-image:${mask};mask-image:${mask}"></div>`;
+}
+function frame(kind, art, acc, panel, size, holo = null) {
   const o = SH[kind](0);
   const f = artFocus(art);
   const p = (y) => ((100 * y) / H).toFixed(1);
@@ -188,7 +222,7 @@ function frame(kind, art, acc, panel, size) {
   const lines = `<path d="${o}" fill="none" stroke="#050302" stroke-width="3"/><path d="${o}" fill="none" stroke="${BR}" stroke-width="1.6"/><path d="${inner}" fill="none" stroke="rgba(194,163,106,.55)" stroke-width="1"/>`;
   const rule = size === 'chip' ? '' : `<path d="M24,${panel} H${W / 2 - 12} M${W / 2 + 12},${panel} H${W - 24}" stroke="${BR}" stroke-width="1"/><path d="M${W / 2},${panel - 5} L${W / 2 + 5},${panel} L${W / 2},${panel + 5} L${W / 2 - 5},${panel}Z" fill="${acc}" stroke="#e2c88f" stroke-width=".8"/>`;
   const rolls = kind === 'location' ? `<rect x="2" y="6" width="${W - 4}" height="16" rx="8" fill="url(#cd-roll)" stroke="#050302" stroke-width="1.5"/><rect x="2" y="${H - 22}" width="${W - 4}" height="16" rx="8" fill="url(#cd-roll)" stroke="#050302" stroke-width="1.5"/>` : '';
-  return { artDiv, svg: lines + rule + rolls };
+  return { artDiv: artDiv + holoDiv(kind, o, panel, holo), svg: lines + rule + rolls };
 }
 
 // --- Per kind: what each size shows ----------------------------------------------------------------------------------
@@ -281,8 +315,7 @@ function fullBody(c, kind, acc, panel, state) {
     const cy = H - 44;
     for (let k = 0; k < need; k++) svg += `<circle cx="${40 + k * 21}" cy="${cy}" r="5.5" fill="${k < prog ? '#e6cf9a' : 'none'}" stroke="#c2a36a" stroke-width="1.2"/>`;
     svg += `<path d="M${40 + (need - 1) * 21 + 10},${cy} H${W - 74}" stroke="rgba(194,163,106,.45)" stroke-width="1" stroke-dasharray="2 4"/><circle cx="${W - 50}" cy="${cy}" r="19.5" fill="none" stroke="${BR}" stroke-width="1.4"/>`;
-    const pf = artFocus(c.partner.art);
-    html += `<span class="cd-portrait" style="left:${W - 69}px;top:${cy - 19}px;background-image:url('${artUrl(c.partner.art)}');background-position:${pf.x}% ${pf.y}%"></span>`;
+    html += `<span class="cd-portrait" style="left:${W - 69}px;top:${cy - 19}px;background-image:url('${artUrl(c.partner.art)}');${chipCrop(c.partner.art, 38)}"></span>`;
     html += zone('cd-type cd-obj', 30, H - 30, 190, 14, `${prog} of ${need} · Partner`, 'color:#a991cf;justify-content:flex-start');
   } else if (c.cardType === 'Location') {
     html += zone('cd-rules', 30, top, W - 60, 40, `<div>${esc(stop(c.passive.text))}</div>`);
@@ -301,15 +334,15 @@ export function cardHTML(c, opts = {}) {
   const kind = kindOf(c);
   if (size === 'chip') {
     const px = opts.px ?? 32;
-    const f = artFocus(c.art);
-    return `<span class="cd-chipart ${opts.cls ?? ''}" ${opts.attrs ?? ''} style="width:${px}px;height:${px}px;background-image:url('${artUrl(c.art)}');background-position:${f.x}% ${f.y}%" aria-label="${esc(c.name)}"></span>`;
+    return `<span class="cd-chipart ${opts.cls ?? ''}" ${opts.attrs ?? ''} style="width:${px}px;height:${px}px;background-image:url('${artUrl(c.art)}');${chipCrop(c.art, px)}" aria-label="${esc(c.name)}"></span>`;
   }
   const w = SIZES[size];
   const k = w / W;
   const acc = accentOf(c);
   const fk = size === 'token' ? 'pokemon' : kind;
   const panel = PANEL[size]?.[fk] ?? PANEL.full[fk];
-  const fr = frame(fk, c.art, acc, panel, size);
+  const holo = holoKind(c, size);
+  const fr = frame(fk, c.art, acc, panel, size, holo);
   let svg = fr.svg;
   let html = '';
   // Cost well and crest (tokens show neither: the board needs the art).
@@ -324,14 +357,20 @@ export function cardHTML(c, opts = {}) {
     html += b.html;
     if (c.cardType === 'Pokémon') { const st = statTabs(c); svg += st.svg; html += st.html + levelSpeed(c, 12) + heldInset(c, W - 32, 82, 20); }
   } else if (size === 'mini') {
-    html += nameZone(c, panel + 8, 26);
+    // C2: in a fanned hand only a strip at the left shows (opts.strip, in screen px): the name and the
+    // tag sit left-aligned inside it (the cost well above them). Whatever still doesn't fit completely is
+    // hidden by the hand's layout after drawing (board.js fitHandStrips), never cut.
+    const strip = opts.strip && opts.strip < w ? Math.max(40, opts.strip / k) : null;
+    const nz = strip ? zone('cd-name strip', 14, panel + 8, strip - 16, 35, esc(c.name), 'font-size:26px') : nameZone(c, panel + 8, 26);
+    html += nz;
     const tag = miniTag(c, state);
+    const tz = (y) => (strip ? zone('cd-chips left strip', 14, y, strip - 16, 36, tag.map((t) => `<span class="cd-chip" style="font-size:18px">${esc(t)}</span>`).join('')) : chipsZone(tag, y, 36, 18));
     if (c.cardType === 'Pokémon') {
       const st = statTabs(c, 27);
       svg += st.svg;
       html += st.html + levelSpeed(c, 18);
-      if (tag.length) html += chipsZone(tag, panel - 46, 36, 18);
-    } else if (tag.length) html += chipsZone(tag, panel + 50, 36, 18);
+      if (tag.length) html += tz(panel - 46);
+    } else if (tag.length) html += tz(panel + 50);
   } else if (size === 'token') {
     const st = statTabs(c, 30);
     svg += st.svg;
@@ -345,7 +384,7 @@ export function cardHTML(c, opts = {}) {
   if (state.soldOut) html += zone('cd-stamp', 20, 160, W - 40, 80, 'Sold out');
   const cls = ['cd', `cd-${size}`, `k-${kind}`,
     state.playable ? 'cd-ok' : '', state.playable === false ? 'cd-no' : '', state.ready ? 'cd-ready' : '', state.spent ? 'cd-spent' : '',
-    c.currentStrength !== undefined && c.currentStrength < c.strength ? 'cd-damaged' : '', state.selected ? 'cd-sel' : '', state.target ? 'cd-target' : '',
+    c.currentStrength !== undefined && c.currentStrength < c.strength ? 'cd-damaged' : '', holo ? `cd-holo-${holo}` : '', state.selected ? 'cd-sel' : '', state.target ? 'cd-target' : '',
     state.illegal ? 'cd-illegal' : '', state.retained ? 'cd-retained' : '', state.soldOut ? 'cd-soldout' : '', opts.cls ?? ''].filter(Boolean).join(' ');
   const why = state.playable === false && state.reason ? state.reason : state.illegal ? state.illegalReason : '';
   return `<div class="${cls}" ${opts.attrs ?? ''} style="width:${w}px;height:${Math.round(H * k)}px"${why ? ` data-why="${esc(why)}"` : ''}><div class="cd-in" style="transform:scale(${k.toFixed(4)})">${fr.artDiv}<svg class="cd-fr" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${svg}</svg>${html}</div></div>`;

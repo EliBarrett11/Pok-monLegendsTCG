@@ -9,6 +9,7 @@
 // and no page errors. Screenshots at 1920×1080.
 import { createRequire } from 'node:module';
 import { mkdirSync } from 'node:fs';
+import { realInput } from './realinput.mjs';
 const { chromium } = createRequire(import.meta.url)('playwright');
 
 const OUT = process.argv[2] ?? 'g3-shots';
@@ -54,9 +55,12 @@ async function stage(src) {
   }, src);
   await page.waitForTimeout(300);
 }
-// Play an action through the presenter; screenshot partway through its beat if asked.
+// Play the player's action through real input (C2: clicks, no debug hook); screenshot partway through
+// its beat if asked.
+const input = realInput(page);
 async function show(action, shot = null, at = 600) {
-  await page.evaluate((a) => { window.__v4.show(a); }, action);
+  await idle();
+  await input.play(action);
   if (shot) { await page.waitForTimeout(at * TS); await page.screenshot({ path: `${OUT}/${shot}` }); }
   await idle();
 }
@@ -64,7 +68,7 @@ async function show(action, shot = null, at = 600) {
 // 1. A hand with the new cards.
 await stage("s.players.player.hand = ['thunderbolt', 'heat-wave', 'surf', 'bubble-beam', 'flame-charge', 'dive', 'flannery', 'pokemon-breeder', 'quick-claw', 'x-attack'].map(card); s.players.player.row[4] = mon('squirtle', 4); s.players.ai.row[4] = mon('growlithe', 4, { spent: true });");
 await page.screenshot({ path: `${OUT}/1-hand-new-cards.png` });
-const handText = await page.evaluate(() => document.querySelector('.v4-hand').innerText.replace(/\s+/g, ' '));
+const handText = await page.evaluate(() => [...document.querySelectorAll('.v4-hand .cd-t')].map((e) => e.textContent).join(' ').replace(/\s+/g, ' '));   // C2: names hidden in a narrow strip still count (their text is there)
 // C1: Mini cards show the name and one tag (the Command's mode chips, the Supporter's Release, the Item's kind).
 report('the hand shows the new cards (Mini: names and mode chips)', /Thunderbolt/.test(handText) && /ADAPT 3/i.test(handText) && /Dive/.test(handText) && /Flannery/.test(handText) && /Release 1/i.test(handText) && /Quick Claw/.test(handText),
   handText.slice(0, 160));

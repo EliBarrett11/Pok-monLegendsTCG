@@ -12,6 +12,7 @@
 //   - no page errors.
 import { createRequire } from 'node:module';
 import { mkdirSync } from 'node:fs';
+import { realInput } from './realinput.mjs';
 const { chromium } = createRequire(import.meta.url)('playwright');
 
 const OUT = process.argv[2] ?? 'c1-shots';
@@ -51,75 +52,16 @@ async function hoverEl(sel) {
 const hovered = new Set();
 const opened = new Set();
 let shotsTaken = { board: false, hand: false, token: false, mart: false };
-let viaHook = 0;
-const hookTypes = {};
-let viaUi = 0;
+const input = realInput(page, { onOpen: (k) => opened.add(k) });
 const clickIf = async (sel) => { const el = await page.$(sel); if (!el) return false; await el.click(); await page.waitForTimeout(40); return true; };
-const confirm = async () => { await page.waitForTimeout(40); if (await page.$('[data-action="confirm-yes"]')) await page.click('[data-action="confirm-yes"]'); };
-const spaceSel = (who, sp) => `.v4-row.${who === 'ai' ? 'opponent' : 'player'} .v4-space[data-space="${sp}"]`;
-
-// Make one of the player's moves through the interface; false when there's no click path.
-async function viaInterface(a) {
-  const s = await state();
-  if (a.type === 'pass') { if (!(await clickIf('[data-action="pass"]:not([disabled])'))) return false; await confirm(); return true; }
-  if (a.type === 'decline') return clickIf('[data-action="decline"]');
-  if (a.type === 'choose') return clickIf(`${spaceSel(a.target.who, a.target.space)}.target`);
-  if (a.type === 'react') {
-    if (!(await clickIf(`[data-react="${a.uid}"]`))) return false;
-    if (await page.evaluate(() => !!window.__v4.state.reactWindow)) await clickIf(`${spaceSel(a.target.who, a.target.space ?? 0)}.target`);
-    return true;
-  }
-  if (a.type === 'attack') {
-    if (!(await clickIf(`.v4-row.player .v4-mon.can-attack[data-space="${a.from}"]`))) return false;
-    return a.target.kind === 'player' ? clickIf('.v4-ring.ai.target') : clickIf(`${spaceSel('ai', a.target.space)}.target`);
-  }
-  if (a.type === 'useItem') { if (a.target.space === null || !(await clickIf(`[data-bag="${a.uid}"].usable`))) return false; return clickIf(`${spaceSel('player', a.target.space)}.target`); }
-  if (a.type === 'buyItem' && a.from === 'mart') {
-    if (!(await clickIf('[data-buy="0"]:not([disabled])'))) return false;
-    if (a.then === 'store') return clickIf('[data-action="buy-store"]');
-    if (a.target.space === null || !(await clickIf('[data-action="buy-use"]'))) return false;
-    return clickIf(`${spaceSel('player', a.target.space)}.target`);
-  }
-  // Hand cards: select, then the target or a prompt button.
-  if (!a.uid || !(await clickIf(`.v4-hand .v4-hcard[data-uid="${a.uid}"]`))) return false;
-  if (a.type === 'summon') return clickIf(`${spaceSel('player', a.space)}.target`);
-  if (a.type === 'placeLocation') return clickIf(`${spaceSel('player', a.start)}.target`);
-  if (a.type === 'trainerCommand') return clickIf('[data-action="tr-command"]');
-  if (a.type === 'retain') { if (!(await clickIf('[data-action="retain"]'))) return false; await confirm(); return true; }
-  if (a.type === 'buyItem') {
-    if (a.then === 'store') return clickIf('[data-action="buy-store"]');
-    if (a.target.space === null || !(await clickIf('[data-action="buy-use"]'))) return false;
-    return clickIf(`${spaceSel('player', a.target.space)}.target`);
-  }
-  if (a.type === 'command') {
-    // A click on the target from the hand: the mode picker when both modes are playable.
-    const t = a.target;
-    const sp = t.all ? s.players[t.who].row.findIndex(Boolean) : t.space;
-    if (!(await clickIf(`${spaceSel(t.who, sp)}.target`))) return false;
-    if (await page.$('.v4-picker')) {
-      opened.add('mode picker');
-      if ((await page.$$('.v4-picker .cd-full')).length !== 1) report('the mode picker shows the Full card', false);
-      return clickIf(`[data-pick="${a.mode}"]`);
-    }
-    return true;
-  }
-  if (a.type === 'supporter') {
-    if (!(await clickIf('[data-action="play-supporter"]'))) return false;
-    if (await page.$('.v4-release .v4-cardrow.full .cd-full')) opened.add('Release choice');
-    for (const u of a.release) await clickIf(`[data-rel="${u}"]`);
-    for (const u of a.pick ?? []) await clickIf(`[data-pickd="${u}"]`);
-    if (!(await clickIf('[data-action="sup-done"]:not([disabled])'))) return false;
-    await confirm();
-    return true;
-  }
-  return false;
-}
-
+let failure = null;
 let moves = 0;
 for (let i = 0; i < 1500; i++) {
   await idle();
   const s = await state();
   if (s.phase === 'gameOver') break;
+  // A player acknowledges the Tournament banner before anything else (it's a modal).
+  if (await page.$('[data-action="tournament-ok"]')) { await page.click('[data-action="tournament-ok"]'); await page.waitForTimeout(60); }
   const who = await page.evaluate(() => window.__eng.actor(window.__v4.state));
   if (who !== 'player') { await page.waitForTimeout(60); continue; }
   // Hover each kind of card in hand, a board token and the PokéMart card (the Full card shows).
@@ -153,25 +95,18 @@ for (let i = 0; i < 1500; i++) {
   }
   await page.mouse.move(960, 20);
   const a = await page.evaluate(() => window.__ai.chooseAction(window.__v4.state, 'player', { rng: () => 0.5 }));
+  // Every move through real input (C2: no debug hook). The first Command with both modes open goes
+  // through the mode picker (dropped straight on its target); the others through the prompt's mode buttons.
+  const picker = a.type === 'command' && !opened.has('mode picker') && (await page.evaluate((u) => window.__eng.commandModesFor(window.__v4.state, 'player', u).filter((m) => !m.reason).length > 1, a.uid));
   const before = JSON.stringify([s.log.length, s.turn, s.round, s.reactWindow, s.choice, s.phase]);
-  let ok = false;
-  try { ok = await viaInterface(a); } catch { ok = false; }
+  try { await (picker ? input.playViaPicker(a) : input.play(a)); } catch (e) { failure = `${JSON.stringify(a)}: ${e.message}`; break; }
   await idle();
   const after = await state();
-  const moved = JSON.stringify([after.log.length, after.turn, after.round, after.reactWindow, after.choice, after.phase]) !== before;
-  if (ok && moved) viaUi += 1;
-  else {
-    // No click path (or the click didn't take): clear any choice in progress and use the debug hook.
-    await page.keyboard.press('Escape');
-    await page.evaluate((x) => { window.__v4.set((st, ui) => { ui.select = null; ui.picker = null; ui.confirm = null; ui.drawer = null; }); window.__v4.show(x); }, a);
-    viaHook += 1;
-    const k = `${a.type}${a.mode ? `/${a.mode}` : ''}${a.target?.kind === 'player' ? '/player' : ''}`;
-    hookTypes[k] = (hookTypes[k] ?? 0) + 1;
-  }
+  if (JSON.stringify([after.log.length, after.turn, after.round, after.reactWindow, after.choice, after.phase]) === before) { failure = `${JSON.stringify(a)}: the clicks were made but nothing happened`; break; }
   moves += 1;
 }
 const end = await state();
-report('a full match played by hand to the end', end.phase === 'gameOver', `${moves} moves: ${viaUi} through the interface, ${viaHook} through the debug hook (${Object.entries(hookTypes).map(([k, v]) => `${k} ${v}`).join(', ') || 'none'}); winner ${end.winner}, Round ${end.round}`);
+report('a full match played by hand to the end, every move through real input', end.phase === 'gameOver' && !failure, failure ?? `${moves} moves, all clicks; winner ${end.winner}, Round ${end.round}`);
 for (const k of ['Pokémon', 'Command', 'Supporter', 'Item', 'Trainer', 'Location', 'token', 'mart']) report(`hover shows the Full card: ${k}`, hovered.has(k));
 for (const k of ['mode picker', 'Release choice', 'Discard viewer']) report(`opened: ${k} (Full cards)`, opened.has(k));
 
