@@ -1,0 +1,251 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;0,800;1,500&family=Cinzel:wght@700;800;900&display=swap">
+<style>
+:root{--disp:'Cinzel',Georgia,serif;--text:'Alegreya Sans',system-ui,sans-serif}
+*{box-sizing:border-box;margin:0}
+body{width:1920px;height:1080px;overflow:hidden;font-family:var(--text);color:#f6ead0;
+ background:radial-gradient(ellipse at 50% 35%,#3b2614 0%,#1a0e06 65%,#0b0603 100%)}
+.abs{position:absolute}
+h2{font-family:var(--disp);font-weight:800;letter-spacing:.14em;font-size:15px;color:#d1a95a;text-transform:uppercase}
+.note{font-size:14px;color:#c9b08a;line-height:1.3}
+svg.i{width:1em;height:1em;vertical-align:-.13em}
+
+/* ===== The full-art card. Everything scales from --w ===== */
+.card{position:absolute;width:var(--w);height:calc(var(--w)*1.4);border-radius:calc(var(--w)*.055);font-size:calc(var(--w)/300*16px);
+ --rim1:#f2d48a;--rim2:#9a6a22;--tint:#f39a4a;--glow:rgba(255,150,60,.55);
+ box-shadow:0 calc(var(--w)*.04) calc(var(--w)*.09) rgba(0,0,0,.75)}
+.card .art{position:absolute;inset:0;border-radius:inherit;background-size:cover;background-position:var(--fx,50%) var(--fy,40%)}
+/* metallic rim: two layers, outer bevel + inner hairline */
+.card .rim{position:absolute;inset:0;border-radius:inherit;padding:calc(var(--w)*.022);
+ background:linear-gradient(145deg,var(--rim1),var(--rim2) 30%,var(--rim1) 52%,var(--rim2) 75%,var(--rim1));
+ -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.card .hair{position:absolute;inset:calc(var(--w)*.03);border-radius:calc(var(--w)*.035);border:1px solid rgba(255,240,200,.45);box-shadow:inset 0 0 calc(var(--w)*.06) rgba(0,0,0,.55)}
+/* lower scrim so text sits on the art, not in a box */
+.card .scrim{position:absolute;left:0;right:0;bottom:0;height:44%;border-radius:0 0 calc(var(--w)*.055) calc(var(--w)*.055);
+ background:linear-gradient(transparent,rgba(12,6,2,.55) 30%,rgba(12,6,2,.9) 62%,rgba(8,4,1,.96))}
+/* cost gem */
+.gem{position:absolute;left:calc(var(--w)*-.025);top:calc(var(--w)*-.025);width:calc(var(--w)*.2);height:calc(var(--w)*.2);display:flex;align-items:center;justify-content:center;
+ font-family:var(--disp);font-weight:900;font-size:2.15em;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.55),0 0 10px rgba(120,190,255,.9);
+ clip-path:polygon(50% 0,93% 25%,93% 75%,50% 100%,7% 75%,7% 25%);
+ background:radial-gradient(circle at 38% 30%,#bfe2ff,#3f86e0 45%,#163f8a 85%)}
+.gem::after{content:'';position:absolute;inset:7%;clip-path:inherit;border:0;background:radial-gradient(circle at 40% 28%,rgba(255,255,255,.45),transparent 45%)}
+.gemring{position:absolute;left:calc(var(--w)*-.04);top:calc(var(--w)*-.04);width:calc(var(--w)*.23);height:calc(var(--w)*.23);clip-path:polygon(50% 0,93% 25%,93% 75%,50% 100%,7% 75%,7% 25%);background:linear-gradient(160deg,#fff3c4,#b07c2a 50%,#ffe7a0)}
+.gem.money{background:radial-gradient(circle at 38% 30%,#fff2b0,#e0b030 45%,#8a5a10 85%);color:#3a2205;text-shadow:0 1px 0 rgba(255,255,255,.4);clip-path:circle(46%)}
+.gemring.money{clip-path:circle(46%)}
+.gem.rel{background:radial-gradient(circle at 38% 30%,#ffd0c0,#c8463a 45%,#6a1410 85%);font-size:1.25em;flex-direction:column;line-height:.9}
+.gem.rel small{font-family:var(--text);font-size:.42em;font-weight:800;letter-spacing:.06em;text-shadow:none}
+/* level ribbon under the gem */
+.lvl{position:absolute;left:calc(var(--w)*.035);top:calc(var(--w)*.205);font-family:var(--disp);font-weight:800;font-size:.8em;letter-spacing:.05em;
+ padding:.05em .55em;border-radius:.4em;background:linear-gradient(#2a1a0c,#120904);border:1px solid #b08a3a;color:#ffe3a0}
+/* type crest */
+.crest{position:absolute;right:calc(var(--w)*.04);top:calc(var(--w)*.04);width:calc(var(--w)*.13);height:calc(var(--w)*.13);border-radius:50%;
+ display:flex;align-items:center;justify-content:center;font-size:1.2em;border:2px solid var(--rim1);box-shadow:0 0 calc(var(--w)*.04) var(--glow),inset 0 0 6px rgba(0,0,0,.5)}
+.crest svg{width:62%;height:62%}
+/* keyword chips top-right under the crest */
+.kws{position:absolute;right:calc(var(--w)*.035);top:calc(var(--w)*.19);display:flex;flex-direction:column;gap:.25em;align-items:flex-end}
+.kw{font-weight:800;font-size:.72em;letter-spacing:.03em;padding:.12em .55em;border-radius:1em;background:rgba(10,5,2,.82);border:1px solid rgba(255,220,150,.55);color:#ffe2a6;backdrop-filter:blur(2px)}
+/* nameplate */
+.plate{position:absolute;left:7%;right:7%;top:61%;height:10.5%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+ border-radius:.45em;background:linear-gradient(rgba(30,18,8,.9),rgba(14,8,3,.92));border:1.5px solid var(--rim1);box-shadow:0 0 0 1px rgba(0,0,0,.6),0 .2em .6em rgba(0,0,0,.6)}
+.plate::before,.plate::after{content:'';position:absolute;top:50%;width:.55em;height:.55em;background:var(--rim1);transform:translateY(-50%) rotate(45deg)}
+.plate::before{left:-.3em}.plate::after{right:-.3em}
+.name{font-family:var(--disp);font-weight:900;font-size:1.32em;letter-spacing:.04em;line-height:1;color:#fff4d8;text-shadow:0 2px 0 #000}
+.sub{font-size:.68em;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--tint);margin-top:.18em;display:flex;gap:.5em;align-items:center}
+.spd{color:#7ee0a0;letter-spacing:-.15em}
+/* rules text */
+.rules{position:absolute;left:10%;right:10%;top:72.5%;bottom:12.5%;display:flex;flex-direction:column;justify-content:center;gap:.28em;text-align:center;font-size:.8em;line-height:1.15;color:#f3e6c8;text-shadow:0 1px 2px #000}
+.rules b{color:#ffd27a;font-weight:800}
+.rules .fav{color:#ffe08a}
+.rules .fav::before{content:'★ ';color:#ffd040}
+/* hand-size (mini) level of detail: art, cost, name, gems only */
+.card.mini .rules,.card.mini .modes,.card.mini .kws,.card.mini .lvl{display:none}
+.card.mini .plate{top:69%;height:13%}.card.mini .name{font-size:1.45em}.card.mini .sub{font-size:.8em}
+.card.mini .scrim{height:36%}
+.card.mini .sub{display:none}.card.mini .plate{height:10%;top:72%}
+.mchips{display:none}
+.card.mini .mchips{display:flex;gap:.3em;position:absolute;left:0;right:0;top:85%;justify-content:center}
+.card.mini .mchips span{font-family:var(--disp);font-weight:800;font-size:.8em;padding:.05em .45em;border-radius:.4em;background:rgba(0,0,0,.6);border:1px solid rgba(255,220,150,.45);color:#ffd27a}
+.card.mini .tag{display:block}
+.tag{display:none;z-index:3;position:absolute;left:50%;transform:translateX(-50%);white-space:nowrap;top:61%;font-size:.8em;font-weight:800;padding:.1em .5em;border-radius:1em;background:rgba(10,5,2,.8);border:1px solid rgba(255,220,150,.5);color:#ffe2a6}
+/* stat gems */
+.stat{position:absolute;bottom:calc(var(--w)*-.02);width:calc(var(--w)*.2);height:calc(var(--w)*.2);display:flex;align-items:center;justify-content:center;flex-direction:column;
+ font-family:var(--disp);font-weight:900;font-size:1.85em;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.7)}
+.stat .ic{position:absolute;inset:0}
+.stat .ic svg{width:100%;height:100%;filter:drop-shadow(0 .15em .25em rgba(0,0,0,.7))}
+.stat span{position:relative;margin-top:.06em}
+.stat.atk{left:calc(var(--w)*-.025)}.stat.str{right:calc(var(--w)*-.025)}
+.stat.hurt span{color:#ff6a5a}
+/* command mode ladder */
+.modes{position:absolute;left:7%;right:7%;top:67%;bottom:6%;display:flex;flex-direction:column;justify-content:center;gap:.3em}
+.mode{display:flex;align-items:center;gap:.5em;padding:.18em .45em;border-radius:.4em;background:rgba(0,0,0,.42);border:1px solid rgba(255,220,150,.25);font-size:.82em;line-height:1.1}
+.mode .mi{flex:none;width:1.65em;height:1.65em;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:900;font-size:.95em;color:#fff;background:radial-gradient(circle at 38% 30%,#bfe2ff,#3f86e0 50%,#163f8a)}
+.mode b{font-family:var(--disp);font-size:.78em;letter-spacing:.08em;color:#ffd27a;width:3.9em;flex:none}
+.mode.off{opacity:.38}
+/* trainer objective track */
+.track{display:flex;gap:.22em;justify-content:center;align-items:center;margin-top:.2em}
+.track i{width:.62em;height:.62em;border-radius:50%;border:1.5px solid #ffd27a;display:block}.track i.on{background:#ffd27a;box-shadow:0 0 6px #ffd27a}
+.track .pt{width:1.7em;height:1.7em;border-radius:50%;background-size:cover;border:1.5px solid #ffd27a;margin-left:.3em}
+/* holo sheen + tilt (hover / Partner) */
+.holo::after{content:'';position:absolute;inset:0;border-radius:inherit;mix-blend-mode:color-dodge;opacity:.55;pointer-events:none;
+ background:linear-gradient(115deg,transparent 20%,rgba(255,120,200,.45) 32%,rgba(120,220,255,.5) 42%,rgba(255,250,150,.45) 52%,transparent 64%)}
+.tilt{transform:perspective(900px) rotateY(-9deg) rotateX(5deg)}
+
+/* ===== Board token ===== */
+.tok{position:absolute;width:var(--w);height:calc(var(--w)*1.36);border-radius:calc(var(--w)*.07);font-size:calc(var(--w)/156*16px);
+ --rim1:#f2d48a;--rim2:#9a6a22;--tint:#f39a4a;--glow:rgba(255,150,60,.55);box-shadow:0 .5em 1em rgba(0,0,0,.7)}
+.tok .art{position:absolute;inset:0;border-radius:inherit;background-size:var(--fz,cover);background-position:var(--fx,50%) var(--fy,40%)}
+.tok .rim{padding:calc(var(--w)*.03)}
+.tok .scrim{height:38%}
+.tok .tname{position:absolute;left:0;right:0;top:.35em;text-align:center;font-family:var(--disp);font-weight:900;font-size:.82em;letter-spacing:.04em;color:#fff4d8;text-shadow:0 1px 0 #000,0 0 6px #000}
+.tok .lvl{left:auto;right:.35em;top:.3em;font-size:.7em}
+.tok .stat{width:2.7em;height:2.7em;font-size:1.35em;bottom:-.35em}
+.tok .stat.atk{left:-.35em}.tok .stat.str{right:-.35em}
+.tok .spdb{position:absolute;left:50%;bottom:.4em;transform:translateX(-50%);font-size:1em;color:#7ee0a0;letter-spacing:-.15em;filter:drop-shadow(0 1px 1px #000)}
+.tok .kwi{position:absolute;left:.4em;top:1.8em;display:flex;flex-direction:column;gap:.25em}
+.tok .kwi i{font-style:normal;font-size:.62em;font-weight:800;padding:.1em .45em;border-radius:1em;background:rgba(10,5,2,.85);border:1px solid rgba(255,220,150,.55);color:#ffe2a6}
+.tok.ready{box-shadow:0 0 0 2px #ffd56a,0 0 1.6em .5em rgba(255,200,80,.75),0 0 3.5em 1em rgba(255,170,40,.35)}
+.tok.spent{filter:grayscale(.8) brightness(.55);transform:rotate(-6deg)}
+.tok .held{position:absolute;right:.45em;top:1.9em;width:1.8em;height:1.8em;border-radius:50%;background-size:cover;border:1.5px solid #ffe08a;box-shadow:0 0 6px rgba(255,220,120,.7)}
+
+/* section frames */
+.lab{position:absolute;font-family:var(--disp);font-weight:800;font-size:13px;letter-spacing:.14em;color:#d1a95a;text-transform:uppercase}
+.call{position:absolute;font-size:13px;color:#e8d6ae;line-height:1.25}
+.call b{color:#ffd27a}
+.line{position:absolute;border-top:1px dashed rgba(209,169,90,.5)}
+</style></head><body>
+<div id="app"></div>
+<script>
+const A=(n)=>`url(../../assets/cards/${n}.jpg)`;
+const SV={
+ pa:'<path d="M4 15C6 10 9 6 15 3M8 19c2.5-5 6-9 12-12M12 22c2-4 5-7 9-9" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/>',
+ sa:'<path d="M12 1.5l2.4 8.1L22.5 12l-8.1 2.4L12 22.5l-2.4-8.1L1.5 12l8.1-2.4z" fill="currentColor"/>',
+ hp:'<path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z" fill="currentColor"/>',
+ def:'<path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z" fill="currentColor"/>',
+ sdef:'<path d="M12 2l8.6 5v10L12 22l-8.6-5V7z" fill="currentColor"/>',
+ fire:'<path d="M12 2c1 4 5 6 5 11a5 5 0 0 1-10 0c0-3 2-4 2-7 2 1 3 3 3 5 1-2 0-6 0-9z" fill="#fff"/>',
+ water:'<path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z" fill="#fff"/>',
+ elec:'<path d="M13 2L5 14h6l-1 8 8-12h-6z" fill="#fff"/>',
+ rock:'<path d="M4 18l4-9 5 3 3-6 4 12z" fill="#fff"/>',
+ normal:'<circle cx="12" cy="12" r="6" fill="#fff"/>',
+ item:'<path d="M9 3h6v3l3 4v9a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-9l3-4z" fill="#fff"/>',
+ sup:'<circle cx="12" cy="8" r="4" fill="#fff"/><path d="M4 21c0-5 4-7 8-7s8 2 8 7z" fill="#fff"/>',
+ trn:'<path d="M12 2l3 6 6 1-4.5 4.5L18 20l-6-3-6 3 1.5-6.5L3 9l6-1z" fill="#fff"/>',
+};
+const sv=(k,cls='')=>`<svg class="i ${cls}" viewBox="0 0 24 24">${SV[k]}</svg>`;
+// stat gem backgrounds: shape by stat
+const GEM={
+ pa:['#ffb37a','#c2501c','<path d="M50 4 L94 50 L50 96 L6 50Z"/>'],
+ sa:['#e6c2ff','#7a3cc8','<path d="M50 4 L94 50 L50 96 L6 50Z"/>'],
+ hp:['#ff9aa8','#c22a44','<path d="M50 92 C20 72 6 54 6 34 A22 22 0 0 1 50 22 A22 22 0 0 1 94 34 C94 54 80 72 50 92Z"/>'],
+ def:['#eef2f8','#7a8494','<path d="M50 4 L90 18 V48 C90 72 72 88 50 96 C28 88 10 72 10 48 V18Z"/>'],
+ sdef:['#a8f2ff','#1f88a8','<path d="M50 4 L92 28 V72 L50 96 L8 72 V28Z"/>'],
+};
+const gem=(k,n,hurt)=>{const [a,b,p]=GEM[k];const id='g'+Math.random().toString(36).slice(2,7);
+ return `<div class="ic"><svg viewBox="0 0 100 100"><defs><radialGradient id="${id}" cx="38%" cy="30%"><stop offset="0" stop-color="${a}"/><stop offset=".55" stop-color="${b}"/><stop offset="1" stop-color="#1a0a04"/></radialGradient></defs><g fill="url(#${id})" stroke="#ffe7a8" stroke-width="5">${p}</g><g fill="none" stroke="rgba(0,0,0,.5)" stroke-width="2" transform="translate(50 50) scale(.84) translate(-50 -50)">${p}</g></svg></div><span ${hurt?'style="color:#ff7a68"':''}>${n}</span>`;};
+const TYPE={fire:{r1:'#ffd08a',r2:'#a8401a',tint:'#ffa060',glow:'rgba(255,120,40,.7)',bg:'radial-gradient(circle at 35% 30%,#ffb070,#d4501c 60%,#7a1e08)'},
+ water:{r1:'#bfe6ff',r2:'#1f5aa0',tint:'#8cc8ff',glow:'rgba(70,160,255,.7)',bg:'radial-gradient(circle at 35% 30%,#9ad8ff,#2a78d0 60%,#0e3a7a)'},
+ elec:{r1:'#fff0a0',r2:'#a07a10',tint:'#ffe060',glow:'rgba(255,220,60,.7)',bg:'radial-gradient(circle at 35% 30%,#fff09a,#e0b020 60%,#7a5a08)'},
+ rock:{r1:'#e8d7b0',r2:'#6a5434',tint:'#d8c090',glow:'rgba(200,170,110,.6)',bg:'radial-gradient(circle at 35% 30%,#e0cc9a,#8a6c3c 60%,#3a2a14)'},
+ sup:{r1:'#ffd6c8',r2:'#8a1e1e',tint:'#ff9a8a',glow:'rgba(255,90,80,.6)',bg:'radial-gradient(circle at 35% 30%,#ffb0a0,#c03a30 60%,#5a0e0a)'},
+ item:{r1:'#d8fff0',r2:'#1e7a64',tint:'#7ff0c8',glow:'rgba(80,230,180,.55)',bg:'radial-gradient(circle at 35% 30%,#a8ffe0,#20a07c 60%,#0a4a38)'},
+ trn:{r1:'#fff0c0',r2:'#5a2a9a',tint:'#d8b0ff',glow:'rgba(190,130,255,.65)',bg:'radial-gradient(circle at 35% 30%,#e8c8ff,#7a3ad0 60%,#2a0e5a)'},
+};
+const vars=(t)=>{const T=TYPE[t];return `--rim1:${T.r1};--rim2:${T.r2};--tint:${T.tint};--glow:${T.glow}`;};
+const crest=(t,ic)=>`<div class="crest" style="background:${TYPE[t].bg}">${sv(ic||t)}</div>`;
+let h='';const el=(x)=>h+=x;
+
+// Card builders
+function poke(o){
+ const mini=o.w<200?' mini':'';
+ return `<div class="card${mini} ${o.cls||''}" style="left:${o.x}px;top:${o.y}px;--w:${o.w}px;${vars(o.type)};--fx:${o.fx||'50%'};--fy:${o.fy||'35%'};${o.style||''}">${o.tag?`<span class="tag">${o.tag}</span>`:''}
+ <div class="art" style="background-image:${A(o.art)}"></div><div class="scrim"></div><div class="hair"></div><div class="rim"></div>
+ <div class="gemring"></div><div class="gem">${o.cost}</div><div class="lvl">Lv ${o.lv}</div>
+ ${crest(o.type)}<div class="kws">${(o.kw||[]).map(k=>`<span class="kw">${k}</span>`).join('')}</div>
+ <div class="plate"><div class="name">${o.name}</div><div class="sub">${o.sub}<span class="spd">${'›'.repeat(o.spd)}</span></div></div>
+ <div class="rules">${o.rules}</div>
+ <div class="stat atk">${gem(o.at,o.a)}</div><div class="stat str ${o.hurt?'hurt':''}">${gem(o.gt,o.s,o.hurt)}</div></div>`;}
+function cmd(o){
+ const mini=o.w<200?' mini':'';
+ return `<div class="card${mini} ${o.cls||''}" style="left:${o.x}px;top:${o.y}px;--w:${o.w}px;${vars(o.type)};--fx:${o.fx||'50%'};--fy:${o.fy||'35%'}">
+ <div class="art" style="background-image:${A(o.art)}"></div><div class="scrim" style="height:46%"></div><div class="hair"></div><div class="rim"></div>
+ <div class="gemring"></div><div class="gem">${(o.modes.find(m=>m.n==='ADAPT')||o.modes[0]).c}</div>${crest(o.type)}
+ <div class="mchips">${o.modes.filter(m=>!m.off).map(m=>`<span>${m.n} ${m.c}</span>`).join('')}</div>
+ <div class="plate" style="top:56%"><div class="name">${o.name}</div><div class="sub">Command · ${o.target}</div></div>
+ <div class="modes" style="top:68%">${o.modes.map(m=>`<div class="mode ${m.off?'off':''}"><span class="mi">${m.c}</span><b>${m.n}</b><span>${m.t}</span></div>`).join('')}</div></div>`;}
+function sup(o){
+ const mini=o.w<200?' mini':'';
+ return `<div class="card${mini} ${o.cls||''}" style="left:${o.x}px;top:${o.y}px;--w:${o.w}px;${vars('sup')};--fx:${o.fx||'50%'};--fy:${o.fy||'30%'}">
+ <div class="art" style="background-image:${A(o.art)}"></div><div class="scrim"></div><div class="hair"></div><div class="rim"></div>
+ <div class="gemring"></div><div class="gem rel">${o.rel}<small>RELEASE</small></div>${crest('sup','sup')}
+ <div class="plate"><div class="name">${o.name}</div><div class="sub">Supporter</div></div>
+ <div class="rules">${o.rules}<div class="fav">${o.fav}</div></div></div>`;}
+function item(o){
+ const mini=o.w<200?' mini':'';
+ return `<div class="card${mini} ${o.cls||''}" style="left:${o.x}px;top:${o.y}px;--w:${o.w}px;${vars('item')};--fx:${o.fx||'50%'};--fy:${o.fy||'40%'}">
+ <div class="art" style="background-image:${A(o.art)}"></div><div class="scrim"></div><div class="hair"></div><div class="rim"></div>
+ <div class="gemring money"></div><div class="gem money">$${o.price}</div>${crest('item','item')}
+ <div class="plate"><div class="name">${o.name}</div><div class="sub">Item · ${o.kind}</div></div>
+ <div class="rules">${o.rules}</div></div>`;}
+function trainer(o){
+ return `<div class="card holo ${o.cls||''}" style="left:${o.x}px;top:${o.y}px;--w:${o.w}px;${vars('trn')};--fx:50%;--fy:25%">
+ <div class="art" style="background-image:${A(o.art)}"></div><div class="scrim"></div><div class="hair"></div><div class="rim"></div>
+ <div class="gemring"></div><div class="gem">${o.cost}</div>${crest('trn','trn')}
+ <div class="plate" style="top:57%"><div class="name">${o.name}</div><div class="sub">Trainer</div></div>
+ <div class="rules" style="top:68.5%;bottom:7%"><div><b>Command:</b> ${o.cmd}</div><div style="margin-top:.25em;color:#e8d0ff"><b style="color:#d8b0ff">Objective:</b> ${o.obj}</div>
+ <div class="track">${Array.from({length:o.need},(_,k)=>`<i class="${k<o.prog?'on':''}"></i>`).join('')}<span class="pt" style="background-image:${A(o.partner)}"></span></div></div></div>`;}
+function tok(o){
+ return `<div class="tok ${o.cls||''}" style="left:${o.x}px;top:${o.y}px;--w:${o.w}px;${vars(o.type)};--fx:${o.fx||'50%'};--fy:${o.fy||'35%'};${o.fz?`--fz:${o.fz}`:''}">
+ <div class="art" style="background-image:${A(o.art)}"></div><div class="scrim"></div><div class="hair" style="inset:4px;border-radius:8px"></div><div class="rim" style="padding:4px"></div>
+ <div class="tname">${o.name}</div><div class="lvl">${o.lv}</div>
+ <div class="kwi">${(o.kw||[]).map(k=>`<i>${k}</i>`).join('')}</div>${o.held?`<div class="held" style="background-image:${A(o.held)}"></div>`:''}
+ <div class="spdb">${'›'.repeat(o.spd)}</div>
+ <div class="stat atk">${gem(o.at,o.a)}</div><div class="stat str">${gem(o.gt,o.s,o.hurt)}</div></div>`;}
+
+// ===== Row 1: full-size cards (Codex / hover zoom size) =====
+el(`<div class="lab" style="left:40px;top:22px">Full card · Codex & hover size (300 × 420)</div>`);
+const Y=52, W=272, G=36; let X=40;
+el(poke({x:X,y:Y,w:W,type:'fire',art:'charizard',name:'Charizard',lv:7,cost:4,sub:'Fire · Special',spd:3,at:'sa',a:8,gt:'hp',s:9,kw:['Overrun'],fy:'30%',
+ rules:'<div><b>On Summon:</b> 2 damage to each enemy Pokémon.</div>',cls:'holo tilt'})); X+=W+G;
+el(poke({x:X,y:Y,w:W,type:'water',art:'wartortle',name:'Wartortle',lv:5,cost:3,sub:'Water · Special',spd:2,at:'sa',a:4,gt:'def',s:7,kw:['Shell 1'],fy:'35%',
+ rules:'<div><b>On Summon:</b> heal 2 to each of your Pokémon in its Location.</div>'})); X+=W+G;
+el(cmd({x:X,y:Y,w:W,type:'elec',art:'thunderbolt',name:'Thunderbolt',target:'an enemy Pokémon',fy:'30%',
+ modes:[{n:'REACT',c:2,t:'2 damage',off:true},{n:'ADAPT',c:3,t:'4 damage'},{n:'STRAT',c:4,t:'6 damage'}]})); X+=W+G;
+el(sup({x:X,y:Y,w:W,art:'nurse-joy',name:'Nurse Joy',rel:1,fy:'22%',rules:'<div>Heal each of your Pokémon 2.</div>',fav:'Release a Water Pokémon: heal 4 instead · +3 Recognition'})); X+=W+G;
+el(item({x:X,y:Y,w:W,art:'rocky-helmet',name:'Rocky Helmet',price:3,kind:'Held',rules:'<div>The holder has <b>Retaliate 2</b>.</div><div style="font-size:.85em;color:#bfe9d8">Stock 4 turns in the PokéMart</div>'})); X+=W+G;
+el(trainer({x:X,y:Y,w:W,art:'misty',name:'Misty',cost:2,cmd:'draw 2 cards.',obj:'Defeat 8 enemy Pokémon',need:8,prog:3,partner:'starmie'}));
+
+// ===== Row 2 left: hand at real size with one card zoomed =====
+el(`<div class="lab" style="left:40px;top:500px">Hand · real size, the hovered card lifts and grows</div>`);
+const hand=[
+ ()=>poke({x:0,y:0,w:150,type:'fire',art:'growlithe',name:'Growlithe',tag:'On Summon',lv:3,cost:2,sub:'Fire · Physical',spd:3,at:'pa',a:3,gt:'hp',s:4,fy:'40%',rules:'<div><b>On Summon:</b> your other Pokémon here +1 Attack until Supper.</div>'}),
+ ()=>poke({x:0,y:0,w:150,type:'elec',art:'shinx',name:'Shinx',tag:'On Summon',lv:2,cost:1,sub:'Electric · Physical',spd:3,at:'pa',a:2,gt:'hp',s:3,fy:'38%',rules:'<div><b>On Summon:</b> 1 damage to an enemy Pokémon.</div>'}),
+ ()=>cmd({x:0,y:0,w:150,type:'fire',art:'ember',name:'Ember',target:'an enemy',fy:'35%',modes:[{n:'ADAPT',c:2,t:'3 dmg'},{n:'STRAT',c:3,t:'5 dmg'}]}),
+ null,
+ ()=>item({x:0,y:0,w:150,art:'potion',name:'Potion',price:2,kind:'Consumed',rules:'<div>Heal one of your Pokémon 4.</div>'}),
+ ()=>sup({x:0,y:0,w:150,art:'professor-oak',name:'Prof. Oak',rel:1,fy:'25%',rules:'<div>A Pokémon from your Draw Pile into your hand.</div>',fav:'Location: 2 Pokémon'}),
+];
+hand.forEach((f,k)=>{ if(!f){return;} const x=40+k*124, y=548+Math.abs(k-2.5)*6, r=(k-2.5)*3;
+ el(f().replace('class="card','class="card').replace(/left:0px;top:0px;/,`left:${x}px;top:${y}px;transform:rotate(${r}deg);`)); });
+// zoomed card (Squirtle) lifted above slot 3
+el(poke({x:350,y:494,w:236,type:'water',art:'squirtle',name:'Squirtle',lv:3,cost:2,sub:'Water · Special',spd:2,at:'sa',a:2,gt:'def',s:5,fy:'38%',
+ rules:'<div><b>On Summon:</b> heal 2 to one of your Pokémon.</div><div style="font-size:.86em;color:#bcd6ff">Guards Pokémon here from Physical attacks</div>',
+ style:'z-index:5;box-shadow:0 0 0 2px #ffd56a,0 0 30px 6px rgba(255,200,80,.55),0 30px 60px rgba(0,0,0,.8)'}));
+el(`<div class="call" style="left:40px;top:830px;width:700px">Every hand card is the full card, shrunk. Hovering lifts it to a readable size (the art, all text, all numbers) with no tooltip. <b>Playable</b> cards keep their gold edge; unplayable ones dim with the reason underneath.</div>`);
+
+// ===== Row 2 middle: board tokens =====
+el(`<div class="lab" style="left:800px;top:500px">On the board · Ready, damaged, Spent, Partner</div>`);
+el(`<div class="abs" style="left:790px;top:530px;width:700px;height:300px;border-radius:14px;background:linear-gradient(rgba(14,8,3,.35),rgba(14,8,3,.55)),${A('mt-ember')} center/cover;border:2px solid #f39a4a;box-shadow:inset 0 0 40px rgba(0,0,0,.7)"></div>`);
+el(tok({x:815,y:556,w:150,type:'fire',art:'charizard',name:'Charizard',lv:'Lv 7',spd:3,at:'sa',a:8,gt:'hp',s:9,kw:['Overrun'],held:'charcoal',cls:'ready',fy:'28%'}));
+el(tok({x:985,y:556,w:150,type:'water',art:'blastoise',name:'Blastoise',lv:'Lv 6',spd:2,at:'sa',a:5,gt:'def',s:'4',hurt:1,kw:['Shell 1'],fy:'35%'}));
+el(tok({x:1155,y:556,w:150,type:'elec',art:'lanturn',name:'Lanturn',lv:'Lv 4',spd:2,at:'sa',a:3,gt:'sdef',s:5,cls:'spent',fy:'40%'}));
+el(tok({x:1325,y:556,w:150,type:'trn',art:'ninetales',name:'Ninetales',lv:'★',spd:2,at:'sa',a:9,gt:'hp',s:11,cls:'holo',fy:'35%'}));
+el(`<div class="call" style="left:800px;top:830px;width:690px">Board cards keep the full art, framed with a per-card <b>focal point</b> so the Pokémon is always in view. <b>Name</b> on top, Level, keyword chips, Held Item, Speed, and big <b>stat gems</b> whose shape says the stat: diamond = attack (orange Physical, violet Special), heart = Hitpoints, shield = Defence, hexagon = Special Defence.</div>`);
+
+// ===== Row 2 right: legend =====
+el(`<div class="lab" style="left:1540px;top:500px">Frames by card type</div>`);
+const legend=[['fire','Fire Pokémon & moves'],['water','Water'],['elec','Electric'],['rock','Rock / other moves'],['sup','Supporter'],['item','Item'],['trn','Trainer & Partner (holo)']];
+legend.forEach(([t,l],k)=>el(`<div class="abs" style="left:1540px;top:${532+k*38}px;display:flex;align-items:center;gap:10px;font-size:15px"><span style="width:26px;height:26px;border-radius:50%;background:${TYPE[t].bg};border:2px solid ${TYPE[t].r1};box-shadow:0 0 10px ${TYPE[t].glow}"></span>${l}</div>`));
+el(`<div class="call" style="left:1540px;top:810px;width:350px">The gem at the top-left says what it costs: <b>blue hexagon</b> = Energy, <b>gold coin</b> = PokéDollars, <b>red gem</b> = cards to Release. Evolved forms and Partners get a <b>holo sheen</b> and tilt under the pointer.</div>`);
+document.getElementById('app').innerHTML=h;
+</script></body></html>
