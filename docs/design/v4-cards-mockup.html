@@ -1,255 +1,194 @@
 <!doctype html>
 <html><head><meta charset="utf-8">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;0,800;1,500&family=Cinzel:wght@700;800;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;0,800;1,400&family=Cinzel:wght@500;600;700&display=swap">
 <style>
-:root{--disp:'Cinzel',Georgia,serif;--text:'Alegreya Sans',system-ui,sans-serif}
+:root{--disp:'Cinzel',Georgia,serif;--text:'Alegreya Sans',system-ui,sans-serif;--brass:#c2a36a;--brassd:#6e5530}
 *{box-sizing:border-box;margin:0}
-body{width:1920px;height:1080px;overflow:hidden;font-family:var(--text);color:#f6ead0;
- background:radial-gradient(ellipse at 50% 35%,#3b2614 0%,#1a0e06 65%,#0b0603 100%)}
-.lab{position:absolute;font-family:var(--disp);font-weight:800;font-size:13px;letter-spacing:.14em;color:#d1a95a;text-transform:uppercase}
-.call{position:absolute;font-size:13.5px;color:#e8d6ae;line-height:1.3}
-.call b{color:#ffd27a}
-/* a card is always authored at 300x420 and scaled */
-.cw{position:absolute;width:300px;height:420px;transform-origin:0 0}
-.cw svg.fr{position:absolute;left:-20px;top:-20px;width:340px;height:460px;overflow:visible;filter:drop-shadow(0 14px 22px rgba(0,0,0,.75))}
+body{width:1920px;height:1080px;overflow:hidden;font-family:var(--text);color:#ece2cc;background:radial-gradient(ellipse at 50% 30%,#2a2119 0%,#130f0b 60%,#080605 100%)}
+.lab{position:absolute;font-family:var(--disp);font-weight:600;font-size:12px;letter-spacing:.22em;color:#9c8862;text-transform:uppercase}
+.call{position:absolute;font-size:13.5px;color:#cbbd9f;line-height:1.35}
+.call b{color:#e6cf9a;font-weight:700}
+.cw{position:absolute;width:340px;height:476px;transform-origin:0 0}
+.cw svg.fr{position:absolute;left:0;top:0;width:340px;height:476px;overflow:visible;filter:drop-shadow(0 18px 26px rgba(0,0,0,.7)) drop-shadow(0 2px 3px rgba(0,0,0,.6))}
 .t{position:absolute;display:flex;align-items:center;justify-content:center;text-align:center}
-.name{font-family:var(--disp);font-weight:900;color:#fff4d8;letter-spacing:.03em;text-shadow:0 2px 0 #000;white-space:nowrap}
-.sub{font-weight:800;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;white-space:nowrap}
-.rules{font-size:13.5px;line-height:1.22;color:#f3e6c8;text-shadow:0 1px 2px #000;flex-direction:column;gap:3px}
-.rules b{color:#ffd27a;font-weight:800}
-.num{font-family:var(--disp);font-weight:900;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.75),0 0 8px rgba(0,0,0,.6)}
-.kw{position:absolute;right:26px;display:flex;flex-direction:column;gap:4px;align-items:flex-end}
-.kw span{font-weight:800;font-size:11px;letter-spacing:.04em;padding:2px 9px;border-radius:9px;background:rgba(12,6,2,.84);border:1px solid rgba(255,220,150,.6);color:#ffe2a6;white-space:nowrap}
-.mode{position:absolute;left:30px;right:30px;height:22px;display:flex;align-items:center;gap:8px;font-size:12.5px;white-space:nowrap}
-.mode .c{width:20px;height:20px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:900;font-size:12px;color:#fff;background:radial-gradient(circle at 38% 30%,#cfe8ff,#3f86e0 55%,#163f8a);border:1.5px solid #ffe7a8}
-.mode b{font-family:var(--disp);font-size:10.5px;letter-spacing:.1em;color:#ffd27a;width:46px;flex:none;text-align:left}
-.mode.off{opacity:.35}
-.holo .sheen{position:absolute;inset:0;pointer-events:none;mix-blend-mode:color-dodge;opacity:.55}
-.dim{filter:brightness(.55) saturate(.6)}
+.name{font-family:var(--disp);font-weight:700;font-size:21px;letter-spacing:.06em;color:#f3ead6;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.9)}
+.type{font-size:10.5px;font-weight:700;letter-spacing:.24em;text-transform:uppercase;white-space:nowrap}
+.rules{font-size:14.5px;line-height:1.28;color:#e4d9c2;flex-direction:column;gap:4px}
+.rules b{font-weight:700;color:#e9cf93}
+.rules i{font-style:normal;font-family:var(--disp);font-weight:600;font-size:11.5px;letter-spacing:.14em;color:var(--acc)}
+.num{font-family:var(--disp);font-weight:600;color:#f6efe0;font-size:25px;line-height:1;text-shadow:0 1px 2px #000}
+.mrow{position:absolute;left:30px;right:30px;height:24px;display:flex;align-items:center;font-size:14px;color:#e4d9c2;white-space:nowrap;border-bottom:1px solid rgba(194,163,106,.18)}
+.mrow b{font-family:var(--disp);font-weight:700;font-size:12px;letter-spacing:.14em;color:#d9be86;width:70px;text-transform:uppercase}
+.mrow .c{margin-left:auto;font-family:var(--disp);font-weight:600;font-size:13px;color:#bfd8f2;display:flex;align-items:center;gap:4px}
+.mrow.off{opacity:.32}
+.chip{font-family:var(--disp);font-weight:600;font-size:10.5px;letter-spacing:.14em;color:#e6cf9a;padding:3px 10px;border:1px solid rgba(194,163,106,.55);border-radius:3px;background:rgba(10,7,5,.75);white-space:nowrap;text-transform:uppercase}
 </style></head><body>
 <div id="app"></div>
 <script>
 const ART=(n)=>`../../assets/cards/${n}.jpg`;
-const G={ // stat glyphs (small, inside sockets)
- pa:'<path d="M4 15C6 10 9 6 15 3M8 19c2.5-5 6-9 12-12M12 22c2-4 5-7 9-9" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/>',
- sa:'<path d="M12 1.5l2.4 8.1L22.5 12l-8.1 2.4L12 22.5l-2.4-8.1L1.5 12l8.1-2.4z" fill="currentColor"/>',
- hp:'<path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z" fill="currentColor"/>',
- def:'<path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z" fill="currentColor"/>',
- sdef:'<path d="M12 2l8.6 5v10L12 22l-8.6-5V7z" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="3.5" fill="currentColor"/>',
- fire:'<path d="M12 2c1 4 5 6 5 11a5 5 0 0 1-10 0c0-3 2-4 2-7 2 1 3 3 3 5 1-2 0-6 0-9z" fill="#fff"/>',
- water:'<path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z" fill="#fff"/>',
- elec:'<path d="M13 2L5 14h6l-1 8 8-12h-6z" fill="#fff"/>',
- sup:'<circle cx="12" cy="8" r="4" fill="#fff"/><path d="M4 21c0-5 4-7 8-7s8 2 8 7z" fill="#fff"/>',
- item:'<path d="M9 3h6v3l3 4v9a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-9l3-4z" fill="#fff"/>',
- trn:'<path d="M12 2l3 6 6 1-4.5 4.5L18 20l-6-3-6 3 1.5-6.5L3 9l6-1z" fill="#fff"/>',
- loc:'<path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7z" fill="#fff"/><circle cx="12" cy="9" r="2.6" fill="#333"/>',
+const W=340,H=476;
+const ACC={fire:'#d9773f',water:'#5f9bd6',elec:'#d7b440',rock:'#b39a6c',normal:'#b7ad9a',sup:'#c46a6a',item:'#5fb59a',trn:'#a786d6',loc:'#c2a36a'};
+const G={
+ pa:'<path d="M5 16C7 11 10 7 15 4M9 19.5c2.5-5 5.5-8.5 11-11.5M13 22c2-3.5 4.5-6 8-8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
+ sa:'<path d="M12 2l2 8 8 2-8 2-2 8-2-8-8-2 8-2z" fill="currentColor"/>',
+ hp:'<path d="M12 20.5s-7.5-4.8-7.5-10.2a4.2 4.2 0 0 1 7.5-2.6 4.2 4.2 0 0 1 7.5 2.6c0 5.4-7.5 10.2-7.5 10.2z" fill="currentColor"/>',
+ def:'<path d="M12 2.5l7.5 2.8v5.8c0 4.8-3.3 8.4-7.5 10.4-4.2-2-7.5-5.6-7.5-10.4V5.3z" fill="currentColor"/>',
+ sdef:'<path d="M12 2.5l8 4.6v9.8L12 21.5l-8-4.6V7.1z" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="12" cy="12" r="3" fill="currentColor"/>',
+ fire:'<path d="M12 2.5c1 3.8 4.8 5.8 4.8 10.6a4.8 4.8 0 0 1-9.6 0c0-2.8 1.9-3.8 1.9-6.6 1.9 1 2.9 2.8 2.9 4.7 1-1.9 0-5.7 0-8.7z" fill="currentColor"/>',
+ water:'<path d="M12 3.5s5.6 6.6 5.6 10.4a5.6 5.6 0 0 1-11.2 0c0-3.8 5.6-10.4 5.6-10.4z" fill="currentColor"/>',
+ elec:'<path d="M13 2.5L5.5 13.5h5.6l-1 8 7.4-11h-5.6z" fill="currentColor"/>',
+ rock:'<path d="M4 18l4.5-9 4.5 3 3-6 4 12z" fill="currentColor"/>',
+ normal:'<circle cx="12" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="2.2"/>',
+ sup:'<circle cx="12" cy="8" r="3.6" fill="currentColor"/><path d="M5 20c0-4.4 3.4-6.4 7-6.4s7 2 7 6.4z" fill="currentColor"/>',
+ item:'<path d="M9.5 3.5h5v2.8l2.8 3.6v8.6a1.8 1.8 0 0 1-1.8 1.8H8.5a1.8 1.8 0 0 1-1.8-1.8V9.9l2.8-3.6z" fill="currentColor"/>',
+ trn:'<path d="M12 3l2.6 5.4 5.9.9-4.3 4.1 1 5.9L12 16.6l-5.2 2.7 1-5.9L3.5 9.3l5.9-.9z" fill="currentColor"/>',
+ loc:'<path d="M12 2.5a6.5 6.5 0 0 1 6.5 6.5c0 4.8-6.5 12.5-6.5 12.5S5.5 13.8 5.5 9A6.5 6.5 0 0 1 12 2.5z" fill="currentColor"/><circle cx="12" cy="9" r="2.4" fill="#0b0705"/>',
+ en:'<path d="M13 2.5L6 13h5l-1 8.5 7-10.5h-5z" fill="currentColor"/>',
 };
-const STATC={pa:['#ffb27a','#a8400e'],sa:['#e2c0ff','#5e2aa8'],hp:['#ffa0ac','#a81e36'],def:['#f0f4fa','#5a6474'],sdef:['#b0f4ff','#13708c']};
-const T={fire:['#ffe0a0','#b4471a','#ff9a50'],water:['#d0eeff','#1f5aa0','#8cc8ff'],elec:['#fff3b0','#a07a10','#ffe060'],
- rock:['#efe0bc','#6a5434','#d8c090'],sup:['#ffe0d4','#8a1e2a','#ff9a8a'],item:['#e4fff4','#1e7a64','#7ff0c8'],trn:['#fff0c8','#5a2a9a','#d8b0ff'],loc:['#f4e4c0','#7a5a2a','#ffd27a']};
+const SC={pa:'#d98a55',sa:'#a98ad8',hp:'#d9798a',def:'#b9c3cf',sdef:'#6fc2d6'};
+const gl=(k,x,y,s,col)=>`<svg x="${x}" y="${y}" width="${s}" height="${s}" viewBox="0 0 24 24" style="color:${col}">${G[k]}</svg>`;
 let uid=0;
-function defs(type){const [a,b]=T[type];const id='m'+(++uid);
- return [id,`<linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a}"/><stop offset=".28" stop-color="${b}"/><stop offset=".5" stop-color="${a}"/><stop offset=".74" stop-color="${b}"/><stop offset="1" stop-color="${a}"/></linearGradient>`];}
-// layered metal stroke: dark under-band, metal band, bright ridge
-const metal=(d,m,w=11)=>`<path d="${d}" fill="none" stroke="#120802" stroke-width="${w+5}" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="url(#${m})" stroke-width="${w}" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="rgba(255,250,225,.7)" stroke-width="1.2" stroke-linejoin="round"/>`;
-const enamel=(id,a,b)=>`<radialGradient id="${id}" cx="40%" cy="28%" r="80%"><stop offset="0" stop-color="${a}"/><stop offset=".55" stop-color="${b}"/><stop offset="1" stop-color="#140804"/></radialGradient>`;
-const glyph=(k,x,y,s,col)=>`<svg x="${x-s/2}" y="${y-s/2}" width="${s}" height="${s}" viewBox="0 0 24 24" style="color:${col}">${G[k]}</svg>`;
-const shift=(d)=>d; // paths authored in card space; svg is offset by 20px
-function svgWrap(inner,defsStr){return `<svg class="fr" viewBox="-20 -20 340 460"><defs>${defsStr}</defs>${inner}</svg>`;}
-function artLayer(path,art,fx=50,fy=35,scrimFrom=.58){const c='c'+(++uid),g='s'+uid;
- return [`<clipPath id="${c}"><path d="${path}"/></clipPath><linearGradient id="${g}" x1="0" y1="0" x2="0" y2="1"><stop offset="${scrimFrom}" stop-color="#0c0602" stop-opacity="0"/><stop offset="${scrimFrom+.14}" stop-color="#0c0602" stop-opacity=".82"/><stop offset="1" stop-color="#080401" stop-opacity=".97"/></linearGradient>`,
- `<g clip-path="url(#${c})"><image href="${ART(art)}" x="0" y="0" width="300" height="420" preserveAspectRatio="xMidYMid slice" style="object-position:${fx}% ${fy}%"/><rect width="300" height="420" fill="url(#${g})"/></g>`];}
-const ribbon=(y,h,m,x1=22,x2=278)=>{const mid=y+h/2;return `<path d="M${x1},${y} H${x2} L${x2+14},${mid} L${x2},${y+h} H${x1} L${x1-14},${mid} Z" fill="url(#rb)" stroke="url(#${m})" stroke-width="3"/><path d="M${x1+6},${y+4} H${x2-6}" stroke="rgba(255,240,200,.25)" stroke-width="1"/>`;};
-const RB=`<linearGradient id="rb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a2410"/><stop offset="1" stop-color="#140a03"/></linearGradient>`;
-const cost=(cx,cy,r,n,m,kind='energy')=>{const id='e'+(++uid);
- const fill=kind==='money'?enamel(id,'#fff3b8','#c8961e'):kind==='seal'?enamel(id,'#ffb8a8','#a8202a'):enamel(id,'#d4ecff','#2f74d0');
- const col=kind==='money'?'#3a2205':'#fff';
- let shape=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#${id})"/>`;
- if(kind==='seal'){let p='';for(let i=0;i<=24;i++){const a=i/24*Math.PI*2,rr=r+(i%2?3:-1);p+=(i?'L':'M')+(cx+rr*Math.cos(a)).toFixed(1)+','+(cy+rr*Math.sin(a)).toFixed(1);}shape=`<path d="${p}Z" fill="url(#${id})"/>`;}
- return {d:fill,s:`<circle cx="${cx}" cy="${cy}" r="${r+7}" fill="#120802"/><circle cx="${cx}" cy="${cy}" r="${r+5}" fill="url(#${m})"/>${shape}<ellipse cx="${cx-r*.25}" cy="${cy-r*.4}" rx="${r*.45}" ry="${r*.22}" fill="rgba(255,255,255,.35)"/>`,
-  t:`<div class="t num" style="left:${cx-r}px;top:${cy-r}px;width:${2*r}px;height:${2*r}px;font-size:${r*1.05}px;color:${col};${kind==='money'?'text-shadow:0 1px 0 rgba(255,255,255,.4)':''}">${n}</div>`};};
-const crest=(cx,cy,r,type,m,icon)=>{const id='k'+(++uid);const [a,b,c]=T[type];
- return {d:enamel(id,c,b),s:`<circle cx="${cx}" cy="${cy}" r="${r+4}" fill="url(#${m})"/><circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#${id})"/>${glyph(icon||type,cx,cy,r*1.2,'#fff')}`};};
 
-// ===== Pokémon (unit): arched crown, integrated cost medallion, stat bastions in the frame =====
-const P_BODY='M14,76 C14,46 38,30 70,26 Q150,8 230,26 C262,30 286,46 286,76 V392 Q286,406 272,406 H28 Q14,406 14,392 Z';
-const PL='M8,346 H70 Q84,346 90,358 L98,384 Q104,412 80,414 H24 Q8,414 8,398 Z';           // attack bastion
-const PR='M292,346 H230 Q216,346 210,358 L202,384 Q196,412 220,414 H276 Q292,414 292,398 Z'; // strength bastion
-function pokemon(o){
- const [m,md]=defs(o.type);const [ad,al]=artLayer(P_BODY,o.art,o.fx,o.fy,o.lod==='full'?.5:.6);
- const c=cost(46,52,25,o.cost,m);const cr=crest(258,50,15,o.type,m);
- const ea='a'+(++uid),eb='b'+uid;const [a1,a2]=STATC[o.at],[b1,b2]=STATC[o.gt];
- const sock=`<path d="${PL}" fill="url(#${ea})" stroke="#120802" stroke-width="7"/><path d="${PL}" fill="url(#${ea})" stroke="url(#${m})" stroke-width="3.5"/>${glyph(o.at,53,364,15,a1)}
-   <path d="${PR}" fill="url(#${eb})" stroke="#120802" stroke-width="7"/><path d="${PR}" fill="url(#${eb})" stroke="url(#${m})" stroke-width="3.5"/>${glyph(o.gt,247,364,15,b1)}`;
- const full=o.lod==='full';
- const rib=full?ribbon(250,34,m):ribbon(272,40,m);
- const svg=svgWrap(`${al}${metal(P_BODY,m)}${rib}${sock}${c.s}${cr.s}${o.holo?'':''}`,`${md}${ad}${RB}${c.d}${cr.d}${enamel(ea,a1,a2)}${enamel(eb,b1,b2)}`);
- let txt=c.t+`<div class="t num" style="left:16px;top:368px;width:76px;height:40px;font-size:31px">${o.a}</div><div class="t num" style="left:208px;top:368px;width:76px;height:40px;font-size:31px;${o.hurt?'color:#ff7a68':''}">${o.s}</div>`;
- if(o.lod==='full') txt+=`<div class="t" style="left:24px;top:80px;width:44px;height:16px"><span class="sub" style="color:#ffe3a0;font-family:var(--disp);letter-spacing:.06em;font-size:11px;background:rgba(12,6,2,.8);border:1px solid #b08a3a;border-radius:6px;padding:1px 6px">Lv ${o.lv}</span></div>`;
- txt+=`<div class="t" style="left:104px;top:386px;width:92px;height:18px;color:#7ee0a0;font-weight:900;font-size:17px;letter-spacing:-2px;text-shadow:0 1px 2px #000">${'›'.repeat(o.spd)}</div>`;
- if(full){
-  txt+=`<div class="kw" style="top:76px">${(o.kw||[]).map(k=>`<span>${k}</span>`).join('')}</div>`;
-  txt+=`<div class="t name" style="left:20px;top:250px;width:260px;height:34px;font-size:22px">${o.name}</div>`;
-  txt+=`<div class="t sub" style="left:20px;top:288px;width:260px;height:14px;color:${T[o.type][2]}">${o.sub}</div>`;
-  txt+=`<div class="t rules" style="left:30px;top:304px;width:240px;height:42px">${o.rules}</div>`;
- } else {
-  if(o.tag) txt+=`<div class="t" style="left:60px;top:240px;width:180px;height:24px"><span class="sub" style="font-size:15px;letter-spacing:.06em;color:#ffe2a6;background:rgba(12,6,2,.84);border:1.5px solid rgba(255,220,150,.6);border-radius:12px;padding:2px 12px">${o.tag}</span></div>`;
-  if(o.kw&&o.kw.length) txt+=`<div class="kw" style="top:76px">${o.kw.map(k=>`<span style="font-size:15px">${k}</span>`).join('')}</div>`;
-  txt+=`<div class="t name" style="left:20px;top:272px;width:260px;height:40px;font-size:29px">${o.name}</div>`;
+// ---- silhouettes: near-rectangles, each with one distinct trait. i = inset ----
+const R=10;
+const SH={
+ // Pokémon: chamfered top corners
+ pokemon:(i)=>{const c=16-i*.4;return `M${i+c},${i} H${W-i-c} L${W-i},${i+c} V${H-i-R} Q${W-i},${H-i} ${W-i-R},${H-i} H${i+R} Q${i},${H-i} ${i},${H-i-R} V${i+c} Z`;},
+ // Command: a shallow notch in the top edge that seats the cost
+ command:(i)=>`M${i+R},${i} H${W/2-30} C${W/2-18},${i} ${W/2-16},${i+14} ${W/2},${i+14} C${W/2+16},${i+14} ${W/2+18},${i} ${W/2+30},${i} H${W-i-R} Q${W-i},${i} ${W-i},${i+R} V${H-i-R} Q${W-i},${H-i} ${W-i-R},${H-i} H${i+R} Q${i},${H-i} ${i},${H-i-R} V${i+R} Q${i},${i} ${i+R},${i} Z`,
+ // Supporter: a gentle arch on the top edge
+ supporter:(i)=>`M${i},${i+22} Q${W/2},${i-12} ${W-i},${i+22} V${H-i-R} Q${W-i},${H-i} ${W-i-R},${H-i} H${i+R} Q${i},${H-i} ${i},${H-i-R} Z`,
+ // Item: rounded tag with a punched eyelet notch
+ item:(i)=>`M${i+16},${i} H${W/2-16} A16,16 0 0 0 ${W/2+16},${i} H${W-i-16} Q${W-i},${i} ${W-i},${i+16} V${H-i-16} Q${W-i},${H-i} ${W-i-16},${H-i} H${i+16} Q${i},${H-i} ${i},${H-i-16} V${i+16} Q${i},${i} ${i+16},${i} Z`,
+ // Trainer: a low central peak
+ trainer:(i)=>`M${i},${i+18} L${W/2-46},${i+18} L${W/2},${i-4} L${W/2+46},${i+18} L${W-i},${i+18} V${H-i-R} Q${W-i},${H-i} ${W-i-R},${H-i} H${i+R} Q${i},${H-i} ${i},${H-i-R} Z`,
+ // Location: square body between two scroll rolls
+ location:(i)=>`M${i+6},${i+14} H${W-i-6} V${H-i-14} H${i+6} Z`,
+};
+function frame(shape,acc,opts={}){
+ const o=SH[shape](0),inner=SH[shape](7);const c='c'+(++uid),sc='s'+uid,br='b'+uid;
+ const panelTop=opts.panel??300;
+ return {defs:`<clipPath id="${c}"><path d="${o}"/></clipPath>
+  <linearGradient id="${sc}" x1="0" y1="0" x2="0" y2="1"><stop offset="${(panelTop-90)/H}" stop-color="#0a0705" stop-opacity="0"/><stop offset="${(panelTop-10)/H}" stop-color="#0a0705" stop-opacity=".78"/><stop offset="${(panelTop+20)/H}" stop-color="#0a0705" stop-opacity=".92"/><stop offset="1" stop-color="#070504" stop-opacity=".97"/></linearGradient>
+  <linearGradient id="${br}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e2c88f"/><stop offset=".4" stop-color="#8f7140"/><stop offset=".6" stop-color="#d4b67c"/><stop offset="1" stop-color="#6e5530"/></linearGradient>`,
+  art:`<g clip-path="url(#${c})"><image href="${ART(opts.art)}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice"/><rect width="${W}" height="${H}" fill="url(#${sc})"/>${opts.noPanel?'':`<rect y="${panelTop}" width="${W}" height="${H-panelTop}" fill="rgba(8,6,4,.18)"/>`}</g>`,
+  lines:`<path d="${o}" fill="none" stroke="#050302" stroke-width="3"/><path d="${o}" fill="none" stroke="url(#${br})" stroke-width="1.6"/><path d="${inner}" fill="none" stroke="rgba(194,163,106,.55)" stroke-width="1"/>`
+   +(opts.noPanel?'':`<path d="M24,${panelTop} H${W/2-12} M${W/2+12},${panelTop} H${W-24}" stroke="url(#${br})" stroke-width="1"/><path d="M${W/2},${panelTop-5} L${W/2+5},${panelTop} L${W/2},${panelTop+5} L${W/2-5},${panelTop}Z" fill="${acc}" stroke="#e2c88f" stroke-width=".8"/>`),
+  br};
+}
+// cost socket: a small dark well with a fine ring, set into the frame
+function costWell(cx,cy,n,kind,br){
+ const ring={energy:'#7fb2e6',money:'#e2c070',seal:'#d07070'}[kind];
+ return {svg:`<circle cx="${cx}" cy="${cy}" r="21" fill="#0b0806" stroke="url(#${br})" stroke-width="1.6"/><circle cx="${cx}" cy="${cy}" r="17" fill="none" stroke="${ring}" stroke-width="1" opacity=".75"/>`,
+  html:`<div class="t num" style="left:${cx-21}px;top:${cy-21}px;width:42px;height:42px;font-size:${String(n).length>1?18:23}px;color:${kind==='money'?'#f0d590':'#eef4fb'}">${n}</div>`};}
+function crest(cx,cy,k,acc,br){return `<circle cx="${cx}" cy="${cy}" r="13" fill="#0b0806" stroke="url(#${br})" stroke-width="1.2"/>${gl(k,cx-8,cy-8,16,acc)}`;}
+// stat tabs: flush into the bottom corners; the inner hairline steps around them
+function statTabs(at,a,gt,s,hurt,br){
+ const tw=64,th=46,y=H-7-th;
+ const L=`M7,${y} H${7+tw-8} Q${7+tw},${y} ${7+tw},${y+8} V${H-7}`, Rr=`M${W-7},${y} H${W-7-tw+8} Q${W-7-tw},${y} ${W-7-tw},${y+8} V${H-7}`;
+ return {svg:`<path d="M7,${y} H${7+tw-8} Q${7+tw},${y} ${7+tw},${y+8} V${H-7} H${7+R-4} Q7,${H-7} 7,${H-7-R+4} Z" fill="rgba(10,7,5,.92)"/>
+  <path d="M${W-7},${y} H${W-7-tw+8} Q${W-7-tw},${y} ${W-7-tw},${y+8} V${H-7} H${W-7-R+4} Q${W-7},${H-7} ${W-7},${H-7-R+4} Z" fill="rgba(10,7,5,.92)"/>
+  <path d="${L}" fill="none" stroke="url(#${br})" stroke-width="1.2"/><path d="${Rr}" fill="none" stroke="url(#${br})" stroke-width="1.2"/>
+  ${gl(at,17,y+15,15,SC[at])}${gl(gt,W-7-tw+10,y+15,15,SC[gt])}`,
+ html:`<div class="t num" style="left:32px;top:${y}px;width:36px;height:${th}px">${a}</div><div class="t num" style="left:${W-7-tw+26}px;top:${y}px;width:36px;height:${th}px;${hurt?'color:#e0705e':''}">${s}</div>`};}
+
+function card(o){ // dispatch
+ const acc=ACC[o.type]||ACC.loc;let svg='',html='',defs='';
+ const shape=o.kind;const full=o.lod!=='mini';
+ const panel=o.kind==='command'?(full?262:318):(full?300:350);
+ const f=frame(shape,acc,{art:o.art,panel,noPanel:o.kind==='location'&&false});
+ defs+=f.defs;svg+=f.art;
+ const nameY=panel+10, typeY=panel+40;
+ if(o.kind==='location'){
+  const roll=(y)=>`<rect x="2" y="${y}" width="${W-4}" height="16" rx="8" fill="url(#rl${uid})" stroke="#050302" stroke-width="1.5"/>`;
+  defs+=`<linearGradient id="rl${uid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9c08c"/><stop offset=".5" stop-color="#7a6038"/><stop offset="1" stop-color="#2e2214"/></linearGradient>`;
+  svg+=f.lines+roll(6)+roll(H-22)+crest(W/2,40,'loc',acc,f.br);
+ } else svg+=f.lines;
+ // cost
+ if(o.cost!=null){const pos=o.kind==='command'?[W/2,22]:o.kind==='trainer'?[34,48]:o.kind==='supporter'?[36,48]:[32,32];
+  const cw=costWell(pos[0],pos[1],o.cost,o.costKind||'energy',f.br);svg+=cw.svg;html+=cw.html;
+}
+ // crest
+ if(o.kind!=='location'){const cp=o.kind==='trainer'?[W-34,48]:o.kind==='supporter'?[W-36,48]:o.kind==='command'?[W-32,30]:[W-32,32];svg+=crest(cp[0],cp[1],o.icon||o.type,acc,f.br);}
+ // name + type line
+ html+=`<div class="t name" style="left:20px;top:${nameY}px;width:${W-40}px;height:28px;${full?'':'font-size:26px'}">${o.name}</div>`;
+ if(full||o.kind==='location') html+=`<div class="t type" style="left:20px;top:${nameY+30}px;width:${W-40}px;height:14px;color:${acc}">${o.typeLine}</div>`;
+ const rTop=typeY+18;
+ if(o.kind==='pokemon'){
+  const st=statTabs(o.at,o.a,o.gt,o.s,o.hurt,f.br);svg+=st.svg;html+=st.html;
+  html+=`<div class="t" style="left:80px;top:${H-50}px;width:${W-160}px;height:40px;gap:10px;font-family:var(--disp);font-size:12px;letter-spacing:.14em;color:#b8a57e">${o.lv?`LV ${o.lv}`:'★ PARTNER'}<span style="color:#8fc9a0;letter-spacing:-.05em;font-size:15px">${'›'.repeat(o.spd)}</span></div>`;
+  if(full) html+=`<div class="t rules" style="left:30px;top:${rTop}px;width:${W-60}px;height:${H-56-rTop}px;--acc:${acc}">${o.kw?`<div><i>${o.kw.join(' · ')}</i></div>`:''}${o.rules}</div>`;
+  else if(o.tag) html+=`<div class="t" style="left:20px;top:${panel-34}px;width:${W-40}px;height:24px"><span class="chip" style="font-size:13px">${o.tag}</span></div>`;
  }
- return svg+txt;}
-
-// ===== Command (a move): chamfered shield that narrows to a point, cost set in the top =====
-const C_BODY='M48,32 H252 L286,64 V316 L150,410 L14,316 V64 Z';
-function command(o){
- const [m,md]=defs(o.type);const [ad,al]=artLayer(C_BODY,o.art,o.fx,o.fy,o.lod==='full'?.4:.55);
- const c=cost(150,28,24,o.cost,m);const cr=crest(150,366,15,o.type,m);
- const full=o.lod==='full';
- const svg=svgWrap(`${al}${metal(C_BODY,m)}${full?ribbon(198,32,m):ribbon(236,40,m)}${c.s}${cr.s}`,`${md}${ad}${RB}${c.d}${cr.d}`);
- let txt=c.t;
- if(full){
-  txt+=`<div class="t name" style="left:20px;top:198px;width:260px;height:32px;font-size:21px">${o.name}</div>`;
-  txt+=`<div class="t sub" style="left:20px;top:234px;width:260px;height:14px;color:${T[o.type][2]}">Command · ${o.target}</div>`;
-  o.modes.forEach((md2,i)=>txt+=`<div class="mode ${md2.off?'off':''}" style="top:${254+i*26}px"><span class="c">${md2.c}</span><b>${md2.n}</b><span>${md2.t}</span></div>`);
- } else {
-  txt+=`<div class="t name" style="left:20px;top:236px;width:260px;height:40px;font-size:28px">${o.name}</div>`;
-  txt+=`<div class="t" style="left:30px;top:284px;width:240px;height:30px;gap:8px">${o.modes.filter(x=>!x.off).map(x=>`<span class="sub" style="font-size:14px;letter-spacing:.06em;color:#ffd27a;background:rgba(12,6,2,.84);border:1.5px solid rgba(255,220,150,.5);border-radius:8px;padding:2px 9px">${x.n} ${x.c}</span>`).join('')}</div>`;
+ if(o.kind==='command'){
+  if(full) o.modes.forEach((m,k)=>html+=`<div class="mrow ${m.off?'off':''}" style="top:${rTop+k*30}px"><b>${m.n}</b>${m.t}<span class="c"><svg width="12" height="12" viewBox="0 0 24 24" style="color:#7fb2e6">${G.en}</svg>${m.c}</span></div>`);
+  else html+=`<div class="t" style="left:20px;top:${nameY+40}px;width:${W-40}px;height:28px;gap:8px">${o.modes.filter(m=>!m.off).map(m=>`<span class="chip" style="font-size:13px">${m.n} ${m.c}</span>`).join('')}</div>`;
  }
- return svg+txt;}
-
-// ===== Supporter: tall arched window, red wax Release seal =====
-const S_BODY='M14,176 C14,90 74,22 150,22 C226,22 286,90 286,176 V392 Q286,406 272,406 H28 Q14,406 14,392 Z';
-function supporter(o){
- const [m,md]=defs('sup');const [ad,al]=artLayer(S_BODY,o.art,o.fx,o.fy,o.lod==='full'?.5:.6);
- const c=cost(50,82,22,o.rel,m,'seal');const cr=crest(250,82,14,'sup',m,'sup');
- const full=o.lod==='full';
- const fav=full?`<path d="M30,340 H270 Q278,340 278,348 V388 Q278,396 270,396 H30 Q22,396 22,388 V348 Q22,340 30,340Z" fill="rgba(60,40,8,.75)" stroke="url(#${m})" stroke-width="2"/>`:'';
- const svg=svgWrap(`${al}${metal(S_BODY,m)}${full?ribbon(246,34,m):ribbon(272,40,m)}${fav}${c.s}${cr.s}`,`${md}${ad}${RB}${c.d}${cr.d}`);
- let txt=c.t.replace(/font-size:[^;]+;/,'font-size:22px;padding-bottom:6px;')+`<div class="t" style="left:28px;top:93px;width:44px;height:12px;font-size:7.5px;font-weight:800;letter-spacing:.08em;color:#ffe0d6;text-shadow:0 1px 1px #000">RELEASE</div>`;
- if(full){
-  txt+=`<div class="t name" style="left:20px;top:246px;width:260px;height:34px;font-size:22px">${o.name}</div>`;
-  txt+=`<div class="t sub" style="left:20px;top:284px;width:260px;height:14px;color:${T.sup[2]}">Supporter</div>`;
-  txt+=`<div class="t rules" style="left:30px;top:302px;width:240px;height:34px">${o.rules}</div>`;
-  txt+=`<div class="t rules" style="left:30px;top:342px;width:240px;height:52px;font-size:12.5px"><div><b style="color:#ffd040">★ Favour</b> · Release ${o.fav[0]}</div><div>${o.fav[1]} <b>+3 Recognition</b></div></div>`;
- } else txt+=`<div class="t name" style="left:20px;top:272px;width:260px;height:40px;font-size:28px">${o.name}</div>`;
- return svg+txt;}
-
-// ===== Item: a shop tag with a punched eyelet; gold price coin =====
-const I_BODY='M40,16 H128 Q134,16 136,22 A14,14 0 0 0 164,22 Q166,16 172,16 H260 Q286,16 286,42 V380 Q286,406 260,406 H40 Q14,406 14,380 V42 Q14,16 40,16 Z';
-function item(o){
- const [m,md]=defs('item');const [ad,al]=artLayer(I_BODY,o.art,o.fx,o.fy,o.lod==='full'?.5:.6);
- const c=cost(44,46,24,'$'+o.price,m,'money');const cr=crest(256,46,14,'item',m,'item');
- const full=o.lod==='full';
- const stock=full?Array.from({length:o.stock},(_,i)=>` <rect x="${150-o.stock*9+i*18+3}" y="362" width="12" height="12" rx="3" fill="${i<o.left?'#7ff0c8':'none'}" stroke="#7ff0c8" stroke-width="1.5"/>`).join(''):'';
- const svg=svgWrap(`${al}${metal(I_BODY,m)}<circle cx="150" cy="22" r="9" fill="#0c0602" stroke="url(#${m})" stroke-width="3"/>${full?ribbon(254,34,m):ribbon(272,40,m)}${stock}${c.s}${cr.s}`,`${md}${ad}${RB}${c.d}${cr.d}`);
- let txt=c.t.replace(/font-size:[^;]+;/,'font-size:21px;');
- if(full){
-  txt+=`<div class="t name" style="left:20px;top:254px;width:260px;height:34px;font-size:22px">${o.name}</div>`;
-  txt+=`<div class="t sub" style="left:20px;top:292px;width:260px;height:14px;color:${T.item[2]}">Item · ${o.kind}</div>`;
-  txt+=`<div class="t rules" style="left:30px;top:312px;width:240px;height:40px">${o.rules}</div>`;
-  txt+=`<div class="t sub" style="left:20px;top:380px;width:260px;height:12px;font-size:9.5px;color:#9fe8cc">Stock · ${o.left} turns left</div>`;
- } else txt+=`<div class="t name" style="left:20px;top:272px;width:260px;height:40px;font-size:28px">${o.name}</div>`;
- return svg+txt;}
-
-// ===== Trainer: a crowned frame; the Objective track is built into the base =====
-const R_BODY='M14,84 L62,50 L104,70 L150,22 L196,70 L238,50 L286,84 V392 Q286,406 272,406 H28 Q14,406 14,392 Z';
-function trainer(o){
- const [m,md]=defs('trn');const [ad,al]=artLayer(R_BODY,o.art,o.fx,o.fy,.48);
- const c=cost(44,110,22,o.cost,m);const cr=crest(150,36,13,'trn',m,'trn');
- const base=`<path d="M22,344 H278 V392 Q278,398 272,398 H28 Q22,398 22,392 Z" fill="rgba(30,10,50,.8)" stroke="url(#${m})" stroke-width="2"/>`;
- const pips=Array.from({length:o.need},(_,i)=>`<circle cx="${40+i*22}" cy="378" r="7" fill="${i<o.prog?'#ffd27a':'none'}" stroke="#ffd27a" stroke-width="2"/>`).join('');
- const pc='p'+(++uid);
- const svg=svgWrap(`${al}${metal(R_BODY,m)}${ribbon(246,34,m)}${base}${pips}<clipPath id="${pc}"><circle cx="252" cy="371" r="20"/></clipPath><image href="${ART(o.partner)}" x="226" y="345" width="52" height="52" clip-path="url(#${pc})" preserveAspectRatio="xMidYMid slice"/><circle cx="252" cy="371" r="21" fill="none" stroke="url(#${m})" stroke-width="3"/>${c.s}${cr.s}`,`${md}${ad}${RB}${c.d}${cr.d}`);
- let txt=c.t;
- txt+=`<div class="t name" style="left:20px;top:246px;width:260px;height:34px;font-size:22px">${o.name}</div>`;
- txt+=`<div class="t sub" style="left:20px;top:284px;width:260px;height:14px;color:${T.trn[2]}">Trainer</div>`;
- txt+=`<div class="t rules" style="left:30px;top:302px;width:240px;height:38px"><div><b>Command:</b> ${o.cmd}</div><div><b style="color:#e0c0ff">Objective:</b> ${o.obj}</div></div>`;
- txt+=`<div class="t sub" style="left:28px;top:350px;width:190px;height:12px;font-size:9px;color:#e0c0ff;justify-content:flex-start">Objective ${o.prog} / ${o.need} · Partner</div>`;
- return svg+txt;}
-
-// ===== Location: a map scroll with rolled ends =====
-const L_BODY='M22,34 H278 V386 H22 Z';
-function locCard(o){
- const [m,md]=defs('loc');const [ad,al]=artLayer(L_BODY,o.art,o.fx,o.fy,.5);
- const roll=(y)=>`<rect x="6" y="${y}" width="288" height="26" rx="13" fill="url(#rl)" stroke="#120802" stroke-width="2"/><rect x="2" y="${y+5}" width="10" height="16" rx="4" fill="url(#${m})"/><rect x="288" y="${y+5}" width="10" height="16" rx="4" fill="url(#${m})"/>`;
- const RL=`<linearGradient id="rl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f2dca8"/><stop offset=".45" stop-color="#a88450"/><stop offset="1" stop-color="#4a3418"/></linearGradient>`;
- const cr=crest(150,48,13,'loc',m,'loc');
- const svg=svgWrap(`${al}${metal(L_BODY,m,7)}${roll(16)}${roll(376)}${ribbon(246,34,m)}${cr.s}`,`${md}${ad}${RB}${RL}${cr.d}`);
- let txt=`<div class="t name" style="left:20px;top:246px;width:260px;height:34px;font-size:22px">${o.name}</div>`;
- txt+=`<div class="t sub" style="left:20px;top:284px;width:260px;height:14px;color:#ffd27a">Location · ${o.lanes} lanes · ${o.rounds} Rounds</div>`;
- txt+=`<div class="t rules" style="left:30px;top:304px;width:240px;height:34px">${o.rules}</div>`;
- txt+=`<div class="t" style="left:30px;top:342px;width:240px;height:26px;gap:8px"><span class="sub" style="font-size:11px;letter-spacing:.04em;color:#ffc067;background:rgba(255,160,40,.2);border:1px solid #a86a20;border-radius:10px;padding:2px 9px">☀ +2 Sun</span><span class="sub" style="font-size:11px;letter-spacing:.04em;color:#f3e6c8;background:rgba(12,6,2,.7);border:1px solid rgba(255,220,150,.4);border-radius:10px;padding:2px 9px">Dominate · +3</span></div>`;
- return svg+txt;}
-
-// ===== Board token: the Pokémon unit frame, art-first =====
+ if(o.kind==='supporter'&&full){
+  html+=`<div class="t rules" style="left:30px;top:${rTop}px;width:${W-60}px;height:30px">${o.rules}</div>`;
+  svg+=`<rect x="26" y="${rTop+38}" width="${W-52}" height="${H-rTop-56}" rx="3" fill="rgba(194,163,106,.08)" stroke="rgba(194,163,106,.45)" stroke-width="1"/>`;
+  html+=`<div class="t rules" style="left:36px;top:${rTop+42}px;width:${W-72}px;height:${H-rTop-64}px;font-size:13.5px;--acc:#e6cf9a"><div><i>Favour</i></div><div>${o.fav}</div></div>`;
+ }
+ if(o.kind==='item'&&full){
+  html+=`<div class="t rules" style="left:30px;top:${rTop}px;width:${W-60}px;height:58px">${o.rules}</div>`;
+  const n=o.stock;for(let k=0;k<n;k++) svg+=`<rect x="${W/2-n*9+k*18+4}" y="${H-46}" width="10" height="10" transform="rotate(45 ${W/2-n*9+k*18+9} ${H-41})" fill="${k<o.left?acc:'none'}" stroke="${acc}" stroke-width="1"/>`;
+  html+=`<div class="t type" style="left:20px;top:${H-30}px;width:${W-40}px;height:12px;color:#9cc9b6;font-size:9.5px">Stock · ${o.left} of ${o.stock} turns</div>`;
+ }
+ if(o.kind==='trainer'){
+  html+=`<div class="t rules" style="left:30px;top:${rTop}px;width:${W-60}px;height:44px;--acc:${acc}"><div><b>Command</b> · ${o.cmd}</div><div><b>Objective</b> · ${o.obj}</div></div>`;
+  const pc='p'+(++uid);defs+=`<clipPath id="${pc}"><circle cx="${W-50}" cy="${H-40}" r="19"/></clipPath>`;
+  for(let k=0;k<o.need;k++) svg+=`<circle cx="${42+k*22}" cy="${H-40}" r="5.5" fill="${k<o.prog?'#e6cf9a':'none'}" stroke="#c2a36a" stroke-width="1.2"/>`;
+  svg+=`<path d="M${42+(o.need-1)*22+10},${H-40} H${W-74}" stroke="rgba(194,163,106,.45)" stroke-width="1" stroke-dasharray="2 4"/><image href="${ART(o.partner)}" x="${W-70}" y="${H-60}" width="40" height="40" clip-path="url(#${pc})" preserveAspectRatio="xMidYMid slice"/><circle cx="${W-50}" cy="${H-40}" r="19.5" fill="none" stroke="url(#${f.br})" stroke-width="1.4"/>`;
+  html+=`<div class="t type" style="left:30px;top:${H-24}px;width:160px;height:12px;color:#a991cf;font-size:9.5px;justify-content:flex-start">${o.prog} of ${o.need} · Partner</div>`;
+ }
+ if(o.kind==='location'){
+  html+=`<div class="t rules" style="left:30px;top:${rTop}px;width:${W-60}px;height:40px">${o.rules}</div>`;
+  html+=`<div class="t" style="left:30px;top:${rTop+52}px;width:${W-60}px;height:24px;gap:10px"><span class="chip" style="color:#e0a868;border-color:rgba(217,119,63,.6)">Sun +2</span><span class="chip">Dominate · +3 Recognition</span></div>`;
+ }
+ return `<svg class="fr" viewBox="0 0 ${W} ${H}"><defs>${defs}</defs>${svg}</svg>${html}`;
+}
+// board token: the Pokémon frame, shorter panel, no rules
 function token(o){
- const [m,md]=defs(o.type);const [ad,al]=artLayer(P_BODY,o.art,o.fx,o.fy,.68);
- const ea='a'+(++uid),eb='b'+uid;const [a1,a2]=STATC[o.at],[b1,b2]=STATC[o.gt];
- const sock=`<path d="${PL}" fill="url(#${ea})" stroke="#120802" stroke-width="7"/><path d="${PL}" fill="url(#${ea})" stroke="url(#${m})" stroke-width="3.5"/>${glyph(o.at,53,364,15,a1)}
-   <path d="${PR}" fill="url(#${eb})" stroke="#120802" stroke-width="7"/><path d="${PR}" fill="url(#${eb})" stroke="url(#${m})" stroke-width="3.5"/>${glyph(o.gt,247,364,15,b1)}`;
- const held=o.held?(()=>{const hc='h'+(++uid);return `<clipPath id="${hc}"><circle cx="256" cy="64" r="20"/></clipPath><circle cx="256" cy="64" r="24" fill="url(#${m})"/><image href="${ART(o.held)}" x="232" y="40" width="48" height="48" clip-path="url(#${hc})" preserveAspectRatio="xMidYMid slice"/>`;})():'';
- const svg=svgWrap(`${al}${metal(P_BODY,m,13)}${ribbon(300,38,m,30,270)}${sock}${held}`,`${md}${ad}${RB}${enamel(ea,a1,a2)}${enamel(eb,b1,b2)}`);
- let txt=`<div class="t num" style="left:16px;top:368px;width:76px;height:40px;font-size:34px">${o.a}</div><div class="t num" style="left:208px;top:368px;width:76px;height:40px;font-size:34px;${o.hurt?'color:#ff7a68':''}">${o.s}</div>`;
- txt+=`<div class="t name" style="left:24px;top:300px;width:252px;height:38px;font-size:26px">${o.name}</div>`;
- txt+=`<div class="t" style="left:22px;top:34px;width:70px;height:26px"><span class="sub" style="color:#ffe3a0;font-family:var(--disp);letter-spacing:.06em;font-size:18px;background:rgba(12,6,2,.82);border:1.5px solid #b08a3a;border-radius:8px;padding:1px 9px">${o.lv}</span></div>`;
- if(o.kw) txt+=`<div class="kw" style="left:24px;right:auto;top:72px;align-items:flex-start">${o.kw.map(k=>`<span style="font-size:17px">${k}</span>`).join('')}</div>`;
- txt+=`<div class="t" style="left:104px;top:376px;width:92px;height:26px;color:#7ee0a0;font-weight:900;font-size:26px;letter-spacing:-3px;text-shadow:0 1px 2px #000">${'›'.repeat(o.spd)}</div>`;
- return svg+txt;}
+ const acc=ACC[o.type];const f=frame('pokemon',acc,{art:o.art,panel:392});
+ const st=statTabs(o.at,o.a,o.gt,o.s,o.hurt,f.br);
+ let svg=f.art+f.lines+st.svg,html=st.html;
+ html+=`<div class="t name" style="left:20px;top:396px;width:${W-40}px;height:28px;font-size:25px">${o.name}</div>`;
+ html+=`<div class="t" style="left:80px;top:${H-46}px;width:${W-160}px;height:36px;gap:10px;font-family:var(--disp);font-size:17px;letter-spacing:.12em;color:#b8a57e">${o.lv}<span style="color:#8fc9a0;letter-spacing:-.05em;font-size:21px">${'›'.repeat(o.spd)}</span></div>`;
+ if(o.kw) html+=`<div class="t" style="left:20px;top:24px;width:${W-40}px;height:30px;justify-content:flex-start"><span class="chip" style="font-size:16px;padding:4px 12px">${o.kw}</span></div>`;
+ if(o.held){const hc='h'+(++uid);svg+=`<defs><clipPath id="${hc}"><circle cx="${W-44}" cy="44" r="24"/></clipPath></defs><image href="${ART(o.held)}" x="${W-68}" y="20" width="48" height="48" clip-path="url(#${hc})" preserveAspectRatio="xMidYMid slice"/><circle cx="${W-44}" cy="44" r="24.5" fill="none" stroke="url(#${f.br})" stroke-width="2"/>`;}
+ return `<svg class="fr" viewBox="0 0 ${W} ${H}"><defs>${f.defs}</defs>${svg}</svg>${html}`;
+}
 
 let h='';
-const put=(x,y,w,inner,extra='',cls='')=>h+=`<div class="cw ${cls}" style="left:${x}px;top:${y}px;transform:scale(${w/300});${extra}">${inner}</div>`;
+const put=(x,y,w,inner,extra='')=>h+=`<div class="cw" style="left:${x}px;top:${y}px;transform:scale(${w/W});${extra}">${inner}</div>`;
+h+=`<div class="lab" style="left:40px;top:22px">Full cards · 340 × 476 · one silhouette trait per card type</div>`;
+const FW=290,FY=54,gap=24;let X=40;
+put(X,FY,FW,card({kind:'pokemon',type:'fire',art:'charizard',name:'Charizard',typeLine:'Fire · Special',cost:4,lv:7,spd:3,at:'sa',a:8,gt:'hp',s:9,kw:['Overrun'],rules:'<div><b>On Summon</b> · 2 damage to each enemy Pokémon.</div>'})); X+=FW+gap;
+put(X,FY,FW,card({kind:'command',type:'elec',art:'thunderbolt',name:'Thunderbolt',typeLine:'Command · Electric',cost:3,modes:[{n:'React',c:2,t:'2 damage',off:true},{n:'Adapt',c:3,t:'4 damage'},{n:'Strat',c:4,t:'6 damage'}]})); X+=FW+gap;
+put(X,FY,FW,card({kind:'supporter',type:'sup',icon:'sup',art:'nurse-joy',name:'Nurse Joy',typeLine:'Supporter · Release 1',cost:1,costKind:'seal',rules:'<div>Heal each of your Pokémon 2.</div>',fav:'Release a Water Pokémon: heal 4 instead. <b>+3 Recognition.</b>'})); X+=FW+gap;
+put(X,FY,FW,card({kind:'item',type:'item',icon:'item',art:'rocky-helmet',name:'Rocky Helmet',typeLine:'Item · Held',cost:'$3',costKind:'money',stock:4,left:3,rules:'<div>The holder has <b>Retaliate 2</b>: an attacker that damages it takes 2.</div>'})); X+=FW+gap;
+put(X,FY,FW,card({kind:'trainer',type:'trn',icon:'trn',art:'misty',name:'Misty',typeLine:'Trainer',cost:2,cmd:'draw 2 cards.',obj:'defeat 8 enemy Pokémon.',need:8,prog:3,partner:'starmie'})); X+=FW+gap;
+put(X,FY,FW,card({kind:'location',type:'loc',art:'mt-ember',name:'Mt. Ember',typeLine:'Location · 3 lanes · 3 Rounds',rules:'<div>Pokémon here have <b>+1 Attack</b>.</div>'}));
 
-// Row 1 — full cards
-h+=`<div class="lab" style="left:40px;top:20px">Full cards · a unique silhouette for each card type (Codex & hover size)</div>`;
-const W=262,Y=58;let X=36;const step=W+48;
-put(X,Y,W,pokemon({lod:'full',type:'fire',art:'charizard',name:'Charizard',lv:7,cost:4,sub:'Fire · Special',spd:3,at:'sa',a:8,gt:'hp',s:9,kw:['Overrun'],fy:30,
- rules:'<div><b>On Summon:</b> 2 damage to each enemy Pokémon.</div>'})); X+=step;
-put(X,Y,W,command({lod:'full',type:'elec',art:'thunderbolt',name:'Thunderbolt',target:'an enemy Pokémon',cost:3,
- modes:[{n:'REACT',c:2,t:'2 damage',off:true},{n:'ADAPT',c:3,t:'4 damage'},{n:'STRAT',c:4,t:'6 damage'}]})); X+=step;
-put(X,Y,W,supporter({lod:'full',art:'nurse-joy',name:'Nurse Joy',rel:1,rules:'<div>Heal each of your Pokémon 2.</div>',fav:['a Water Pokémon:','heal 4 instead ·']})); X+=step;
-put(X,Y,W,item({lod:'full',art:'rocky-helmet',name:'Rocky Helmet',price:3,kind:'Held',stock:4,left:3,rules:'<div>The holder has <b>Retaliate 2</b>.</div>'})); X+=step;
-put(X,Y,W,trainer({art:'misty',name:'Misty',cost:2,cmd:'draw 2 cards.',obj:'defeat 8 enemy Pokémon.',need:8,prog:3,partner:'starmie'})); X+=step;
-put(X,Y,W,locCard({art:'mt-ember',name:'Mt. Ember',lanes:3,rounds:3,rules:'<div>Pokémon here have <b>+1 Attack</b>.</div>'}));
-
-// Row 2 — hand (mini)
-h+=`<div class="lab" style="left:40px;top:470px">Hand · the same frames, cut down to art, cost, name and stats</div>`;
-const hw=150,hy=510;
+h+=`<div class="lab" style="left:40px;top:500px">Hand · 200 px wide</div>`;
 const hand=[
- pokemon({lod:'mini',type:'fire',art:'growlithe',name:'Growlithe',lv:3,cost:2,spd:3,at:'pa',a:3,gt:'hp',s:4,tag:'On Summon',fy:40}),
- pokemon({lod:'mini',type:'elec',art:'shinx',name:'Shinx',lv:2,cost:1,spd:3,at:'pa',a:2,gt:'hp',s:3,tag:'On Summon',fy:38}),
- command({lod:'mini',type:'fire',art:'ember',name:'Ember',target:'an enemy',cost:2,modes:[{n:'ADAPT',c:2},{n:'STRAT',c:3}]}),
- supporter({lod:'mini',art:'professor-oak',name:'Prof. Oak',rel:1}),
- item({lod:'mini',art:'potion',name:'Potion',price:2,kind:'Consumed'}),
- pokemon({lod:'mini',type:'water',art:'wooper',name:'Wooper',lv:2,cost:1,spd:1,at:'pa',a:2,gt:'def',s:4,tag:'On Summon',kw:['Regen 1'],fy:40}),
+ card({kind:'pokemon',lod:'mini',type:'fire',art:'growlithe',name:'Growlithe',cost:2,lv:3,spd:3,at:'pa',a:3,gt:'hp',s:4,tag:'On Summon'}),
+ card({kind:'pokemon',lod:'mini',type:'elec',art:'shinx',name:'Shinx',cost:1,lv:2,spd:3,at:'pa',a:2,gt:'hp',s:3,tag:'On Summon'}),
+ card({kind:'command',lod:'mini',type:'fire',art:'ember',name:'Ember',cost:2,modes:[{n:'Adapt',c:2},{n:'Strat',c:3}]}),
+ card({kind:'supporter',lod:'mini',type:'sup',icon:'sup',art:'professor-oak',name:'Professor Oak',cost:1,costKind:'seal'}),
+ card({kind:'item',lod:'mini',type:'item',icon:'item',art:'potion',name:'Potion',cost:'$2',costKind:'money'}),
 ];
-hand.forEach((c,i)=>put(40+i*126,hy+Math.abs(i-2.5)*5,hw,c,`rotate:${(i-2.5)*2.5}deg;`));
-h+=`<div class="call" style="left:40px;top:745px;width:780px">Hand cards keep their frame shape, cost and stat sockets, with the name large and one tag ("On Summon", "ADAPT 2 · STRAT 3"). Hovering lifts a card to its full size above the hand. Text never shrinks below a readable size: if it doesn't fit, the card gets a shorter wording, not a smaller font.</div>`;
+hand.forEach((c,k)=>put(40+k*150,536+Math.abs(k-2)*6,200,c,`rotate:${(k-2)*2.2}deg;`));
+h+=`<div class="call" style="left:40px;top:840px;width:820px">Hand cards are 200 px wide (up from 182), showing art, cost, name, stats and one tag. Hovering lifts a card to its full 340 px size.</div>`;
 
-// Row 2 — board tokens
-h+=`<div class="lab" style="left:880px;top:470px">On the board · the unit frame, art first</div>`;
-h+=`<div style="position:absolute;left:870px;top:500px;width:700px;height:300px;border-radius:14px;background:linear-gradient(rgba(14,8,3,.35),rgba(14,8,3,.55)),url(${ART('mt-ember')}) center/cover;border:2px solid #f39a4a;box-shadow:inset 0 0 40px rgba(0,0,0,.7)"></div>`;
-const tw=150,ty=530;
-put(895,ty,tw,token({type:'fire',art:'charizard',name:'Charizard',lv:'Lv 7',spd:3,at:'sa',a:8,gt:'hp',s:9,kw:['Overrun'],held:'charcoal',fy:30}),'filter:drop-shadow(0 0 16px rgba(255,200,80,.9)) drop-shadow(0 0 30px rgba(255,170,40,.5));');
-put(1065,ty,tw,token({type:'water',art:'blastoise',name:'Blastoise',lv:'Lv 6',spd:2,at:'sa',a:5,gt:'def',s:4,hurt:1,kw:['Shell 1']}));
-put(1235,ty+6,tw,token({type:'elec',art:'lanturn',name:'Lanturn',lv:'Lv 4',spd:2,at:'sa',a:3,gt:'sdef',s:5}),'filter:grayscale(.8) brightness(.55);rotate:-6deg;');
-put(1405,ty,tw,token({type:'fire',art:'ninetales',name:'Ninetales',lv:'★',spd:2,at:'sa',a:9,gt:'hp',s:11}));
-h+=`<div class="call" style="left:880px;top:815px;width:690px">Ready = gold glow (Charizard) · damaged = red Strength (Blastoise) · Spent = grey and tilted (Lanturn) · Partner = ★ and holo (Ninetales). The art is framed on each card's focal point.</div>`;
-
-// Row 2 — the socket legend
-h+=`<div class="lab" style="left:1620px;top:470px">Stat sockets</div>`;
-const leg=[['pa','Physical Attack'],['sa','Special Attack'],['hp','Hitpoints'],['def','Defence'],['sdef','Special Defence']];
-leg.forEach(([k,l],i)=>{const [a,b]=STATC[k];h+=`<div style="position:absolute;left:1620px;top:${504+i*44}px;display:flex;align-items:center;gap:12px;font-size:15px"><span style="width:44px;height:34px;border-radius:6px 6px 14px 14px;background:radial-gradient(circle at 40% 28%,${a},${b} 60%,#140804);border:2px solid #f2d48a;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" style="color:${a};filter:drop-shadow(0 1px 1px #000)">${G[k]}</svg></span>${l}</div>`;});
-h+=`<div class="call" style="left:1620px;top:730px;width:270px">The sockets are carved into the Pokémon frame. Their enamel colour and a small glyph say which stat it is, so the numbers sit in clean shapes.</div>`;
-
-// Bottom — the text rules
-h+=`<div class="lab" style="left:40px;top:880px">Neat text, guaranteed</div>`;
-h+=`<div class="call" style="left:40px;top:908px;width:1840px;columns:3;column-gap:40px">
-<b>Fixed text zones.</b> Every frame defines its zones (name ribbon, type line, rules box, mode rows, Favour box, stock line), and nothing is placed outside them.<br>
-<b>One line for a name,</b> at a fixed size. Long names (Pokémon Breeder) use a tighter letter-spacing step, never a smaller font.<br>
-<b>Rules fit their box</b> at 13.5 px (full) and are hidden on mini cards. A test renders every card at every size and fails on any overflow, overlap or clipped glyph.<br>
-<b>Chips</b> (keywords, tags, mode chips) are one line each, stacked with fixed gaps, never touching another element.<br>
-<b>Numbers</b> sit centred in their sockets with room for two digits.<br>
-<b>Every card's wording</b> is written to fit its zone. Where it can't, the wording is shortened, and the full text is always in the Codex.
-</div>`;
+h+=`<div class="lab" style="left:900px;top:500px">On the board · 170 px wide</div>`;
+h+=`<div style="position:absolute;left:890px;top:530px;width:1000px;height:290px;border-radius:6px;background:linear-gradient(rgba(10,7,5,.35),rgba(10,7,5,.6)),url(${ART('mt-ember')}) center/cover;border:1px solid #6e5530;box-shadow:inset 0 0 50px rgba(0,0,0,.7)"></div>`;
+put(915,550,170,token({type:'fire',art:'charizard',name:'Charizard',lv:'LV 7',spd:3,at:'sa',a:8,gt:'hp',s:9,kw:'Overrun',held:'charcoal'}),'filter:drop-shadow(0 0 10px rgba(240,190,90,.85)) drop-shadow(0 0 22px rgba(240,170,60,.35));');
+put(1105,550,170,token({type:'water',art:'blastoise',name:'Blastoise',lv:'LV 6',spd:2,at:'sa',a:5,gt:'def',s:4,hurt:1,kw:'Shell 1'}));
+put(1295,556,170,token({type:'elec',art:'lanturn',name:'Lanturn',lv:'LV 4',spd:2,at:'sa',a:3,gt:'sdef',s:5}),'filter:grayscale(.85) brightness(.5);rotate:-5deg;');
+put(1485,550,170,token({type:'fire',art:'ninetales',name:'Ninetales',lv:'★',spd:2,at:'sa',a:9,gt:'hp',s:11}));
+put(1675,550,170,token({type:'elec',art:'luxray',name:'Luxray',lv:'LV 6',spd:3,at:'pa',a:6,gt:'hp',s:5,kw:'Infiltrator'}));
+h+=`<div class="call" style="left:900px;top:840px;width:990px">Ready = a soft gold glow (Charizard) · damaged = red Strength (Blastoise) · Spent = grey and tilted (Lanturn) · Partner = ★ (Ninetales). The stat tabs sit flush in the corners, with the frame's hairline stepping around them. Their small symbol and colour say which stat it is.</div>`;
+h+=`<div class="call" style="left:40px;top:930px;width:1850px"><b>Frames are hairlines.</b> A dark edge, a fine brass line and an inner rule, with the card type marked by its outline rather than its colour: chamfered top (Pokémon), a notch that seats the cost (Command), a low arch (Supporter), a punched eyelet (Item), a central peak (Trainer), scroll rolls (Location). Colour is kept to small accents: the type line, the crest and the diamond on the panel rule. <b>Text has fixed zones</b> and is set larger (14.5 px rules, 21 px names), with no chip, line or number allowed to touch another.</div>`;
 document.getElementById('app').innerHTML=h;
 </script></body></html>

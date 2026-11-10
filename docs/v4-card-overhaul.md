@@ -32,9 +32,9 @@ Every card is drawn by a single renderer (`v4/src/ui/card.js`) at one of four le
 
 | Level | Width | Where | Shows |
 |---|---|---|---|
-| **Full** | 240–320 px | Codex, hover zoom, React window, mode picker, Release choice, Discard viewer | Everything: art, cost, Level, Type crest, keywords, name, type line, rules text or mode ladder, stat gems |
-| **Mini** | 120–200 px | Hand, PokéMart, Bag | Art, cost gem, name, stat gems, one **trigger tag** (e.g. "On Summon") or Command mode chips ("ADAPT 2 · STRAT 3"). No rules text. |
-| **Token** | ~150 px | A Pokémon on the board | Art (focal-point framed), name, Level, keyword chips, Held Item, Speed, stat gems, Ready/Spent/damaged state |
+| **Full** | 340 px | Codex, hover zoom, React window, mode picker, Release choice, Discard viewer | Everything: art, cost, Level, Type crest, keywords, name, type line, rules text or mode ladder, stat gems |
+| **Mini** | 200 px | Hand, PokéMart, Bag | Art, cost gem, name, stat gems, one **trigger tag** (e.g. "On Summon") or Command mode chips ("ADAPT 2 · STRAT 3"). No rules text. |
+| **Token** | 170 px | A Pokémon on the board | Art (focal-point framed), name, Level, keyword chips, Held Item, Speed, stat gems, Ready/Spent/damaged state |
 | **Chip** | 24–40 px | Objective trackers, log, Bag slots | A round art crop on the subject's face |
 
 **Hover replaces the tooltip.**
@@ -42,50 +42,62 @@ Every card is drawn by a single renderer (`v4/src/ui/card.js`) at one of four le
 - Hovering a board token shows its Full card beside it.
 - Right-click or **C** opens the Codex.
 
-### 2.2 A unique silhouette for each card type
+### 2.2 Frames: near-rectangles, one distinct trait each (revised 10 November, third pass)
 
-Following Legends of Runeterra, the frame's outline is different for each card type. Cost and stats sit in **sockets carved into the frame**, never in generic shapes (diamonds, hearts, hexagons) laid on top. Every frame is an SVG path drawn at 300×420 and scaled, so it's crisp at every size.
+Elliott's direction:
+- the general shape stays close to a rectangle, with distinct differences like the Item eyelet and the Location scroll;
+- borders are fine, not thick or clunky;
+- stats sit cleanly, not in bloated blocks;
+- a mature look, for experienced adult players.
 
-| Card type | Silhouette | Cost socket | Other built-in parts |
-|---|---|---|---|
-| **Pokémon** | An arched crown over a straight body | A round **Energy medallion** breaking the top-left of the arch, with the Level tag under it | Two **stat bastions** carved into the bottom corners: Attack on the left, Strength on the right. Speed chevrons sit between them. |
-| **Command** (a Pokémon move) | A chamfered shield that narrows to a point | An Energy medallion set into the top edge (the Adapt cost) | The move's Type crest at the point. A **mode ladder** of React, Adapt and Strat rows, each with its own cost. |
-| **Supporter** | A tall arched window | A red **wax seal** for Release N | A gold-edged **Favour box** with ★ and +3 Recognition |
-| **Item** | A shop tag with a punched eyelet | A gold **price coin** | The PokéMart **Stock** pips and "N turns left" built into the base |
-| **Trainer** | A crowned frame | An Energy medallion (its Command cost) | The **Objective track** built into the base, ending in the Partner's portrait |
-| **Location** | A map scroll with rolled ends | none (free) | Lanes and Rounds on the type line, plus Weather and dominance chips |
+**The frame:** a dark edge, a fine **brass hairline**, and a fainter inner rule 7 px inside it. Every frame is an SVG path drawn at 340×476 and scaled.
 
-**Stat sockets:** each socket's **enamel colour and small glyph** say which stat it is:
-- **attack:** orange claw for Physical, violet burst for Special;
-- **Strength:** pink heart for Hitpoints, silver shield for Defence, cyan barrier for Special Defence.
+**Colour:** only small accents (the type line, the crest, and the small diamond on the panel rule). The frame itself is the same brass for every card.
 
-The number sits large and centred, with room for two digits. Damaged Strength turns red.
+| Card type | Its one silhouette trait | Cost |
+|---|---|---|
+| **Pokémon** | Chamfered top corners | A small dark well with a fine blue ring, top-left |
+| **Command** | A shallow notch in the top edge that seats the cost | The well sits in the notch (the Adapt cost) |
+| **Supporter** | A low arch along the top edge | The well with a red ring; "Release N" on the type line |
+| **Item** | A punched eyelet at the top centre | The well with a gold ring ($) |
+| **Trainer** | A low central peak | The well with a blue ring (its Command cost) |
+| **Location** | Thin scroll rolls top and bottom | none (free) |
 
-**Shared parts:**
-- the **name ribbon,** a dark banner with pointed ends set into the frame;
-- the **type line** under it;
-- the **Type crest** (top-right; at the point on Commands);
-- **keyword chips** under the crest.
+**Stat tabs (Pokémon):**
+- Two small tabs sit flush in the bottom corners, Attack on the left and Strength on the right. The frame's hairline steps around them.
+- Each tab holds one number (25 px Cinzel) and a small symbol in the stat's colour: orange claw for Physical, violet star for Special, rose heart for Hitpoints, steel shield for Defence, cyan barrier for Special Defence.
+- No big enamel shapes. Damaged Strength turns red.
+- Between the tabs: the Level and the Speed chevrons.
+
+**The text panel:** the lower third darkens smoothly under the art, starting at a hairline rule with a small accent diamond in the middle. It holds the name (21 px Cinzel), the type line (spaced small caps in the accent colour) and the rules (14.5 px). Keywords form a small-caps line above the rules ("OVERRUN").
+
+**Card types:**
+- **Commands** list React, Adapt and Strat as ruled rows, each with its Energy cost at the right.
+- **Supporters** have a quiet Favour box.
+- **Items** show Stock as small diamonds.
+- **Trainers** show the Objective as a row of dots, ending in the Partner's portrait.
+
+**Sizes** (larger than before, so nothing is cramped):
+
+| Size | Width |
+|---|---|
+| Full card (Codex, hover) | 340 px |
+| Hand | 200 px (was 182) |
+| Board | 170 px (was 156) |
+
+The board layout grows to fit; the layout check at all three screen sizes decides the exact numbers.
+
+**A note on method:** these frames are drawn in code (vector), which keeps them sharp at every size and easy to vary by type. Painted frame art, the way some studios do it, is a possible later upgrade: textured brass, engraved corners. I'd only suggest it once the layout is settled in the game, and I'd write the art prompts then.
 
 ### 2.2a Neat text, guaranteed
 
 - **Fixed text zones:** every frame defines its zones: name ribbon, type line, rules box, mode rows, Favour box, Stock line and chips. Nothing is placed outside them, and no zone overlaps another.
 - **Names:** one line, at a fixed size. A long name (Pokémon Breeder) uses one tighter letter-spacing step, never a smaller font.
-- **Rules:** 13.5 px on Full cards and hidden on Mini cards. The rules for every card are written to fit their box. Where they can't, the wording on the card is shortened and the full text lives in the Codex. Text never shrinks below a readable size.
+- **Rules:** 14.5 px on Full cards and hidden on Mini cards. The rules for every card are written to fit their box. Where they can't, the wording on the card is shortened and the full text lives in the Codex. Text never shrinks below a readable size.
 - **Chips** (keywords, tags, mode chips): one line each, stacked with fixed gaps.
 - **The test:** it renders every card in the game at every size and fails on any overflow, overlap, clipped glyph or text outside its zone.
 
-### 2.3 Colour and finish
-
-| Frame | Rim | Crest |
-|---|---|---|
-| Fire Pokémon and moves | warm gold to ember red | flame |
-| Water | ice blue to deep blue | drop |
-| Electric | pale gold to amber | bolt |
-| Rock and Normal moves (Rock Slide, Recover) | sandstone | rock, orb |
-| Supporter | rose gold to crimson | person |
-| Item | mint silver to teal | flask |
-| Trainer and Partner | gold to royal purple | star |
+### 2.3 Finish
 
 **Collectable finish:**
 - **Final-form Pokémon** (Rapidash, Lanturn, Luxray, Blastoise, Arcanine, Kingdra, Quagsire, Gyarados, Charizard, Magmortar) get a **holo sheen** that follows the pointer.
@@ -174,6 +186,6 @@ Each stage follows the usual routine: tests, the layout check at three sizes (in
 
 ## 7. Questions for Elliott
 
-- **Q1:** approve the revised mockup (unique frames, carved sockets, neat text zones) and the design system (sections 2–4), or tell me what to change.
+- **Q1:** approve the third-pass mockup (near-rectangular frames with one trait each, hairline brass, flush stat tabs, larger sizes) and the design system (sections 2–4), or tell me what to change.
 - **Q2:** the holo finish goes on final forms, Partners and Trainers. Should it go on more cards, fewer, or different ones?
 - **Q3:** the two art prompts (section 5). Generate them whenever suits; C1 doesn't need them.
