@@ -31,10 +31,10 @@
 // per Retained card; Round 1: draw 7 then a mulligan, as in v1), Battle (alternating turns, one
 // action each: Summon, Attack, Retain, Pass; two Passes in a row end it), Supper (the hand is
 // discarded except Retained cards). Initiative switches each Round.
-import { RULES, SPEEDS, levelFor } from '../rules.js?v=202611102039';
-import { nextRandom, shuffle } from './random.js?v=202611102039';
-import { newEnergy, refreshEnergy, canPay, payCost, availableExert } from './energy.js?v=202611102039';
-import { DEMO_DECK, cardAtRound, pokemonAt, pathDef, locationDef, WEATHER_BRACKETS, FAVOURS, MODE_NAMES, ITEMS, BAG_SIZE, TRIGGER_NAMES, opText, CHOSEN, modeTarget, modeText } from './cards.js?v=202611102039';
+import { RULES, SPEEDS, levelFor } from '../rules.js?v=202611110816';
+import { nextRandom, shuffle } from './random.js?v=202611110816';
+import { newEnergy, refreshEnergy, canPay, payCost, availableExert } from './energy.js?v=202611110816';
+import { DEMO_DECK, cardAtRound, pokemonAt, pathDef, locationDef, WEATHER_BRACKETS, FAVOURS, MODE_NAMES, ITEMS, BAG_SIZE, TRIGGER_NAMES, opText, CHOSEN, modeTarget, modeText } from './cards.js?v=202611110816';
 
 export const PLAYERS = ['player', 'ai'];
 export const NAMES = { player: 'You', ai: 'The Opponent' };
@@ -596,6 +596,7 @@ const ACTIONS = {
     const spends = passSpends(s, who);
     if (!ends) {
       p.baseEnergy += RULES.passEnergy;
+      if (p.energyRound) p.energyRound.pass += RULES.passEnergy;
       for (const space of spends) p.row[space].spent = true;
     }
     emit(s, 'pass', { who, endsPhase: ends, spends });
@@ -896,7 +897,7 @@ function applyOp(s, src, o, chosen) {
     default: targets = [];
   }
   if (o.op === 'draw') return draw(s, who, o.amount);
-  if (o.op === 'energy') { p.baseEnergy += o.amount; return; }
+  if (o.op === 'energy') { p.baseEnergy += o.amount; p.energyRound?.effects.push({ source: src.card?.name ?? 'an effect', amount: o.amount }); return; }
   if (o.op === 'damage') {
     const dealt = targets.map((t) => ({ ...t, n: damage(s, t.who, t.space, o.amount) }));
     for (const t of dealt) settle(s, t.who, t.space, who, t.n);
@@ -1175,11 +1176,25 @@ function endTurn(s, who, passed) {
 
 // --- Recognition and winning ------------------------------------------------------------------------
 
+// C3: a Recognition gain's kind, from its source (the Codex groups the ring's history by it).
+export const REC_KINDS = { damage: 'Damage to the Player Character', defeat: 'Defeats', overrun: 'Overrun', dominance: 'Dominance', favour: 'Favours', objective: 'Objectives', amulet: 'Amulet Coin', other: 'Other' };
+function recKind(source, from) {
+  if (/Overrun$/.test(source)) return 'overrun';
+  if (from?.kind === 'pc') return 'damage';
+  if (/^defeating /.test(source)) return 'defeat';
+  if (from?.kind === 'location' || from?.kind === 'tournament') return 'dominance';
+  if (/Favour$/.test(source)) return 'favour';
+  if (/Objective$/.test(source)) return 'objective';
+  if (source === 'Amulet Coin') return 'amulet';
+  return 'other';
+}
 export function gainRecognition(s, who, base, source, from = null) {
   if (base <= 0 || s.phase === 'gameOver') return;
   const p = s.players[who];
   const amount = boosted(s, base);
   p.recognition += amount;
+  // C3: the Recognition history, for the Codex's ring (data only): each gain with its Round and kind.
+  (p.recHistory ??= []).push({ round: s.round, amount, base, source, kind: recKind(source, from) });
   emit(s, 'recognition', { who, amount, base, total: p.recognition, source, from });
   log(s, `${NAMES[who]}: +${amount} Recognition (${source}${amount !== base ? `; Tournament: ${base} +50%` : ''}), now ${p.recognition}.`);
   if (p.recognition >= RULES.win) {

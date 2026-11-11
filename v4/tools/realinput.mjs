@@ -86,5 +86,28 @@ export function realInput(page, { onOpen = () => {} } = {}) {
     await click(`${spaceSel(t.who, sp)}.target`);
     if (await page.$('.v4-picker')) { onOpen('mode picker'); await click(`[data-pick="${a.mode}"]`); }
   }
-  return { play, playViaPicker };
+  // C3: the Codex. Inspect what a selector names, by right-click (as a player would: on the element) or by
+  // hovering it and pressing C; click a link inside the panel; Back; Esc. Returns the Codex's ref after.
+  const codexRef = () => page.evaluate(() => window.__v4.codex());
+  async function inspect(sel, how = 'right', position) {
+    const loc = page.locator(sel).first();
+    if (!(await page.$(sel))) throw new Error(`no ${sel}`);
+    // A disabled button (End turn while a Pass is blocked) still gets the real right-click: Playwright's wait for
+    // "enabled" is skipped there, the click itself is the same mouse input at the same point.
+    if (how === 'right') await loc.click({ button: 'right', timeout: 4000, force: await loc.isDisabled().catch(() => false), ...(position ? { position } : {}) });
+    else if (how === 'info') { await loc.hover({ timeout: 4000 }); await page.locator(`${sel} .v4-info`).first().click({ timeout: 4000 }); }
+    else { await loc.hover({ timeout: 4000, ...(position ? { position } : {}) }); await page.keyboard.press('c'); }
+    await page.waitForTimeout(60);
+    return codexRef();
+  }
+  async function codexLink(sel = '.v4-codex .v4-cright .v4-term') {
+    const loc = page.locator(sel).first();
+    const id = await loc.getAttribute('data-term');
+    await loc.click({ timeout: 4000 });
+    await page.waitForTimeout(40);
+    return { id, ref: await codexRef() };
+  }
+  async function codexBack() { await page.locator('.v4-codex [data-codex-back]').click({ timeout: 4000 }); await page.waitForTimeout(40); return codexRef(); }
+  async function closeCodex() { await page.keyboard.press('Escape'); await page.waitForTimeout(40); return codexRef(); }
+  return { play, playViaPicker, inspect, codexLink, codexBack, closeCodex, codexRef };
 }

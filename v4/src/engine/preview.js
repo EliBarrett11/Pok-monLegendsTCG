@@ -3,10 +3,10 @@
 // runOps for effects) on a copy of the state and reads the difference, so a preview can never disagree
 // with the result. The attack's number is also split into its parts (base Attack, Location, Weather,
 // Held Item, "until Supper"), which always add up to the engine's damageOf.
-import { RULES } from '../rules.js?v=202611102039';
+import { RULES } from '../rules.js?v=202611110816';
 import {
   applyAction, applyCommand, applyItem, runOps, syncBonuses, damageOf, canHitBack, locationAt, activeBrackets, opponentOf, pokemonOf,
-} from './game.js?v=202611102039';
+} from './game.js?v=202611110816';
 
 const clone = (s) => structuredClone(s);
 const gain = (before, after, who) => ({

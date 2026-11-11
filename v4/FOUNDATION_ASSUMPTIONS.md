@@ -422,3 +422,39 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   - **Tilt:** every Full card tilts under the pointer, at most 6°, its sheen moving against the tilt. The hover zoom's Full card follows the pointer over the card it shows.
   - **Low motion:** no tilt, no moving sheen, no drift; a still sheen stays.
   - **Not in the prompt, settled here:** a React card that needs a target hides the React window's cards and banner while you choose (the prompt bar says what to do), so every target on the board can be clicked. An Item with no target (Amulet Coin) can be finished with a click anywhere on the board (as well as a drop or Enter). **Needed**.
+
+## 14. The Codex (C3)
+
+- **Chosen** (`docs/v4-card-overhaul.md` 4; `docs/v4-ux-plan.md` 10, part A; the C3 prompt):
+  - **Opening it:** right-click anything when no choice is in progress (with a choice in progress, right-click still cancels it, as in UX3); C on whatever is under the pointer, at any time; the ⓘ on a Full card. Esc or ✕ closes it.
+  - **Where it sits:** x 1052–1904, y 76–770 on the 1920×1080 stage: over the right-hand column and the board's right-hand lanes. Your hand and the board's centre stay visible. The match carries on underneath; the open entry follows it, and says "no longer in play" if its subject leaves.
+  - **Card first:** the Full card at 340 px, with its holo and tilt, on the left (a header for things that aren't cards). On the right, in order:
+    1. what it does now (its full wording and its current state);
+    2. where its numbers come from;
+    3. keywords and triggers, each with its glossary meaning;
+    4. for a Pokémon, its forms by Level as small Mini cards (the current one marked) and, off the battlefield, its Level growth and what it becomes next Round, with ▲/▼.
+  - **Links:** every game term in every line links to its glossary entry, with Back and breadcrumbs. The prompt bar, the log drawer and the ? overlay's Rules page link their terms too; a click opens the Codex.
+  - **The sums** come from the engine's own functions (`attackParts`, the Location, Weather and Held bonuses, `damageOf`, `effectiveSpeed`, the cost curve), so they always equal what the card shows. Examples: "Attack 11 = 8 base + 1 kept + 1 Mt. Ember + 1 Charcoal"; "Strength 6 = 9 base − 3 damage (of 9)"; "Damage 5 = 4 Attack + 1 Sun 2, Physical".
+  - **What can be inspected:**
+    - **any card you can see:** your hand, the board, the PokéMart, both Bags, both Discard and Released Piles, Strats, the React window, the mode picker, the Release choice and the log;
+    - Locations, the Tournament, Objective trackers (the Partner's Full card), both Recognition rings (history by source with the Round of each), both Energy readouts, the Weather chip (the full bracket table), the PokéMart (Stock, Sold out, restocking), the piles, log lines, glossary terms and Rules.
+    - Never the Opponent's hand, nor the order of either Draw Pile: the Deck is a count only.
+  - **Engine records (data only, no rule change):**
+    - each player's Recognition history (`recHistory`: Round, amount, base, source, kind);
+    - this Round's Energy sources (`energyRound`: the Round's Base Energy, Passes, effects such as Chinchou's).
+  - **The React countdown waits while the Codex is open.** On your own turn the AI never acts, so nothing else needs to wait. The AI's own turn carries on underneath.
+  - **The glossary** (`src/engine/glossary.js`, 93 terms) is written only from this file, `docs/v4-foundation-spec.md`, `docs/v4-gameplay-update.md` and the engine. Never the series names.
+    - **Case:** a term written in lower case (turn, guard, summoned) links in either case. One written with a capital (Attack, Level, Spent) links only with its capital, so plain words ("an attack") stay plain.
+    - **Card names are never split into terms:** Lake of Rage isn't Rage.
+  - **The Rules page:** the ? overlay has Keys and Rules tabs. Rules is the whole glossary by topic, searchable, every term a link into the Codex. The Codex has the same search in its header.
+  - **`?fps`:** a small frame-time readout in the bottom-left corner (fps, mean, 95th percentile and worst frame over the last 120 frames).
+- **Not as the prompt read, and why:**
+  - **The hover zoom's ⓘ is a hint ("ⓘ C"), not a button.** The zoom never takes the pointer (C1), so moving to it would land on whatever lies between. The clickable ⓘ is on Full cards you can reach: the React window, the mode picker, the pile viewers and the Release choice.
+  - **The mode picker:** it is a choice in progress, so right-click cancels it. C and its ⓘ inspect its card.
+  - **Cards in the hand and on the board aren't links themselves:** a click plays or selects them. Their full wording, with every term linked, is in the Codex beside their Full card.
+  - **Previews follow the pointer and can't take a click.** C on the thing under the pointer opens it.
+  - **The log ticker is a button** (it opens the log), so its terms link in the log drawer.
+- **Approval:** **Needed** for:
+  - the panel's position;
+  - the Opponent's sealed Strat being inspectable (the board's own label already names it);
+  - the link case rule.

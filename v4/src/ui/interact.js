@@ -2,9 +2,10 @@
 // and the keyboard. It draws on its own layer (#v4-fx) inside the stage, above the board and below
 // dialogs, so a redraw of the match never loses the arrow. Every choice goes through flows.js, the same
 // path clicks take; nothing is committed until a legal drop, Enter, or the final click.
-import { attackers, commandModesFor, commandTargets } from '../engine/game.js?v=202611102039';
-import { hitsFor, evaluate, previewHTML, needsArrow, placementAt, commitHit, sameHit } from './flows.js?v=202611102039';
-import { reactOpen } from './board.js?v=202611102039';
+import { attackers, commandModesFor, commandTargets } from '../engine/game.js?v=202611110816';
+import { hitsFor, evaluate, previewHTML, needsArrow, placementAt, commitHit, sameHit } from './flows.js?v=202611110816';
+import { reactOpen } from './board.js?v=202611110816';
+import { openCodex, closeCodex, codexOpen } from './codex.js?v=202611110816';
 
 const W = 1920;
 export function setupInteraction({ stage, ui, ctx, getState }) {
@@ -225,8 +226,20 @@ export function setupInteraction({ stage, ui, ctx, getState }) {
   });
   // A click straight after a drag isn't a click.
   addEventListener('click', (e) => { if (suppressClick) { e.stopPropagation(); e.preventDefault(); suppressClick = false; } }, true);
-  // Right-click cancels a choice in progress.
-  stage.addEventListener('contextmenu', (e) => { e.preventDefault(); const s = getState(); if (s && !reactOpen(s, ui)) cancel(); });
+  // Right-click cancels a choice in progress; otherwise (C3) it opens the Codex on what was clicked.
+  const choosing = () => !!(ui.drag || ui.picker || ui.select || pending);
+  stage.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const s = getState();
+    if (!s) return;
+    if (choosing()) { if (!reactOpen(s, ui)) cancel(); return; }
+    const el = e.target.closest?.('[data-codex]');
+    if (el) openCodex(el.dataset.codex);
+  });
+  // C3: C inspects whatever is under the pointer (the hover zoom never takes the pointer, so its source).
+  let pointerAt = null;
+  addEventListener('pointermove', (e) => { pointerAt = { x: e.clientX, y: e.clientY }; }, { passive: true });
+  const underPointer = () => (pointerAt ? document.elementFromPoint(pointerAt.x, pointerAt.y)?.closest?.('[data-codex]') : null);
 
   // --- The keyboard ---
   addEventListener('keydown', (e) => {
@@ -234,6 +247,9 @@ export function setupInteraction({ stage, ui, ctx, getState }) {
     if (!s || e.ctrlKey || e.metaKey || e.altKey || e.target instanceof HTMLSelectElement || (e.target instanceof HTMLInputElement && e.target.type !== 'checkbox')) return;
     const key = e.key;
     const done = () => { e.preventDefault(); e.stopPropagation(); };
+    // C3: the Codex first: Esc closes it; C always inspects.
+    if (key === 'Escape' && codexOpen()) { done(); closeCodex(); return; }
+    if ((key === 'c' || key === 'C') && !e.shiftKey) { const el = underPointer(); if (el) { done(); openCodex(el.dataset.codex); } return; }
     // Dialogs with their own keys come first; other keys do nothing while they're open.
     if (ui.confirm) { if (key === 'Enter') { done(); ctx.confirmYes(); } else if (key === 'Escape') { done(); ctx.confirmNo(); } return; }
     if (ui.keys) { if (key === 'Escape' || key === '?') { done(); ui.keys = false; ctx.redraw(); } return; }

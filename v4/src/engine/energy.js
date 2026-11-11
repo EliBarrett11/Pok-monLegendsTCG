@@ -40,6 +40,9 @@ export function refreshEnergy(p, round) {
   p.exhaust = p.exhaust.filter((x) => x.recoversRound > round);
   p.baseEnergy = baseEnergyFor(round);
   p.exertMax = exertMaxFor(round);
+  // C3: where this Round's Base Energy came from, for the Codex (data only): the Round's Base Energy,
+  // what Passes added, and effects (Chinchou's On Summon). Exert and Exhaust are read from p itself.
+  p.energyRound = { round, base: p.baseEnergy, pass: 0, effects: [], recovered: recovered.length };
   return recovered;
 }
 

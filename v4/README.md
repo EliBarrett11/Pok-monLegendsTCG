@@ -725,3 +725,14 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
   - **Focal points:** `assets/cards/focus.json` (57 pieces and the card back): the subject's centre, a face and zoom for chips, a wide crop for each Location's tile. Chips centre on faces; Location tiles keep their landmark in view. `node v4/tools/artframe.mjs <dir>` makes the contact sheets.
   - **The finish:** a soft holo band that follows the pointer on the Full and Mini sizes of the ten final forms; a richer, slowly drifting holo on Partners and Trainers at every size. Every Full card tilts under the pointer (at most 6°). Low motion keeps a still sheen and drops the movement.
   - **Checks:** `cardtext.test.js` now also renders hands of 5, 7, 9 and 11 cards and fails if any visible text is partly covered. `tools/c2shots.mjs` takes the C2 screenshots and measures frame times with five holo cards on screen.
+- **C3 — the Codex, the glossary and the Rules page** (`docs/v4-card-overhaul.md` 4; `docs/v4-ux-plan.md` 10 part A). No rule, number or card changes.
+  - **The Codex:** right-click anything (when no choice is in progress; right-click still cancels one), press C over anything, or click the ⓘ on a Full card. A panel opens over the right-hand column; your hand and the board's centre stay visible and the match carries on. Card first: the Full card on the left; on the right, what it does now, where its numbers come from ("Attack 11 = 8 base + 1 kept + 1 Mt. Ember + 1 Charcoal"), its keywords and triggers, and for a Pokémon its forms by Level and what it becomes next Round. Every term is a link, with Back and breadcrumbs. Esc or ✕ closes it; the React countdown waits while it's open.
+  - **What it covers:** any card you can see, Locations, the Tournament, Objective trackers, Recognition rings (history by source and Round), the Energy tile, the Weather chip, the PokéMart, the piles (the Deck as a count only), log lines, every glossary term and Rules.
+  - **The glossary:** 93 terms written from the rules documents and the engine (`src/engine/glossary.js`). Terms link in the prompt bar, the log and the Codex.
+  - **Rules:** the ? overlay has a Rules tab, a searchable one-page summary with every term a link.
+  - **`?fps`:** a frame-time readout in a corner.
+  - **The engine records** each player's Recognition history and this Round's Energy sources (data only).
+  - **Checks:**
+    - `node v4/tests/c3.test.js`: coverage of every kind of thing, the Tournament included; no dead links; the number sums over 200 random states; forms and next Round for every line at every Level.
+    - `node v4/tools/c3check.mjs`: real input (right-click and C on each kind of thing, three links and Back, Rules search, right-click cancelling a choice).
+    - `node v4/tools/layout.mjs`: the Codex open on each kind of thing, failing on any overflow or overlap.

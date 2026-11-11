@@ -658,3 +658,71 @@ button { font-family: inherit; color: inherit; }
 .v4-low .cd-holo.final, .v4-low .cd-holo.rich { background-position: 65% 0; }
 .v4-low .cd-holo.rich::before { animation: none; transform: translateX(-25%); }
 @media (prefers-reduced-motion: reduce) { .cd-holo.rich::before { animation: none; } .cd-full { transition: none; } }
+
+/* --- C3: the Codex (src/ui/codex.js) ------------------------------------------------------------------------
+   Over the right-hand column and part of the board: your hand (y ≥ 778) and the board's centre stay visible.
+   Card first: the Full card (340) on the left, the explanations on the right. The body scrolls; nothing is
+   ever trimmed (no nowrap, no ellipsis). */
+.v4-codex-layer { position: absolute; left: 0; top: 0; z-index: 66; pointer-events: none; }
+.v4-codex-layer.open .v4-codex { pointer-events: auto; }
+.v4-codex { position: absolute; left: 1052px; top: 76px; width: 852px; height: 694px; display: flex; flex-direction: column; padding: 0; border: 2px solid var(--brass); box-shadow: 0 14px 46px rgba(0, 0, 0, 0.85); background: linear-gradient(rgba(38, 24, 12, 0.985), rgba(22, 13, 6, 0.985)); color: var(--cream); font-family: var(--font-text); }
+.v4-codex header { display: flex; align-items: center; gap: 10px; padding: 8px 10px 6px 16px; border-bottom: 1px solid var(--brass-dark); }
+.v4-codex-kicker { font-family: var(--font-display); font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: var(--brass-light); font-size: 17px; }
+.v4-codex-search { flex: 1; min-width: 0; height: 30px; padding: 0 10px; font: 16px var(--font-text); color: var(--cream); background: rgba(0, 0, 0, 0.35); border: 1px solid var(--brass-dark); border-radius: 6px; }
+.v4-codex-rules, .v4-codex-crumbs a, .v4-codex-back { cursor: pointer; color: var(--brass-light); font-size: 15px; font-weight: 700; }
+.v4-codex-x { width: 32px; height: 32px; cursor: pointer; font-size: 18px; color: var(--ink); background: linear-gradient(#f6dd9a, #c99a48); border: 1px solid var(--brass-dark); border-radius: 7px; }
+.v4-codex-crumbs { display: flex; align-items: baseline; gap: 10px; padding: 5px 16px; font-size: 15px; color: var(--muted); line-height: 1.35; border-bottom: 1px solid rgba(107, 74, 28, 0.6); }
+.v4-codex-crumbs span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.v4-codex-crumbs b { color: var(--cream); }
+.v4-codex-back { flex: none; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--brass-dark); border-radius: 5px; padding: 1px 8px; font-family: var(--font-text); }
+.v4-codex-body { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 16px 16px; scrollbar-color: var(--brass-mid) transparent; }
+.v4-codex footer { padding: 5px 16px 7px; font-size: 13px; color: var(--muted); border-top: 1px solid rgba(107, 74, 28, 0.6); }
+.v4-centry { display: flex; gap: 18px; align-items: flex-start; }
+.v4-cleft { flex: none; width: 340px; }
+.v4-cleft .cd-full { position: relative; }
+.v4-centry.wide .v4-cleft { display: none; }
+.v4-cright { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.v4-csec h4 { margin: 0 0 6px; font-family: var(--font-display); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; font-size: 14px; color: var(--brass); }
+.v4-csec p { margin: 0 0 6px; font-size: 16px; line-height: 1.38; overflow-wrap: break-word; }
+.v4-csec .v4-cmean { font-size: 15px; }
+.v4-csums p { font-family: var(--font-text); font-weight: 700; color: #fbeec8; }
+.v4-cnext { color: #bfe3a4; font-weight: 700; }
+.v4-cnote { color: var(--muted); font-size: 14px; }
+.v4-term { color: #ffd98a; text-decoration: underline dotted rgba(255, 217, 138, 0.55); text-underline-offset: 2px; cursor: pointer; }
+.v4-term:hover, .v4-cref:hover { color: #fff3c9; text-decoration-style: solid; }
+.v4-cref { color: #9fd1ff; cursor: pointer; text-decoration: underline; }
+.v4-cforms { display: flex; gap: 8px; align-items: flex-start; margin: 2px 0 8px; }
+.v4-cforms.wrap { flex-wrap: wrap; }
+.v4-cmini { position: relative; flex: none; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 8px; }
+.v4-cmini > span { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.v4-cmini.current { outline: 3px solid #ffd56a; outline-offset: 2px; box-shadow: 0 0 16px rgba(255, 213, 106, 0.6); }
+.v4-cform { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.v4-cform .lv { font-size: 13px; line-height: 1.3; font-weight: 700; color: var(--brass-light); text-align: center; }
+.v4-ctable { width: 100%; border-collapse: collapse; font-size: 15px; margin-top: 4px; }
+.v4-ctable th, .v4-ctable td { text-align: left; padding: 3px 6px; border-bottom: 1px solid rgba(107, 74, 28, 0.6); vertical-align: top; overflow-wrap: break-word; }
+.v4-ctable th { color: var(--brass); font-family: var(--font-display); font-size: 13px; letter-spacing: 0.08em; }
+.v4-ctable tr.on td { color: #fff1c4; font-weight: 700; }
+.v4-crec { margin-bottom: 8px; }
+.v4-crec p { margin: 0 0 2px; }
+.v4-crec .n { color: #ffd56a; font-weight: 800; }
+.v4-crec ul { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.35; color: #ead9b3; }
+.v4-chead { width: 340px; min-height: 170px; padding: 18px 20px; border-radius: 12px; border: 2px solid var(--brass-dark); background: radial-gradient(circle at 30% 20%, rgba(209, 169, 90, 0.25), rgba(20, 12, 6, 0.9)); display: flex; flex-direction: column; gap: 6px; }
+.v4-chead .k { font-family: var(--font-display); font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--brass); overflow-wrap: anywhere; }
+.v4-chead .t { font-family: var(--font-display); font-size: 26px; line-height: 1.32; color: var(--brass-light); overflow-wrap: anywhere; }
+.v4-chead .big { font-family: var(--font-display); font-size: 54px; font-weight: 800; color: #fff2cf; line-height: 1.3; }
+/* The ⓘ on a Full card: clickable where the card is (the React window, the mode picker, the viewers, the
+   Release choice); on the hover zoom (which never takes the pointer) it shows the C key. */
+.v4-fullwrap { position: relative; display: inline-block; }
+.v4-info { position: absolute; z-index: 6; right: 8px; top: 8px; width: 30px; height: 30px; padding: 0; border-radius: 50%; cursor: pointer; font: 700 18px/28px var(--font-text); color: var(--ink); background: linear-gradient(#fff2c8, #d9b066); border: 1px solid var(--brass-dark); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6); opacity: 0; transition: opacity 0.12s; pointer-events: auto; }
+.v4-fullwrap:hover > .v4-info, .v4-cbtn:hover .v4-info, .v4-ropt:hover .v4-info, .v4-picker:hover .v4-info { opacity: 1; }
+.v4-zoominfo { position: absolute; z-index: 6; right: 8px; top: 8px; padding: 2px 8px; border-radius: 14px; font: 700 15px/22px var(--font-text); color: var(--ink); background: linear-gradient(#fff2c8, #d9b066); border: 1px solid var(--brass-dark); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6); white-space: nowrap; }
+/* The ? overlay's Rules page. */
+.v4-keystabs { display: flex; gap: 8px; justify-content: center; margin: 0 0 10px; }
+.v4-keystabs button.on { background: linear-gradient(#fff2c8, #e8c27a); box-shadow: 0 0 0 2px #ffe08a; }
+.v4-ask .v4-panel.v4-rulespage { width: 1100px; max-height: 960px; display: flex; flex-direction: column; text-align: left; }
+.v4-rulespage .v4-rulesbody { flex: 1; min-height: 0; overflow-y: auto; padding-right: 8px; columns: 2; column-gap: 28px; }
+.v4-rulespage .v4-csec { break-inside: avoid-column; }
+.v4-rulespage .v4-csec p { font-size: 15px; margin: 0 0 6px; }
+.v4-rulesearch { width: 100%; height: 34px; margin: 0 0 10px; padding: 0 10px; font: 17px var(--font-text); color: var(--cream); background: rgba(0, 0, 0, 0.35); border: 1px solid var(--brass-dark); border-radius: 6px; }
+/* ?fps: a frame-time readout in a corner. */
+.v4-fps { position: fixed; left: 6px; bottom: 6px; z-index: 9999; padding: 3px 8px; font: 700 13px/1.3 ui-monospace, monospace; color: #c8ffb0; background: rgba(0, 0, 0, 0.78); border: 1px solid #3c6a2a; border-radius: 5px; pointer-events: none; white-space: pre; }

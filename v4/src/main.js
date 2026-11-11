@@ -2,20 +2,21 @@
 // Pokémon Legends v4 — entry point (F1): you against the AI, on a fixed 1920×1080 stage scaled
 // to fit the window. ?seed=123 replays the same shuffle and AI choices; ?autoplay lets the AI play
 // both sides; ?debug exposes window.__v4 for the layout check (v4/tools/layout.mjs).
-import { createGame, applyAction, actor, energyLeft, playReason, passReason } from './engine/game.js?v=202611102039';
-import { chooseAction } from './ai/ai.js?v=202611102039';
-import { renderMatch, reactOpen } from './ui/board.js?v=202611102039';
-import { pokemonAt, cardAtRound } from './engine/cards.js?v=202611102039';
-import { setupInteraction } from './ui/interact.js?v=202611102039';
-import { present, setupPresenter, isPresenting, resetFx, stampRings, skip } from './ui/present.js?v=202611102039';
-import { speedFactor, setSpeed, speedName, lowMotion, setLowMotionSetting } from './ui/settings.js?v=202611102039';
-import { MS } from './ui/vfx/library.js?v=202611102039';
-import { loadArtFocus } from './ui/card.js?v=202611102039';
-import { initFinish } from './ui/finish.js?v=202611102039';
-import { played } from './ui/sound.js?v=202611102039';
-import { MODE_NAMES } from './engine/cards.js?v=202611102039';
+import { createGame, applyAction, actor, energyLeft, playReason, passReason } from './engine/game.js?v=202611110816';
+import { chooseAction } from './ai/ai.js?v=202611110816';
+import { renderMatch, reactOpen } from './ui/board.js?v=202611110816';
+import { pokemonAt, cardAtRound } from './engine/cards.js?v=202611110816';
+import { setupInteraction } from './ui/interact.js?v=202611110816';
+import { present, setupPresenter, isPresenting, resetFx, stampRings, skip } from './ui/present.js?v=202611110816';
+import { speedFactor, setSpeed, speedName, lowMotion, setLowMotionSetting } from './ui/settings.js?v=202611110816';
+import { MS } from './ui/vfx/library.js?v=202611110816';
+import { loadArtFocus } from './ui/card.js?v=202611110816';
+import { initFinish } from './ui/finish.js?v=202611110816';
+import { initCodex, drawCodex } from './ui/codex.js?v=202611110816';
+import { played } from './ui/sound.js?v=202611110816';
+import { MODE_NAMES } from './engine/cards.js?v=202611110816';
 
-export const BUILD = 'C2 — C1 fixes, art framing and the collectable finish';
+export const BUILD = 'C3 — the Codex, the glossary and the Rules page';
 
 const STAGE = { width: 1920, height: 1080 };
 const stage = document.getElementById('stage');
@@ -62,6 +63,8 @@ function redraw() {
   syncReactClock();
   renderMatch(root, state, ui, ctx);
   interaction?.refresh();
+  // C3: the open Codex follows the match as it carries on.
+  drawCodex();
 }
 
 // UX1: the React window's countdown belongs to the interface, not the engine. When the human
@@ -74,14 +77,25 @@ function syncReactClock() {
     if (ui.reactClock) { clearTimeout(reactTimeout); ui.reactClock = null; }
     return;
   }
-  if (ui.reactClock?.state === state) return;
+  // C3: the countdown waits while the Codex is open (the decision is yours; the AI waits too).
+  const paused = !!ui.codex;
+  const forState = state;
+  const arm = (left) => {
+    clearTimeout(reactTimeout);
+    reactTimeout = setTimeout(() => {
+      if (state === forState && state.reactWindow?.reactor === 'player' && !ui.codex) act({ type: 'decline', who: 'player' });
+    }, left);
+  };
+  const c = ui.reactClock;
+  if (c?.state === state) {
+    if (paused && !c.paused) { clearTimeout(reactTimeout); c.left = Math.max(0, c.ms - (Date.now() - c.start)); c.paused = true; }
+    else if (!paused && c.paused) { c.paused = false; c.start = Date.now() - (c.ms - c.left); arm(c.left); }
+    return;
+  }
   clearTimeout(reactTimeout);
   const ms = ctx.reactTimer * 1000;
-  const forState = state;
-  ui.reactClock = { state, start: Date.now(), ms };
-  reactTimeout = setTimeout(() => {
-    if (state === forState && state.reactWindow?.reactor === 'player') act({ type: 'decline', who: 'player' });
-  }, ms);
+  ui.reactClock = { state, start: Date.now(), ms, paused, left: ms };
+  if (!paused) arm(ms);
 }
 
 // UX3: confirmations, only where a mistake is costly (ending a turn with Energy unused and a playable
@@ -128,7 +142,7 @@ function newMatch() {
   aiRng = params.has('seed') ? () => { k = (k * 9301 + 49297) % 233280; return k / 233280; } : Math.random;
   state = createGame(seed);
   resetFx();
-  Object.assign(ui, { presenting: false, aim: null, aiNote: null, select: null, ask: null, locked: false, seenTournament: null, drawer: null, martSeen: null, drag: null, picker: null, confirm: null, keys: false, focus: null, hover: null });
+  Object.assign(ui, { presenting: false, aim: null, aiNote: null, select: null, ask: null, locked: false, seenTournament: null, drawer: null, martSeen: null, drag: null, picker: null, confirm: null, keys: false, focus: null, hover: null, codex: null });
   redraw();
   aiLoop(match);
 }
@@ -277,6 +291,8 @@ if (params.has('debug')) {
     set(fn) { fn(state, ui); redraw(); },
     // C2: whether the player can act now (their move, nothing playing, the interface not locked), for checks.
     ready: () => actor(state) === 'player' && !ui.locked && !isPresenting(),
+    // C3: the Codex's current ref (null when closed), for checks.
+    codex: () => ui.codex?.stack.at(-1) ?? null,
     // F2: give a Location card, or place one for either side (through the engine's action).
     giveLocation(id) { const c = { ...cardAtRound(id, 1), uid: `dbg-${Math.random().toString(36).slice(2, 7)}` }; state.players.player.hand.push(c); redraw(); return c.uid; },
     place(who, id, start) {
@@ -299,7 +315,33 @@ if (params.has('debug')) {
 // (?nowebgl forces the 2D fallback).
 interaction = setupInteraction({ stage, ui, ctx, getState: () => state });
 setupPresenter(stage, { webgl: !params.has('nowebgl') }).then((r) => { if (window.__v4) window.__v4.webgl = r.webgl; });
+// C3: the Codex (right-click, C, or the ⓘ on a Full card).
+initCodex(stage, { ui, getState: () => state, redraw });
 // C2: the art's focal points (assets/cards/focus.json) before the first drawing.
 await loadArtFocus();
 initFinish(document);
+// C3: ?fps shows a small frame-time readout in a corner (to check performance on any PC).
+if (params.has('fps')) startFps();
 newMatch();
+
+function startFps() {
+  const el = document.createElement('div');
+  el.className = 'v4-fps';
+  document.body.append(el);
+  const times = [];
+  let prev = performance.now();
+  let shown = 0;
+  const tick = (now) => {
+    times.push(now - prev);
+    prev = now;
+    if (times.length > 120) times.shift();
+    if (now - shown > 250 && times.length > 5) {
+      shown = now;
+      const sorted = [...times].sort((a, b) => a - b);
+      const mean = times.reduce((a, b) => a + b, 0) / times.length;
+      el.textContent = `${(1000 / mean).toFixed(0)} fps · ${mean.toFixed(1)} ms mean · ${sorted[Math.floor(sorted.length * 0.95)].toFixed(1)} ms p95 · ${sorted.at(-1).toFixed(1)} ms max`;
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}

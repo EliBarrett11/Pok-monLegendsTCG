@@ -15,12 +15,12 @@
 // fewer particles, no shake and no distortion. If WebGL isn't available,
 // initVfx() returns false and the game keeps its 2D effects (particles.js).
 
-import { createRenderer } from './gl.js?v=202611102039';
-import { loadTextures } from './textures.js?v=202611102039';
-import { Timeline } from './timeline.js?v=202611102039';
+import { createRenderer } from './gl.js?v=202611110816';
+import { loadTextures } from './textures.js?v=202611110816';
+import { Timeline } from './timeline.js?v=202611110816';
 import {
   EMITTERS, TIMELINES, RIBBONS, BEAMS, SWEEPS, STATUS_VISUALS, tintOf, impactScale,
-} from './shared.js?v=202611102039';
+} from './shared.js?v=202611110816';
 
 const MAX_PARTICLES = 2600;
 const motionQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };

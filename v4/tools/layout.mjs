@@ -139,6 +139,42 @@ function check() {
     if (cs.display === 'inline' || cs.display === 'contents' || scrolls(el, 'x') || scrolls(el, 'y')) continue;
     if (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1) out.push(`${name(el)}'s text overflows its box (${el.scrollWidth}×${el.scrollHeight} in ${el.clientWidth}×${el.clientHeight})`);
   }
+  // C3: the Codex: no text spills out of the panel sideways, and no two pieces of text overlap (the body scrolls,
+  // so everything below the fold is checked too, by its layout box).
+  const codex = scope.closest?.('.v4-codex') ?? scope.querySelector?.('.v4-codex');
+  if (codex) {
+    const body = codex.querySelector('.v4-codex-body');
+    const br = body.getBoundingClientRect();
+    const TEXT = 'p, h4, li, td, th, .k, .t, .big, .lv, b, a, button, input, footer, nav span';
+    const blocks = [...codex.querySelectorAll(TEXT)].filter((el) => !el.closest('.cd') && el.getClientRects().length && el.textContent.trim() !== '' || el.matches('input'));
+    for (const el of blocks) {
+      if (!body.contains(el)) continue;
+      const r = el.getBoundingClientRect();
+      if (r.left < br.left - 1 || r.right > br.right + 1) out.push(`${name(el)} spills out of the Codex sideways`);
+      if (el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).display !== 'inline') out.push(`${name(el)}'s text overflows its box in the Codex`);
+    }
+    // Overlaps: line boxes of different leaf text elements must not intersect.
+    const leaves = blocks.filter((el) => !blocks.some((o) => o !== el && el.contains(o) && !o.matches('a, b')) && body.contains(el));
+    const boxes = leaves.flatMap((el) => [...el.getClientRects()].map((r) => ({ el, r })));
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) {
+        const A = boxes[i];
+        const B = boxes[j];
+        if (A.el === B.el || A.el.contains(B.el) || B.el.contains(A.el)) continue;
+        const w = Math.min(A.r.right, B.r.right) - Math.max(A.r.left, B.r.left);
+        const h = Math.min(A.r.bottom, B.r.bottom) - Math.max(A.r.top, B.r.top);
+        if (w > 2 && h > 2) out.push(`${name(A.el)} overlaps ${name(B.el)} in the Codex`);
+      }
+    }
+    // The Full card and the text column don't overlap either.
+    const card = codex.querySelector('.v4-cleft');
+    const col = codex.querySelector('.v4-cright');
+    if (card && col && getComputedStyle(card).display !== 'none') {
+      const a1 = card.getBoundingClientRect();
+      const a2 = col.getBoundingClientRect();
+      if (Math.min(a1.right, a2.right) - Math.max(a1.left, a2.left) > 1 && Math.min(a1.bottom, a2.bottom) - Math.max(a1.top, a2.top) > 1) out.push('the Codex card and its text overlap');
+    }
+  }
   return [...new Set(out)];
 }
 
@@ -405,7 +441,40 @@ const SCENARIOS = {
   'zoom-mart': async (p) => { await to(p, 3); await hover(p, '.v4-martslot'); },
   'discard-viewer': async (p) => { await to(p, 6); await v4(p, () => window.__v4.set((s, ui) => { ui.drawer = 'view:player-disc'; })); },
   'released-viewer': async (p) => { await to(p, 6); await v4(p, () => window.__v4.set((s, ui) => { ui.drawer = 'view:ai-rel'; })); },
+  // C3: the Codex open on one of each kind of thing (and the ? overlay's Rules page).
+  'codex-pokemon': async (p) => { await to(p, 5); await codexOn(p, 'mon:player:1', "s.players.player.row[1] = mon('charmander', 8, { held: C.itemDef('charcoal'), currentStrength: 6 });"); },
+  'codex-pokemon-hand': async (p) => { await to(p, 5); await codexOn(p, 'card:cx-hand', "s.players.player.hand.push({ ...C.cardAtRound('squirtle', s.round), uid: 'cx-hand' });"); },
+  'codex-command': async (p) => { await to(p, 5); await codexOn(p, 'card:cx-cmd', "s.players.player.hand.push({ ...C.cardAtRound('rock-slide', s.round), uid: 'cx-cmd' });"); },
+  'codex-supporter': async (p) => { await to(p, 5); await codexOn(p, 'card:cx-sup', "s.players.player.hand.push({ ...C.cardAtRound('pokemon-breeder', s.round), uid: 'cx-sup' });"); },
+  'codex-trainer': async (p) => { await to(p, 5); await codexOn(p, `trainer:player:${'${s.players.player.trainers[0].uid}'}`, ''); },
+  'codex-location': async (p) => { await to(p, 3); await codexOn(p, 'loc:loc-mt-ember', "s.tournament = null; s.locations = [loc('mt-ember', 2)];"); },
+  'codex-term': async (p) => { await to(p, 3); await codexOn(p, 'term:react', ''); },
+  'codex-rules': async (p) => { await to(p, 3); await codexOn(p, 'rules', ''); },
+  'codex-rec': async (p) => { await to(p, 6); await codexOn(p, 'rec:player', ''); },
+  'codex-energy': async (p) => { await to(p, 6); await codexOn(p, 'energy:player', ''); },
+  'codex-weather': async (p) => { await to(p, 3); await codexOn(p, 'weather', "s.tournament = null; s.locations = [loc('cerulean-cape', 0), loc('mt-ember', 2), loc('route-119', 5)];"); },
+  'codex-mart': async (p) => { await to(p, 3); await codexOn(p, 'mart', ''); },
+  'codex-discard': async (p) => { await to(p, 6); await codexOn(p, 'pile:player:discard', ''); },
+  'codex-log': async (p) => { await to(p, 3); await codexOn(p, 'log:0', ''); },
+  'codex-tournament': async (p) => { await to(p, 3); await codexOn(p, 'tournament', ''); },
+  'keys-rules': async (p) => { await to(p, 3); await v4(p, () => window.__v4.set((s, ui) => { ui.keys = 'rules'; })); },
 };
+// C3: stage something (code run with s, mon, loc, C), then open the Codex on a ref (which may use s).
+async function codexOn(p, ref, code) {
+  await v4(p, async ({ ref, code }) => {
+    const C = await import('/v4/src/engine/cards.js');
+    const G = await import('/v4/src/engine/game.js');
+    window.__v4.set((s, ui) => {
+      const mon = (id, level, extra = {}) => ({ ...C.pokemonAt(id, level), uid: `cx-${id}-${level}`, currentStrength: C.pokemonAt(id, level).strength, spent: false, summonedRound: 0, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...extra });
+      const loc = (id, start, owner = 'player') => { const l = C.locationDef(id); return { uid: `loc-${id}`, owner, card: l, id, name: l.name, art: l.art, color: l.color, start, width: l.width, roundsLeft: l.rounds, weather: l.weather, passive: l.passive, placedRound: s.round }; };
+      // eslint-disable-next-line no-new-func
+      new Function('s', 'mon', 'loc', 'C', code)(s, mon, loc, C);
+      G.syncBonuses(s);
+      // eslint-disable-next-line no-new-func
+      ui.codex = { stack: [new Function('s', `return \`${ref}\`;`)(s)], q: '' };
+    });
+  }, { ref, code });
+}
 
 // --- Run ------------------------------------------------------------------------------------
 
