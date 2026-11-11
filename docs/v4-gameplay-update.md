@@ -310,3 +310,8 @@ Anything out of range is reported with a suggested number to change. Elliott's p
 | **G1: Rules and economy** | Pass, React, cost curve, Recognition, PokéDollars, the one-Item PokéMart with Stock, and Objective point moments. The deck is unchanged, so the game stays playable | `docs/prompts/v4-G1.md` |
 | **G2: Pokémon** | The trigger and keyword system, the 10 new Pokémon lines, the Electric Physical attack animation, and the AI's understanding of triggers | `docs/prompts/v4-G2.md` |
 | **G3: Cards, deck and balance** | The new Commands, Supporters and Items, the final 40-card deck, the new card animations, and the 200-match balance report | `docs/prompts/v4-G3.md` |
+
+## 9. Later rulings
+
+- **11 November 2026, Bubble Beam's React** was a dead effect: attacking already makes the attacker Spent. It's now **React, cost 1: the attack deals 2 less damage**. Adapt and Strat are unchanged.
+- **11 November 2026, hidden Strats:** a waiting Strat is hidden from the other player until it resolves. They see a face-down card and its target, and the card is revealed when it resolves, with their React window. The AI never reads the player's sealed card.
