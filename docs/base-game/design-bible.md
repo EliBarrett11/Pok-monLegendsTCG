@@ -117,6 +117,12 @@ A form's **points** are its Attack + Strength plus the prices of its Speed, guar
 | Return one of yours to hand | 1 (more when it re-uses an On Summon) |
 | Gain $N | 1 per $ |
 | Gain N Recognition | 1.2 per point |
+| Make each enemy in a Location Spent | 5 |
+| −N Attack until Supper to each enemy Pokémon | 2 per point |
+| The attack being Reacted to deals N less damage | 1 per point ("no damage": 4) |
+| Shell X until Supper to one of yours | 1 per X (to each of yours: 2 per X) |
+| A Pokémon card in hand gains N Levels | 1 per Level per card |
+| A Held Item's keyword that only one Type gets | ×0.7 |
 
 ### 3.3 Trigger multipliers
 
