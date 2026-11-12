@@ -1,6 +1,6 @@
 # The Base Game: plan
 
-**Status:** a plan for Elliott's approval (12 November 2026).
+**Status:** approved by Elliott on 12 November 2026, with his decisions in section 9. **Weather is removed from the game for now** (section 7).
 
 **Goal:** turn v4 from one shared deck into a **card library and a deck builder**, so players build their own decks and discover strategies and archetypes. Everything here builds on the rules and features Elliott is happy with. Current cards are kept only where they serve the library.
 
@@ -13,10 +13,10 @@
 | Elliott's question | Answer |
 |---|---|
 | **1. How many cards** | **180 collectable cards:** 66 Pokémon (60 evolution lines plus 6 Legendaries), 36 Moves, 24 Supporters, 24 Items, 18 Locations, 12 Main Trainers. Plus 12 Partners, which arrive through their Trainers. |
-| **2. Triggers and keywords** | **9 triggers plus static auras, and 16 keywords** (section 4). 6 triggers and 7 keywords are already built. |
+| **2. Triggers and keywords** | **9 triggers plus static auras, and 14 keywords** (section 4). 6 triggers and 7 keywords are already built. |
 | **3. What's in it** | **All 18 Pokémon Types,** with 3–4 lines each, no favourites. 12 Gym Leaders and Elite Four members as Main Trainers. Moves, Items and Locations spread across the Types (section 5). **Art: 279 pieces in all. 119 already exist; 160 are new.** |
-| **4. Design strategy** | **One value budget for every card,** a clear sense of what each Energy cost should buy, one strong verb per card, and every card belonging to at least one archetype. Balance is proven with archetype decks played against each other by the AI (section 6). |
-| **5. Current cards** | Kept where they fit, redesigned where the library needs it. The biggest change: **Moves get a Type** (section 7). |
+| **4. Design strategy** | **The health of the whole library first:** one value budget for every card, a clear sense of what each Energy cost should buy, one strong verb per card, and every card good on its own with synergy as a bonus. Strategies are seeds that grow with later batches. Balance is proven with starter decks played against each other by the AI (section 6). |
+| **5. Current cards** | Kept where they fit, redesigned where the library needs it. Moves get a Type for flavour and synergy. **Weather is removed** (section 7). |
 | **6. How to get there** | Six phases, with design in batches you approve, art in the same batches, and a data-driven engine so 180 cards stay manageable (section 8). |
 
 ---
@@ -30,7 +30,7 @@
 | **Supporters** | **24** | The engines of each archetype: draw, search, recursion, money, Favours. |
 | **Items** | **24** | 12 Consumed and 12 Held. They also make up the PokéMart pool, so each match sees real variety. |
 | **Locations** | **18** | One for each archetype's home turf, plus neutral ones. A deck runs 3–6. |
-| **Main Trainers** | **12** | The archetype anchors. Each has an Objective and a Partner. A deck takes exactly 2. |
+| **Main Trainers** | **12** | Strategy anchors. Each has an Objective and a Partner. A deck takes 0–3. |
 | **Total** | **180** | |
 
 **How this compares:**
@@ -38,40 +38,47 @@
 - **180** gives each of the 10 archetypes in section 3 about **25–30 relevant cards**, so there are real choices within an archetype (more than the ~20 a deck needs) and room to mix two archetypes.
 - It's still a size we can design carefully and Elliott can illustrate.
 
-**Deck-building rules (proposed, see Q1):**
+**Deck-building rules (decided by Elliott):**
 - **40 cards.**
-- **At most 2 copies** of any card. **Legendaries: 1 copy, and 1 Legendary per deck.**
-- **Exactly 2 Main Trainers,** 1 copy each. Their Objectives are active from the start, as now.
-- **3 to 6 Locations,** so every match has battlegrounds to fight over.
-- **No Type limit;** the Move rule in section 7 gives decks their identity instead.
+- **At most 2 copies** of any card.
+- **Legendaries: 1 copy each,** with no limit on how many different Legendaries a deck runs.
+- **0 to 3 Main Trainers,** 1 copy each. Each Trainer in the deck has its Objective active from the start, as now. A deck with none simply has no Objectives.
+- **Any number of Locations.**
+- **No Type limit.**
+- **Moves can be played whatever Pokémon you have.**
 
 **Collection:** in the Base Game **every card is available from the start**. There are no packs or unlocking. The game is about building decks, not grinding.
 
-**Rarity:** for look and feel only, plus the copy limit:
+**Rarity:** for look and feel only, plus the Legendary copy rule:
 - **Common** (plain frame);
 - **Rare** (final forms, with the holo from C2);
 - **Legendary** (a gold-foil frame variant).
 
 ---
 
-## 3. The ten archetypes
+## 3. Strategies: seeds, not boxes
 
-Designing for archetypes first means every card has a home. Each archetype is a way to win, built from 2–4 Types, and it has a Main Trainer and Locations that suit it. The Types are deliberately shared between archetypes, so decks can mix.
+Elliott's direction: archetypes should **grow naturally** as later batches of cards arrive, and the priority now is **the health of the Base Game cards as a whole**. So these are **strategy seeds**: directions the Base Game supports enough to be playable and discoverable, and that later sets can deepen. They aren't fixed boxes every card is designed for.
 
-| # | Archetype | How it wins | Core Types | Trainer anchors |
-|---|---|---|---|---|
-| 1 | **Blitz** | Early pressure on the Player Character: Quick Attack, Infiltrator, Overrun | Fire, Dark, Flying | Blaine, Karen |
-| 2 | **Fortress** | Guards, Shell and healing. Out-last, then win Locations | Water, Rock, Steel | Misty, Jasmine |
-| 3 | **Territory** | Win Locations: Strength stacking, On Dominate rewards | Ground, Grass, Rock | Erika, Bruno |
-| 4 | **Rain Dance** | Push Rain to its brackets; Rain Power Pokémon | Water, Electric, Flying | Misty, Lt. Surge |
-| 5 | **Sunny Day** | Push Sun; Sun Power Pokémon and Solar moves | Fire, Grass | Blaine, Erika |
-| 6 | **Big Game** | Energy ramp into Heavy finishers and Legendaries | Electric, Dragon, Normal | Lance, Lt. Surge |
-| 7 | **Mind Games** | Moves and Strats: On Command Pokémon, hand control, hidden Strats | Psychic, Fairy, Dark | Sabrina, Karen |
-| 8 | **Afterlife** | Value from defeats: On Defeated, recursion from the Discard | Ghost, Bug, Poison | Morty, Koga |
-| 9 | **Swarm** | Many cheap Light Pokémon fill lanes; Swarm keyword and dominance | Bug, Normal, Poison | Koga, Whitney |
-| 10 | **High Roller** | PokéDollars and Items: Pickup, Held Items, the PokéMart | Normal, Steel, Fairy | Whitney, Jasmine |
+**What this means for design:**
+- **Every card must be good on its own.** A card earns its place by its rate and verb, and synergy is upside. No card is useless outside one strategy ("parasitic" design).
+- **Staples:** roughly a third of the library are strong, general cards that suit almost any deck. Examples are a solid removal Move at each cost, card draw, healing, and efficient bodies.
+- **Seeds are spread across Types,** so they overlap and decks can mix them. A card usually supports 2–3 seeds.
 
----
+| Seed | How it wins | Types that lean in | Trainers that suit it |
+|---|---|---|---|
+| **Blitz** | Early pressure on the Player Character: Quick Attack, Infiltrator, Overrun | Fire, Dark, Flying | Blaine, Karen |
+| **Fortress** | Guards, Shell and healing. Out-last, then win Locations | Water, Rock, Steel | Misty, Jasmine |
+| **Territory** | Win Locations: Strength stacking, On Dominate rewards | Ground, Grass, Rock | Erika, Bruno |
+| **Late Bloomers** *new* | The game's unique timing: Retain and hold Pokémon while they grow. Rewards for high Level ("if Level 6+"), Rare Candy | Grass, Water, Dragon | Erika, Lance |
+| **Hit and Run** *new* | Tempo: re-use On Summon effects by returning your Pokémon to hand (Dive, U-turn, Escape Rope) and summoning again. Quick Attack bodies | Psychic, Flying, Electric | Sabrina, Lt. Surge |
+| **Big Game** | Energy ramp into Heavy finishers and Legendaries | Electric, Dragon, Normal | Lance, Lt. Surge |
+| **Mind Games** | Moves and Strats: On Command Pokémon, hand control, hidden Strats | Psychic, Fairy, Dark | Sabrina, Karen |
+| **Afterlife** | Value from defeats: On Defeated, recursion from the Discard | Ghost, Bug, Poison | Morty, Koga |
+| **Swarm** | Many cheap Light Pokémon fill lanes; Swarm keyword and dominance | Bug, Normal, Poison | Koga, Whitney |
+| **High Roller** | PokéDollars and Items: Pickup, Held Items, the PokéMart | Normal, Steel, Fairy | Whitney, Jasmine |
+
+Rain Dance and Sunny Day are gone with Weather. **Late Bloomers** and **Hit and Run** replace them: both come from rules the game already has (Pokémon growing in the deck, and return-to-hand), so they add depth without adding a new system.
 
 ## 4. Triggers and keywords
 
@@ -92,7 +99,7 @@ The six already in v4, plus three new ones that the archetypes need. "Aura" is t
 | **On Dominate** | at Supper, when you dominate its Location | **new** (Territory) |
 | **Aura** | while it's in play (e.g. "Aura: your other Pokémon here have +1 Attack") | **new** (Swarm, Fortress) |
 
-### 4.2 Keywords (16)
+### 4.2 Keywords (14)
 
 | Keyword | Meaning | Status | Main users |
 |---|---|---|---|
@@ -109,11 +116,9 @@ The six already in v4, plus three new ones that the archetypes need. "Aura" is t
 | **Intimidate X** | enemy Pokémon in its Location have −X Attack | **new** | Dark, Fighting |
 | **Swarm** | +1 Attack for each other of your Pokémon in its Location | **new** | Bug, Swarm |
 | **Stealth** | can't be attacked while you have another Pokémon in its Location | **new** | Dark, Ghost |
-| **Sun Power** | +1 Attack and +1 Strength while Sun is 2 or more | **new** | Sunny Day |
-| **Rain Power** | +1 Attack and +1 Strength while Rain is 2 or more | **new** | Rain Dance |
 | **Pickup** | on a defeat by its attack, gain $1 | **new** | High Roller |
 
-**Why stop at 16:** each keyword is one sentence a player learns once, and each one supports an archetype. More keywords would add reading load without adding strategy. Anything rarer is written out as a trigger.
+**Why stop at 14:** each keyword is one sentence a player learns once, and each one supports an archetype. More keywords would add reading load without adding strategy. Anything rarer is written out as a trigger.
 
 ### 4.3 The effect vocabulary
 
@@ -124,7 +129,6 @@ Triggers, Moves, Supporters and Items all use the same small set of effects, so 
 - **Tempo:** make Spent, make Active, return to hand.
 - **Cards:** draw, search, recursion from the Discard.
 - **Resources:** gain Energy or $.
-- **The board:** Weather +/−.
 - **Rewards:** Recognition.
 
 ---
@@ -140,16 +144,16 @@ Triggers, Moves, Supporters and Items all use the same small set of effects, so 
 | Type | Identity | Lines |
 |---|---|---|
 | **Normal** | flexible, money, staying power | Eevee (L) ★ · Meowth→Persian (L) · Happiny→Chansey→Blissey (H) ★ · Munchlax→Snorlax (H) |
-| **Fire** | burst damage, Sun, Overrun | Charmander→Charmeleon→Charizard (H) ★ · Growlithe→Arcanine (M) ★ · Ponyta→Rapidash (L) ★ · Magby→Magmar→Magmortar (H) ★ |
-| **Water** | healing, Shell, Rain | Squirtle→Wartortle→Blastoise (M) ★ · Magikarp→Gyarados (H) ★ · Horsea→Seadra→Kingdra (M) ★ · Wooper→Quagsire (M) ★ |
-| **Grass** | Regenerate, growth, Sun, Drain | Bulbasaur→Ivysaur→Venusaur (H) ★ · Oddish→Gloom→Vileplume (M) ★ · Sunkern→Sunflora (L) ★ · Budew→Roselia→Roserade (M) |
-| **Electric** | Speed, Energy, Rain | Chinchou→Lanturn (L) ★ · Shinx→Luxio→Luxray (L) ★ · Pichu→Pikachu (L) · Mareep→Flaaffy→Ampharos (M) |
+| **Fire** | burst damage, On Attack, Overrun | Charmander→Charmeleon→Charizard (H) ★ · Growlithe→Arcanine (M) ★ · Ponyta→Rapidash (L) ★ · Magby→Magmar→Magmortar (H) ★ |
+| **Water** | healing, Shell, Late Bloomers | Squirtle→Wartortle→Blastoise (M) ★ · Magikarp→Gyarados (H) ★ · Horsea→Seadra→Kingdra (M) ★ · Wooper→Quagsire (M) ★ |
+| **Grass** | Regenerate, growth, Drain | Bulbasaur→Ivysaur→Venusaur (H) ★ · Oddish→Gloom→Vileplume (M) ★ · Sunkern→Sunflora (L) ★ · Budew→Roselia→Roserade (M) |
+| **Electric** | Speed, Energy, Hit and Run | Chinchou→Lanturn (L) ★ · Shinx→Luxio→Luxray (L) ★ · Pichu→Pikachu (L) · Mareep→Flaaffy→Ampharos (M) |
 | **Psychic** | Moves, hand control, Agility | Abra→Kadabra→Alakazam (M) · Ralts→Kirlia→Gardevoir (M) · Natu→Xatu (L) · Slowpoke→Slowbro (H) |
 | **Ice** | making enemies Spent, Shell | Snorunt→Glalie (M) · Swinub→Piloswine→Mamoswine (H) · Lapras (H) ★ |
 | **Fighting** | Physical, Rage, hitting back | Machop→Machoke→Machamp (H) · Mankey→Primeape (L) ★ · Riolu→Lucario (M) |
 | **Poison** | weakening (−Attack), Retaliate | Ekans→Arbok (L) · Zubat→Golbat→Crobat (L) · Koffing→Weezing (M) |
 | **Ground** | big Strength, Location damage | Diglett→Dugtrio (L) · Cubone→Marowak (M) · Phanpy→Donphan (H) |
-| **Flying** | Infiltrator, Speed, Rain | Pidgey→Pidgeotto→Pidgeot (M) · Wingull→Pelipper (L) ★ · Starly→Staravia→Staraptor (L) |
+| **Flying** | Infiltrator, Speed, Hit and Run | Pidgey→Pidgeotto→Pidgeot (M) · Wingull→Pelipper (L) ★ · Starly→Staravia→Staraptor (L) |
 | **Bug** | Swarm, cheap bodies, recursion | Caterpie→Metapod→Butterfree (L) · Sewaddle→Swadloon→Leavanny (M) ★ · Scyther→Scizor (M) |
 | **Rock** | Sturdy, Defence guards | Geodude→Graveler→Golem (H) · Larvitar→Pupitar→Tyranitar (H) · Bonsly→Sudowoodo (M) |
 | **Ghost** | On Defeated, Stealth, recursion | Gastly→Haunter→Gengar (M) · Duskull→Dusclops→Dusknoir (H) · Litwick→Lampent→Chandelure (L) |
@@ -158,7 +162,7 @@ Triggers, Moves, Supporters and Items all use the same small set of effects, so 
 | **Steel** | Shell, Sturdy, Held Items | Aron→Lairon→Aggron (H) · Magnemite→Magneton→Magnezone (M) · Beldum→Metang→Metagross (H) |
 | **Fairy** | Sp. Def guards, healing, Favours | Clefairy→Clefable (M) · Togepi→Togetic→Togekiss (M) · Snubbull→Granbull (L) |
 
-**Legendaries (6):** one copy per deck. Each is a single Level 8 form, cost 5, with a match-defining effect. **Entei ★, Kyogre ★, Celebi ★**, plus Zapdos, Mewtwo, Rayquaza.
+**Legendaries (6):** Each is a single Level 8 form, cost 5, with a match-defining effect. **1 copy per deck,** and a deck may run any number of different Legendaries. **Entei ★, Kyogre ★, Celebi ★**, plus Zapdos, Mewtwo, Rayquaza.
 
 ### 5.2 Main Trainers and Partners (12)
 
@@ -249,7 +253,7 @@ The new-art list, by batch, is `docs/base-game-art-list.md`.
 
 1. **Every card has one strong verb.** Each card does one thing a player can describe in five words ("Charizard burns the whole board"). A second ability only appears where it serves the same idea.
 2. **Every card has a moment.** The best feeling in a card game is paying for something and watching it change the board. Triggers are written to be visible: damage, a draw, a swing in a Location.
-3. **Every card has a home.** Each card is designed for at least one archetype, and it should be playable in at least two decks. No card exists only to fill a slot.
+3. **Every card is good on its own; synergy is the bonus.** A card should be worth playing in a plain deck of its Type, and better in the strategies it supports (usually 2–3). No card exists only to fill a slot, and none is useless outside one strategy.
 4. **Read once, know it forever.** Templated wording (e.g. "1 damage to an enemy Pokémon"), at most two lines on a Full card, and the keywords from section 4.
 5. **Interaction over solitaire.** Effects answer or pressure the opponent's board. Big swings arrive on Strats and Reacts, which the opponent can see coming and answer.
 6. **Timing is the game's signature.** Pokémon grow in the deck, so "when do I play this?" is the question no other card game asks. Light cards reward playing early, Heavy cards reward patience, and some cards should explicitly reward each choice (e.g. "On Summon: if Level 6+, also draw 1").
@@ -291,14 +295,14 @@ Every card is scored on one budget, so cards at the same cost and Level are wort
 
   These are first values; the simulations correct them.
 - **Moves and Items** are priced on the same points, scaled to their cost.
-- **The budget lives in the card database** (Q-step B1) and flags any card more than one point over or under.
+- **The budget lives in the card database** (phase B1) and flags any card more than one point over or under.
 
 ### 6.4 Balance proof
 
-- **Starter decks:** one 40-card deck per archetype (10), built by me. They double as the AI's decks and the new player's first decks.
-- **Round robin:** every archetype plays every other one, hundreds of AI-vs-AI matches each.
+- **Starter decks:** one 40-card deck per strategy seed (10), built by me. They double as the AI's decks and the new player's first decks.
+- **Round robin:** every starter deck plays every other one, hundreds of AI-vs-AI matches each.
 - **Targets:**
-  - each archetype wins 45–55% overall, and no matchup is worse than 35/65;
+  - each starter deck wins 45–55% overall, and no matchup is worse than 35/65;
   - match length is 7–9 Rounds;
   - no card wins more than 60% when played;
   - every card is played in at least one starter deck or competitive build.
@@ -308,22 +312,28 @@ Every card is scored on one budget, so cards at the same cost and Level are wort
 
 ## 7. Changes to the current cards and rules
 
-- **Moves get a Type, and the Move rule (Q2):** a Move can only be played (Adapt, Strat or React) while you have a Pokémon of its Type in play. Moves are Pokémon moves, so a Pokémon has to perform them. This is what gives decks their identity without a Type limit. I recommend it.
-- **The current 40-card deck** becomes the "Classic" starter deck (Fire, Water, Electric), with its cards kept or adjusted to fit the budget.
+- **Weather is removed** (Elliott, 12 November 2026; it may return in a later set). That means:
+  - Rain and Sun counters and their brackets are removed;
+  - the Weather chip and Weather on Location tiles and plates are removed;
+  - the ambient Weather effects are removed;
+  - the Weather glossary and Codex entries are removed, along with the Tournament's line about Weather.
+
+  Locations keep their passives. Wherever a Location gave Weather, it's re-tuned in B2 so it's still worth playing. This is the first engine task in B3.
+- **Moves have a Type** for flavour, Favours, crests and synergy. There's **no requirement** to have a Pokémon of that Type in play.
+- **The current 40-card deck** becomes the "Classic" starter deck (Fire, Water, Electric), with its cards kept or adjusted to the budget.
 - **Kept, possibly re-tuned to the budget:** the current 10 Pokémon lines, 9 Moves, 5 Supporters, Items and 4 Locations.
 - **Misty and Blaine's Objectives** stay as they are.
-- **Brock** stays a Supporter. Ash, Mallow, Gogoat, Goldeen and other unused art aren't in the Base Game.
-
----
+- **Brock** stays a Supporter.
+- **Ash, Mallow, Gogoat, Goldeen** and other unused art aren't in the Base Game.
 
 ## 8. How we get there
 
 | Phase | What | Who |
 |---|---|---|
-| **B0: Decisions** | Deck-building rules, the Move rule, Legendaries, rarity (section 9) | Elliott decides |
+| **B0: Decisions** ✅ | Deck-building rules, the Move rule, Legendaries, collection, line-up, Weather (section 9) | Decided 12 November 2026 |
 | **B1: Design bible and card database** | The value budget, effect vocabulary, wording templates, trigger and keyword rules, and **a card database** as a shared spreadsheet artifact you can sort, filter and comment on: every card's numbers, effects, archetypes, art status and budget score | I write it; Elliott reviews |
 | **B2: Card design, in 4 batches** | Batch 1 (Normal, Fire, Water, Grass, Electric, plus neutral cards), then Batches 2–4. Each batch is presented as rendered card images in the approved design, for approval. | I design; Elliott approves |
-| **B3: Engine** | Cards loaded from a data file. The 3 new triggers, Aura and 9 new keywords. Types for Moves and the Move rule. 18 Type crests, and attack animations for each Type, built from the effects kit. | Claude Code |
+| **B3: Engine** | Weather removed first. Then: cards loaded from a data file; the 3 new triggers, Aura and 7 new keywords; Types on Moves; 18 Type crests; attack animations for each Type, built from the effects kit; the deck rules from section 2. | Claude Code |
 | **B4: Library and deck builder** | A Collection screen (search, filters by Type, cost, series, archetype, keyword). A deck builder (40-card counter, energy curve, Type mix, validation, saved decks, import/export code). The 10 starter decks. Choosing your deck and the AI's before a match. | Claude Code (I mock it up first, for approval) |
 | **B5: AI and balance** | The AI plays any deck. A round-robin simulator. Tuning against section 6.4. | Claude Code runs it; I review and propose numbers; Elliott decides |
 | **B6: Art and release** | Your art in batches; I process it (size, trim, focal points). A final polish and a "Base Game" release | Elliott and me |
@@ -339,11 +349,11 @@ Every card is scored on one budget, so cards at the same cost and Level are wort
 
 ---
 
-## 9. Decisions for Elliott (B0)
+## 9. Decisions (Elliott, 12 November 2026)
 
-- **Q1, deck rules:** 40 cards, at most 2 copies, Legendaries 1 copy and 1 per deck, exactly 2 Main Trainers, and 3–6 Locations. OK?
-- **Q2, the Move rule:** a Move needs a Pokémon of its Type in play. Recommended. Yes or no?
-- **Q3, Legendaries:** include the 6 (Entei, Kyogre, Celebi already drawn)?
-- **Q4, collection:** everything available from the start in the Base Game?
-- **Q5, the line-up:** the Types, lines, Trainers, Partners, Supporters, Items, Moves and Locations in section 5. Approve, or swap any favourites in or out.
-- **Q6, the archetypes:** the ten in section 3. Approve, or tell me which strategies you want that are missing.
+1. **Deck rules:** 40 cards; at most 2 copies; Legendaries 1 copy each, with any number of different ones; 0–3 Main Trainers; any number of Locations.
+2. **No Move rule:** Moves don't need a Pokémon of their Type in play.
+3. **All 6 Legendaries** are in.
+4. **Every card is available from the start.**
+5. **The line-up in section 5** is approved with no changes.
+6. **Weather is removed for now.** The two Weather archetypes are replaced, and strategies are seeds that grow with later batches. The priority is the overall health of the Base Game cards.
