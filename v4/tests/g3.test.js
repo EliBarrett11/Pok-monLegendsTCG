@@ -38,7 +38,7 @@ const SPEC = {
   'rock-slide': ['location', [2, 'damage', 1, 'enemy'], [3, 'damage', 1], [4, 'damage', 2]],
   'heat-wave': ['allEnemies', [2, 'damage', 1, 'attacker'], [3, 'damage', 1], [5, 'damage', 2]],
   surf: ['location', [1, 'heal', 2, 'attacked'], [3, 'damage', 2], [4, 'damage', 3]],
-  'bubble-beam': ['enemy', [1, 'spend', 0, 'attacker'], [2, 'damageSpent', 2], [3, 'damageSpent', 3]],
+  'bubble-beam': ['enemy', [1, 'reduce', 2, 'attacker'], [2, 'damageSpent', 2], [3, 'damageSpent', 3]],
   recover: ['own', [1, 'heal', 2], [2, 'heal', 4], [3, 'heal', 8]],
   'flame-charge': ['own', [1, 'attackUp', 1], [2, 'attackKept', 1], [3, 'attackKept', 2]],
   dive: ['own', [1, 'dive', 0, 'attacked'], [1, 'dive', 0], [2, 'dive', 1]],
@@ -145,7 +145,7 @@ for (const [id, dmg] of [['ember', [3, 5]], ['thunderbolt', [4, 6]]]) {
   t = play(t, 'ai', 'recover', 'adapt', { who: 'ai', space: 0 });
   eq(t.reactWindow, null, 'Heat Wave can\'t React to an Adapt: no attacker');
 }
-// Bubble Beam: damage, and it becomes Spent; React: the attacker becomes Spent after its attack.
+// Bubble Beam: damage, and it becomes Spent; React (C4 ruling): the attack deals 2 less damage.
 {
   let s = battle();
   s.players.ai.row[2] = mon('wooper', 7, { spent: false });
@@ -160,7 +160,7 @@ for (const [id, dmg] of [['ember', [3, 5]], ['thunderbolt', [4, 6]]]) {
   const g = mon('growlithe', 4, { spent: false });
   s = attackOn(s, 3, g);
   const r = applyAction(s, { type: 'react', who: 'player', uid: s.players.player.hand[0].uid, target: { who: 'ai', space: 8 } });
-  eq([hurtBy(s, r, 'player', 3), r.players.ai.row[8].spent], [g.attack, true], 'Bubble Beam React: the attack still lands; the attacker is Spent after it');
+  eq([hurtBy(s, r, 'player', 3), r.players.ai.row[8].spent], [g.attack - 2, true], 'Bubble Beam React: the attack deals 2 less; the attacker is Spent after it');
 }
 // Recover; Flame Charge: +1 until Supper (React), +1 kept (Adapt), +2 kept (Strat).
 {

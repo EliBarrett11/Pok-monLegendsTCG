@@ -16,7 +16,7 @@ import { initCodex, drawCodex } from './ui/codex.js?v=202611110816';
 import { played } from './ui/sound.js?v=202611110816';
 import { MODE_NAMES } from './engine/cards.js?v=202611110816';
 
-export const BUILD = 'C3 — the Codex, the glossary and the Rules page';
+export const BUILD = 'C4 — current stats, a React window that keeps the board visible, Bubble Beam and hidden Strats';
 
 const STAGE = { width: 1920, height: 1080 };
 const stage = document.getElementById('stage');
@@ -177,6 +177,10 @@ async function act(action) {
   ui.picker = null;
   ui.focus = null;
   ui.drag = null;
+  // C4: the React window disappears the instant you decide (React, Let it happen, a React target, or the timer):
+  // the bar, the tray, the badges and the arrow are removed in this same frame, before the presenter plays the
+  // React and the action on a clear board.
+  if (action.type === 'react' || action.type === 'decline') { ui.locked = true; redraw(); }
   const id = match;
   await show(next);
   if (id !== match) return;

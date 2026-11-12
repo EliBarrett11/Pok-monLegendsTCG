@@ -10,7 +10,7 @@ import {
   locationAt, activeBrackets, weatherTotals, summonCost, effectiveSpeed, damageOf, strengthIn, tournamentStrength, lanesOf,
   isReady, REC_KINDS, boosted,
 } from './game.js?v=202611110816';
-import { attackParts } from './preview.js?v=202611110816';
+import { printedOf, effectiveStats } from './stats.js?v=202611110816';
 import { baseEnergyFor, exertMaxFor, availableExert } from './energy.js?v=202611110816';
 
 const signed = (n) => (n < 0 ? `− ${-n}` : `+ ${n}`);
@@ -21,50 +21,20 @@ export function sumLine(stat, total, parts) {
   return `${stat} ${total} = ${first.n} ${first.label}${rest.map((p) => ` ${signed(p.n)} ${p.label}`).join('')}`;
 }
 
-// A Pokémon's printed stats (the Level's, or a Partner's own).
-export function printedOf(card) {
-  if (card.partner || card.series === 'Partner') {
-    const t = TRAINERS.find((x) => x.partner.id === card.id);
-    return t ? { attack: t.partner.attack, strength: t.partner.strength, speed: t.partner.speed } : { attack: card.attack, strength: card.strength, speed: card.speed };
-  }
-  const p = pokemonAt(card.id, card.level);
-  return { attack: p.attack, strength: p.strength, speed: p.speed };
-}
+// C4: printed stats and the current ones come from stats.js (one helper for the board, the Codex and previews).
+export { printedOf };
 
-// Where a Pokémon's numbers come from. On the board ({ who, space }): from the engine's attackParts and
-// wantedBonus; elsewhere (a card in hand or a pile): its printed stats and its cost at this Round.
-//   attack: parts sum to card.attack (the number on the card); damage: parts sum to damageOf (Sun 2 adds to
-//   Physical attacks); strength: parts sum to the current Strength shown; cost; speed.
+// Where a Pokémon's numbers come from. On the board ({ who, space }): effectiveStats (C4), the engine's own
+// numbers; elsewhere (a card in hand or a pile): its printed stats and its cost at this Round.
+//   attack: parts sum to the Attack shown, the damage its attack deals now (Sun 2 included for a Physical
+//   attack); strength: parts sum to the current Strength shown; cost; speed.
 export function statSums(s, card, where = null) {
   const printed = printedOf(card);
   const out = {};
   if (where && s.players[where.who].row[where.space]?.uid === card.uid) {
-    const parts = attackParts(s, where.who, where.space);
-    const bonusParts = parts.slice(1).filter((p) => !/\(Physical\)$/.test(p.label));
-    const physical = parts.filter((p) => /\(Physical\)$/.test(p.label));
-    const base = parts[0].n;
-    const atk = [{ label: 'base', n: printed.attack }];
-    if (base - printed.attack) atk.push({ label: 'kept', n: base - printed.attack });
-    atk.push(...bonusParts);
-    out.attack = { total: card.attack, parts: atk };
-    if (physical.length) out.damage = { total: damageOf(s, card), parts: [{ label: 'Attack', n: card.attack }, ...physical.map((p) => ({ label: p.label.replace(' (Physical)', ', Physical'), n: p.n }))] };
-    // Strength: printed + kept + Location + Weather + Held − damage.
-    const l = locationAt(s, where.space);
-    const st = [{ label: 'base', n: printed.strength }];
-    const locSt = l?.passive.kind === 'strength' ? l.passive.amount : 0;
-    const wx = activeBrackets(s).filter((b) => b.kind === 'strength');
-    const heldSt = card.held?.op === 'strength' ? card.held.amount : 0;
-    const kept = card.strength - printed.strength - (card.bonusStrength ?? 0);
-    if (kept) st.push({ label: 'kept', n: kept });
-    if (locSt) st.push({ label: l.name, n: locSt });
-    for (const b of wx) st.push({ label: `${b.type} ${b.at}`, n: b.amount });
-    if (heldSt) st.push({ label: card.held.name, n: heldSt });
-    // The engine keeps bonusStrength in step with these (syncBonuses); anything else it holds is shown as is.
-    const rest = (card.bonusStrength ?? 0) - locSt - wx.reduce((n, b) => n + b.amount, 0) - heldSt;
-    if (rest) st.push({ label: 'other bonuses', n: rest });
-    const lost = card.strength - card.currentStrength;
-    if (lost) st.push({ label: 'damage', n: -lost });
-    out.strength = { total: card.currentStrength, max: card.strength, parts: st };
+    const st = effectiveStats(s, where.who, where.space);
+    out.attack = { total: st.attack, parts: st.attackParts.map((p) => (p.label === 'printed' ? { ...p, label: 'base' } : p)) };
+    out.strength = { total: st.strength, max: st.strengthMax, parts: st.strengthParts.map((p) => (p.label === 'printed' ? { ...p, label: 'base' } : p)) };
     out.cost = card.partner || card.series === 'Partner'
       ? { total: 0, parts: [], words: 'A Partner arrives free.' }
       : { total: costFor(card.level), parts: [{ label: `Level ${card.level} ÷ 2, rounded up`, n: costFor(card.level) }], words: 'Paid when it was summoned.' };
@@ -87,7 +57,6 @@ export function statSums(s, card, where = null) {
 // The sums as lines of words.
 export function statLines(sums) {
   const lines = [sumLine('Attack', sums.attack.total, sums.attack.parts)];
-  if (sums.damage) lines.push(sumLine('Damage', sums.damage.total, sums.damage.parts));
   lines.push(sumLine('Strength', sums.strength.total, sums.strength.parts) + (sums.strength.total !== sums.strength.max ? ` (of ${sums.strength.max})` : ''));
   lines.push(sums.cost.parts.length ? `Cost ${sums.cost.total} = ${sums.cost.parts[0].label}${sums.cost.words ? `. ${sums.cost.words}` : ''}` : `Cost: ${sums.cost.words}`);
   lines.push(sums.speed.parts.length > 1 ? `Speed ${sums.speed.total} = ${sums.speed.parts[0].n}, ${sums.speed.parts.slice(1).map((p) => `${p.n} (${p.label})`).join(', ')}` : `Speed ${sums.speed.total}`);

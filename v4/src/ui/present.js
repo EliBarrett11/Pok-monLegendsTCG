@@ -295,7 +295,8 @@ const BEATS = {
     const card = prev.players[e.who].hand.find((c) => c.id === e.id) ?? { ...cardCommand(e.id), uid: 'x' };
     sfx('command-strat', { id: e.id, who: e.who, sealed: true });
     const k = prev.strats.filter((x) => x.owner === e.who).length;
-    floatText(cardEl(e.target.who, e.target.space), `Strat: ${card.name}`, 'status', t(MS.note));
+    // C4: the Opponent's Strat is hidden until it resolves: only "a sealed Strat" and its target.
+    floatText(cardEl(e.target.who, e.target.space), e.who === 'player' ? `Strat: ${card.name}` : 'A sealed Strat', 'status', t(MS.note));
     await fly('<div class="v4-sealcard"><i>⏳</i></div>', fromHand(e.who, card.uid), sealSpot(e.who, k), t(MS.seal), { cls: 'seal', end: { scale: 0.45, opacity: 1 } });
   },
 
@@ -712,7 +713,7 @@ async function commandEffect(prev, e, el, t, style, after = []) {
   }, t, commandRate(e.id, e.mode));
   all();
   region?.remove();
-  if ((e.op === 'spend') && target) floatText(target, 'Spent after its attack', 'status', t(MS.note));
+  if ((e.op === 'reduce') && target) floatText(target, `Its attack: −${cardCommand(e.id)?.modes?.react?.amount ?? 2} damage`, 'status', t(MS.note));
   // Dive: the card flies back to its owner's hand (the space is empty on the new board).
   if (returned) {
     const from = pointOf(spaceEl(returned.who, returned.space)) ?? STAGE_MID;

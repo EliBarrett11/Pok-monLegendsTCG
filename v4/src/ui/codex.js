@@ -323,12 +323,24 @@ function rulesEntry(q = '') {
   return { title: q ? `Rules: “${q}”` : 'Rules', kind: 'head', head: head('Rules', q ? `Search: ${q}` : 'Every term', '📖'), sections: [['', rulesHTML(q)]], wide: true };
 }
 
+// C4: a sealed Strat of the Opponent's: hidden until it resolves.
+function sealedEntry(s, x) {
+  return {
+    title: 'A sealed Strat', kind: 'head', head: head('A sealed Strat', 'The Opponent\'s', '⏳'),
+    sections: [['What it does now', para([`The Opponent played a Command as a Strat on ${x.targetName} in Round ${x.playedRound}. It stays face down until it resolves, after your next turn (or at Supper, before dominance).`, 'When it resolves it flips face up, and you may React to it then if you can.', 'If its target is gone by then, it fizzles.'])],
+      ['Keywords and triggers', meaning('sealed-strat') + meaning('strat') + meaning('react')]],
+  };
+}
 // The entry for a ref: { title, kind: 'card' | 'head', card?, cardState?, head?, sections: [[title, html]] }.
 export function codexEntry(s, r) {
   const [type, a, b] = String(r).split(':');
   try {
     switch (type) {
-      case 'card': { const f = findCard(s, a); return f ? (f.where.mon ? cardEntry(s, f.card, f.where) : cardEntry(s, f.card, f.where)) : null; }
+      case 'card': {
+        // C4: the Opponent's sealed Strat: only that one exists and its target, never the card.
+        const sealedStrat = s?.strats.find((x) => x.owner === 'ai' && (x.uid === a || x.card.uid === a));
+        if (sealedStrat) return sealedEntry(s, sealedStrat);
+        const f = findCard(s, a); return f ? (f.where.mon ? cardEntry(s, f.card, f.where) : cardEntry(s, f.card, f.where)) : null; }
       case 'def': { const c = defCard(a, b); return c ? cardEntry(s, c, { text: c.cardType === 'Pokémon' && !c.partner ? `${c.name} at Level ${c.level}.` : '' }) : null; }
       case 'mon': { const c = s?.players[a]?.row[Number(b)]; return c ? cardEntry(s, c, { mon: { who: a, space: Number(b) }, text: `${Whose(a)} Pokémon in lane ${Number(b) + 1}${locationAt(s, Number(b)) ? `, in ${locationAt(s, Number(b)).name}` : ''}.`, state: { ready: false } }) : null; }
       case 'loc': { const l = s?.locations.find((x) => x.uid === a); return l ? locEntry(s, l) : null; }

@@ -132,7 +132,7 @@ export function rowModeText(card, m) {
   if (op === 'attackUp') return `+${amount} Attack to Supper`;
   if (op === 'attackKept') return `+${amount} Attack, kept`;
   if (op === 'damageSpent') return `${amount} damage, Spent`;
-  if (op === 'spend') return 'attacker Spent after';
+  if (op === 'reduce') return `the attack −${amount} damage`;
   if (op === 'dive') return tg === 'attacked' ? 'save the attacked' : amount ? `to hand, draw ${amount}` : 'back to hand';
   return op;
 }
@@ -168,10 +168,34 @@ function crest(kind, key, acc) {
   const [cx, cy] = CREST_AT[kind];
   return `<g class="cd-crest"><circle cx="${cx}" cy="${cy}" r="13" fill="#0b0806" stroke="${BR}" stroke-width="1.2"/>${glyph(key, cx - 8, cy - 8, 16, acc)}</g>`;
 }
-function statTabs(c, numPx = 25) {
+// C4: a stat tab's number. With current stats (state.stats, from the engine's effectiveStats, board Pokémon only):
+// raised above printed → green with a small ▲; lowered below printed, or damaged → red with a small ▼; unchanged
+// → the normal colour. The ▲/▼ is a small drawn triangle above the number (not text, so it never crowds the
+// digits). Strength below its maximum shows the maximum too: on the Full card as "/9" under the number; on a
+// token (164 px, where "/12" would be too small to read) as a slim bar under it, filled to current / maximum.
+// Hovering a raised or lowered number on a token shows its one-line sum (data-sum).
+const TRI = { up: 'M5,1 L9.5,9 L0.5,9 Z', down: 'M0.5,1 L9.5,1 L5,9 Z' };
+function tabNumber(cls, x, y, th, n, trend, max, sum, numPx, token) {
+  // The number is the zone's own text (centred in the 46-unit tab, as on every card); the triangle sits above
+  // it and the maximum (a bar on tokens, "/9" on the Full card) below it, both placed absolutely in the tab.
+  const tri = trend ? `<svg class="cd-tri" width="${token ? 13 : 11}" height="${token ? 9 : 8}" viewBox="0 0 10 10" preserveAspectRatio="none" aria-hidden="true"><path d="${TRI[trend]}"/></svg>` : '';
+  const big = Math.round(numPx * (token ? 0.86 : 0.8));
+  const under = max === null ? '' : token
+    ? `<span class="cd-sbar" aria-label="of ${max}"><i style="width:${Math.max(4, Math.round((100 * Math.max(0, n)) / max))}%"></i></span>`
+    : `<span class="cd-max" style="font-size:${Math.round(numPx * 0.46)}px">/${max}</span>`;
+  const shift = trend || max !== null ? `font-size:${big}px;padding-top:${trend ? 6 : 0}px;padding-bottom:${max !== null ? (token ? 4 : 10) : 0}px;box-sizing:border-box` : `font-size:${Math.round(numPx * 0.9)}px`;
+  return zone(`cd-num cd-tab cd-cur ${cls}${trend ? ` cd-${trend}` : ''}`, x, y, 42, th, `${n}${tri}${under}`, shift).replace('<div class="cd-t', `<div${sum && trend ? ` data-sum="${esc(sum)}"` : ''} class="cd-t`);
+}
+function statTabs(c, numPx = 25, stats = null) {
   const [ak, sk] = statKeys(c);
   const { w: tw, h: th, y } = TAB;
   const str = c.currentStrength ?? c.strength;
+  if (stats) {
+    const token = numPx >= 30;
+    const atkTab = tabNumber('atk', 28, y, th, stats.attack, stats.attackTrend, null, stats.sumAttack, numPx, token);
+    const strTab = tabNumber('str', W - 7 - tw + 22, y, th, stats.strength, stats.strengthTrend, stats.strength !== stats.strengthMax ? stats.strengthMax : null, stats.sumStrength, numPx, token);
+    return { ...statTabs(c, numPx), html: atkTab + strTab };
+  }
   const L = `M7,${y} H${7 + tw - 8} Q${7 + tw},${y} ${7 + tw},${y + 8} V${H - 7}`;
   const Rr = `M${W - 7},${y} H${W - 7 - tw + 8} Q${W - 7 - tw},${y} ${W - 7 - tw},${y + 8} V${H - 7}`;
   return {
@@ -355,7 +379,7 @@ export function cardHTML(c, opts = {}) {
     const b = fullBody(c, kind, acc, panel, state);
     svg += b.svg;
     html += b.html;
-    if (c.cardType === 'Pokémon') { const st = statTabs(c); svg += st.svg; html += st.html + levelSpeed(c, 12) + heldInset(c, W - 32, 82, 20); }
+    if (c.cardType === 'Pokémon') { const st = statTabs(c, 25, state.stats); svg += st.svg; html += st.html + levelSpeed(c, 12) + heldInset(c, W - 32, 82, 20); }
   } else if (size === 'mini') {
     // C2: in a fanned hand only a strip at the left shows (opts.strip, in screen px): the name and the
     // tag sit left-aligned inside it (the cost well above them). Whatever still doesn't fit completely is
@@ -372,7 +396,7 @@ export function cardHTML(c, opts = {}) {
       if (tag.length) html += tz(panel - 46);
     } else if (tag.length) html += tz(panel + 50);
   } else if (size === 'token') {
-    const st = statTabs(c, 30);
+    const st = statTabs(c, 30, state.stats);
     svg += st.svg;
     html += st.html + nameZone(c, panel + 8, 27) + levelSpeed(c, 22);
     const kws = kwList(c);

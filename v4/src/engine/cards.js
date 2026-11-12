@@ -149,7 +149,7 @@ export const WEATHER_BRACKETS = [
 //            lane with no Location: each enemy Pokémon there) · 'allEnemies' (no choice) ·
 //            React only: 'attacker' (the attacking Pokémon) · 'attacked' (your Pokémon being attacked)
 //   ops: 'damage' · 'heal' · 'attackUp' (+N Attack until Supper) · 'attackKept' (+N Attack, kept) ·
-//        'damageSpent' (N damage, then it becomes Spent) · 'spend' (it becomes Spent) ·
+//        'damageSpent' (N damage, then it becomes Spent) · 'reduce' (React: the attack deals N less damage) ·
 //        'dive' (return it to your hand; draw N cards)
 const mode = (cost, op, amount, target) => ({ cost, op, amount, target });
 const command = (id, name, target, adapt, react, strat) => ({ id, name, cardType: 'Command', art: id, target,
@@ -162,7 +162,7 @@ export const COMMANDS = [
   command('rock-slide', 'Rock Slide', 'location', M(3, 'damage', 1), M(2, 'damage', 1, 'enemy'), M(4, 'damage', 2)),
   command('heat-wave', 'Heat Wave', 'allEnemies', M(3, 'damage', 1), M(2, 'damage', 1, 'attacker'), M(5, 'damage', 2)),
   command('surf', 'Surf', 'location', M(3, 'damage', 2), M(1, 'heal', 2, 'attacked'), M(4, 'damage', 3)),
-  command('bubble-beam', 'Bubble Beam', 'enemy', M(2, 'damageSpent', 2), M(1, 'spend', 0, 'attacker'), M(3, 'damageSpent', 3)),
+  command('bubble-beam', 'Bubble Beam', 'enemy', M(2, 'damageSpent', 2), M(1, 'reduce', 2, 'attacker'), M(3, 'damageSpent', 3)),
   command('recover', 'Recover', 'own', M(2, 'heal', 4), M(1, 'heal', 2), M(3, 'heal', 8)),
   command('flame-charge', 'Flame Charge', 'own', M(2, 'attackKept', 1), M(1, 'attackUp', 1), M(3, 'attackKept', 2)),
   command('dive', 'Dive', 'own', M(1, 'dive', 0), M(1, 'dive', 0, 'attacked'), M(2, 'dive', 1)),
@@ -185,7 +185,8 @@ export function modeText(card, m) {
   if (op === 'attackUp') return `+${amount} Attack to ${t} until Supper`;
   if (op === 'attackKept') return `+${amount} Attack (kept) to ${t}`;
   if (op === 'damageSpent') return `${amount} damage to ${t}, and it becomes Spent`;
-  if (op === 'spend') return 'the attacker becomes Spent after its attack';
+  // C4 (Elliott, 11 November 2026): Bubble Beam's React (was "the attacker becomes Spent", a dead effect).
+  if (op === 'reduce') return `the attack deals ${amount} less damage (minimum 0)`;
   if (op === 'dive') return tg === 'attacked' ? 'return the attacked Pokémon to your hand (the attack fizzles)' : `return ${t} to your hand${amount ? ` and draw ${amount} card${amount === 1 ? '' : 's'}` : ''}`;
   return op;
 }
@@ -199,7 +200,7 @@ export function shortModeText(card, m) {
   if (op === 'attackUp') return `+${amount} Atk to Supper`;
   if (op === 'attackKept') return `+${amount} Atk kept`;
   if (op === 'damageSpent') return `${amount} dmg + Spent`;
-  if (op === 'spend') return 'attacker Spent';
+  if (op === 'reduce') return `attack −${amount}`;
   if (op === 'dive') return tg === 'attacked' ? 'save the attacked' : amount ? `hand + draw ${amount}` : 'to hand';
   return op;
 }

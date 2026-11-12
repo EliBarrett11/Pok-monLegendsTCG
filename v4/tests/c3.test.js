@@ -187,10 +187,9 @@ for (let seed = 100; states < 200; seed++) {
     for (const who of ['player', 'ai']) {
       for (const { card, space } of pokemonOf(s, who)) {
         const sums = statSums(s, card, { who, space });
-        ok(sum(sums.attack.parts) === card.attack && sums.attack.total === card.attack, `Attack sums: ${card.name} ${JSON.stringify(sums.attack)} vs ${card.attack}`);
+        // C4: the Attack shown is the damage its attack deals now (damageOf: Sun 2 included for Physical).
+        ok(sum(sums.attack.parts) === damageOf(s, card) && sums.attack.total === damageOf(s, card), `Attack sums: ${card.name} ${JSON.stringify(sums.attack)} vs ${damageOf(s, card)}`);
         ok(sum(sums.strength.parts) === card.currentStrength && sums.strength.total === card.currentStrength, `Strength sums: ${card.name} ${JSON.stringify(sums.strength)} vs ${card.currentStrength}`);
-        if (sums.damage) ok(sum(sums.damage.parts) === damageOf(s, card), `damage sums: ${card.name}`);
-        else ok(damageOf(s, card) === card.attack, `no damage line: damage is the Attack (${card.name})`);
         ok(sums.cost.total === (card.partner ? 0 : costFor(card.level)), `cost: ${card.name}`);
         ok(sums.speed.total === effectiveSpeed(card), `Speed: ${card.name}`);
         ok(statLines(sums).every((l) => !LMH.test(l)), 'the lines never say Light, Mid or Heavy');

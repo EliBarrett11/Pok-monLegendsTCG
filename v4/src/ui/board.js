@@ -22,6 +22,8 @@ import { icon, attackIcon, STAT_NAMES, attackKey, strengthKey } from './icons.js
 import { hitsFor, commitHit } from './flows.js?v=202611110816';
 import { cardHTML, CARD_DEFS, SIZES, H as CARD_H, W as CARD_W, artFocus } from './card.js?v=202611110816';
 import { termsIn } from '../engine/glossary.js?v=202611110816';
+import { effectiveStats, statSumLines } from '../engine/stats.js?v=202611110816';
+import { reactOutcome, reactSummary } from '../engine/preview.js?v=202611110816';
 import { rulesHTML } from './codex.js?v=202611110816';
 
 // UX3: the key list (the ? overlay and the hint at the bottom-right).
@@ -76,12 +78,21 @@ export function linkHTML(html) {
 const linkText = (text) => linkHTML(esc(text));
 let zoomSeq = 0;
 const zoomKey = (c, state = {}) => { const k = `z${zoomSeq++}`; zoomCards.set(k, { card: c, state }); return k; };
+// C4: a board Pokémon's current stats for its stat tabs (and its hover Full card), from the engine's effectiveStats.
+export function tabStats(s, who, space) {
+  const st = s.players[who].row[space] ? effectiveStats(s, who, space) : null;
+  if (!st) return null;
+  const sums = statSumLines(st);
+  return { attack: st.attack, attackTrend: st.attackTrend, strength: st.strength, strengthMax: st.strengthMax, strengthTrend: st.strengthTrend, sumAttack: sums.attack, sumStrength: sums.strength };
+}
 function boardCard(s, c, who, space, cls = '', why = '') {
   const ready = s.phase === 'battle' && isReady(s, c);
+  const stats = s.players[who].row[space]?.uid === c.uid ? tabStats(s, who, space) : null;
   const strats = s.strats.filter((x) => x.target.who === who && x.target.space === space && x.target.uid === c.uid);
-  const badges = strats.map((x) => `<span class="cd-chip strat" style="font-size:20px">⏳ ${esc(x.card.name)}</span>`).join('');
-  const state = { ready, spent: c.spent, badges };
-  return `<div class="v4-card v4-mon${c.partner ? ' partner' : ''}${ready ? ' ready' : ''}${c.spent ? ' spent' : ''}${c.tempAttack > 0 ? ' aura' : ''} ${cls}" data-uid="${c.uid}" data-who="${who}" data-space="${space}" data-codex="mon:${who}:${space}" data-zoom="${zoomKey(c, { ready, spent: c.spent })}"${why ? ` data-why="${esc(why)}"` : ''}>${cardHTML(c, { size: 'token', state: { ...state, illegal: !!why, illegalReason: why } })}</div>`;
+  // C4 (hidden Strats): the Opponent's sealed Strat marks its target without naming the card; yours stay named.
+  const badges = strats.map((x) => `<span class="cd-chip strat" style="font-size:20px">⏳ ${esc(x.owner === 'player' ? x.card.name : 'Sealed Strat')}</span>`).join('');
+  const state = { ready, spent: c.spent, badges, stats };
+  return `<div class="v4-card v4-mon${c.partner ? ' partner' : ''}${ready ? ' ready' : ''}${c.spent ? ' spent' : ''}${c.tempAttack > 0 ? ' aura' : ''} ${cls}" data-uid="${c.uid}" data-who="${who}" data-space="${space}" data-codex="mon:${who}:${space}" data-zoom="${zoomKey(c, { ready, spent: c.spent, stats })}"${why ? ` data-why="${esc(why)}"` : ''}>${cardHTML(c, { size: 'token', state: { ...state, illegal: !!why, illegalReason: why } })}</div>`;
 }
 
 // --- Hand cards (C1: Mini, 200 px): art, cost, name, stat tabs and one tag ------------------------------------
@@ -130,12 +141,15 @@ export function promptFor(s, ui, ctx = {}) {
   // The React window (UX1).
   if (s.reactWindow) {
     const w = s.reactWindow;
+    // C4: once you've decided, the bar says what is resolving (the window itself is already gone).
+    if (w.reactor === 'player' && ui.locked) return { tag: 'Resolving', text: `${esc(w.pending.text)}…` };
     if (w.reactor !== 'player' || ui.locked) return { tag: 'React?', text: `${esc(w.pending.text)}. The Opponent may React first…` };
     if (ui.select?.kind === 'react') {
       const c = me.hand.find((x) => x.uid === ui.select.uid);
       return { tag: `React · ${c.name} · ${c.modes.react.cost} Energy`, text: 'Choose <b>a glowing target</b> on the battlefield (Esc: let it happen).', gold: true };
     }
-    return { tag: 'React?', text: 'The game is paused: React with a card below, or let it happen.', gold: true };
+    // C4: the React bar: "REACT?", the sentence and the countdown, across the top; the board stays clear.
+    return { tag: 'REACT?', text: `${esc(reactSentence(s))} <span class="v4-rhint">React with a card in the tray, or let it happen.</span>`, gold: true, react: true };
   }
   if (ui.select?.kind === 'command') {
     const c = me.hand.find((x) => x.uid === ui.select.uid);
@@ -303,7 +317,9 @@ function board(s, ui) {
   const targets = new Set(hits.filter((h) => h.kind === 'space').map((h) => `${h.who}:${h.space}`));
   const attackLegal = new Set(sel?.kind === 'attack' ? [...targets] : []);
   const droppable = hits.some((h) => h.kind === 'board');
-  const pend = s.reactWindow?.pending;
+  // C4: the threat (the committed action, its arrow and the outcome badges) shows only until a decision is made:
+  // once the interface locks (React, Let it happen, a React target, or the timer), it's gone in the same frame.
+  const pend = !ui.locked ? s.reactWindow?.pending : null;
   const committed = new Set();
   if (pend?.type === 'attack') { committed.add(`${pend.who}:${pend.from}`); if (pend.target.kind === 'pokemon') committed.add(`${opponentName(pend.who)}:${pend.target.space}`); }
   if (pend?.type === 'command' || pend?.type === 'strat') committed.add(`${pend.target.who}:${pend.target.space}`);
@@ -316,7 +332,8 @@ function board(s, ui) {
     const c = s.players[who].row[i];
     const key = `${who}:${i}`;
     const guard = attacker && who === 'ai' && c && !attackLegal.has(key) ? guardOf(s, 'ai', i, attacker.attackType) : null;
-    const cls = [targets.has(key) ? 'target' : '', attackLegal.has(key) ? 'legal' : '', committed.has(key) ? 'committed' : '', sel?.kind === 'attack' && who === 'player' && sel.from === i ? 'attacking' : ''].filter(Boolean).join(' ');
+    const sealedOn = s.strats.some((x) => x.owner === 'ai' && !x.target.all && x.target.who === who && (x.target.lane ? x.target.space === i : x.target.space === i && !c));
+    const cls = [sealedOn ? 'strat-target' : '', targets.has(key) ? 'target' : '', attackLegal.has(key) ? 'legal' : '', committed.has(key) ? 'committed' : '', sel?.kind === 'attack' && who === 'player' && sel.from === i ? 'attacking' : ''].filter(Boolean).join(' ');
     let inner = '';
     if (c) inner = boardCard(s, c, who, i, [canAttack.has(i) && who === 'player' ? 'can-attack' : '', guard ? 'dim' : ''].join(' '), guard ? `Guarded by ${guard.card.name}` : '') + (guard ? `<span class="v4-lock">Guarded by ${esc(guard.card.name)}</span>` : '');
     else if (incoming && incoming.who === who && incoming.space === i) inner = boardCard(s, { ...incoming.card, currentStrength: incoming.card.strength, spent: true }, who, i, 'incoming');
@@ -324,7 +341,7 @@ function board(s, ui) {
   }).join('');
   return `<section class="v4-board${droppable ? ' droppable' : ''}">
     ${s.tournament ? tournamentTile(s) : s.locations.map((l) => locationTile(s, l)).join('')}${ambient(s)}
-    <div class="v4-row opponent">${row('ai')}</div><div class="v4-row player">${row('player')}</div>${reactArrow(s)}${sealed(s)}
+    <div class="v4-row opponent">${row('ai')}</div><div class="v4-row player">${row('player')}</div>${pend ? reactArrow(s) : ''}${reactBadges(s, ui)}${sealed(s)}${sealedArrows(s)}
   </section>`;
 }
 
@@ -337,8 +354,27 @@ function ambient(s) {
 // owner's side (the badge on its target stays).
 function sealed(s) {
   // G1: a Strat resolving under a React window stays shown (first, glowing) until it resolves.
+  // C4: the Opponent's sealed Strat is a face-down card back with an hourglass (its target only); it flips face
+  // up as it resolves. Yours show their card to you.
   const resolving = s.reactWindow?.pending.type === 'strat' ? s.reactWindow.pending.strat : null;
-  return ['ai', 'player'].map((who) => [...(resolving?.owner === who ? [resolving] : []), ...s.strats.filter((x) => x.owner === who)].map((x, k) => `<span class="v4-sealed ${who}${x === resolving ? ' resolving' : ''}" data-strat="${x.uid}" data-codex="card:${x.uid}" style="top: ${(who === 'ai' ? 60 : 392) + k * 30}px" title="${esc(`${Whose(who)} Strat, sealed: ${x.card.name} on ${x.targetName}, after ${who === 'player' ? 'the Opponent\'s' : 'your'} next turn (or at Supper)`)}">⏳</span>`).join('')).join('');
+  return ['ai', 'player'].map((who) => [...(resolving?.owner === who ? [resolving] : []), ...s.strats.filter((x) => x.owner === who)].map((x, k) => {
+    const open = who === 'player' || x === resolving;
+    const tip = open ? `${Whose(who)} Strat${x === resolving ? ', resolving' : ', sealed'}: ${x.card.name} on ${x.targetName}, ${x === resolving ? 'now' : `after ${who === 'player' ? 'the Opponent\'s' : 'your'} next turn (or at Supper)`}` : `The Opponent's sealed Strat on ${x.targetName}: hidden until it resolves, after your next turn (or at Supper)`;
+    return `<span class="v4-sealed ${who}${x === resolving ? ' resolving' : ''}${open ? ' open' : ' hidden'}" data-strat="${x.uid}" data-codex="card:${x.uid}" style="top: ${(who === 'ai' ? 60 : 392) + k * 30}px${x === resolving && who === 'ai' ? `; background-image: url('${art(x.card)}')` : ''}" title="${esc(tip)}">⏳</span>`;
+  }).join('')).join('');
+}
+// C4: the arrow from each sealed Strat to its target, shown while the sealed card is hovered (so you can plan
+// around it, e.g. Dive that Pokémon). A Location or lane target points at its lane; all enemies at the middle.
+function sealedArrows(s) {
+  return s.strats.map((x) => {
+    const k = s.strats.filter((y) => y.owner === x.owner).indexOf(x);
+    const from = { x: 2, y: (x.owner === 'ai' ? 60 : 392) + k * 30 + 28 };
+    const t = x.target;
+    const to = t.all ? { x: BOARD.w / 2, y: ROW_TOP[t.who] + TOK.h / 2 } : spaceAt(t.who, t.space);
+    const mx = (from.x + to.x) / 2;
+    const my = Math.min(from.y, to.y) - 40;
+    return `<svg class="v4-sarrow" data-strat="${x.uid}" viewBox="0 0 ${BOARD.w} ${BOARD.h}" width="${BOARD.w}" height="${BOARD.h}" aria-hidden="true"><path d="M${from.x},${from.y} Q${mx.toFixed(0)},${my.toFixed(0)} ${to.x.toFixed(0)},${to.y.toFixed(0)}" stroke="#ffe08a" stroke-width="6" fill="none" stroke-linecap="round" stroke-dasharray="2 12"/><circle cx="${to.x.toFixed(0)}" cy="${to.y.toFixed(0)}" r="12" fill="none" stroke="#ffe08a" stroke-width="4"/></svg>`;
+  }).join('');
 }
 
 // A Location: its art over all its lanes on both sides (a border in its colour), with a plate across
@@ -422,6 +458,12 @@ export function reactEffect(s, card, targets) {
   const choose = targets.length > 1 ? ' (choose)' : '';
   return `${verb.charAt(0).toUpperCase()}${verb.slice(1)}${one ? `: ${one}` : choose}, before ${what}.`;
 }
+// C4: the countdown strip (the same animation in the React bar and the tray).
+function reactTimerBar(ui) {
+  const clock = ui.reactClock;
+  const elapsed = clock.paused ? clock.ms - clock.left : Math.max(0, Date.now() - clock.start);
+  return `<span class="v4-rtimer${clock.paused ? ' paused' : ''}"><i style="animation-duration: ${clock.ms}ms; animation-delay: -${elapsed}ms; animation-play-state: ${clock.paused ? 'paused' : 'running'}"></i></span>`;
+}
 // Whether the player's React window is showing (not behind the Tournament banner).
 export const reactOpen = (s, ui) => s.phase === 'battle' && s.reactWindow?.reactor === 'player' && !ui.locked && !(s.tournament && ui.seenTournament !== s.tournament.startedRound);
 // UX3: the Command mode picker, at the drop point.
@@ -438,28 +480,63 @@ function picker(s, ui) {
     <div class="v4-pickcol"><p class="t">Play <b>${esc(c.name)}</b> on ${esc(on?.name ?? '')} as</p>${pk.modes.map((m) => `<button data-pick="${m}"><b>${MODE_NAMES[m].toUpperCase()}</b><span>${esc(longMode(c, m))}${m === 'strat' ? ', after their next turn' : ''}</span><i>${icon('energy')}${c.modes[m].cost}</i></button>`).join('')}<button class="cancel" data-action="cancel">Cancel <small>(Esc)</small></button></div></div>`;
 }
 
+// C4: which option's badges the board shows (the React card under the pointer in the tray; 'none' = let it happen).
+let reactShow = 'none';
+// C4: the React window's outcomes, computed once per state: let it happen, and each React card (on its only
+// target, or its first when it has several), by the engine's own react / decline on a copy (preview.js).
+function reactOptionsView(s, ui) {
+  if (ui.reactCache?.state === s) return ui.reactCache.view;
+  const me = s.players.player;
+  const opts = me.hand.filter((c) => commandModesFor(s, 'player', c.uid).length).map((c) => {
+    const targets = commandTargets(s, 'player', c, 'react');
+    let out = null;
+    try { out = targets.length ? reactOutcome(s, { uid: c.uid, target: targets[0] }) : null; } catch { out = null; }
+    return { card: c, targets, out, line: out ? `${targets.length > 1 ? `e.g. on ${targetWords(s, targets[0]) || 'the first target'}: ` : ''}${reactSummary(s, c, out)}` : reactEffect(s, c, targets) };
+  });
+  let decline = null;
+  try { decline = reactOutcome(s, null); } catch { decline = null; }
+  const view = { opts, decline };
+  ui.reactCache = { state: s, view };
+  return view;
+}
+// The badges on the board: one set per option (data-opt), the "let it happen" set shown by default; hovering a
+// card in the tray shows its set instead (the board's data-show attribute, set without a redraw).
+function reactBadges(s, ui) {
+  if (!reactOpen(s, ui)) { reactShow = 'none'; return ''; }
+  const { opts, decline } = reactOptionsView(s, ui);
+  const set = (key, out, label) => (out ? out.badges.map((b) => {
+    const x = laneX(b.space) + 4;
+    const y = ROW_TOP[b.who] + (b.who === 'ai' ? 30 : 26);
+    const on = key === (ui.select?.kind === 'react' ? ui.select.uid : reactShow) || (key === 'none' && !opts.some((o) => o.card.uid === (ui.select?.kind === 'react' ? ui.select.uid : reactShow)));
+    return `<div class="v4-rbadge ${b.tone}${on ? ' on' : ''}" data-opt="${key}" style="left: ${x.toFixed(1)}px; top: ${y}px; width: ${TOK.w - 8}px"><b>${esc(label)}</b>${b.lines.map((l) => `<span>${esc(l)}</span>`).join('')}</div>`;
+  }).join('') : '');
+  return set('none', decline, 'If you let it happen') + opts.map((o) => set(o.card.uid, o.out, `With ${o.card.name}`)).join('');
+}
+// The tray over your hand: your React cards (Mini), each with its outcome, then Let it happen and the timer.
 function reactOverlay(s, ui) {
   if (!reactOpen(s, ui)) return '';
   const me = s.players.player;
-  const opts = me.hand.filter((c) => commandModesFor(s, 'player', c.uid).length);
+  const { opts, decline } = reactOptionsView(s, ui);
   const clock = ui.reactClock;
   const elapsed = clock ? (clock.paused ? clock.ms - clock.left : Math.max(0, Date.now() - clock.start)) : 0;
   const bar = clock ? `<div class="v4-rtimer${clock.paused ? ' paused' : ''}"><i style="animation-duration: ${clock.ms}ms; animation-delay: -${elapsed}ms; animation-play-state: ${clock.paused ? 'paused' : 'running'}"></i></div>` : '';
-  const cards = opts.map((c) => {
-    const targets = commandTargets(s, 'player', c, 'react');
+  const picking = ui.select?.kind === 'react';
+  const cards = opts.map(({ card: c, targets, line }) => {
     const cost = c.modes.react.cost;
-    return `<div class="v4-ropt${ui.select?.uid === c.uid ? ' sel' : ''}" data-codex="card:${c.uid}"><button class="v4-info" aria-label="Inspect ${esc(c.name)} in the Codex">ⓘ</button>${cardHTML(c, { size: 'full', state: { modes: commandModesFor(s, 'player', c.uid), selected: ui.select?.uid === c.uid } })}
-      <p class="v4-reff">${esc(reactEffect(s, c, targets))}</p>
-      <p class="v4-rcost">React · ${cost} Energy · you'll have ${energyLeft(me) - cost} left</p>
-      <button data-react="${c.uid}">${targets.length === 1 ? 'React' : ui.select?.uid === c.uid ? 'Choose a target…' : 'React'}</button></div>`;
+    const sel = ui.select?.uid === c.uid;
+    return `<div class="v4-ropt${sel ? ' sel' : ''}" data-opt="${c.uid}" data-codex="card:${c.uid}">
+      <button class="v4-rcard" data-react="${c.uid}" data-zoom="${zoomKey(c, { modes: commandModesFor(s, 'player', c.uid) })}" aria-label="React with ${esc(c.name)}"><span class="sc">${cardHTML(c, { size: 'mini', state: { modes: commandModesFor(s, 'player', c.uid), selected: sel } })}</span></button>
+      <p class="v4-reff">${esc(line)}</p>
+      <p class="v4-rcost">${sel && targets.length > 1 ? 'Now click a glowing target' : `React · ${cost} Energy · ${energyLeft(me) - cost} left`}</p></div>`;
   }).join('');
-  // C2: choosing the React's target: the cards and the banner step aside so every glowing target on the
-  // board can be clicked (the prompt bar says what to do; Esc lets the action happen).
-  if (ui.select?.kind === 'react') return '<div class="v4-rblock"></div>';
-  return `<div class="v4-rblock"></div>
-    <div class="v4-rbanner" role="dialog"><h2>REACT?</h2><p>${esc(reactSentence(s))}</p>${bar}
-      <div class="v4-buttons"><button data-action="decline">Let it happen <small>(Esc)</small></button></div></div>
-    <div class="v4-ropts">${cards}</div>`;
+  const fate = decline ? (decline.badges.find((b) => b.who === 'player' && /Defeated/.test(b.lines.join(' '))) ? `${decline.badges.find((b) => b.who === 'player' && /Defeated/.test(b.lines.join(' '))).name} is defeated` : decline.pc || (decline.badges[0] ? `${decline.badges[0].name}: ${decline.badges[0].lines[0]}` : 'Nothing changes')) : '';
+  // C4: a resolving Strat of the Opponent's is revealed here in full (hover it for its Full card).
+  const pend = s.reactWindow.pending;
+  const theirs = pend.type === 'strat' || pend.type === 'command' ? `<div class="v4-ropt theirs" data-codex="card:${pend.type === 'strat' ? pend.strat.uid : pend.card.uid}"><span class="v4-rcard face" data-zoom="${zoomKey(pend.card, {})}"><span class="sc">${cardHTML(pend.card, { size: 'mini' })}</span></span><p class="v4-rcost">${pend.type === 'strat' ? 'Their Strat, revealed' : 'Their Adapt'}</p></div>` : '';
+  return `<div class="v4-rtray${picking ? ' picking' : ''}" role="dialog" aria-label="React">
+    ${theirs}<div class="v4-ropts">${cards}</div>
+    <div class="v4-rside" data-opt="none"><p class="v4-rlbl">REACT?</p>${bar}<button class="v4-rlet" data-action="decline">Let it happen <small>(Esc)</small></button><p class="v4-reff">${esc(fate)}</p></div>
+  </div>`;
 }
 
 // --- The right column ----------------------------------------------------------------------------------------
@@ -736,7 +813,7 @@ export function renderMatch(root, s, ui, ctx) {
   const search = root.querySelector?.('.v4-rulesearch');
   const searchFocus = search && typeof document !== 'undefined' && document.activeElement === search ? search.selectionStart : null;
   root.innerHTML = `${CARD_DEFS}<div class="v4-zoom"></div><div class="v4-table${ui.select ? ' choosing' : ''}${reactOpen(s, ui) ? ' reacting' : ''}">
-    <div class="v4-prompt${p.gold ? ' gold' : ''}"><span class="v4-tag">${esc(p.tag)}</span><span class="v4-ptext" title="${esc(actionsTip(s, ui))}">${linkHTML(p.text)}</span>${(p.buttons ?? []).map((b) => `<button data-action="${b.action}"${b.disabled ? ' disabled' : ''}${b.tip ? ` title="${esc(b.tip)}"` : ''}>${esc(b.label)}</button>`).join('')}</div>
+    <div class="v4-prompt${p.gold ? ' gold' : ''}${p.react ? ' react' : ''}"><span class="v4-tag">${esc(p.tag)}</span><span class="v4-ptext" title="${esc(actionsTip(s, ui))}">${linkHTML(p.text)}</span>${p.react && ui.reactClock ? `<span class="v4-ptimer">${reactTimerBar(ui)}</span>` : ''}${(p.buttons ?? []).map((b) => `<button data-action="${b.action}"${b.disabled ? ' disabled' : ''}${b.tip ? ` title="${esc(b.tip)}"` : ''}>${esc(b.label)}</button>`).join('')}</div>
     ${oppHud(s, ui)}${oppHandAndPiles(s)}
     ${board(s, ui)}
     ${roundBox(s)}${weatherChip(s)}${energyTile(s)}${endTurn(s, ui)}${martCard(s, ui)}${logTicker(s)}
@@ -767,10 +844,29 @@ function wireZoom(root) {
     const layer = root.querySelector('.v4-zoom');
     if (!layer) return;
     const el = e.target.closest?.('[data-zoom]');
-    if (!el || !root.contains(el) || el.closest('.v4-ask, .v4-drawer, .v4-ropts, .v4-picker')) { if (!el) hide(); return; }
+    // C4: hovering a sealed Strat shows the arrow to its target.
+    const sealedEl = e.target.closest?.('.v4-sealed');
+    root.querySelectorAll('.v4-sarrow.on').forEach((a) => { if (a.dataset.strat !== sealedEl?.dataset.strat) a.classList.remove('on'); });
+    if (sealedEl) root.querySelector(`.v4-sarrow[data-strat="${sealedEl.dataset.strat}"]`)?.classList.add('on');
+    // C4: hovering a React card in the tray switches the board's badges to its outcome (no redraw).
+    const tray = e.target.closest?.('.v4-rtray');
+    if (tray || (reactShow !== 'none' && root.querySelector('.v4-rbadge'))) {
+      const opt = tray ? (e.target.closest('[data-opt]')?.dataset.opt ?? 'none') : 'none';
+      const sel = root.querySelector('.v4-ropt.sel')?.dataset.opt;
+      const show = sel ?? opt;
+      if (show !== reactShow || !root.querySelector(`.v4-rbadge.on[data-opt="${show}"]`)) {
+        reactShow = show;
+        const has = root.querySelector(`.v4-rbadge[data-opt="${show}"]`);
+        root.querySelectorAll('.v4-rbadge').forEach((b) => b.classList.toggle('on', b.dataset.opt === (has ? show : 'none')));
+      }
+    }
+    if (!el || !root.contains(el) || el.closest('.v4-ask, .v4-drawer, .v4-picker')) { if (!el) hide(); return; }
     const z = zoomCards.get(el.dataset.zoom);
     if (!z) return hide();
-    if (layer.dataset.key === el.dataset.zoom) return;
+    // C4: hovering a raised or lowered stat on a token adds its one-line sum ("Attack 9 = 8 + 1 Mt. Ember").
+    const sum = e.target.closest?.('[data-sum]')?.dataset.sum ?? '';
+    const key = `${el.dataset.zoom}|${sum}`;
+    if (layer.dataset.key === key) return;
     const sr = stage.getBoundingClientRect();
     const k = sr.width / 1920;
     const r = el.getBoundingClientRect();
@@ -780,15 +876,16 @@ function wireZoom(root) {
     const FH = CARD_H;
     let x;
     let y;
-    if (el.closest('.v4-hand')) { x = box.l + box.w / 2 - FW / 2; y = box.t - FH - 26; }
+    if (el.closest('.v4-rtray')) { x = 1512; y = 1080 - FH - 6; }   // C4: beside the tray, clear of the board's centre
+    else if (el.closest('.v4-hand')) { x = box.l + box.w / 2 - FW / 2; y = box.t - FH - 26; }
     else if (el.closest('.v4-board')) { x = box.l + box.w + 14 + FW < 1910 ? box.l + box.w + 14 : box.l - FW - 14; y = box.t + box.h / 2 - FH / 2; }
     else { x = box.l - FW - 14 > 8 ? box.l - FW - 14 : box.l + box.w + 14; y = box.t + box.h / 2 - FH / 2; }
     x = Math.max(8, Math.min(1920 - FW - 8, x));
-    y = Math.max(76, Math.min(1080 - FH - (why ? 34 : 8), y));
+    y = Math.max(76, Math.min(1080 - FH - (why ? 34 : 8) - (sum ? 34 : 0), y));
     const inspect = el.closest('[data-codex]') ? '<span class="v4-zoominfo" title="Press C (or right-click) to open it in the Codex">ⓘ C</span>' : '';
-    layer.innerHTML = `${cardHTML(z.card, { size: 'full', state: z.state })}${inspect}${why ? `<p class="v4-zoomwhy">${esc(why)}</p>` : ''}`;
+    layer.innerHTML = `${cardHTML(z.card, { size: 'full', state: z.state })}${inspect}${sum ? `<p class="v4-zoomsum">${esc(sum)}</p>` : ''}${why ? `<p class="v4-zoomwhy">${esc(why)}</p>` : ''}`;
     Object.assign(layer.style, { display: 'block', left: `${Math.round(x)}px`, top: `${Math.round(y)}px` });
-    layer.dataset.key = el.dataset.zoom;
+    layer.dataset.key = key;
   });
   root.addEventListener('mouseleave', hide);
   root.addEventListener('mousedown', hide);

@@ -127,8 +127,6 @@ const low = cards.filter((c) => c.drawn >= 20 && c.rate < 0.3);
 const high = cards.filter((c) => c.played >= 20 && c.win > 0.6);
 for (const c of low) sug.push(`**${c.name}** is played in only ${pct(c.rate)} of the matches where it is drawn (< 30%): ${c.type === 'Command' ? 'lower its Adapt cost by 1' : c.type === 'Supporter' ? 'lower its Release by 1, or strengthen the base effect by 1' : c.type === 'Item' ? 'lower its price by $1' : c.type === 'Location' ? 'shorten it by one lane' : 'lower its cost by 1 at its first Level'} (the AI may also undervalue it; check in a playtest).`);
 for (const c of high) sug.push(`**${c.name}**: the player who plays it wins ${pct(c.win)} (> 60%): weaken its effect by 1 (or note that it is played mostly by players already ahead).`);
-// Bubble Beam React: the attacker is always Spent after attacking, so in v4 it does nothing.
-sug.push('**Bubble Beam React** ("the attacker becomes Spent after its attack") has no effect in v4: an attacker is always Spent after attacking. Suggestion: "the attack deals 2 less damage" (cost 1), or "the attacker stays Spent through the next Breakfast" (it doesn\'t become Active next Round).');
 
 // --- The report ------------------------------------------------------------------------------------------------------------
 const rows = (xs) => xs.join('\n');

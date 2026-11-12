@@ -152,7 +152,15 @@ function bestChoice(s, who) {
   return s;
 }
 
-export function chooseAction(s, who, { rng = Math.random } = {}) {
+// C4 (hidden Strats): the AI never reads the player's sealed Strat cards. It decides on a view of the state
+// without the other player's waiting Strats (it neither reads their names and effects nor simulates them);
+// a Strat being revealed in a React window (s.reactWindow.pending) is no longer sealed.
+export function hiddenView(s, who) {
+  if (!s.strats?.some((x) => x.owner !== who)) return s;
+  return { ...s, strats: s.strats.filter((x) => x.owner === who) };
+}
+export function chooseAction(real, who, { rng = Math.random } = {}) {
+  const s = hiddenView(real, who);
   const options = moves(s, who);
   if (options[0].type === 'mulligan') return options[0];
   let best = null;

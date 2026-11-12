@@ -410,7 +410,9 @@ const ACTIONS = {
     if (mode === 'strat') {
       s.strats.push({ uid: `strat-${uid}`, owner: who, card: plain, target: t, targetName: onName, playedRound: s.round });
       emit(s, 'strat', { who, id: card.id, name: card.name, uid: `strat-${uid}`, target: t });
-      log(s, `${NAMES[who]} played ${card.name} as a Strat (${cost} Energy) on ${onName}: it resolves after ${who === 'player' ? 'the Opponent\'s' : 'your'} next turn.`);
+      // C4 (Elliott, 11 November 2026): a waiting Strat is hidden from the other player until it resolves: the
+      // Opponent's is logged as "a sealed Strat" and its target only; your own stays named.
+      log(s, who === 'player' ? `You played ${card.name} as a Strat (${cost} Energy) on ${onName}: it resolves after the Opponent's next turn.` : `The Opponent sealed a Strat (${cost} Energy) on ${onName}: it resolves after your next turn.`);
       return endTurn(s, who, false);
     }
     log(s, `${NAMES[who]} played ${card.name} (Adapt, ${cost} Energy) on ${onName}.`);
@@ -658,17 +660,17 @@ const RESOLVE = {
 
   // The attack: the attacker and target must still be there (and the target still legal). A Ready
   // target hits back (a trade); both become Spent. If it fizzles, the attacker is still Spent.
-  attack(s, { who, from, target, attackerUid, targetUid }) {
+  attack(s, { who, from, target, attackerUid, targetUid, reduce = 0 }) {
     const foe = opponentOf(who);
     const a = s.players[who].row[from];
     if (!a || a.uid !== attackerUid) return fizzle(s, who, `${POSS[who]} attack`, 'the attacker is gone');
     const d = target.kind === 'pokemon' ? s.players[foe].row[target.space] : null;
     if (target.kind === 'pokemon' && (!d || d.uid !== targetUid)) { a.spent = true; return fizzle(s, who, `${POSS[who]} ${a.name}'s attack`, 'its target is gone'); }
     if (!legalTargets(s, who, from).some((t) => t.kind === target.kind && t.space === target.space)) { a.spent = true; return fizzle(s, who, `${POSS[who]} ${a.name}'s attack`, 'its target is guarded now'); }
-    const raw = damageOf(s, a);
+    const raw = Math.max(0, damageOf(s, a) - reduce);
     if (target.kind === 'player') {
       a.spent = true;
-      emit(s, 'attack', { who, from, target, amount: raw, name: a.name });
+      emit(s, 'attack', { who, from, target, amount: raw, raw, name: a.name });
       log(s, `${POSS[who]} ${a.name} attacked ${who === 'player' ? 'the Opponent' : 'you'} for ${raw}.`);
       gainRecognition(s, who, raw * RULES.perDamageToPlayer, `${a.name}'s attack`, { kind: 'pc', who: foe });
       queueTrigger(s, who, from, a, 'attack', { target }, 1);
@@ -747,7 +749,8 @@ export function applyCommand(s, who, card, mode, target) {
     else if (op === 'attackUp') { c.attack += amount; c.tempAttack = (c.tempAttack ?? 0) + amount; }
     else if (op === 'attackKept') c.attack += amount;
     else if (op === 'damageSpent') { hurt(s, target.who, target.space, amount, who); const still = s.players[target.who].row[target.space]; if (still?.uid === c.uid) still.spent = true; }
-    else if (op === 'spend') c.spent = true;
+    // C4: Bubble Beam's React: the attack being Reacted to deals N less damage (minimum 0).
+    else if (op === 'reduce') { const pd = s.reactWindow?.pending; if (pd?.type === 'attack') pd.reduce = (pd.reduce ?? 0) + amount; }
     else if (op === 'dive') { returnToHand(s, target.who, target.space); if (amount) draw(s, who, amount); }
     else if (op === 'damageLocation') {
       const loc = locationOf(s, target.space);

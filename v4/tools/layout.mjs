@@ -441,6 +441,11 @@ const SCENARIOS = {
   'zoom-mart': async (p) => { await to(p, 3); await hover(p, '.v4-martslot'); },
   'discard-viewer': async (p) => { await to(p, 6); await v4(p, () => window.__v4.set((s, ui) => { ui.drawer = 'view:player-disc'; })); },
   'released-viewer': async (p) => { await to(p, 6); await v4(p, () => window.__v4.set((s, ui) => { ui.drawer = 'view:ai-rel'; })); },
+  // C4: the React window with three React cards (the bar, the tray, the board's badges); tokens with raised,
+  // lowered and damaged two-digit stats; a sealed Strat of the Opponent's.
+  'react-three': async (p) => { await to(p, 5); await c4Stage(p, true); },
+  'react-three-hover': async (p) => { await to(p, 5); await c4Stage(p, true); await hover(p, '.v4-rtray .v4-ropt[data-opt="h-dive"] .v4-rcard'); },
+  'stats-two-digit': async (p) => { await to(p, 5); await c4Stage(p, false); await hover(p, '.v4-row.player .v4-space[data-space="3"] .cd-tab.atk'); },
   // C3: the Codex open on one of each kind of thing (and the ? overlay's Rules page).
   'codex-pokemon': async (p) => { await to(p, 5); await codexOn(p, 'mon:player:1', "s.players.player.row[1] = mon('charmander', 8, { held: C.itemDef('charcoal'), currentStrength: 6 });"); },
   'codex-pokemon-hand': async (p) => { await to(p, 5); await codexOn(p, 'card:cx-hand', "s.players.player.hand.push({ ...C.cardAtRound('squirtle', s.round), uid: 'cx-hand' });"); },
@@ -459,6 +464,33 @@ const SCENARIOS = {
   'codex-tournament': async (p) => { await to(p, 3); await codexOn(p, 'tournament', ''); },
   'keys-rules': async (p) => { await to(p, 3); await v4(p, () => window.__v4.set((s, ui) => { ui.keys = 'rules'; })); },
 };
+// C4: a board with raised and damaged two-digit stats (Mt. Ember, Rain 4, kept gains, Charcoal), and optionally the
+// Opponent's attack on it with three React cards in your hand; the Opponent also has a sealed Strat.
+async function c4Stage(p, react) {
+  await v4(p, async (react) => {
+    const C = await import('/v4/src/engine/cards.js');
+    const G = await import('/v4/src/engine/game.js');
+    window.__v4.set((s) => {
+      const mon = (id, level, x = {}) => ({ ...C.pokemonAt(id, level), uid: `l4-${id}-${level}`, currentStrength: C.pokemonAt(id, level).strength, spent: true, summonedRound: 0, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...x });
+      const loc = (id, start, owner = 'player') => { const l = C.locationDef(id); return { uid: `loc-${id}`, owner, card: l, id, name: l.name, art: l.art, color: l.color, start, width: l.width, roundsLeft: 2, weather: l.weather, passive: l.passive, placedRound: s.round }; };
+      s.tournament = null; s.reactWindow = null; s.choice = null; s.passesInARow = 0;
+      s.locations = [loc('cerulean-cape', 0), loc('mt-ember', 2, 'ai'), loc('route-119', 5)];
+      for (const w of ['player', 'ai']) s.players[w].row = Array(9).fill(null);
+      s.players.player.row[3] = mon('charmander', 8, { attack: 11, held: C.itemDef('choice-band'), currentStrength: 4 });
+      s.players.player.row[0] = mon('squirtle', 7, { strength: 12, currentStrength: 10 });
+      s.players.player.row[6] = mon('wooper', 7, { strength: 12, currentStrength: 12, attack: 3 });
+      s.players.ai.row[3] = mon('magikarp', 8, { spent: false, attack: 12 });
+      s.players.ai.row[7] = mon('magby', 8, { currentStrength: 2 });
+      s.strats = [{ uid: 'strat-l4', owner: 'ai', card: { ...C.cardAtRound('ember', s.round), uid: 'l4x' }, target: { who: 'player', space: 6, uid: s.players.player.row[6].uid }, targetName: 'Quagsire', playedRound: s.round }];
+      s.players.player.hand = ['dive', 'surf', 'bubble-beam'].map((id) => ({ ...C.cardAtRound(id, s.round), uid: `h-${id}` }));
+      s.players.player.baseEnergy = 6;
+      s.turn = 'player';
+      G.syncBonuses(s);
+    });
+    if (react) { window.__v4.set((s) => { s.turn = 'ai'; }); window.__v4.apply({ type: 'attack', who: 'ai', from: 3, target: { kind: 'pokemon', space: 3 } }); }
+  }, react);
+  await p.waitForTimeout(300);
+}
 // C3: stage something (code run with s, mon, loc, C), then open the Codex on a ref (which may use s).
 async function codexOn(p, ref, code) {
   await v4(p, async ({ ref, code }) => {

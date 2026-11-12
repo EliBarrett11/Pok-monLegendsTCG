@@ -76,6 +76,20 @@ const result = await page.evaluate(async () => {
   for (const c of C.ITEMS) for (const size of ['full', 'mini']) { add(c.name, c, size); add(`${c.name} stock 1`, c, size, { stock: 1 }); add(`${c.name} sold out`, c, size, { soldOut: true }); }
   for (const c of C.TRAINERS) for (const size of ['full', 'mini']) for (const progress of [0, 3, c.objective.need]) add(`${c.name} ${progress}`, c, size, { progress });
   for (const c of C.LOCATIONS) for (const size of ['full', 'mini']) add(c.name, c, size);
+  // C4: current stats on the stat tabs (board tokens and their hover Full card): raised ▲, lowered ▼, damaged
+  // (current over its maximum), two-digit values.
+  const st = (attack, aT, strength, max, sT) => ({ stats: { attack, attackTrend: aT, strength, strengthMax: max, strengthTrend: sT, sumAttack: `Attack ${attack} = …`, sumStrength: `Strength ${strength} = …` } });
+  for (const [id, lv] of [['charmander', 8], ['squirtle', 7], ['magikarp', 8], ['ponyta', 1]]) {
+    const c = C.pokemonAt(id, lv);
+    for (const size of ['token', 'full']) {
+      add(`${c.name} raised`, c, size, st(c.attack + 3, 'up', c.strength + 2, c.strength + 2, 'up'));
+      add(`${c.name} two-digit raised`, c, size, st(12, 'up', 14, 14, 'up'));
+      add(`${c.name} damaged`, c, size, st(c.attack, '', 5, 9, 'down'));
+      add(`${c.name} two-digit damaged`, c, size, st(11, 'up', 10, 12, 'down'));
+      add(`${c.name} lowered`, c, size, st(Math.max(0, c.attack - 1), 'down', 1, 10, 'down'));
+      add(`${c.name} 0 attack`, c, size, st(0, 'down', 12, 12, 'up'));
+    }
+  }
   // Hand cards Retained, at Mini size.
   add('Charizard retained', C.pokemonAt('charmander', 8), 'mini', { retained: true });
 

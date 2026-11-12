@@ -133,7 +133,7 @@ export function effectPreview(s, who, card, mode, target) {
     const { op, amount } = card.modes[mode];
     if (op === 'attackUp') notes.push(`+${amount} Attack until Supper`);
     if (op === 'attackKept') notes.push(`+${amount} Attack, kept`);
-    if (op === 'spend') notes.push('The attacker becomes Spent after its attack');
+    if (op === 'reduce') notes.push(`The attack deals ${amount} less damage`);
     if (op === 'dive') notes.push(mode === 'react' ? 'Back to your hand: the attack fizzles' : `Back to your hand${amount ? `; draw ${amount}` : ''}`);
   } else if (card.cardType === 'Item') {
     applyItem(sim, who, card, { who, space: card.noTarget ? null : target.space });
@@ -163,3 +163,70 @@ export function choicePreview(s, target) {
 }
 
 export const RECOGNITION_PER_DEFEAT = RULES.perDefeat;
+
+// --- C4: the React window's outcomes, on the board ---------------------------------------------------------
+// reactOutcome(s, option): what the open React window resolves to if the reactor lets it happen (option null)
+// or Reacts with { uid, target }: the engine's own react / decline action on a copy, read back as one badge per
+// Pokémon it touches ("9 → Strength 7 → 0 · Defeated"), each side's rewards and a one-line summary for the tray.
+// tests/c4.test.js plays every option for real and compares.
+const WHO = { player: 'You', ai: 'Opponent' };
+const rewardText = (who, g) => (g.recognition || g.dollars ? `${WHO[who]} ${[g.recognition ? `+${g.recognition} Recognition` : '', g.dollars ? `+$${g.dollars}` : ''].filter(Boolean).join(', ')}` : '');
+export function reactOutcome(s, option = null) {
+  const w = s.reactWindow;
+  const reactor = w.reactor;
+  const actor = w.pending.who;
+  const action = option ? { type: 'react', who: reactor, uid: option.uid, target: option.target } : { type: 'decline', who: reactor };
+  const sim = applyAction(s, action);
+  const events = sim.events ?? [];
+  const p = w.pending;
+  const atk = p.type === 'attack' ? events.find((e) => e.type === 'attack' && e.who === actor && e.from === p.from) : null;
+  const fizzled = events.some((e) => e.type === 'fizzled' && e.who === actor);
+  const ch = changes(s, sim);
+  const rev = option ? events.find((e) => e.type === 'commandResolved' && e.mode === 'react') : null;
+  const rewards = { [actor]: gain(s, sim, actor), [reactor]: gain(s, sim, reactor) };
+  const badges = [];
+  const at = (who, space) => {
+    let b = badges.find((x) => x.who === who && x.space === space);
+    if (!b) { b = { who, space, name: s.players[who].row[space]?.name, lines: [], tone: 'neutral' }; badges.push(b); }
+    return b;
+  };
+  for (const c of ch) {
+    const b = at(c.who, c.space);
+    if (c.returned) { b.lines.push(`${c.name} returns to ${c.who === 'player' ? 'your' : 'their'} hand`); b.tone = 'safe'; continue; }
+    if (c.stat === 'strength') {
+      const isTarget = p.type === 'attack' && atk && c.who !== actor && c.space === p.target.space;
+      const isAttacker = p.type === 'attack' && atk && c.who === actor && c.space === p.from;
+      const hit = isTarget ? atk.amount : isAttacker ? (atk.back ?? 0) + (atk.retaliated ?? 0) : null;
+      // A React that changed this Pokémon first (Surf's heal, Ember's damage): that step, then the hit.
+      const mid = rev?.hits?.find((h) => h.who === c.who && h.space === c.space);
+      let from = c.before;
+      if (mid && mid.after !== c.before && hit !== null) { b.lines.push(`${rev.name}: Strength ${c.before} → ${mid.after}`); from = mid.after; }
+      b.lines.push(`${hit !== null ? `${hit} → ` : ''}Strength ${from} → ${Math.max(0, c.after)}${c.defeated ? ' · Defeated' : ''}`);
+      b.tone = c.defeated ? 'bad' : c.after < c.before ? 'hurt' : 'good';
+      if (c.defeated) { const by = c.who === 'player' ? 'ai' : 'player'; const r = rewardText(by, rewards[by]); if (r) b.lines.push(r); }
+    } else if (c.stat === 'attack') b.lines.push(`Attack ${c.before} → ${c.after}`);
+    // (An attacker always becomes Spent after attacking: only other Pokémon made Spent are worth a line.)
+    else if (c.stat === 'spent' && !(p.type === 'attack' && c.who === actor && c.space === p.from)) b.lines.push('Becomes Spent');
+  }
+  // The attack's own target, when it fizzled or was left unharmed.
+  if (p.type === 'attack' && p.target.kind === 'pokemon' && s.players[reactor].row[p.target.space]?.uid === p.targetUid) {
+    const b = at(reactor, p.target.space);
+    if (!b.lines.length) { b.lines.push(fizzled ? 'Safe · the attack fizzles' : atk ? `${atk.amount} damage` : 'Unharmed'); b.tone = 'safe'; }
+    else if (fizzled && !b.lines.some((l) => /fizzles/.test(l))) b.lines.push('the attack fizzles');
+  }
+  const pc = p.type === 'attack' && p.target.kind === 'player' && atk ? `${atk.amount} damage to ${reactor === 'player' ? 'you' : 'the Opponent'}${rewardText(actor, rewards[actor]) ? ` · ${rewardText(actor, rewards[actor])}` : ''}` : '';
+  return { option, badges: badges.filter((b) => b.lines.length), rewards, fizzled, pc, damage: atk?.amount ?? null, raw: atk?.raw ?? null, gameOver: sim.phase === 'gameOver' ? sim.winner : null, sim };
+}
+// The tray's one line for a React option: its effect, then what happens to the threatened Pokémon.
+export function reactSummary(s, card, out) {
+  const w = s.reactWindow;
+  const p = w.pending;
+  const { op, amount } = card.modes.react;
+  const tgt = p.type === 'attack' && p.target.kind === 'pokemon' ? out.badges.find((b) => b.who === w.reactor && b.space === p.target.space) : null;
+  const atkName = p.type === 'attack' ? s.players[p.who].row[p.from]?.name : null;
+  const rest = tgt ? tgt.lines.join(' · ') : out.badges.map((b) => `${b.name}: ${b.lines.join(' · ')}`).join('; ') || out.pc;
+  if (op === 'dive' && out.fizzled) return `${s.players[w.reactor].row[p.target.space]?.name} returns to your hand · the attack fizzles`;
+  if (op === 'reduce' && atkName) { const d = damageOf(s, s.players[p.who].row[p.from]); return `${atkName}'s attack deals ${amount} less: ${d} → ${Math.max(0, d - amount)}${tgt ? ` · ${tgt.lines.join(' · ')}` : ''}`; }
+  if (op === 'heal') return `${rest || `Heal ${amount}`}${/Defeated/.test(rest) ? ' (still defeated)' : ''}`;
+  return rest || 'No change';
+}

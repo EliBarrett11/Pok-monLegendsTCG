@@ -9,6 +9,7 @@ import {
 } from '../engine/game.js?v=202611110816';
 import { MODE_NAMES, modeTarget } from '../engine/cards.js?v=202611110816';
 import { attackPreview, effectPreview, choicePreview } from '../engine/preview.js?v=202611110816';
+import { statsIfPlaced } from '../engine/stats.js?v=202611110816';
 import { attackIcon, strengthIcon, icon } from './icons.js?v=202611110816';
 
 const esc = (x) => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
@@ -203,7 +204,12 @@ export function previewHTML(s, sel, hit) {
   if (c.cardType === 'Pokémon') {
     const cost = summonCost(s, c, hit.space);
     const l = locationAt(s, hit.space);
-    return `<div class="h">Summon ${esc(c.name)} here</div><div class="m">${icon('energy')} ${cost} Energy${cost < c.cost ? ` <span class="k">(${esc(l?.name ?? 'discount')}: −${c.cost - cost})</span>` : ''}</div><div class="sub">Lane ${hit.space + 1}${l ? ` · in ${esc(l.name)}: ${esc(l.passive.text)}` : ''} · arrives Spent</div>`;
+    // C4: the values it would have here (the engine's own summon on a copy): "Attack 4 ▲ on Mt. Ember".
+    const st = statsIfPlaced(s, 'player', c, hit.space);
+    const arrow = { up: ' ▲', down: ' ▼', '': '' };
+    const why = st ? st.attackParts.slice(1).map((x) => x.label).concat(st.strengthParts.slice(1).filter((x) => x.label !== 'damage').map((x) => x.label)) : [];
+    const stats = st ? `<div class="m stats"><span class="${st.attackTrend}">Attack ${st.attack}${arrow[st.attackTrend]}</span> · <span class="${st.strengthTrend}">Strength ${st.strength}${arrow[st.strengthTrend]}</span>${why.length ? ` <span class="k">on ${esc([...new Set(why)].join(', '))}</span>` : ''}</div>` : '';
+    return `<div class="h">Summon ${esc(c.name)} here</div>${stats}<div class="m">${icon('energy')} ${cost} Energy${cost < c.cost ? ` <span class="k">(${esc(l?.name ?? 'discount')}: −${c.cost - cost})</span>` : ''}</div><div class="sub">Lane ${hit.space + 1}${l ? ` · in ${esc(l.name)}: ${esc(l.passive.text)}` : ''} · arrives Spent</div>`;
   }
   if (c.cardType === 'Location') return `<div class="h">Place ${esc(c.name)}</div><div class="m">Lanes ${hit.space + 1}–${hit.space + c.width} · ${c.rounds} Rounds · no Energy</div><div class="sub">${esc(c.passive.text)} · +${c.weather.count} ${c.weather.type}</div>`;
   if (r.open === 'supporter') return `<div class="h">Play ${esc(c.name)}</div><div class="sub">Then choose ${c.release} card${c.release === 1 ? '' : 's'} to Release</div>`;
