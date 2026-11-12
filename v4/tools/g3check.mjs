@@ -112,7 +112,7 @@ await page.evaluate(() => { window.__v4.set((s) => { s.turn = 'ai'; }); window._
 await page.waitForSelector('.v4-ropts [data-react]', { timeout: 120000 });
 await page.waitForTimeout(400);
 await page.screenshot({ path: `${OUT}/2-react-window-dive.png` });
-const reactText = await page.evaluate(() => `${document.querySelector('.v4-rbanner').innerText} | ${document.querySelector('.v4-ropts').innerText}`.replace(/\s+/g, ' '));
+const reactText = await page.evaluate(() => `${document.querySelector('.v4-prompt').innerText} | ${document.querySelector('.v4-ropts').innerText}`.replace(/\s+/g, ' '));
 const charm = (await state()).players.player.row[3].uid;
 await page.click('.v4-ropts [data-react]');
 await page.waitForFunction(() => !window.__v4.state.reactWindow, null, { timeout: 60000 });

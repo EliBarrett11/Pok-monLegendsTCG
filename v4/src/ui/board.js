@@ -524,7 +524,7 @@ function reactOverlay(s, ui) {
   const cards = opts.map(({ card: c, targets, line }) => {
     const cost = c.modes.react.cost;
     const sel = ui.select?.uid === c.uid;
-    return `<div class="v4-ropt${sel ? ' sel' : ''}" data-opt="${c.uid}" data-codex="card:${c.uid}">
+    return `<div class="v4-ropt${sel ? ' sel' : ''}" data-opt="${c.uid}" data-codex="card:${c.uid}"><button class="v4-info" aria-label="Inspect ${esc(c.name)} in the Codex">ⓘ</button>
       <button class="v4-rcard" data-react="${c.uid}" data-zoom="${zoomKey(c, { modes: commandModesFor(s, 'player', c.uid) })}" aria-label="React with ${esc(c.name)}"><span class="sc">${cardHTML(c, { size: 'mini', state: { modes: commandModesFor(s, 'player', c.uid), selected: sel } })}</span></button>
       <p class="v4-reff">${esc(line)}</p>
       <p class="v4-rcost">${sel && targets.length > 1 ? 'Now click a glowing target' : `React · ${cost} Energy · ${energyLeft(me) - cost} left`}</p></div>`;

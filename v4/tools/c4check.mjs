@@ -87,11 +87,11 @@ const tab = (who, sp, which) => `.v4-row.${who === 'ai' ? 'opponent' : 'player'}
 await stage();
 const s1 = await state();
 const zard = s1.players.player.row[3];
-const zAtk = await page.evaluate((q) => { const e = document.querySelector(q); return e && { up: e.classList.contains('cd-up'), n: e.querySelector('b')?.textContent, tri: !!e.querySelector('.cd-tri'), color: getComputedStyle(e).color }; }, tab('player', 3, 'atk'));
+const zAtk = await page.evaluate((q) => { const e = document.querySelector(q); return e && { up: e.classList.contains('cd-up'), n: e.childNodes[0]?.nodeValue, tri: !!e.querySelector('.cd-tri'), color: getComputedStyle(e).color }; }, tab('player', 3, 'atk'));
 report('a token on Mt. Ember shows a green ▲ Attack', zAtk?.up && zAtk.tri && zAtk.n === '10' && /139, 227, 138/.test(zAtk.color), JSON.stringify(zAtk));
-const zStr = await page.evaluate((q) => { const e = document.querySelector(q); return e && { down: e.classList.contains('cd-down'), n: e.querySelector('b')?.textContent, bar: !!e.querySelector('.cd-sbar'), color: getComputedStyle(e).color }; }, tab('player', 3, 'str'));
+const zStr = await page.evaluate((q) => { const e = document.querySelector(q); return e && { down: e.classList.contains('cd-down'), n: e.childNodes[0]?.nodeValue, bar: !!e.querySelector('.cd-sbar'), color: getComputedStyle(e).color }; }, tab('player', 3, 'str'));
 report('a damaged token shows red Strength (and its maximum as a bar)', zStr?.down && zStr.n === String(zard.currentStrength) && zStr.bar && /255, 122, 102/.test(zStr.color), JSON.stringify(zStr));
-const quag = await page.evaluate((q) => document.querySelector(q)?.textContent, tab('player', 6, 'str'));
+const quag = await page.evaluate((q) => document.querySelector(q)?.childNodes[0]?.nodeValue, tab('player', 6, 'str'));
 report('a two-digit raised Strength (Quagsire in Rain)', Number(quag) >= 10, quag);
 // Hover Charizard's Attack number: its one-line sum under the zoom card.
 await page.hover(tab('player', 3, 'atk'));
@@ -110,7 +110,7 @@ const visible = await page.evaluate((q) => {
   const e = document.querySelector(q);
   const r = e.getBoundingClientRect();
   const at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-  return { n: e.querySelector('b')?.textContent, visible: !!at && (e.contains(at) || at === e) };
+  return { n: e.childNodes[0]?.nodeValue, visible: !!at && (e.contains(at) || at === e) };
 }, tab('player', 3, 'str'));
 report('in a React window, the target\'s real Strength is visible on the board', visible.visible && visible.n === String(target.currentStrength), JSON.stringify(visible));
 const letBadge = await page.evaluate(() => [...document.querySelectorAll('.v4-rbadge.on')].map((b) => `${b.dataset.opt}: ${b.innerText.replace(/\s+/g, ' ')}`));

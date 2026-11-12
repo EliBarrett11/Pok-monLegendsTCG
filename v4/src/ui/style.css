@@ -788,3 +788,4 @@ button { font-family: inherit; color: inherit; }
 .cd-spent .cd-in { filter: none; }
 .cd-spent .cd-in > :not(.cd-cur) { filter: grayscale(0.85) brightness(0.55); }
 .cd-spent .cd-in > .cd-cur { filter: brightness(0.92); }
+.v4-rtray .v4-ropt .v4-info { right: 30px; top: 6px; }

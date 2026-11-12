@@ -130,12 +130,13 @@ await page.evaluate(async () => {
   });
   window.__v4.show({ type: 'attack', who: 'ai', from: 3, target: { kind: 'pokemon', space: 3 } });
 });
-await page.waitForFunction(() => document.querySelectorAll('.v4-ropts .cd-full').length >= 2, null, { timeout: 30000 }).catch(async () => {
+await page.waitForFunction(() => document.querySelectorAll('.v4-rtray .v4-rcard .cd-mini').length >= 2, null, { timeout: 30000 }).catch(async () => {
   console.log('React window not shown:', await page.evaluate(() => JSON.stringify({ rw: window.__v4.state.reactWindow?.reactor, turn: window.__v4.state.turn, phase: window.__v4.state.phase, log: window.__v4.state.log.slice(-3) })));
 });
 await page.waitForTimeout(400);
 await page.screenshot({ path: `${OUT}/5-react-window.png` });
-report('the React window shows Full cards', (await page.$$('.v4-ropts .cd-full')).length >= 2, `${(await page.$$('.v4-ropts .cd-full')).length} cards`);
+// C4: the React window's cards are Mini cards in the tray over the hand (their Full card shows on hover).
+report('the React window shows the React cards (Mini, in the tray)', (await page.$$('.v4-rtray .v4-rcard .cd-mini')).length >= 2, `${(await page.$$('.v4-rtray .v4-rcard .cd-mini')).length} cards`);
 report('no page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 await browser.close();
 const failed = results.filter((r) => !r.ok);
