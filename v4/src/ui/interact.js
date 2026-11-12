@@ -2,10 +2,10 @@
 // and the keyboard. It draws on its own layer (#v4-fx) inside the stage, above the board and below
 // dialogs, so a redraw of the match never loses the arrow. Every choice goes through flows.js, the same
 // path clicks take; nothing is committed until a legal drop, Enter, or the final click.
-import { attackers, commandModesFor, commandTargets } from '../engine/game.js?v=202611110816';
-import { hitsFor, evaluate, previewHTML, needsArrow, placementAt, commitHit, sameHit } from './flows.js?v=202611110816';
-import { reactOpen } from './board.js?v=202611110816';
-import { openCodex, closeCodex, codexOpen } from './codex.js?v=202611110816';
+import { attackers, commandModesFor, commandTargets } from '../engine/game.js?v=202611120821';
+import { hitsFor, evaluate, previewHTML, needsArrow, placementAt, commitHit, sameHit } from './flows.js?v=202611120821';
+import { reactOpen } from './board.js?v=202611120821';
+import { openCodex, closeCodex, codexOpen } from './codex.js?v=202611120821';
 
 const W = 1920;
 export function setupInteraction({ stage, ui, ctx, getState }) {

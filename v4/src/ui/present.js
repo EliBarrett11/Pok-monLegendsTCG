@@ -5,19 +5,19 @@
 // action. The presenter never changes the state: it gets prev and next and calls draw() once.
 // Without WebGL the 2D particles stand in (particles.js); numbers, banners and moves are page elements
 // and always play. Every beat calls a sound hook (sound.js).
-import { initVfx, vfxReady, playTimeline, skipTimelines, clearVfx, coins, rectOf, reducedMotion } from './vfx/engine.js?v=202611110816';
-import { burst, clearParticles } from './particles.js?v=202611110816';
-import { plan } from './plan.js?v=202611110816';
+import { initVfx, vfxReady, playTimeline, skipTimelines, clearVfx, coins, rectOf, reducedMotion } from './vfx/engine.js?v=202611120821';
+import { burst, clearParticles } from './particles.js?v=202611120821';
+import { plan } from './plan.js?v=202611120821';
 import {
   MS, attackDef, counterDef, tintFor, commandDef, MODE_STYLE, commandRate, commandTint, SWEEP_COMMANDS, COMMAND_TYPES, summonFor, defeatFor, defOf,
   RING_FLARES, SUPPORTER_ANIMS, itemAnim, attackSfx, tintOf,
-} from './vfx/library.js?v=202611110816';
-import { sfx } from './sound.js?v=202611110816';
-import { speedFactor } from './settings.js?v=202611110816';
-import { RULES } from '../rules.js?v=202611110816';
-import { activeBrackets, lanesHere } from '../engine/game.js?v=202611110816';
-import { commandDef as cardCommand, itemDef, supporterDef, trainerDef, TRIGGER_NAMES } from '../engine/cards.js?v=202611110816';
-import { renderHandCard } from './board.js?v=202611110816';
+} from './vfx/library.js?v=202611120821';
+import { sfx } from './sound.js?v=202611120821';
+import { speedFactor } from './settings.js?v=202611120821';
+import { RULES } from '../rules.js?v=202611120821';
+import { activeBrackets, lanesHere } from '../engine/game.js?v=202611120821';
+import { commandDef as cardCommand, itemDef, supporterDef, trainerDef, TRIGGER_NAMES } from '../engine/cards.js?v=202611120821';
+import { renderHandCard } from './board.js?v=202611120821';
 
 const GOLD = ['#ffd36b', '#fff6c8'];
 const NAME = { player: 'You', ai: 'The Opponent' };

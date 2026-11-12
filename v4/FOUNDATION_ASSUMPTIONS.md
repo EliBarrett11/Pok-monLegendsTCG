@@ -222,7 +222,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   | Rock Slide | a Location | 2: 1 damage to one enemy | 3: 1 damage to each enemy there | 4: 2 damage to each enemy there |
   | Heat Wave | all enemies | 2: 1 damage to the attacker | 3: 1 damage to each enemy Pokémon | 5: 2 damage to each enemy Pokémon |
   | Surf | a Location | 1: heal 2 to the Pokémon being attacked | 3: 2 damage to each enemy there | 4: 3 damage to each enemy there |
-  | Bubble Beam | an enemy Pokémon | 1: the attacker becomes Spent after its attack | 2: 2 damage, and it becomes Spent | 3: 3 damage, and it becomes Spent |
+  | Bubble Beam | an enemy Pokémon | 1: the attack deals 2 less damage, minimum 0 (C4 ruling) | 2: 2 damage, and it becomes Spent | 3: 3 damage, and it becomes Spent |
   | Recover | one of your Pokémon | 1: heal 2 | 2: heal 4 | 3: heal 8 |
   | Flame Charge | one of your Pokémon | 1: +1 Attack until Supper | 2: +1 Attack (kept) | 3: +2 Attack (kept) |
   | Dive | one of your Pokémon | 1: return the attacked Pokémon to your hand (the attack fizzles) | 1: return it to your hand | 2: return it to your hand and draw 1 card |
@@ -230,7 +230,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   - **A Location target (Rock Slide, Surf):** you choose a lane on the enemy side. If a Location covers it, every enemy Pokémon in that Location is hit; in a lane with no Location, just that lane's; in the Tournament, every enemy Pokémon. A lane is a target only if that area holds an enemy Pokémon. **Settled here:** the lane is picked on the enemy row (a Location covers both rows, so this is the same Location). **Needed**.
   - **All enemies (Heat Wave):** no choice; a Strat of it resolves on whatever enemies are there then (it never fizzles while one is).
   - **React targets:** a React mode that names "the attacker" or "the Pokémon being attacked" (Heat Wave, Surf, Bubble Beam, Dive) is offered only against an attack by a Pokémon on a Pokémon, not against an Adapt or a resolving Strat. The other React modes (Ember, Thunderbolt, Rock Slide, Recover, Flame Charge) work in every React window as before. **Settled here**, from the table's wording. **Needed**.
-  - **"Becomes Spent" (Bubble Beam):** the target is Spent at once (it can't attack or hit back this Round). Its React makes the attacker Spent, but an attacker is always Spent after attacking, so **the React has no effect in v4** (reported in `docs/balance-g3.md` with a suggestion). **For Elliott to decide**.
+  - **"Becomes Spent" (Bubble Beam):** the target of its Adapt or Strat is Spent at once (it can't attack or hit back this Round). **C4 (Elliott, 11 November 2026):** its React was a dead effect (an attacker is always Spent after attacking), so it now makes the attack being Reacted to deal 2 less damage, minimum 0, before Shell. Adapt and Strat are unchanged.
   - **Kept (Flame Charge):** the Attack stays for the rest of the match while the Pokémon is in play (like Brock's Strength); Dive loses it.
   - **Dive:** the Pokémon's card goes back to its owner's hand (the same card); it develops with the Rounds again (this Round's Level); its Held Item goes back to the PokéMart's pool; damage and anything kept are lost. A Partner can't Dive (it isn't a deck card). Dive's React fizzles the attack (the attacker is still Spent; no defeat, no Recognition). **Needed** (Partners).
   - React windows: the options are counted with the window in place, so a React whose only target is the attacker or the attacked Pokémon opens a window.
@@ -458,3 +458,51 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   - the panel's position;
   - the Opponent's sealed Strat being inspectable (the board's own label already names it);
   - the link case rule.
+
+## 15. Current stats, the React window on the board, and two rulings (C4)
+
+- **Current stats (Elliott: "the player has to add up additional points from other sources to work out how much they will damage"):**
+  - **One engine helper:** `effectiveStats(s, who, space)` in `src/engine/stats.js` returns:
+    - the Attack its attack deals now, before the target's Shell (`damageOf`: Sun 2 included for a Physical attacker);
+    - the current Strength and its maximum;
+    - the parts of each, which always add up.
+  - It reads the engine's own numbers (`attackParts`, `syncBonuses`), so the number shown is the number that resolves. `tests/c4.test.js` attacks with every Pokémon over 300 random states to prove it.
+  - **On the board:** tokens and their hover Full card show the current values.
+    - Raised above printed: green with a small ▲.
+    - Lowered below printed, or damaged: red with a small ▼.
+    - Unchanged: the normal colour.
+    - A Location or Weather bonus counts as raised.
+  - **The ▲/▼ is a small drawn triangle above the number**, not text, so two-digit numbers keep their size.
+  - **Strength below its maximum:**
+    - On the Full card, "/9" under the number.
+    - On a token (164 px), a slim bar under the number, filled to current ÷ maximum. "/12" would render under 10 px there, which the neat-text rule forbids.
+    - **Settled here:** the bar on tokens. **Needed**.
+  - **Spent tokens** stay grey, but their stat numbers keep their colour.
+  - **Hand cards** keep their printed values.
+  - **The summon preview** (dragging or choosing a lane) shows the values the Pokémon would have there, from the engine's own summon on a copy, e.g. "Attack 4 ▲ · on Mt. Ember".
+  - **Hovering a raised or lowered number** on a token shows its one-line sum under the zoom card ("Attack 10 = 8 + 1 Mt. Ember + 1 Charcoal").
+  - **The Codex's "where its numbers come from"** uses the same helper. A Physical attacker's Attack now includes Sun 2 (C3 showed it on a separate Damage line).
+- **The React window keeps the board visible:**
+  - **The bar:** "REACT?", the sentence and a countdown strip take the prompt bar's place across the top of the screen. The board itself stays fully visible.
+  - **The tray:**
+    - It sits over your hand (your hand hides while it's up), from x 440 to 1508.
+    - It holds your React cards as Mini cards (140 px), each with the outcome if you play it, its cost and the Energy left.
+    - A resolving Strat or Adapt of the Opponent's is shown revealed at its left.
+    - On the right: Let it happen (Esc), the countdown and what happens if you let it happen.
+    - Hovering a card shows its Full card beside the tray, at the bottom right.
+  - **On the board:**
+    - The committed action keeps its highlight and arrow.
+    - Badges sit over each touched Pokémon's art, leaving its stat tabs readable. Each badge shows the result: "11 → Strength 4 → 0 · Defeated · Opponent +2 Recognition, +$1". A React that changes the Pokémon first adds that step ("Surf: Strength 4 → 6", then the hit).
+    - Hovering a React card in the tray switches the badges to that card's outcome.
+  - **How the outcomes are computed:** every outcome is the engine's own `react` or `decline` action played on a copy (`reactOutcome` in `src/engine/preview.js`). `tests/c4.test.js` plays every option for real and compares.
+  - **A React with several targets:** the tray and its hover show the outcome on its first target ("e.g. on …"). Picking it highlights the targets, and the UX3 preview shows each target's outcome. **Settled here**. **Needed**.
+  - **The instant clear:** the moment you decide (React, Let it happen, a React target, or the timer), the interface locks and redraws in the same click. The bar, the tray, the badges and the arrow are gone before the next frame; only then does the presenter play the React and the action. While it plays, the bar reads "Resolving".
+  - **Unchanged:** the timer and its setting, the Space and Esc keys, the React rules.
+- **Bubble Beam's React (Elliott, 11 November 2026):** cost 1, the attack being Reacted to deals 2 less damage (minimum 0), before the target's Shell. See section 7.
+- **Hidden Strats (Elliott, 11 November 2026):**
+  - **While it waits, the Opponent's Strat is a face-down card back** with an hourglass on the board edge. Its target Pokémon shows "⏳ Sealed Strat"; a Location or lane target's space is marked with a dashed outline. Hovering the sealed card draws an arrow to its target.
+  - **Hidden text:** its label, log line ("The Opponent sealed a Strat … on X"), Codex entry and the seal caption say only "a sealed Strat" and its target.
+  - **The reveal:** it flips face up as it resolves. Your React window for it shows the card, named in the bar and drawn at the tray's left.
+  - **Your own sealed Strats** stay fully visible to you.
+  - **The AI** decides on a view of the state without the player's waiting Strats (`hiddenView` in `src/ai/ai.js`). It neither reads their cards nor simulates them, and `tests/c4.test.js` checks its choices are identical whichever card is sealed. **Settled here:** the AI ignores the player's sealed Strats entirely, rather than knowing one exists. **Needed**.
+- **Found, not changed:** the engine offers React modes that name "the attacker" (Heat Wave, Bubble Beam) against an attack on your Player Character too. Section 7 says they're offered only against an attack on a Pokémon. Bubble Beam's React therefore also cuts the Recognition from an attack on your Player Character by 2. **For Elliott to decide**.

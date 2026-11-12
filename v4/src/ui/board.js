@@ -8,23 +8,23 @@
 // Earlier stages, kept: F1–F5's actions and screens (Commands, React windows, Strats, Supporters,
 // Items, Trainers, the Tournament), UX1's Objective trackers, commandModesFor, the React window and
 // timer (main.js), no series shown, Recognition shown capped at 100.
-import { RULES } from '../rules.js?v=202611110816';
+import { RULES } from '../rules.js?v=202611120821';
 import {
   isReady, legalTargets, attackers, summonable, emptySpaces, whyNot, passEndsPhase, passSpends, passReason, passBlockers, availableExert, energyLeft,
   playerGuard, guardOf, placeable, locationStarts, weatherTotals, activeBrackets, dominantOf, strengthIn,
   actor, commandTargets, playableSupporters, playReason, favourMet,
   commandModesFor, damageOf, effectiveSpeed, locationAt,
   itemTargets, buyReason, tournamentDominant, tournamentStrength, boosted, buyableFromHand, buyableFromMart, usableFromBag, playableTrainers, trainerReason,
-} from '../engine/game.js?v=202611110816';
-import { COMMANDS, SUPPORTERS, ITEMS, LOCATIONS, WEATHER_BRACKETS, MODE_NAMES, FAVOURS, modeText, effectText, opText, BAG_SIZE, PATHS, TRAINERS } from '../engine/cards.js?v=202611110816';
-import { baseEnergyFor, EXERT_LIMIT } from '../engine/energy.js?v=202611110816';
-import { icon, attackIcon, STAT_NAMES, attackKey, strengthKey } from './icons.js?v=202611110816';
-import { hitsFor, commitHit } from './flows.js?v=202611110816';
-import { cardHTML, CARD_DEFS, SIZES, H as CARD_H, W as CARD_W, artFocus } from './card.js?v=202611110816';
-import { termsIn } from '../engine/glossary.js?v=202611110816';
-import { effectiveStats, statSumLines } from '../engine/stats.js?v=202611110816';
-import { reactOutcome, reactSummary } from '../engine/preview.js?v=202611110816';
-import { rulesHTML } from './codex.js?v=202611110816';
+} from '../engine/game.js?v=202611120821';
+import { COMMANDS, SUPPORTERS, ITEMS, LOCATIONS, WEATHER_BRACKETS, MODE_NAMES, FAVOURS, modeText, effectText, opText, BAG_SIZE, PATHS, TRAINERS } from '../engine/cards.js?v=202611120821';
+import { baseEnergyFor, EXERT_LIMIT } from '../engine/energy.js?v=202611120821';
+import { icon, attackIcon, STAT_NAMES, attackKey, strengthKey } from './icons.js?v=202611120821';
+import { hitsFor, commitHit } from './flows.js?v=202611120821';
+import { cardHTML, CARD_DEFS, SIZES, H as CARD_H, W as CARD_W, artFocus } from './card.js?v=202611120821';
+import { termsIn } from '../engine/glossary.js?v=202611120821';
+import { effectiveStats, statSumLines } from '../engine/stats.js?v=202611120821';
+import { reactOutcome, reactSummary } from '../engine/preview.js?v=202611120821';
+import { rulesHTML } from './codex.js?v=202611120821';
 
 // UX3: the key list (the ? overlay and the hint at the bottom-right).
 export const KEY_LIST = [

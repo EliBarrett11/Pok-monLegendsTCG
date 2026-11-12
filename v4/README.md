@@ -736,3 +736,26 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
     - `node v4/tests/c3.test.js`: coverage of every kind of thing, the Tournament included; no dead links; the number sums over 200 random states; forms and next Round for every line at every Level.
     - `node v4/tools/c3check.mjs`: real input (right-click and C on each kind of thing, three links and Back, Rules search, right-click cancelling a choice).
     - `node v4/tools/layout.mjs`: the Codex open on each kind of thing, failing on any overflow or overlap.
+
+- **C4 — current stats, a React window that keeps the board visible, Bubble Beam's React and hidden Strats.** The only rule changes are Elliott's two rulings of 11 November 2026.
+  - **Current stats:** board Pokémon (and their hover Full card) show the Attack they will deal and their current Strength, with every source applied: Locations, Weather (Sun 2 for Physical attacks), Held Items, "until Supper" and kept gains, damage.
+    - Raised: green ▲. Lowered or damaged: red ▼.
+    - Strength under its maximum: a slim bar on tokens, "/9" on the Full card.
+    - Hovering a raised or lowered number gives its one-line sum ("Attack 10 = 8 + 1 Mt. Ember + 1 Charcoal").
+    - Hand cards keep their printed numbers; the summon preview shows what they'd be in that lane.
+    - One engine helper, `src/engine/stats.js` `effectiveStats`, built on the functions combat uses.
+  - **The React window:**
+    - A slim bar across the top: "REACT?", the sentence, the countdown.
+    - A tray over your hand: your React cards as Mini cards with their outcomes, Let it happen and the timer.
+    - The board stays fully visible, with the attacker highlighted, the arrow and outcome badges on each Pokémon it touches ("11 → Strength 4 → 0 · Defeated · Opponent +2 Recognition, +$1"). Hovering a React card switches the badges to its outcome.
+    - Everything clears the instant you decide, before the action plays.
+  - **Bubble Beam's React:** the attack deals 2 less damage (cost 1).
+  - **Hidden Strats:**
+    - The Opponent's waiting Strat is a face-down card with its target marked (an arrow on hover); the log, labels and Codex never name it.
+    - It flips face up as it resolves, in your React window.
+    - The AI never reads your sealed Strat.
+  - **Checks:**
+    - `node v4/tests/c4.test.js`: shown stats against combat over 300 states; every React window's previews against what resolves; Bubble Beam; the AI's choices whichever card is sealed.
+    - `cardtext.test.js` renders raised, lowered and damaged two-digit stats.
+    - `node v4/tools/c4check.mjs`: real input.
+    - The layout check: a React window with three React cards, and two-digit stats.

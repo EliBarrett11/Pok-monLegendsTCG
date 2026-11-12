@@ -2,19 +2,19 @@
 // Pokémon Legends v4 — entry point (F1): you against the AI, on a fixed 1920×1080 stage scaled
 // to fit the window. ?seed=123 replays the same shuffle and AI choices; ?autoplay lets the AI play
 // both sides; ?debug exposes window.__v4 for the layout check (v4/tools/layout.mjs).
-import { createGame, applyAction, actor, energyLeft, playReason, passReason } from './engine/game.js?v=202611110816';
-import { chooseAction } from './ai/ai.js?v=202611110816';
-import { renderMatch, reactOpen } from './ui/board.js?v=202611110816';
-import { pokemonAt, cardAtRound } from './engine/cards.js?v=202611110816';
-import { setupInteraction } from './ui/interact.js?v=202611110816';
-import { present, setupPresenter, isPresenting, resetFx, stampRings, skip } from './ui/present.js?v=202611110816';
-import { speedFactor, setSpeed, speedName, lowMotion, setLowMotionSetting } from './ui/settings.js?v=202611110816';
-import { MS } from './ui/vfx/library.js?v=202611110816';
-import { loadArtFocus } from './ui/card.js?v=202611110816';
-import { initFinish } from './ui/finish.js?v=202611110816';
-import { initCodex, drawCodex } from './ui/codex.js?v=202611110816';
-import { played } from './ui/sound.js?v=202611110816';
-import { MODE_NAMES } from './engine/cards.js?v=202611110816';
+import { createGame, applyAction, actor, energyLeft, playReason, passReason } from './engine/game.js?v=202611120821';
+import { chooseAction } from './ai/ai.js?v=202611120821';
+import { renderMatch, reactOpen } from './ui/board.js?v=202611120821';
+import { pokemonAt, cardAtRound } from './engine/cards.js?v=202611120821';
+import { setupInteraction } from './ui/interact.js?v=202611120821';
+import { present, setupPresenter, isPresenting, resetFx, stampRings, skip } from './ui/present.js?v=202611120821';
+import { speedFactor, setSpeed, speedName, lowMotion, setLowMotionSetting } from './ui/settings.js?v=202611120821';
+import { MS } from './ui/vfx/library.js?v=202611120821';
+import { loadArtFocus } from './ui/card.js?v=202611120821';
+import { initFinish } from './ui/finish.js?v=202611120821';
+import { initCodex, drawCodex } from './ui/codex.js?v=202611120821';
+import { played } from './ui/sound.js?v=202611120821';
+import { MODE_NAMES } from './engine/cards.js?v=202611120821';
 
 export const BUILD = 'C4 — current stats, a React window that keeps the board visible, Bubble Beam and hidden Strats';
 

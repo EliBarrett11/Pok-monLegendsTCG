@@ -223,7 +223,7 @@ The three modes work as today: React is cheaper and weaker, Adapt is the standar
 | **Rock Slide** (kept) | a Location | 2: 1 damage to one enemy | 3: 1 damage to each enemy there | 4: 2 damage to each enemy there |
 | **Heat Wave** *new* | all enemies | 2: 1 damage to the attacker | 3: 1 damage to each enemy Pokémon | 5: 2 damage to each enemy Pokémon |
 | **Surf** *new* | a Location | 1: heal 2 to the Pokémon being attacked | 3: 2 damage to each enemy there | 4: 3 damage to each enemy there |
-| **Bubble Beam** *new* | an enemy Pokémon | 1: the attacker becomes Spent after its attack | 2: 2 damage, and it becomes Spent | 3: 3 damage, and it becomes Spent |
+| **Bubble Beam** *new* | an enemy Pokémon | 1: the attack deals 2 less damage (minimum 0) (ruling of 11 November 2026, section 9; was "the attacker becomes Spent after its attack") | 2: 2 damage, and it becomes Spent | 3: 3 damage, and it becomes Spent |
 | **Recover** (kept) | one of your Pokémon | 1: heal 2 | 2: heal 4 | 3: heal 8 |
 | **Flame Charge** *new* | one of your Pokémon | 1: +1 Attack until Supper | 2: +1 Attack (kept) | 3: +2 Attack (kept) |
 | **Dive** *new* | one of your Pokémon | 1: return it to your hand (the attack on it fizzles) | 1: return it to your hand | 2: return it to your hand and draw 1 card |

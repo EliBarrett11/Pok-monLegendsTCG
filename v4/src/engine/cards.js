@@ -14,7 +14,7 @@
 //   attack N / strength N (kept) to: 'self' · 'chosenOtherOwnHere'
 // "Here" (its Location): a placed Location's lanes, all 9 in the Tournament, or just its own lane.
 // Keywords (4.1): { quickAttack, infiltrator, overrun, rage: true; shell, regenerate, retaliate: N }.
-import { SERIES_RANGE, levelFor, costFor } from '../rules.js?v=202611110816';
+import { SERIES_RANGE, levelFor, costFor } from '../rules.js?v=202611120821';
 
 const on = (when, ...ops) => ({ on: when, ops });
 const draw = (n) => ({ op: 'draw', amount: n });
