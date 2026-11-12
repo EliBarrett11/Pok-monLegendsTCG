@@ -10,7 +10,7 @@
 //   - damage taken.
 // The Attack shown is damageOf, the number RESOLVE.attack deals; the Strength shown is currentStrength, the
 // Strength damage is taken from and dominance counts. tests/c4.test.js checks both against combat.
-import { TRAINERS, pokemonAt } from './cards.js?v=202611120821';
+import { TRAINERS, pokemonAt, pathDef } from './cards.js?v=202611120821';
 import { applyAction, damageOf, locationAt, activeBrackets, syncBonuses } from './game.js?v=202611120821';
 import { attackParts } from './preview.js?v=202611120821';
 
@@ -20,6 +20,8 @@ export function printedOf(card) {
     const t = TRAINERS.find((x) => x.partner.id === card.id);
     return t ? { attack: t.partner.attack, strength: t.partner.strength, speed: t.partner.speed } : { attack: card.attack, strength: card.strength, speed: card.speed };
   }
+  // A card that isn't one of the 10 lines (a staged or unknown card): its own numbers are its printed ones.
+  if (!pathDef(card.id)) return { attack: card.attack, strength: card.strength, speed: card.speed };
   const p = pokemonAt(card.id, card.level);
   return { attack: p.attack, strength: p.strength, speed: p.speed };
 }
