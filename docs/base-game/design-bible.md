@@ -54,6 +54,11 @@ A form's **points** are its Attack + Strength plus the prices of its Speed, guar
 | **Legendary** (L8 only, cost 5) | | | | | | | | 26 |
 | **Partner** (L8, free on arrival) | | | | | | | | 23–25 |
 
+**One theme per series (Elliott, 12 Nov 2026).** A series is built and read as one card, so a deck can be planned around it:
+- **The same trigger and the same kind of effect at every form.** A later form makes it **bigger** (more damage, more healing), **wider** (one Pokémon → its Location → all your Pokémon), or **adds one thing** on top (a keyword, or a second part to the effect). It never swaps to an unrelated effect.
+- **Keywords carry forward.** Once a form has a keyword, every later form keeps it.
+- **The Library shows a series as a row,** one card per Level, so players see the whole progression at once.
+
 **The series shapes:**
 - **Light** is strongest for its cost early and caps at Level 6.
 - **Mid** is the straight line.
