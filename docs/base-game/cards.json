@@ -1,0 +1,6560 @@
+{
+ "version": "2026-11-12",
+ "note": "The approved Base Game (B2). Source of truth for B3: Claude Code generates v4/src/data from this. Text fields are the approved wording; Codex wording = text, card wording = cardText where present.",
+ "pokemon": [
+  {
+   "id": "eevee",
+   "name": "Eevee",
+   "batch": 1,
+   "type": "Normal",
+   "series": "Light",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": null,
+   "theme": "Adapts to your team: best in mixed-Type decks.",
+   "forms": [
+    {
+     "name": "Eevee",
+     "art": "eevee",
+     "hasArt": true,
+     "from": 1,
+     "to": 6,
+     "speed": "Steady",
+     "keywords": [],
+     "trigger": "On Summon",
+     "text": "+1 Attack and +1 Strength (kept) for each other Type among your Pokémon, up to +3."
+    }
+   ],
+   "stats": {
+    "1": {
+     "attack": 1,
+     "strength": 2
+    },
+    "2": {
+     "attack": 2,
+     "strength": 2
+    },
+    "3": {
+     "attack": 2,
+     "strength": 3
+    },
+    "4": {
+     "attack": 3,
+     "strength": 3
+    },
+    "5": {
+     "attack": 4,
+     "strength": 4
+    },
+    "6": {
+     "attack": 5,
+     "strength": 5
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "meowth",
+   "name": "Meowth",
+   "batch": 1,
+   "type": "Normal",
+   "series": "Light",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": null,
+   "theme": "Money: earns every time it attacks.",
+   "forms": [
+    {
+     "name": "Meowth",
+     "art": "meowth",
+     "hasArt": false,
+     "from": 1,
+     "to": 3,
+     "speed": "Swift",
+     "keywords": [
+      "Pickup"
+     ],
+     "trigger": "On Attack",
+     "text": "Gain $1."
+    },
+    {
+     "name": "Persian",
+     "art": "persian",
+     "hasArt": false,
+     "from": 4,
+     "to": 6,
+     "speed": "Swift",
+     "keywords": [
+      "Pickup"
+     ],
+     "trigger": "On Attack",
+     "text": "Gain $2."
+    }
+   ],
+   "stats": {
+    "1": {
+     "attack": 2,
+     "strength": 2
+    },
+    "2": {
+     "attack": 3,
+     "strength": 2
+    },
+    "3": {
+     "attack": 3,
+     "strength": 3
+    },
+    "4": {
+     "attack": 3,
+     "strength": 3
+    },
+    "5": {
+     "attack": 4,
+     "strength": 4
+    },
+    "6": {
+     "attack": 5,
+     "strength": 5
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "happiny",
+   "name": "Happiny",
+   "batch": 1,
+   "type": "Normal",
+   "series": "Heavy",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": null,
+   "theme": "Healing every Breakfast: its Location, then your whole side.",
+   "forms": [
+    {
+     "name": "Happiny",
+     "art": "happiny",
+     "hasArt": true,
+     "from": 3,
+     "to": 4,
+     "speed": "Slow",
+     "keywords": [],
+     "trigger": "On Breakfast",
+     "text": "Heal 1 to each of your Pokémon in its Location."
+    },
+    {
+     "name": "Chansey",
+     "art": "chansey",
+     "hasArt": true,
+     "from": 5,
+     "to": 6,
+     "speed": "Slow",
+     "keywords": [
+      "Regenerate 1"
+     ],
+     "trigger": "On Breakfast",
+     "text": "Heal 2 to each of your Pokémon in its Location."
+    },
+    {
+     "name": "Blissey",
+     "art": "blissey",
+     "hasArt": true,
+     "from": 7,
+     "to": 8,
+     "speed": "Slow",
+     "keywords": [
+      "Regenerate 2"
+     ],
+     "trigger": "On Breakfast",
+     "text": "Heal 2 to each of your Pokémon."
+    }
+   ],
+   "stats": {
+    "3": {
+     "attack": 2,
+     "strength": 5
+    },
+    "4": {
+     "attack": 3,
+     "strength": 6
+    },
+    "5": {
+     "attack": 2,
+     "strength": 7
+    },
+    "6": {
+     "attack": 3,
+     "strength": 10
+    },
+    "7": {
+     "attack": 3,
+     "strength": 12
+    },
+    "8": {
+     "attack": 3,
+     "strength": 14
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "munchlax",
+   "name": "Munchlax",
+   "batch": 1,
+   "type": "Normal",
+   "series": "Heavy",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": "Special Defence",
+   "theme": "Grows every Breakfast it survives.",
+   "forms": [
+    {
+     "name": "Munchlax",
+     "art": "munchlax",
+     "hasArt": false,
+     "from": 3,
+     "to": 5,
+     "speed": "Slow",
+     "keywords": [],
+     "trigger": "On Breakfast",
+     "text": "+1 Strength (kept)."
+    },
+    {
+     "name": "Snorlax",
+     "art": "snorlax",
+     "hasArt": false,
+     "from": 6,
+     "to": 8,
+     "speed": "Slow",
+     "keywords": [
+      "Sturdy"
+     ],
+     "trigger": "On Breakfast",
+     "text": "+1 Attack and +1 Strength (kept)."
+    }
+   ],
+   "stats": {
+    "3": {
+     "attack": 2,
+     "strength": 3
+    },
+    "4": {
+     "attack": 3,
+     "strength": 4
+    },
+    "5": {
+     "attack": 4,
+     "strength": 6
+    },
+    "6": {
+     "attack": 5,
+     "strength": 7
+    },
+    "7": {
+     "attack": 7,
+     "strength": 9
+    },
+    "8": {
+     "attack": 8,
+     "strength": 10
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "ponyta",
+   "name": "Ponyta",
+   "batch": 1,
+   "type": "Fire",
+   "series": "Light",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": null,
+   "theme": "Strikes at once and snowballs on knockouts.",
+   "forms": [
+    {
+     "name": "Ponyta",
+     "art": "ponyta",
+     "hasArt": true,
+     "from": 1,
+     "to": 3,
+     "speed": "Swift",
+     "keywords": [
+      "Quick Attack"
+     ],
+     "trigger": "On Knockout",
+     "text": "+1 Attack (kept)."
+    },
+    {
+     "name": "Rapidash",
+     "art": "rapidash",
+     "hasArt": true,
+     "from": 4,
+     "to": 6,
+     "speed": "Swift",
+     "keywords": [
+      "Quick Attack"
+     ],
+     "trigger": "On Knockout",
+     "text": "+2 Attack (kept)."
+    }
+   ],
+   "stats": {
+    "1": {
+     "attack": 2,
+     "strength": 1
+    },
+    "2": {
+     "attack": 3,
+     "strength": 2
+    },
+    "3": {
+     "attack": 3,
+     "strength": 3
+    },
+    "4": {
+     "attack": 4,
+     "strength": 3
+    },
+    "5": {
+     "attack": 5,
+     "strength": 4
+    },
+    "6": {
+     "attack": 6,
+     "strength": 5
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "growlithe",
+   "name": "Growlithe",
+   "batch": 1,
+   "type": "Fire",
+   "series": "Mid",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": null,
+   "theme": "Rallies the pack: its Location, then everyone.",
+   "forms": [
+    {
+     "name": "Growlithe",
+     "art": "growlithe",
+     "hasArt": true,
+     "from": 2,
+     "to": 4,
+     "speed": "Swift",
+     "keywords": [],
+     "trigger": "On Summon",
+     "text": "Your other Pokémon in its Location get +1 Attack until Supper."
+    },
+    {
+     "name": "Arcanine",
+     "art": "arcanine",
+     "hasArt": true,
+     "from": 5,
+     "to": 7,
+     "speed": "Swift",
+     "keywords": [
+      "Overrun"
+     ],
+     "trigger": "On Summon",
+     "text": "Your other Pokémon get +1 Attack until Supper."
+    }
+   ],
+   "stats": {
+    "2": {
+     "attack": 3,
+     "strength": 3
+    },
+    "3": {
+     "attack": 3,
+     "strength": 4
+    },
+    "4": {
+     "attack": 4,
+     "strength": 5
+    },
+    "5": {
+     "attack": 5,
+     "strength": 5
+    },
+    "6": {
+     "attack": 6,
+     "strength": 6
+    },
+    "7": {
+     "attack": 6,
+     "strength": 7
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "charmander",
+   "name": "Charmander",
+   "batch": 1,
+   "type": "Fire",
+   "series": "Heavy",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": null,
+   "theme": "Burns on arrival: one enemy, then a Location, then the whole board.",
+   "forms": [
+    {
+     "name": "Charmander",
+     "art": "charmander",
+     "hasArt": true,
+     "from": 3,
+     "to": 4,
+     "speed": "Steady",
+     "keywords": [],
+     "trigger": "On Summon",
+     "text": "1 damage to an enemy Pokémon."
+    },
+    {
+     "name": "Charmeleon",
+     "art": "charmeleon",
+     "hasArt": true,
+     "from": 5,
+     "to": 6,
+     "speed": "Steady",
+     "keywords": [],
+     "trigger": "On Summon",
+     "text": "1 damage to each enemy Pokémon in its Location."
+    },
+    {
+     "name": "Charizard",
+     "art": "charizard",
+     "hasArt": true,
+     "from": 7,
+     "to": 8,
+     "speed": "Swift",
+     "keywords": [
+      "Overrun"
+     ],
+     "trigger": "On Summon",
+     "text": "2 damage to each enemy Pokémon."
+    }
+   ],
+   "stats": {
+    "3": {
+     "attack": 2,
+     "strength": 3
+    },
+    "4": {
+     "attack": 3,
+     "strength": 4
+    },
+    "5": {
+     "attack": 4,
+     "strength": 5
+    },
+    "6": {
+     "attack": 5,
+     "strength": 8
+    },
+    "7": {
+     "attack": 7,
+     "strength": 8
+    },
+    "8": {
+     "attack": 8,
+     "strength": 9
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "magby",
+   "name": "Magby",
+   "batch": 1,
+   "type": "Fire",
+   "series": "Heavy",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": "Special Defence",
+   "theme": "Splash damage on every attack, growing.",
+   "forms": [
+    {
+     "name": "Magby",
+     "art": "magby",
+     "hasArt": true,
+     "from": 3,
+     "to": 4,
+     "speed": "Steady",
+     "keywords": [],
+     "trigger": "On Attack",
+     "text": "1 damage to another enemy Pokémon in the target's Location."
+    },
+    {
+     "name": "Magmar",
+     "art": "magmar",
+     "hasArt": true,
+     "from": 5,
+     "to": 6,
+     "speed": "Steady",
+     "keywords": [],
+     "trigger": "On Attack",
+     "text": "1 damage to each other enemy Pokémon in the target's Location."
+    },
+    {
+     "name": "Magmortar",
+     "art": "magmortar",
+     "hasArt": true,
+     "from": 7,
+     "to": 8,
+     "speed": "Steady",
+     "keywords": [],
+     "trigger": "On Attack",
+     "text": "2 damage to each other enemy Pokémon in the target's Location."
+    }
+   ],
+   "stats": {
+    "3": {
+     "attack": 2,
+     "strength": 2
+    },
+    "4": {
+     "attack": 2,
+     "strength": 3
+    },
+    "5": {
+     "attack": 4,
+     "strength": 4
+    },
+    "6": {
+     "attack": 5,
+     "strength": 7
+    },
+    "7": {
+     "attack": 7,
+     "strength": 6
+    },
+    "8": {
+     "attack": 8,
+     "strength": 7
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "squirtle",
+   "name": "Squirtle",
+   "batch": 1,
+   "type": "Water",
+   "series": "Mid",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": "Defence",
+   "theme": "Shelled healer: one Pokémon, then a Location, then everyone.",
+   "forms": [
+    {
+     "name": "Squirtle",
+     "art": "squirtle",
+     "hasArt": true,
+     "from": 2,
+     "to": 3,
+     "speed": "Steady",
+     "keywords": [
+      "Shell 1"
+     ],
+     "trigger": "On Summon",
+     "text": "Heal 2 to one of your Pokémon."
+    },
+    {
+     "name": "Wartortle",
+     "art": "wartortle",
+     "hasArt": true,
+     "from": 4,
+     "to": 5,
+     "speed": "Steady",
+     "keywords": [
+      "Shell 1"
+     ],
+     "trigger": "On Summon",
+     "text": "Heal 2 to each of your Pokémon in its Location."
+    },
+    {
+     "name": "Blastoise",
+     "art": "blastoise",
+     "hasArt": true,
+     "from": 6,
+     "to": 7,
+     "speed": "Steady",
+     "keywords": [
+      "Shell 1"
+     ],
+     "trigger": "On Summon",
+     "text": "Heal 2 to each of your Pokémon."
+    }
+   ],
+   "stats": {
+    "2": {
+     "attack": 2,
+     "strength": 3
+    },
+    "3": {
+     "attack": 2,
+     "strength": 4
+    },
+    "4": {
+     "attack": 3,
+     "strength": 5
+    },
+    "5": {
+     "attack": 4,
+     "strength": 6
+    },
+    "6": {
+     "attack": 4,
+     "strength": 7
+    },
+    "7": {
+     "attack": 5,
+     "strength": 8
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "magikarp",
+   "name": "Magikarp",
+   "batch": 1,
+   "type": "Water",
+   "series": "Heavy",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": null,
+   "theme": "Fury that builds: Rage and growing Attack, then Intimidate.",
+   "forms": [
+    {
+     "name": "Magikarp",
+     "art": "magikarp",
+     "hasArt": true,
+     "from": 3,
+     "to": 5,
+     "speed": "Steady",
+     "keywords": [
+      "Rage"
+     ],
+     "trigger": "On Breakfast",
+     "text": "+1 Attack (kept)."
+    },
+    {
+     "name": "Gyarados",
+     "art": "gyarados",
+     "hasArt": true,
+     "from": 6,
+     "to": 8,
+     "speed": "Steady",
+     "keywords": [
+      "Rage",
+      "Intimidate 1"
+     ],
+     "trigger": "On Breakfast",
+     "text": "+1 Attack (kept)."
+    }
+   ],
+   "stats": {
+    "3": {
+     "attack": 1,
+     "strength": 3
+    },
+    "4": {
+     "attack": 1,
+     "strength": 5
+    },
+    "5": {
+     "attack": 3,
+     "strength": 6
+    },
+    "6": {
+     "attack": 5,
+     "strength": 7
+    },
+    "7": {
+     "attack": 7,
+     "strength": 8
+    },
+    "8": {
+     "attack": 8,
+     "strength": 9
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "horsea",
+   "name": "Horsea",
+   "batch": 1,
+   "type": "Water",
+   "series": "Mid",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": null,
+   "theme": "Sniper: picks off a target on arrival, then reaches anywhere.",
+   "forms": [
+    {
+     "name": "Horsea",
+     "art": "horsea",
+     "hasArt": true,
+     "from": 2,
+     "to": 3,
+     "speed": "Steady",
+     "keywords": [],
+     "trigger": "On Summon",
+     "text": "1 damage to an enemy Pokémon."
+    },
+    {
+     "name": "Seadra",
+     "art": "seadra",
+     "hasArt": true,
+     "from": 4,
+     "to": 5,
+     "speed": "Steady",
+     "keywords": [
+      "Infiltrator"
+     ],
+     "trigger": "On Summon",
+     "text": "1 damage to an enemy Pokémon."
+    },
+    {
+     "name": "Kingdra",
+     "art": "kingdra",
+     "hasArt": true,
+     "from": 6,
+     "to": 7,
+     "speed": "Swift",
+     "keywords": [
+      "Infiltrator"
+     ],
+     "trigger": "On Summon",
+     "text": "2 damage to an enemy Pokémon."
+    }
+   ],
+   "stats": {
+    "2": {
+     "attack": 2,
+     "strength": 4
+    },
+    "3": {
+     "attack": 3,
+     "strength": 4
+    },
+    "4": {
+     "attack": 4,
+     "strength": 4
+    },
+    "5": {
+     "attack": 4,
+     "strength": 6
+    },
+    "6": {
+     "attack": 5,
+     "strength": 6
+    },
+    "7": {
+     "attack": 6,
+     "strength": 7
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "wooper",
+   "name": "Wooper",
+   "batch": 1,
+   "type": "Water",
+   "series": "Mid",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": "Defence",
+   "theme": "Gets tougher each time it is attacked.",
+   "forms": [
+    {
+     "name": "Wooper",
+     "art": "wooper",
+     "hasArt": true,
+     "from": 2,
+     "to": 3,
+     "speed": "Slow",
+     "keywords": [
+      "Regenerate 1"
+     ],
+     "trigger": "On Defend",
+     "text": "+1 Strength (kept)."
+    },
+    {
+     "name": "Quagsire",
+     "art": "quagsire",
+     "hasArt": true,
+     "from": 4,
+     "to": 7,
+     "speed": "Slow",
+     "keywords": [
+      "Regenerate 1",
+      "Rage"
+     ],
+     "trigger": "On Defend",
+     "text": "+1 Strength (kept)."
+    }
+   ],
+   "stats": {
+    "2": {
+     "attack": 2,
+     "strength": 4
+    },
+    "3": {
+     "attack": 2,
+     "strength": 5
+    },
+    "4": {
+     "attack": 2,
+     "strength": 6
+    },
+    "5": {
+     "attack": 3,
+     "strength": 7
+    },
+    "6": {
+     "attack": 3,
+     "strength": 8
+    },
+    "7": {
+     "attack": 4,
+     "strength": 9
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "bulbasaur",
+   "name": "Bulbasaur",
+   "batch": 1,
+   "type": "Grass",
+   "series": "Heavy",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": null,
+   "theme": "Holds ground: heals itself by attacking and your side when you win its Location.",
+   "forms": [
+    {
+     "name": "Bulbasaur",
+     "art": "bulbasaur",
+     "hasArt": true,
+     "from": 3,
+     "to": 4,
+     "speed": "Steady",
+     "keywords": [
+      "Drain"
+     ],
+     "trigger": "On Dominate",
+     "text": "Heal 2 to each of your Pokémon in its Location."
+    },
+    {
+     "name": "Ivysaur",
+     "art": "ivysaur",
+     "hasArt": true,
+     "from": 5,
+     "to": 6,
+     "speed": "Steady",
+     "keywords": [
+      "Drain"
+     ],
+     "trigger": "On Dominate",
+     "text": "Heal 2 to each of your Pokémon."
+    },
+    {
+     "name": "Venusaur",
+     "art": "venusaur",
+     "hasArt": true,
+     "from": 7,
+     "to": 8,
+     "speed": "Steady",
+     "keywords": [
+      "Drain"
+     ],
+     "trigger": "On Dominate",
+     "text": "Heal 2 and +1 Strength (kept) to each of your Pokémon."
+    }
+   ],
+   "stats": {
+    "3": {
+     "attack": 2,
+     "strength": 3
+    },
+    "4": {
+     "attack": 3,
+     "strength": 4
+    },
+    "5": {
+     "attack": 4,
+     "strength": 6
+    },
+    "6": {
+     "attack": 5,
+     "strength": 8
+    },
+    "7": {
+     "attack": 7,
+     "strength": 9
+    },
+    "8": {
+     "attack": 8,
+     "strength": 10
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "oddish",
+   "name": "Oddish",
+   "batch": 1,
+   "type": "Grass",
+   "series": "Mid",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": "Special Defence",
+   "theme": "Punishes whatever attacks it.",
+   "forms": [
+    {
+     "name": "Oddish",
+     "art": "oddish",
+     "hasArt": true,
+     "from": 2,
+     "to": 3,
+     "speed": "Slow",
+     "keywords": [],
+     "trigger": "On Defend",
+     "text": "The attacker gets −1 Attack until Supper."
+    },
+    {
+     "name": "Gloom",
+     "art": "gloom",
+     "hasArt": true,
+     "from": 4,
+     "to": 5,
+     "speed": "Slow",
+     "keywords": [
+      "Retaliate 1"
+     ],
+     "trigger": "On Defend",
+     "text": "The attacker gets −1 Attack until Supper."
+    },
+    {
+     "name": "Vileplume",
+     "art": "vileplume",
+     "hasArt": true,
+     "from": 6,
+     "to": 7,
+     "speed": "Slow",
+     "keywords": [
+      "Retaliate 1"
+     ],
+     "trigger": "On Defend",
+     "text": "The attacker gets −2 Attack until Supper."
+    }
+   ],
+   "stats": {
+    "2": {
+     "attack": 2,
+     "strength": 5
+    },
+    "3": {
+     "attack": 2,
+     "strength": 6
+    },
+    "4": {
+     "attack": 3,
+     "strength": 6
+    },
+    "5": {
+     "attack": 3,
+     "strength": 8
+    },
+    "6": {
+     "attack": 4,
+     "strength": 8
+    },
+    "7": {
+     "attack": 5,
+     "strength": 9
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "sunkern",
+   "name": "Sunkern",
+   "batch": 1,
+   "type": "Grass",
+   "series": "Light",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": null,
+   "theme": "Growth every Breakfast: itself, then its whole Location.",
+   "forms": [
+    {
+     "name": "Sunkern",
+     "art": "sunkern",
+     "hasArt": true,
+     "from": 1,
+     "to": 3,
+     "speed": "Slow",
+     "keywords": [],
+     "trigger": "On Breakfast",
+     "text": "+1 Attack and +1 Strength (kept)."
+    },
+    {
+     "name": "Sunflora",
+     "art": "sunflora",
+     "hasArt": true,
+     "from": 4,
+     "to": 6,
+     "speed": "Slow",
+     "keywords": [],
+     "trigger": "On Breakfast",
+     "text": "+1 Attack and +1 Strength (kept) to each of your Pokémon in its Location."
+    }
+   ],
+   "stats": {
+    "1": {
+     "attack": 2,
+     "strength": 3
+    },
+    "2": {
+     "attack": 3,
+     "strength": 4
+    },
+    "3": {
+     "attack": 3,
+     "strength": 5
+    },
+    "4": {
+     "attack": 3,
+     "strength": 5
+    },
+    "5": {
+     "attack": 4,
+     "strength": 6
+    },
+    "6": {
+     "attack": 5,
+     "strength": 7
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "budew",
+   "name": "Budew",
+   "batch": 1,
+   "type": "Grass",
+   "series": "Mid",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": null,
+   "theme": "Poison thorns: every attack also hits the Player Character.",
+   "forms": [
+    {
+     "name": "Budew",
+     "art": "budew",
+     "hasArt": false,
+     "from": 2,
+     "to": 3,
+     "speed": "Swift",
+     "keywords": [],
+     "trigger": "On Attack",
+     "text": "1 damage to the enemy Player Character."
+    },
+    {
+     "name": "Roselia",
+     "art": "roselia",
+     "hasArt": false,
+     "from": 4,
+     "to": 5,
+     "speed": "Swift",
+     "keywords": [
+      "Drain"
+     ],
+     "trigger": "On Attack",
+     "text": "1 damage to the enemy Player Character."
+    },
+    {
+     "name": "Roserade",
+     "art": "roserade",
+     "hasArt": true,
+     "from": 6,
+     "to": 7,
+     "speed": "Swift",
+     "keywords": [
+      "Drain"
+     ],
+     "trigger": "On Attack",
+     "text": "2 damage to the enemy Player Character."
+    }
+   ],
+   "stats": {
+    "2": {
+     "attack": 2,
+     "strength": 3
+    },
+    "3": {
+     "attack": 3,
+     "strength": 4
+    },
+    "4": {
+     "attack": 4,
+     "strength": 4
+    },
+    "5": {
+     "attack": 5,
+     "strength": 5
+    },
+    "6": {
+     "attack": 5,
+     "strength": 5
+    },
+    "7": {
+     "attack": 6,
+     "strength": 6
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "chinchou",
+   "name": "Chinchou",
+   "batch": 1,
+   "type": "Electric",
+   "series": "Light",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": "Special Defence",
+   "theme": "Pays for itself: Energy back on arrival.",
+   "forms": [
+    {
+     "name": "Chinchou",
+     "art": "chinchou",
+     "hasArt": true,
+     "from": 1,
+     "to": 3,
+     "speed": "Steady",
+     "keywords": [],
+     "trigger": "On Summon",
+     "text": "+1 Energy this Round."
+    },
+    {
+     "name": "Lanturn",
+     "art": "lanturn",
+     "hasArt": true,
+     "from": 4,
+     "to": 6,
+     "speed": "Steady",
+     "keywords": [],
+     "trigger": "On Summon",
+     "text": "+2 Energy this Round."
+    }
+   ],
+   "stats": {
+    "1": {
+     "attack": 1,
+     "strength": 3
+    },
+    "2": {
+     "attack": 2,
+     "strength": 3
+    },
+    "3": {
+     "attack": 2,
+     "strength": 4
+    },
+    "4": {
+     "attack": 2,
+     "strength": 4
+    },
+    "5": {
+     "attack": 3,
+     "strength": 5
+    },
+    "6": {
+     "attack": 4,
+     "strength": 6
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "shinx",
+   "name": "Shinx",
+   "batch": 1,
+   "type": "Electric",
+   "series": "Light",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": null,
+   "theme": "Hunter: draws cards for every knockout.",
+   "forms": [
+    {
+     "name": "Shinx",
+     "art": "shinx",
+     "hasArt": true,
+     "from": 1,
+     "to": 2,
+     "speed": "Swift",
+     "keywords": [],
+     "trigger": "On Knockout",
+     "text": "Draw 1 card."
+    },
+    {
+     "name": "Luxio",
+     "art": "luxio",
+     "hasArt": true,
+     "from": 3,
+     "to": 4,
+     "speed": "Swift",
+     "keywords": [
+      "Infiltrator"
+     ],
+     "trigger": "On Knockout",
+     "text": "Draw 1 card."
+    },
+    {
+     "name": "Luxray",
+     "art": "luxray",
+     "hasArt": true,
+     "from": 5,
+     "to": 6,
+     "speed": "Swift",
+     "keywords": [
+      "Infiltrator"
+     ],
+     "trigger": "On Knockout",
+     "text": "Draw 2 cards."
+    }
+   ],
+   "stats": {
+    "1": {
+     "attack": 2,
+     "strength": 2
+    },
+    "2": {
+     "attack": 3,
+     "strength": 3
+    },
+    "3": {
+     "attack": 2,
+     "strength": 3
+    },
+    "4": {
+     "attack": 3,
+     "strength": 3
+    },
+    "5": {
+     "attack": 4,
+     "strength": 4
+    },
+    "6": {
+     "attack": 5,
+     "strength": 5
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "pichu",
+   "name": "Pichu",
+   "batch": 1,
+   "type": "Electric",
+   "series": "Light",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": null,
+   "theme": "Strikes on arrival and attacks at once.",
+   "forms": [
+    {
+     "name": "Pichu",
+     "art": "pichu",
+     "hasArt": false,
+     "from": 1,
+     "to": 2,
+     "speed": "Swift",
+     "keywords": [
+      "Quick Attack"
+     ],
+     "trigger": "On Summon",
+     "text": "1 damage to the enemy across from it."
+    },
+    {
+     "name": "Pikachu",
+     "art": "pikachu",
+     "hasArt": false,
+     "from": 3,
+     "to": 6,
+     "speed": "Swift",
+     "keywords": [
+      "Quick Attack"
+     ],
+     "trigger": "On Summon",
+     "text": "2 damage to the enemy across from it."
+    }
+   ],
+   "stats": {
+    "1": {
+     "attack": 2,
+     "strength": 1
+    },
+    "2": {
+     "attack": 2,
+     "strength": 2
+    },
+    "3": {
+     "attack": 3,
+     "strength": 2
+    },
+    "4": {
+     "attack": 3,
+     "strength": 3
+    },
+    "5": {
+     "attack": 4,
+     "strength": 4
+    },
+    "6": {
+     "attack": 5,
+     "strength": 4
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "mareep",
+   "name": "Mareep",
+   "batch": 1,
+   "type": "Electric",
+   "series": "Mid",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": "Special Defence",
+   "theme": "Energy every Breakfast it survives.",
+   "forms": [
+    {
+     "name": "Mareep",
+     "art": "mareep",
+     "hasArt": false,
+     "from": 2,
+     "to": 3,
+     "speed": "Slow",
+     "keywords": [],
+     "trigger": "On Breakfast",
+     "text": "+1 Energy this Round."
+    },
+    {
+     "name": "Flaaffy",
+     "art": "flaaffy",
+     "hasArt": false,
+     "from": 4,
+     "to": 5,
+     "speed": "Slow",
+     "keywords": [],
+     "trigger": "On Breakfast",
+     "text": "+1 Energy this Round."
+    },
+    {
+     "name": "Ampharos",
+     "art": "ampharos",
+     "hasArt": false,
+     "from": 6,
+     "to": 7,
+     "speed": "Slow",
+     "keywords": [],
+     "trigger": "On Breakfast",
+     "text": "+2 Energy this Round."
+    }
+   ],
+   "stats": {
+    "2": {
+     "attack": 2,
+     "strength": 3
+    },
+    "3": {
+     "attack": 2,
+     "strength": 5
+    },
+    "4": {
+     "attack": 3,
+     "strength": 6
+    },
+    "5": {
+     "attack": 4,
+     "strength": 7
+    },
+    "6": {
+     "attack": 4,
+     "strength": 7
+    },
+    "7": {
+     "attack": 5,
+     "strength": 8
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "entei",
+   "name": "Entei",
+   "batch": 1,
+   "type": "Fire",
+   "series": "Legendary",
+   "legendary": true,
+   "attackType": "Physical",
+   "guard": null,
+   "theme": "Blitz finisher.",
+   "forms": [
+    {
+     "name": "Entei",
+     "art": "entei",
+     "hasArt": true,
+     "from": 8,
+     "to": 8,
+     "speed": "Swift",
+     "keywords": [
+      "Overrun",
+      "Quick Attack"
+     ],
+     "trigger": "On Summon",
+     "text": "3 damage to each enemy Pokémon in its Location."
+    }
+   ],
+   "stats": {
+    "8": {
+     "attack": 8,
+     "strength": 9
+    }
+   },
+   "cost": "5"
+  },
+  {
+   "id": "kyogre",
+   "name": "Kyogre",
+   "batch": 1,
+   "type": "Water",
+   "series": "Legendary",
+   "legendary": true,
+   "attackType": "Special",
+   "guard": null,
+   "theme": "Tidal tempo swing.",
+   "forms": [
+    {
+     "name": "Kyogre",
+     "art": "kyogre",
+     "hasArt": true,
+     "from": 8,
+     "to": 8,
+     "speed": "Steady",
+     "keywords": [],
+     "trigger": "On Summon",
+     "text": "1 damage to each enemy Pokémon, and they become Spent."
+    }
+   ],
+   "stats": {
+    "8": {
+     "attack": 8,
+     "strength": 11
+    }
+   },
+   "cost": "5"
+  },
+  {
+   "id": "celebi",
+   "name": "Celebi",
+   "batch": 1,
+   "type": "Grass",
+   "series": "Legendary",
+   "legendary": true,
+   "attackType": "Special",
+   "guard": "Special Defence",
+   "theme": "Late Bloomers payoff: time travel.",
+   "forms": [
+    {
+     "name": "Celebi",
+     "art": "celebi",
+     "hasArt": true,
+     "from": 8,
+     "to": 8,
+     "speed": "Swift",
+     "keywords": [],
+     "trigger": "On Summon",
+     "text": "Each Pokémon card in your hand gains +2 Levels."
+    }
+   ],
+   "stats": {
+    "8": {
+     "attack": 7,
+     "strength": 10
+    }
+   },
+   "cost": "5"
+  },
+  {
+   "id": "zapdos",
+   "name": "Zapdos",
+   "batch": 1,
+   "type": "Electric",
+   "series": "Legendary",
+   "legendary": true,
+   "attackType": "Special",
+   "guard": null,
+   "theme": "Blitz / Big Game.",
+   "forms": [
+    {
+     "name": "Zapdos",
+     "art": "zapdos",
+     "hasArt": false,
+     "from": 8,
+     "to": 8,
+     "speed": "Swift",
+     "keywords": [
+      "Infiltrator",
+      "Agility"
+     ],
+     "trigger": "On Attack",
+     "text": "2 damage to the enemy Player Character."
+    }
+   ],
+   "stats": {
+    "8": {
+     "attack": 9,
+     "strength": 10
+    }
+   },
+   "cost": "5"
+  },
+  {
+   "id": "abra",
+   "name": "Abra",
+   "batch": 2,
+   "type": "Psychic",
+   "series": "Mid",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": null,
+   "theme": "Every Move you play also zaps an enemy.",
+   "forms": [
+    {
+     "name": "Abra",
+     "art": "abra",
+     "hasArt": false,
+     "from": 2,
+     "to": 3,
+     "speed": "Swift",
+     "keywords": [
+      "Agility"
+     ],
+     "trigger": "On Command",
+     "text": "1 damage to an enemy Pokémon."
+    },
+    {
+     "name": "Kadabra",
+     "art": "kadabra",
+     "hasArt": false,
+     "from": 4,
+     "to": 5,
+     "speed": "Swift",
+     "keywords": [
+      "Agility"
+     ],
+     "trigger": "On Command",
+     "text": "1 damage to an enemy Pokémon."
+    },
+    {
+     "name": "Alakazam",
+     "art": "alakazam",
+     "hasArt": false,
+     "from": 6,
+     "to": 7,
+     "speed": "Swift",
+     "keywords": [
+      "Agility"
+     ],
+     "trigger": "On Command",
+     "text": "2 damage to an enemy Pokémon."
+    }
+   ],
+   "stats": {
+    "2": {
+     "attack": 2,
+     "strength": 2
+    },
+    "3": {
+     "attack": 3,
+     "strength": 3
+    },
+    "4": {
+     "attack": 4,
+     "strength": 4
+    },
+    "5": {
+     "attack": 5,
+     "strength": 5
+    },
+    "6": {
+     "attack": 6,
+     "strength": 5
+    },
+    "7": {
+     "attack": 7,
+     "strength": 6
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "ralts",
+   "name": "Ralts",
+   "batch": 2,
+   "type": "Psychic",
+   "series": "Mid",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": "Special Defence",
+   "theme": "Teleports a teammate home to replay its On Summon, a little stronger.",
+   "forms": [
+    {
+     "name": "Ralts",
+     "art": "ralts",
+     "hasArt": false,
+     "from": 2,
+     "to": 3,
+     "speed": "Steady",
+     "keywords": [],
+     "trigger": "On Summon",
+     "text": "Return another of your Pokémon to your hand."
+    },
+    {
+     "name": "Kirlia",
+     "art": "kirlia",
+     "hasArt": false,
+     "from": 4,
+     "to": 5,
+     "speed": "Steady",
+     "keywords": [],
+     "trigger": "On Summon",
+     "text": "Return another of your Pokémon to your hand with +1 Level."
+    },
+    {
+     "name": "Gardevoir",
+     "art": "gardevoir",
+     "hasArt": false,
+     "from": 6,
+     "to": 7,
+     "speed": "Steady",
+     "keywords": [
+      "Agility"
+     ],
+     "trigger": "On Summon",
+     "text": "Return another of your Pokémon to your hand with +2 Levels."
+    }
+   ],
+   "stats": {
+    "2": {
+     "attack": 2,
+     "strength": 3
+    },
+    "3": {
+     "attack": 2,
+     "strength": 5
+    },
+    "4": {
+     "attack": 3,
+     "strength": 5
+    },
+    "5": {
+     "attack": 4,
+     "strength": 6
+    },
+    "6": {
+     "attack": 4,
+     "strength": 7
+    },
+    "7": {
+     "attack": 5,
+     "strength": 8
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "natu",
+   "name": "Natu",
+   "batch": 2,
+   "type": "Psychic",
+   "series": "Light",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": null,
+   "theme": "Sees ahead: a card every Breakfast it survives.",
+   "forms": [
+    {
+     "name": "Natu",
+     "art": "natu",
+     "hasArt": false,
+     "from": 1,
+     "to": 3,
+     "speed": "Swift",
+     "keywords": [],
+     "trigger": "On Breakfast",
+     "text": "Draw 1 card."
+    },
+    {
+     "name": "Xatu",
+     "art": "xatu",
+     "hasArt": false,
+     "from": 4,
+     "to": 6,
+     "speed": "Swift",
+     "keywords": [
+      "Agility"
+     ],
+     "trigger": "On Breakfast",
+     "text": "Draw 1 card."
+    }
+   ],
+   "stats": {
+    "1": {
+     "attack": 2,
+     "strength": 2
+    },
+    "2": {
+     "attack": 3,
+     "strength": 2
+    },
+    "3": {
+     "attack": 3,
+     "strength": 3
+    },
+    "4": {
+     "attack": 4,
+     "strength": 3
+    },
+    "5": {
+     "attack": 5,
+     "strength": 4
+    },
+    "6": {
+     "attack": 6,
+     "strength": 5
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "slowpoke",
+   "name": "Slowpoke",
+   "batch": 2,
+   "type": "Psychic",
+   "series": "Heavy",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": null,
+   "theme": "Slow and steady: patches its Location up every Supper.",
+   "forms": [
+    {
+     "name": "Slowpoke",
+     "art": "slowpoke",
+     "hasArt": false,
+     "from": 3,
+     "to": 5,
+     "speed": "Slow",
+     "keywords": [],
+     "trigger": "On Supper",
+     "text": "Heal 2 to each of your Pokémon in its Location."
+    },
+    {
+     "name": "Slowbro",
+     "art": "slowbro",
+     "hasArt": false,
+     "from": 6,
+     "to": 8,
+     "speed": "Slow",
+     "keywords": [
+      "Shell 1"
+     ],
+     "trigger": "On Supper",
+     "text": "Heal 3 to each of your Pokémon in its Location."
+    }
+   ],
+   "stats": {
+    "3": {
+     "attack": 2,
+     "strength": 4
+    },
+    "4": {
+     "attack": 2,
+     "strength": 6
+    },
+    "5": {
+     "attack": 3,
+     "strength": 8
+    },
+    "6": {
+     "attack": 5,
+     "strength": 7
+    },
+    "7": {
+     "attack": 6,
+     "strength": 10
+    },
+    "8": {
+     "attack": 7,
+     "strength": 11
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "machop",
+   "name": "Machop",
+   "batch": 2,
+   "type": "Fighting",
+   "series": "Heavy",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": "Defence",
+   "theme": "Wins Locations and trains everyone who held them.",
+   "forms": [
+    {
+     "name": "Machop",
+     "art": "machop",
+     "hasArt": false,
+     "from": 3,
+     "to": 4,
+     "speed": "Steady",
+     "keywords": [
+      "Rage"
+     ],
+     "trigger": "On Dominate",
+     "text": "+1 Attack and +1 Strength (kept)."
+    },
+    {
+     "name": "Machoke",
+     "art": "machoke",
+     "hasArt": false,
+     "from": 5,
+     "to": 6,
+     "speed": "Steady",
+     "keywords": [
+      "Rage"
+     ],
+     "trigger": "On Dominate",
+     "text": "+1 Attack and +1 Strength (kept) to your Pokémon in its Location."
+    },
+    {
+     "name": "Machamp",
+     "art": "machamp",
+     "hasArt": false,
+     "from": 7,
+     "to": 8,
+     "speed": "Steady",
+     "keywords": [
+      "Rage"
+     ],
+     "trigger": "On Dominate",
+     "text": "+1 Attack and +1 Strength (kept) to each of your Pokémon."
+    }
+   ],
+   "stats": {
+    "3": {
+     "attack": 2,
+     "strength": 1
+    },
+    "4": {
+     "attack": 3,
+     "strength": 2
+    },
+    "5": {
+     "attack": 4,
+     "strength": 3
+    },
+    "6": {
+     "attack": 5,
+     "strength": 6
+    },
+    "7": {
+     "attack": 7,
+     "strength": 6
+    },
+    "8": {
+     "attack": 8,
+     "strength": 7
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "mankey",
+   "name": "Mankey",
+   "batch": 2,
+   "type": "Fighting",
+   "series": "Light",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": null,
+   "theme": "Fury: whoever beats it pays for it.",
+   "forms": [
+    {
+     "name": "Mankey",
+     "art": "mankey",
+     "hasArt": true,
+     "from": 1,
+     "to": 3,
+     "speed": "Swift",
+     "keywords": [
+      "Rage"
+     ],
+     "trigger": "On Defeated",
+     "text": "2 damage to the Pokémon that defeated it."
+    },
+    {
+     "name": "Primeape",
+     "art": "primeape",
+     "hasArt": true,
+     "from": 4,
+     "to": 6,
+     "speed": "Swift",
+     "keywords": [
+      "Rage"
+     ],
+     "trigger": "On Defeated",
+     "text": "3 damage to the Pokémon that defeated it."
+    }
+   ],
+   "stats": {
+    "1": {
+     "attack": 2,
+     "strength": 1
+    },
+    "2": {
+     "attack": 2,
+     "strength": 2
+    },
+    "3": {
+     "attack": 3,
+     "strength": 2
+    },
+    "4": {
+     "attack": 3,
+     "strength": 3
+    },
+    "5": {
+     "attack": 4,
+     "strength": 3
+    },
+    "6": {
+     "attack": 5,
+     "strength": 4
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "riolu",
+   "name": "Riolu",
+   "batch": 2,
+   "type": "Fighting",
+   "series": "Mid",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": null,
+   "theme": "Its aura powers up the whole Location.",
+   "forms": [
+    {
+     "name": "Riolu",
+     "art": "riolu",
+     "hasArt": false,
+     "from": 2,
+     "to": 4,
+     "speed": "Swift",
+     "keywords": [],
+     "trigger": "Aura",
+     "text": "Your other Pokémon in its Location have +1 Attack."
+    },
+    {
+     "name": "Lucario",
+     "art": "lucario",
+     "hasArt": false,
+     "from": 5,
+     "to": 7,
+     "speed": "Swift",
+     "keywords": [],
+     "trigger": "Aura",
+     "text": "Your other Pokémon in its Location have +1 Attack and +1 Strength."
+    }
+   ],
+   "stats": {
+    "2": {
+     "attack": 3,
+     "strength": 3
+    },
+    "3": {
+     "attack": 4,
+     "strength": 3
+    },
+    "4": {
+     "attack": 5,
+     "strength": 4
+    },
+    "5": {
+     "attack": 5,
+     "strength": 5
+    },
+    "6": {
+     "attack": 6,
+     "strength": 6
+    },
+    "7": {
+     "attack": 7,
+     "strength": 7
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "gastly",
+   "name": "Gastly",
+   "batch": 2,
+   "type": "Ghost",
+   "series": "Mid",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": null,
+   "theme": "Keeps coming back: defeated, it returns to your hand.",
+   "forms": [
+    {
+     "name": "Gastly",
+     "art": "gastly",
+     "hasArt": false,
+     "from": 2,
+     "to": 3,
+     "speed": "Swift",
+     "keywords": [
+      "Stealth"
+     ],
+     "trigger": "On Defeated",
+     "text": "Return it to your hand."
+    },
+    {
+     "name": "Haunter",
+     "art": "haunter",
+     "hasArt": false,
+     "from": 4,
+     "to": 5,
+     "speed": "Swift",
+     "keywords": [
+      "Stealth"
+     ],
+     "trigger": "On Defeated",
+     "text": "Return it to your hand, and draw 1 card."
+    },
+    {
+     "name": "Gengar",
+     "art": "gengar",
+     "hasArt": false,
+     "from": 6,
+     "to": 7,
+     "speed": "Swift",
+     "keywords": [
+      "Stealth"
+     ],
+     "trigger": "On Defeated",
+     "text": "Return it to your hand, and 2 damage to an enemy Pokémon."
+    }
+   ],
+   "stats": {
+    "2": {
+     "attack": 2,
+     "strength": 2
+    },
+    "3": {
+     "attack": 3,
+     "strength": 2
+    },
+    "4": {
+     "attack": 3,
+     "strength": 3
+    },
+    "5": {
+     "attack": 4,
+     "strength": 4
+    },
+    "6": {
+     "attack": 5,
+     "strength": 5
+    },
+    "7": {
+     "attack": 6,
+     "strength": 5
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "duskull",
+   "name": "Duskull",
+   "batch": 2,
+   "type": "Ghost",
+   "series": "Heavy",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": "Special Defence",
+   "theme": "The reaper: brings your fallen back from the Discard.",
+   "forms": [
+    {
+     "name": "Duskull",
+     "art": "duskull",
+     "hasArt": true,
+     "from": 3,
+     "to": 4,
+     "speed": "Slow",
+     "keywords": [],
+     "trigger": "On Summon",
+     "text": "Return a Pokémon card from your Discard Pile to your hand."
+    },
+    {
+     "name": "Dusclops",
+     "art": "dusclops",
+     "hasArt": true,
+     "from": 5,
+     "to": 6,
+     "speed": "Slow",
+     "keywords": [
+      "Sturdy"
+     ],
+     "trigger": "On Summon",
+     "text": "Return a Pokémon card from your Discard Pile to your hand."
+    },
+    {
+     "name": "Dusknoir",
+     "art": "dusknoir",
+     "hasArt": false,
+     "from": 7,
+     "to": 8,
+     "speed": "Slow",
+     "keywords": [
+      "Sturdy"
+     ],
+     "trigger": "On Summon",
+     "text": "Return 2 Pokémon cards from your Discard Pile to your hand."
+    }
+   ],
+   "stats": {
+    "3": {
+     "attack": 2,
+     "strength": 3
+    },
+    "4": {
+     "attack": 2,
+     "strength": 5
+    },
+    "5": {
+     "attack": 3,
+     "strength": 5
+    },
+    "6": {
+     "attack": 4,
+     "strength": 8
+    },
+    "7": {
+     "attack": 7,
+     "strength": 7
+    },
+    "8": {
+     "attack": 8,
+     "strength": 8
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "litwick",
+   "name": "Litwick",
+   "batch": 2,
+   "type": "Ghost",
+   "series": "Light",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": null,
+   "theme": "Burns out in a blaze: damage when it is defeated, growing.",
+   "forms": [
+    {
+     "name": "Litwick",
+     "art": "litwick",
+     "hasArt": false,
+     "from": 1,
+     "to": 2,
+     "speed": "Steady",
+     "keywords": [],
+     "trigger": "On Defeated",
+     "text": "1 damage to each enemy Pokémon in its Location."
+    },
+    {
+     "name": "Lampent",
+     "art": "lampent",
+     "hasArt": false,
+     "from": 3,
+     "to": 4,
+     "speed": "Steady",
+     "keywords": [],
+     "trigger": "On Defeated",
+     "text": "2 damage to each enemy Pokémon in its Location."
+    },
+    {
+     "name": "Chandelure",
+     "art": "chandelure",
+     "hasArt": false,
+     "from": 5,
+     "to": 6,
+     "speed": "Steady",
+     "keywords": [],
+     "trigger": "On Defeated",
+     "text": "2 damage to each enemy Pokémon."
+    }
+   ],
+   "stats": {
+    "1": {
+     "attack": 2,
+     "strength": 4
+    },
+    "2": {
+     "attack": 3,
+     "strength": 5
+    },
+    "3": {
+     "attack": 3,
+     "strength": 4
+    },
+    "4": {
+     "attack": 4,
+     "strength": 4
+    },
+    "5": {
+     "attack": 5,
+     "strength": 5
+    },
+    "6": {
+     "attack": 6,
+     "strength": 6
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "houndour",
+   "name": "Houndour",
+   "batch": 2,
+   "type": "Dark",
+   "series": "Mid",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": null,
+   "theme": "The hunt: every knockout also hits the Player Character.",
+   "forms": [
+    {
+     "name": "Houndour",
+     "art": "houndour",
+     "hasArt": true,
+     "from": 2,
+     "to": 4,
+     "speed": "Swift",
+     "keywords": [
+      "Intimidate 1"
+     ],
+     "trigger": "On Knockout",
+     "text": "2 damage to the enemy Player Character."
+    },
+    {
+     "name": "Houndoom",
+     "art": "houndoom",
+     "hasArt": true,
+     "from": 5,
+     "to": 7,
+     "speed": "Swift",
+     "keywords": [
+      "Intimidate 2"
+     ],
+     "trigger": "On Knockout",
+     "text": "3 damage to the enemy Player Character."
+    }
+   ],
+   "stats": {
+    "2": {
+     "attack": 2,
+     "strength": 2
+    },
+    "3": {
+     "attack": 3,
+     "strength": 3
+    },
+    "4": {
+     "attack": 4,
+     "strength": 4
+    },
+    "5": {
+     "attack": 4,
+     "strength": 4
+    },
+    "6": {
+     "attack": 5,
+     "strength": 5
+    },
+    "7": {
+     "attack": 6,
+     "strength": 6
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "sneasel",
+   "name": "Sneasel",
+   "batch": 2,
+   "type": "Dark",
+   "series": "Light",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": null,
+   "theme": "Strikes from hiding and steals from the hand.",
+   "forms": [
+    {
+     "name": "Sneasel",
+     "art": "sneasel",
+     "hasArt": true,
+     "from": 1,
+     "to": 3,
+     "speed": "Swift",
+     "keywords": [
+      "Stealth"
+     ],
+     "trigger": "On Knockout",
+     "text": "The opponent discards a random card."
+    },
+    {
+     "name": "Weavile",
+     "art": "weavile",
+     "hasArt": true,
+     "from": 4,
+     "to": 6,
+     "speed": "Swift",
+     "keywords": [
+      "Stealth"
+     ],
+     "trigger": "On Knockout",
+     "text": "The opponent discards a random card, and you draw 1 card."
+    }
+   ],
+   "stats": {
+    "1": {
+     "attack": 2,
+     "strength": 1
+    },
+    "2": {
+     "attack": 3,
+     "strength": 2
+    },
+    "3": {
+     "attack": 3,
+     "strength": 3
+    },
+    "4": {
+     "attack": 3,
+     "strength": 3
+    },
+    "5": {
+     "attack": 5,
+     "strength": 3
+    },
+    "6": {
+     "attack": 5,
+     "strength": 5
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "absol",
+   "name": "Absol",
+   "batch": 2,
+   "type": "Dark",
+   "series": "Mid",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": "Special Defence",
+   "theme": "Disaster on arrival: hits its whole Location.",
+   "forms": [
+    {
+     "name": "Absol",
+     "art": "absol",
+     "hasArt": true,
+     "from": 2,
+     "to": 7,
+     "speed": "Steady",
+     "keywords": [
+      "Intimidate 1"
+     ],
+     "trigger": "On Summon",
+     "text": "1 damage to each enemy Pokémon in its Location."
+    }
+   ],
+   "stats": {
+    "2": {
+     "attack": 2,
+     "strength": 2
+    },
+    "3": {
+     "attack": 3,
+     "strength": 3
+    },
+    "4": {
+     "attack": 4,
+     "strength": 4
+    },
+    "5": {
+     "attack": 5,
+     "strength": 5
+    },
+    "6": {
+     "attack": 6,
+     "strength": 6
+    },
+    "7": {
+     "attack": 7,
+     "strength": 7
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "mewtwo",
+   "name": "Mewtwo",
+   "batch": 2,
+   "type": "Psychic",
+   "series": "Legendary",
+   "legendary": true,
+   "attackType": "Special",
+   "guard": null,
+   "theme": "Mind Games payoff: every Move you play becomes a blast.",
+   "forms": [
+    {
+     "name": "Mewtwo",
+     "art": "mewtwo",
+     "hasArt": false,
+     "from": 8,
+     "to": 8,
+     "speed": "Swift",
+     "keywords": [
+      "Agility"
+     ],
+     "trigger": "On Command",
+     "text": "2 damage to each enemy Pokémon in a Location."
+    }
+   ],
+   "stats": {
+    "8": {
+     "attack": 10,
+     "strength": 10
+    }
+   },
+   "cost": "5"
+  },
+  {
+   "id": "geodude",
+   "name": "Geodude",
+   "batch": 3,
+   "type": "Rock",
+   "series": "Heavy",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": "Defence",
+   "theme": "A rock wall that toughens its whole Location.",
+   "forms": [
+    {
+     "name": "Geodude",
+     "art": "geodude",
+     "hasArt": true,
+     "from": 3,
+     "to": 4,
+     "speed": "Slow",
+     "keywords": [
+      "Sturdy"
+     ],
+     "trigger": "Aura",
+     "text": "Your other Pokémon in its Location have +1 Strength."
+    },
+    {
+     "name": "Graveler",
+     "art": "graveler",
+     "hasArt": false,
+     "from": 5,
+     "to": 6,
+     "speed": "Slow",
+     "keywords": [
+      "Sturdy"
+     ],
+     "trigger": "Aura",
+     "text": "Your other Pokémon in its Location have +1 Strength."
+    },
+    {
+     "name": "Golem",
+     "art": "golem",
+     "hasArt": false,
+     "from": 7,
+     "to": 8,
+     "speed": "Slow",
+     "keywords": [
+      "Sturdy"
+     ],
+     "trigger": "Aura",
+     "text": "Your other Pokémon in its Location have +2 Strength."
+    }
+   ],
+   "stats": {
+    "3": {
+     "attack": 2,
+     "strength": 2
+    },
+    "4": {
+     "attack": 2,
+     "strength": 4
+    },
+    "5": {
+     "attack": 4,
+     "strength": 5
+    },
+    "6": {
+     "attack": 5,
+     "strength": 7
+    },
+    "7": {
+     "attack": 7,
+     "strength": 8
+    },
+    "8": {
+     "attack": 8,
+     "strength": 9
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "larvitar",
+   "name": "Larvitar",
+   "batch": 3,
+   "type": "Rock",
+   "series": "Heavy",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": null,
+   "theme": "A sandstorm every Supper: its Location, then the whole board.",
+   "forms": [
+    {
+     "name": "Larvitar",
+     "art": "larvitar",
+     "hasArt": false,
+     "from": 3,
+     "to": 4,
+     "speed": "Steady",
+     "keywords": [],
+     "trigger": "On Supper",
+     "text": "1 damage to each enemy Pokémon in its Location."
+    },
+    {
+     "name": "Pupitar",
+     "art": "pupitar",
+     "hasArt": false,
+     "from": 5,
+     "to": 6,
+     "speed": "Steady",
+     "keywords": [
+      "Shell 1"
+     ],
+     "trigger": "On Supper",
+     "text": "1 damage to each enemy Pokémon in its Location."
+    },
+    {
+     "name": "Tyranitar",
+     "art": "tyranitar",
+     "hasArt": false,
+     "from": 7,
+     "to": 8,
+     "speed": "Steady",
+     "keywords": [
+      "Shell 1",
+      "Overrun"
+     ],
+     "trigger": "On Supper",
+     "text": "1 damage to each enemy Pokémon."
+    }
+   ],
+   "stats": {
+    "3": {
+     "attack": 2,
+     "strength": 3
+    },
+    "4": {
+     "attack": 3,
+     "strength": 4
+    },
+    "5": {
+     "attack": 3,
+     "strength": 5
+    },
+    "6": {
+     "attack": 4,
+     "strength": 8
+    },
+    "7": {
+     "attack": 6,
+     "strength": 7
+    },
+    "8": {
+     "attack": 8,
+     "strength": 8
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "bonsly",
+   "name": "Bonsly",
+   "batch": 3,
+   "type": "Rock",
+   "series": "Mid",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": "Defence",
+   "theme": "Fortifies everyone beside it on arrival.",
+   "forms": [
+    {
+     "name": "Bonsly",
+     "art": "bonsly",
+     "hasArt": false,
+     "from": 2,
+     "to": 4,
+     "speed": "Slow",
+     "keywords": [
+      "Sturdy"
+     ],
+     "trigger": "On Summon",
+     "text": "+1 Strength (kept) to each of your other Pokémon in its Location."
+    },
+    {
+     "name": "Sudowoodo",
+     "art": "sudowoodo",
+     "hasArt": true,
+     "from": 5,
+     "to": 7,
+     "speed": "Slow",
+     "keywords": [
+      "Sturdy"
+     ],
+     "trigger": "On Summon",
+     "text": "+2 Strength (kept) to each of your other Pokémon in its Location."
+    }
+   ],
+   "stats": {
+    "2": {
+     "attack": 1,
+     "strength": 3
+    },
+    "3": {
+     "attack": 2,
+     "strength": 4
+    },
+    "4": {
+     "attack": 3,
+     "strength": 5
+    },
+    "5": {
+     "attack": 3,
+     "strength": 5
+    },
+    "6": {
+     "attack": 4,
+     "strength": 6
+    },
+    "7": {
+     "attack": 5,
+     "strength": 7
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "dratini",
+   "name": "Dratini",
+   "batch": 3,
+   "type": "Dragon",
+   "series": "Heavy",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": "Special Defence",
+   "theme": "Untouchable by Moves, and it refills your hand on arrival.",
+   "forms": [
+    {
+     "name": "Dratini",
+     "art": "dratini",
+     "hasArt": false,
+     "from": 3,
+     "to": 4,
+     "speed": "Steady",
+     "keywords": [
+      "Agility"
+     ],
+     "trigger": "On Summon",
+     "text": "Draw 1 card."
+    },
+    {
+     "name": "Dragonair",
+     "art": "dragonair",
+     "hasArt": false,
+     "from": 5,
+     "to": 6,
+     "speed": "Steady",
+     "keywords": [
+      "Agility"
+     ],
+     "trigger": "On Summon",
+     "text": "Draw 1 card."
+    },
+    {
+     "name": "Dragonite",
+     "art": "dragonite",
+     "hasArt": true,
+     "from": 7,
+     "to": 8,
+     "speed": "Steady",
+     "keywords": [
+      "Agility",
+      "Overrun"
+     ],
+     "trigger": "On Summon",
+     "text": "Draw 2 cards."
+    }
+   ],
+   "stats": {
+    "3": {
+     "attack": 2,
+     "strength": 1
+    },
+    "4": {
+     "attack": 3,
+     "strength": 2
+    },
+    "5": {
+     "attack": 4,
+     "strength": 4
+    },
+    "6": {
+     "attack": 6,
+     "strength": 6
+    },
+    "7": {
+     "attack": 7,
+     "strength": 6
+    },
+    "8": {
+     "attack": 8,
+     "strength": 7
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "gible",
+   "name": "Gible",
+   "batch": 3,
+   "type": "Dragon",
+   "series": "Heavy",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": null,
+   "theme": "Rough skin and a growing hunger: stronger with every knockout.",
+   "forms": [
+    {
+     "name": "Gible",
+     "art": "gible",
+     "hasArt": false,
+     "from": 3,
+     "to": 4,
+     "speed": "Swift",
+     "keywords": [
+      "Retaliate 1"
+     ],
+     "trigger": "On Knockout",
+     "text": "+1 Attack and +1 Strength (kept)."
+    },
+    {
+     "name": "Gabite",
+     "art": "gabite",
+     "hasArt": false,
+     "from": 5,
+     "to": 6,
+     "speed": "Swift",
+     "keywords": [
+      "Retaliate 1",
+      "Overrun"
+     ],
+     "trigger": "On Knockout",
+     "text": "+1 Attack and +1 Strength (kept)."
+    },
+    {
+     "name": "Garchomp",
+     "art": "garchomp",
+     "hasArt": false,
+     "from": 7,
+     "to": 8,
+     "speed": "Swift",
+     "keywords": [
+      "Retaliate 2",
+      "Overrun"
+     ],
+     "trigger": "On Knockout",
+     "text": "+2 Attack and +2 Strength (kept)."
+    }
+   ],
+   "stats": {
+    "3": {
+     "attack": 2,
+     "strength": 2
+    },
+    "4": {
+     "attack": 3,
+     "strength": 2
+    },
+    "5": {
+     "attack": 4,
+     "strength": 3
+    },
+    "6": {
+     "attack": 5,
+     "strength": 6
+    },
+    "7": {
+     "attack": 7,
+     "strength": 5
+    },
+    "8": {
+     "attack": 8,
+     "strength": 6
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "swablu",
+   "name": "Swablu",
+   "batch": 3,
+   "type": "Dragon",
+   "series": "Light",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": null,
+   "theme": "Sings your hand to sleep: cards in hand grow faster.",
+   "forms": [
+    {
+     "name": "Swablu",
+     "art": "swablu",
+     "hasArt": false,
+     "from": 1,
+     "to": 3,
+     "speed": "Steady",
+     "keywords": [],
+     "trigger": "On Breakfast",
+     "text": "A Pokémon card in your hand gains +1 Level."
+    },
+    {
+     "name": "Altaria",
+     "art": "altaria",
+     "hasArt": false,
+     "from": 4,
+     "to": 6,
+     "speed": "Steady",
+     "keywords": [
+      "Agility"
+     ],
+     "trigger": "On Breakfast",
+     "text": "Each Pokémon card in your hand gains +1 Level."
+    }
+   ],
+   "stats": {
+    "1": {
+     "attack": 2,
+     "strength": 4
+    },
+    "2": {
+     "attack": 3,
+     "strength": 4
+    },
+    "3": {
+     "attack": 4,
+     "strength": 5
+    },
+    "4": {
+     "attack": 3,
+     "strength": 3
+    },
+    "5": {
+     "attack": 4,
+     "strength": 4
+    },
+    "6": {
+     "attack": 5,
+     "strength": 5
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "aron",
+   "name": "Aron",
+   "batch": 3,
+   "type": "Steel",
+   "series": "Heavy",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": "Defence",
+   "theme": "Armour that hits harder every time it is struck.",
+   "forms": [
+    {
+     "name": "Aron",
+     "art": "aron",
+     "hasArt": false,
+     "from": 3,
+     "to": 4,
+     "speed": "Slow",
+     "keywords": [
+      "Shell 1"
+     ],
+     "trigger": "On Defend",
+     "text": "+1 Attack (kept)."
+    },
+    {
+     "name": "Lairon",
+     "art": "lairon",
+     "hasArt": true,
+     "from": 5,
+     "to": 6,
+     "speed": "Slow",
+     "keywords": [
+      "Shell 1"
+     ],
+     "trigger": "On Defend",
+     "text": "+1 Attack (kept)."
+    },
+    {
+     "name": "Aggron",
+     "art": "aggron",
+     "hasArt": false,
+     "from": 7,
+     "to": 8,
+     "speed": "Slow",
+     "keywords": [
+      "Shell 2"
+     ],
+     "trigger": "On Defend",
+     "text": "+2 Attack (kept)."
+    }
+   ],
+   "stats": {
+    "3": {
+     "attack": 2,
+     "strength": 2
+    },
+    "4": {
+     "attack": 3,
+     "strength": 3
+    },
+    "5": {
+     "attack": 4,
+     "strength": 5
+    },
+    "6": {
+     "attack": 6,
+     "strength": 7
+    },
+    "7": {
+     "attack": 7,
+     "strength": 7
+    },
+    "8": {
+     "attack": 8,
+     "strength": 8
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "magnemite",
+   "name": "Magnemite",
+   "batch": 3,
+   "type": "Steel",
+   "series": "Mid",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": "Defence",
+   "theme": "Pulls in PokéDollars every Breakfast.",
+   "forms": [
+    {
+     "name": "Magnemite",
+     "art": "magnemite",
+     "hasArt": false,
+     "from": 2,
+     "to": 3,
+     "speed": "Slow",
+     "keywords": [
+      "Shell 1"
+     ],
+     "trigger": "On Breakfast",
+     "text": "Gain $1."
+    },
+    {
+     "name": "Magneton",
+     "art": "magneton",
+     "hasArt": false,
+     "from": 4,
+     "to": 5,
+     "speed": "Slow",
+     "keywords": [
+      "Shell 1"
+     ],
+     "trigger": "On Breakfast",
+     "text": "Gain $1."
+    },
+    {
+     "name": "Magnezone",
+     "art": "magnezone",
+     "hasArt": false,
+     "from": 6,
+     "to": 7,
+     "speed": "Slow",
+     "keywords": [
+      "Shell 1"
+     ],
+     "trigger": "On Breakfast",
+     "text": "Gain $2."
+    }
+   ],
+   "stats": {
+    "2": {
+     "attack": 2,
+     "strength": 3
+    },
+    "3": {
+     "attack": 3,
+     "strength": 4
+    },
+    "4": {
+     "attack": 4,
+     "strength": 5
+    },
+    "5": {
+     "attack": 5,
+     "strength": 6
+    },
+    "6": {
+     "attack": 5,
+     "strength": 7
+    },
+    "7": {
+     "attack": 6,
+     "strength": 8
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "beldum",
+   "name": "Beldum",
+   "batch": 3,
+   "type": "Steel",
+   "series": "Heavy",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": "Defence",
+   "theme": "Gets heavier with every attack.",
+   "forms": [
+    {
+     "name": "Beldum",
+     "art": "beldum",
+     "hasArt": false,
+     "from": 3,
+     "to": 4,
+     "speed": "Slow",
+     "keywords": [
+      "Sturdy"
+     ],
+     "trigger": "On Attack",
+     "text": "+1 Strength (kept)."
+    },
+    {
+     "name": "Metang",
+     "art": "metang",
+     "hasArt": false,
+     "from": 5,
+     "to": 6,
+     "speed": "Slow",
+     "keywords": [
+      "Sturdy"
+     ],
+     "trigger": "On Attack",
+     "text": "+1 Strength (kept)."
+    },
+    {
+     "name": "Metagross",
+     "art": "metagross",
+     "hasArt": false,
+     "from": 7,
+     "to": 8,
+     "speed": "Slow",
+     "keywords": [
+      "Sturdy",
+      "Overrun"
+     ],
+     "trigger": "On Attack",
+     "text": "+1 Attack and +1 Strength (kept)."
+    }
+   ],
+   "stats": {
+    "3": {
+     "attack": 1,
+     "strength": 3
+    },
+    "4": {
+     "attack": 2,
+     "strength": 4
+    },
+    "5": {
+     "attack": 3,
+     "strength": 6
+    },
+    "6": {
+     "attack": 5,
+     "strength": 8
+    },
+    "7": {
+     "attack": 7,
+     "strength": 7
+    },
+    "8": {
+     "attack": 8,
+     "strength": 8
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "clefairy",
+   "name": "Clefairy",
+   "batch": 3,
+   "type": "Fairy",
+   "series": "Mid",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": "Special Defence",
+   "theme": "Every Move you play also heals.",
+   "forms": [
+    {
+     "name": "Clefairy",
+     "art": "clefairy",
+     "hasArt": false,
+     "from": 2,
+     "to": 4,
+     "speed": "Slow",
+     "keywords": [],
+     "trigger": "On Command",
+     "text": "Heal 2 to one of your Pokémon."
+    },
+    {
+     "name": "Clefable",
+     "art": "clefable",
+     "hasArt": false,
+     "from": 5,
+     "to": 7,
+     "speed": "Slow",
+     "keywords": [],
+     "trigger": "On Command",
+     "text": "Heal 2 to each of your Pokémon in its Location."
+    }
+   ],
+   "stats": {
+    "2": {
+     "attack": 3,
+     "strength": 4
+    },
+    "3": {
+     "attack": 3,
+     "strength": 6
+    },
+    "4": {
+     "attack": 4,
+     "strength": 7
+    },
+    "5": {
+     "attack": 5,
+     "strength": 7
+    },
+    "6": {
+     "attack": 6,
+     "strength": 8
+    },
+    "7": {
+     "attack": 7,
+     "strength": 9
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "togepi",
+   "name": "Togepi",
+   "batch": 3,
+   "type": "Fairy",
+   "series": "Mid",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": "Special Defence",
+   "theme": "Good fortune: Recognition on arrival.",
+   "forms": [
+    {
+     "name": "Togepi",
+     "art": "togepi",
+     "hasArt": false,
+     "from": 2,
+     "to": 3,
+     "speed": "Steady",
+     "keywords": [],
+     "trigger": "On Summon",
+     "text": "Gain 1 Recognition."
+    },
+    {
+     "name": "Togetic",
+     "art": "togetic",
+     "hasArt": false,
+     "from": 4,
+     "to": 5,
+     "speed": "Steady",
+     "keywords": [],
+     "trigger": "On Summon",
+     "text": "Gain 2 Recognition."
+    },
+    {
+     "name": "Togekiss",
+     "art": "togekiss",
+     "hasArt": false,
+     "from": 6,
+     "to": 7,
+     "speed": "Steady",
+     "keywords": [
+      "Agility"
+     ],
+     "trigger": "On Summon",
+     "text": "Gain 3 Recognition."
+    }
+   ],
+   "stats": {
+    "2": {
+     "attack": 2,
+     "strength": 4
+    },
+    "3": {
+     "attack": 3,
+     "strength": 5
+    },
+    "4": {
+     "attack": 4,
+     "strength": 5
+    },
+    "5": {
+     "attack": 5,
+     "strength": 6
+    },
+    "6": {
+     "attack": 5,
+     "strength": 5
+    },
+    "7": {
+     "attack": 6,
+     "strength": 6
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "snubbull",
+   "name": "Snubbull",
+   "batch": 3,
+   "type": "Fairy",
+   "series": "Light",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": null,
+   "theme": "Scares attackers off: one enemy, then its whole Location.",
+   "forms": [
+    {
+     "name": "Snubbull",
+     "art": "snubbull",
+     "hasArt": false,
+     "from": 1,
+     "to": 3,
+     "speed": "Slow",
+     "keywords": [
+      "Intimidate 1"
+     ],
+     "trigger": "On Summon",
+     "text": "An enemy Pokémon gets −2 Attack until Supper."
+    },
+    {
+     "name": "Granbull",
+     "art": "granbull",
+     "hasArt": false,
+     "from": 4,
+     "to": 6,
+     "speed": "Slow",
+     "keywords": [
+      "Intimidate 1"
+     ],
+     "trigger": "On Summon",
+     "text": "Each enemy Pokémon in its Location gets −2 Attack until Supper."
+    }
+   ],
+   "stats": {
+    "1": {
+     "attack": 2,
+     "strength": 3
+    },
+    "2": {
+     "attack": 3,
+     "strength": 4
+    },
+    "3": {
+     "attack": 4,
+     "strength": 4
+    },
+    "4": {
+     "attack": 4,
+     "strength": 3
+    },
+    "5": {
+     "attack": 5,
+     "strength": 4
+    },
+    "6": {
+     "attack": 6,
+     "strength": 5
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "rayquaza",
+   "name": "Rayquaza",
+   "batch": 3,
+   "type": "Dragon",
+   "series": "Legendary",
+   "legendary": true,
+   "attackType": "Physical",
+   "guard": null,
+   "theme": "Sky dragon: every attack scorches the whole enemy side.",
+   "forms": [
+    {
+     "name": "Rayquaza",
+     "art": "rayquaza",
+     "hasArt": false,
+     "from": 8,
+     "to": 8,
+     "speed": "Swift",
+     "keywords": [
+      "Overrun",
+      "Agility"
+     ],
+     "trigger": "On Attack",
+     "text": "2 damage to each other enemy Pokémon."
+    }
+   ],
+   "stats": {
+    "8": {
+     "attack": 9,
+     "strength": 8
+    }
+   },
+   "cost": "5"
+  },
+  {
+   "id": "snorunt",
+   "name": "Snorunt",
+   "batch": 4,
+   "type": "Ice",
+   "series": "Mid",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": null,
+   "theme": "Freezes on arrival: one enemy, then its whole Location.",
+   "forms": [
+    {
+     "name": "Snorunt",
+     "art": "snorunt",
+     "hasArt": false,
+     "from": 2,
+     "to": 4,
+     "speed": "Steady",
+     "keywords": [],
+     "trigger": "On Summon",
+     "text": "An enemy Pokémon becomes Spent."
+    },
+    {
+     "name": "Glalie",
+     "art": "glalie",
+     "hasArt": false,
+     "from": 5,
+     "to": 7,
+     "speed": "Steady",
+     "keywords": [
+      "Shell 1"
+     ],
+     "trigger": "On Summon",
+     "text": "Each enemy Pokémon in its Location becomes Spent."
+    }
+   ],
+   "stats": {
+    "2": {
+     "attack": 3,
+     "strength": 3
+    },
+    "3": {
+     "attack": 4,
+     "strength": 4
+    },
+    "4": {
+     "attack": 5,
+     "strength": 5
+    },
+    "5": {
+     "attack": 3,
+     "strength": 4
+    },
+    "6": {
+     "attack": 4,
+     "strength": 5
+    },
+    "7": {
+     "attack": 5,
+     "strength": 6
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "swinub",
+   "name": "Swinub",
+   "batch": 4,
+   "type": "Ice",
+   "series": "Heavy",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": null,
+   "theme": "Its attacks chill the target's Attack.",
+   "forms": [
+    {
+     "name": "Swinub",
+     "art": "swinub",
+     "hasArt": false,
+     "from": 3,
+     "to": 4,
+     "speed": "Slow",
+     "keywords": [],
+     "trigger": "On Attack",
+     "text": "The target gets −1 Attack until Supper."
+    },
+    {
+     "name": "Piloswine",
+     "art": "piloswine",
+     "hasArt": false,
+     "from": 5,
+     "to": 6,
+     "speed": "Slow",
+     "keywords": [
+      "Shell 1"
+     ],
+     "trigger": "On Attack",
+     "text": "The target gets −1 Attack until Supper."
+    },
+    {
+     "name": "Mamoswine",
+     "art": "mamoswine",
+     "hasArt": false,
+     "from": 7,
+     "to": 8,
+     "speed": "Slow",
+     "keywords": [
+      "Shell 1",
+      "Overrun"
+     ],
+     "trigger": "On Attack",
+     "text": "The target gets −2 Attack until Supper."
+    }
+   ],
+   "stats": {
+    "3": {
+     "attack": 2,
+     "strength": 5
+    },
+    "4": {
+     "attack": 3,
+     "strength": 6
+    },
+    "5": {
+     "attack": 4,
+     "strength": 6
+    },
+    "6": {
+     "attack": 6,
+     "strength": 8
+    },
+    "7": {
+     "attack": 7,
+     "strength": 8
+    },
+    "8": {
+     "attack": 8,
+     "strength": 9
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "lapras",
+   "name": "Lapras",
+   "batch": 4,
+   "type": "Ice",
+   "series": "Heavy",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": "Special Defence",
+   "theme": "A gentle ferry: shelters and heals its Location every Breakfast.",
+   "forms": [
+    {
+     "name": "Lapras",
+     "art": "lapras",
+     "hasArt": true,
+     "from": 3,
+     "to": 8,
+     "speed": "Steady",
+     "keywords": [
+      "Shell 1"
+     ],
+     "trigger": "On Breakfast",
+     "text": "Heal 2 to each of your Pokémon in its Location."
+    }
+   ],
+   "stats": {
+    "3": {
+     "attack": 1,
+     "strength": 2
+    },
+    "4": {
+     "attack": 2,
+     "strength": 3
+    },
+    "5": {
+     "attack": 3,
+     "strength": 4
+    },
+    "6": {
+     "attack": 5,
+     "strength": 6
+    },
+    "7": {
+     "attack": 7,
+     "strength": 7
+    },
+    "8": {
+     "attack": 8,
+     "strength": 8
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "ekans",
+   "name": "Ekans",
+   "batch": 4,
+   "type": "Poison",
+   "series": "Light",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": null,
+   "theme": "Venom that saps the target's Attack.",
+   "forms": [
+    {
+     "name": "Ekans",
+     "art": "ekans",
+     "hasArt": false,
+     "from": 1,
+     "to": 3,
+     "speed": "Swift",
+     "keywords": [],
+     "trigger": "On Attack",
+     "text": "The target gets −1 Attack until Supper."
+    },
+    {
+     "name": "Arbok",
+     "art": "arbok",
+     "hasArt": false,
+     "from": 4,
+     "to": 6,
+     "speed": "Swift",
+     "keywords": [
+      "Retaliate 1"
+     ],
+     "trigger": "On Attack",
+     "text": "The target gets −2 Attack until Supper."
+    }
+   ],
+   "stats": {
+    "1": {
+     "attack": 2,
+     "strength": 3
+    },
+    "2": {
+     "attack": 3,
+     "strength": 4
+    },
+    "3": {
+     "attack": 4,
+     "strength": 4
+    },
+    "4": {
+     "attack": 3,
+     "strength": 3
+    },
+    "5": {
+     "attack": 4,
+     "strength": 4
+    },
+    "6": {
+     "attack": 5,
+     "strength": 5
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "zubat",
+   "name": "Zubat",
+   "batch": 4,
+   "type": "Poison",
+   "series": "Light",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": null,
+   "theme": "A swarm that feeds its colony with every bite.",
+   "forms": [
+    {
+     "name": "Zubat",
+     "art": "zubat",
+     "hasArt": false,
+     "from": 1,
+     "to": 2,
+     "speed": "Swift",
+     "keywords": [
+      "Swarm"
+     ],
+     "trigger": "On Attack",
+     "text": "Heal 1 to each of your Pokémon in its Location."
+    },
+    {
+     "name": "Golbat",
+     "art": "golbat",
+     "hasArt": false,
+     "from": 3,
+     "to": 4,
+     "speed": "Swift",
+     "keywords": [
+      "Swarm"
+     ],
+     "trigger": "On Attack",
+     "text": "Heal 1 to each of your Pokémon in its Location."
+    },
+    {
+     "name": "Crobat",
+     "art": "crobat",
+     "hasArt": false,
+     "from": 5,
+     "to": 6,
+     "speed": "Swift",
+     "keywords": [
+      "Swarm",
+      "Infiltrator"
+     ],
+     "trigger": "On Attack",
+     "text": "Heal 2 to each of your Pokémon in its Location."
+    }
+   ],
+   "stats": {
+    "1": {
+     "attack": 2,
+     "strength": 1
+    },
+    "2": {
+     "attack": 3,
+     "strength": 2
+    },
+    "3": {
+     "attack": 3,
+     "strength": 3
+    },
+    "4": {
+     "attack": 4,
+     "strength": 3
+    },
+    "5": {
+     "attack": 3,
+     "strength": 3
+    },
+    "6": {
+     "attack": 4,
+     "strength": 4
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "koffing",
+   "name": "Koffing",
+   "batch": 4,
+   "type": "Poison",
+   "series": "Mid",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": "Defence",
+   "theme": "Toxic fumes that wear enemies down every Supper.",
+   "forms": [
+    {
+     "name": "Koffing",
+     "art": "koffing",
+     "hasArt": false,
+     "from": 2,
+     "to": 4,
+     "speed": "Slow",
+     "keywords": [],
+     "trigger": "On Supper",
+     "text": "Each enemy Pokémon in its Location gets −1 Attack (kept)."
+    },
+    {
+     "name": "Weezing",
+     "art": "weezing",
+     "hasArt": false,
+     "from": 5,
+     "to": 7,
+     "speed": "Slow",
+     "keywords": [],
+     "trigger": "On Supper",
+     "text": "Each enemy Pokémon gets −1 Attack (kept)."
+    }
+   ],
+   "stats": {
+    "2": {
+     "attack": 2,
+     "strength": 4
+    },
+    "3": {
+     "attack": 3,
+     "strength": 5
+    },
+    "4": {
+     "attack": 4,
+     "strength": 6
+    },
+    "5": {
+     "attack": 5,
+     "strength": 5
+    },
+    "6": {
+     "attack": 6,
+     "strength": 6
+    },
+    "7": {
+     "attack": 7,
+     "strength": 7
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "diglett",
+   "name": "Diglett",
+   "batch": 4,
+   "type": "Ground",
+   "series": "Light",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": null,
+   "theme": "Burrows in, holds ground, and strikes the Player Character.",
+   "forms": [
+    {
+     "name": "Diglett",
+     "art": "diglett",
+     "hasArt": false,
+     "from": 1,
+     "to": 3,
+     "speed": "Swift",
+     "keywords": [
+      "Stealth"
+     ],
+     "trigger": "On Dominate",
+     "text": "2 damage to the enemy Player Character."
+    },
+    {
+     "name": "Dugtrio",
+     "art": "dugtrio",
+     "hasArt": false,
+     "from": 4,
+     "to": 6,
+     "speed": "Swift",
+     "keywords": [
+      "Stealth"
+     ],
+     "trigger": "On Dominate",
+     "text": "3 damage to the enemy Player Character."
+    }
+   ],
+   "stats": {
+    "1": {
+     "attack": 2,
+     "strength": 1
+    },
+    "2": {
+     "attack": 2,
+     "strength": 2
+    },
+    "3": {
+     "attack": 3,
+     "strength": 2
+    },
+    "4": {
+     "attack": 3,
+     "strength": 3
+    },
+    "5": {
+     "attack": 4,
+     "strength": 4
+    },
+    "6": {
+     "attack": 5,
+     "strength": 5
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "cubone",
+   "name": "Cubone",
+   "batch": 4,
+   "type": "Ground",
+   "series": "Mid",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": null,
+   "theme": "Grief makes it strong: grows with your fallen Pokémon.",
+   "forms": [
+    {
+     "name": "Cubone",
+     "art": "cubone",
+     "hasArt": false,
+     "from": 2,
+     "to": 4,
+     "speed": "Steady",
+     "keywords": [],
+     "trigger": "On Summon",
+     "text": "+1 Attack and +1 Strength (kept) for each Pokémon in your Discard Pile, up to +2."
+    },
+    {
+     "name": "Marowak",
+     "art": "marowak",
+     "hasArt": false,
+     "from": 5,
+     "to": 7,
+     "speed": "Steady",
+     "keywords": [],
+     "trigger": "On Summon",
+     "text": "+1 Attack and +1 Strength (kept) for each Pokémon in your Discard Pile, up to +4."
+    }
+   ],
+   "stats": {
+    "2": {
+     "attack": 2,
+     "strength": 3
+    },
+    "3": {
+     "attack": 3,
+     "strength": 4
+    },
+    "4": {
+     "attack": 4,
+     "strength": 5
+    },
+    "5": {
+     "attack": 5,
+     "strength": 5
+    },
+    "6": {
+     "attack": 6,
+     "strength": 6
+    },
+    "7": {
+     "attack": 7,
+     "strength": 7
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "phanpy",
+   "name": "Phanpy",
+   "batch": 4,
+   "type": "Ground",
+   "series": "Heavy",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": "Defence",
+   "theme": "Wins ground, then shakes the earth.",
+   "forms": [
+    {
+     "name": "Phanpy",
+     "art": "phanpy",
+     "hasArt": false,
+     "from": 3,
+     "to": 5,
+     "speed": "Slow",
+     "keywords": [],
+     "trigger": "On Dominate",
+     "text": "1 damage to each enemy Pokémon in its Location."
+    },
+    {
+     "name": "Donphan",
+     "art": "donphan",
+     "hasArt": false,
+     "from": 6,
+     "to": 8,
+     "speed": "Slow",
+     "keywords": [
+      "Sturdy"
+     ],
+     "trigger": "On Dominate",
+     "text": "2 damage to each enemy Pokémon."
+    }
+   ],
+   "stats": {
+    "3": {
+     "attack": 2,
+     "strength": 3
+    },
+    "4": {
+     "attack": 3,
+     "strength": 4
+    },
+    "5": {
+     "attack": 4,
+     "strength": 6
+    },
+    "6": {
+     "attack": 5,
+     "strength": 5
+    },
+    "7": {
+     "attack": 7,
+     "strength": 7
+    },
+    "8": {
+     "attack": 8,
+     "strength": 8
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "pidgey",
+   "name": "Pidgey",
+   "batch": 4,
+   "type": "Flying",
+   "series": "Mid",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": null,
+   "theme": "Strafing runs straight at the Player Character.",
+   "forms": [
+    {
+     "name": "Pidgey",
+     "art": "pidgey",
+     "hasArt": true,
+     "from": 2,
+     "to": 3,
+     "speed": "Swift",
+     "keywords": [
+      "Infiltrator"
+     ],
+     "trigger": "On Summon",
+     "text": "1 damage to the enemy Player Character."
+    },
+    {
+     "name": "Pidgeotto",
+     "art": "pidgeotto",
+     "hasArt": false,
+     "from": 4,
+     "to": 5,
+     "speed": "Swift",
+     "keywords": [
+      "Infiltrator"
+     ],
+     "trigger": "On Summon",
+     "text": "2 damage to the enemy Player Character."
+    },
+    {
+     "name": "Pidgeot",
+     "art": "pidgeot",
+     "hasArt": false,
+     "from": 6,
+     "to": 7,
+     "speed": "Swift",
+     "keywords": [
+      "Infiltrator"
+     ],
+     "trigger": "On Summon",
+     "text": "3 damage to the enemy Player Character."
+    }
+   ],
+   "stats": {
+    "2": {
+     "attack": 2,
+     "strength": 2
+    },
+    "3": {
+     "attack": 3,
+     "strength": 3
+    },
+    "4": {
+     "attack": 4,
+     "strength": 3
+    },
+    "5": {
+     "attack": 5,
+     "strength": 4
+    },
+    "6": {
+     "attack": 5,
+     "strength": 4
+    },
+    "7": {
+     "attack": 6,
+     "strength": 5
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "wingull",
+   "name": "Wingull",
+   "batch": 4,
+   "type": "Flying",
+   "series": "Light",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": "Special Defence",
+   "theme": "A ferry: carries a teammate home to be played again.",
+   "forms": [
+    {
+     "name": "Wingull",
+     "art": "wingull",
+     "hasArt": true,
+     "from": 1,
+     "to": 3,
+     "speed": "Swift",
+     "keywords": [],
+     "trigger": "On Summon",
+     "text": "Return another of your Pokémon to your hand."
+    },
+    {
+     "name": "Pelipper",
+     "art": "pelipper",
+     "hasArt": true,
+     "from": 4,
+     "to": 6,
+     "speed": "Swift",
+     "keywords": [
+      "Agility"
+     ],
+     "trigger": "On Summon",
+     "text": "Return another of your Pokémon to your hand, and draw 1 card."
+    }
+   ],
+   "stats": {
+    "1": {
+     "attack": 2,
+     "strength": 2
+    },
+    "2": {
+     "attack": 3,
+     "strength": 3
+    },
+    "3": {
+     "attack": 4,
+     "strength": 3
+    },
+    "4": {
+     "attack": 3,
+     "strength": 2
+    },
+    "5": {
+     "attack": 4,
+     "strength": 3
+    },
+    "6": {
+     "attack": 5,
+     "strength": 4
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "starly",
+   "name": "Starly",
+   "batch": 4,
+   "type": "Flying",
+   "series": "Light",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": null,
+   "theme": "Hit and run: strikes at once, and returns after a knockout.",
+   "forms": [
+    {
+     "name": "Starly",
+     "art": "starly",
+     "hasArt": false,
+     "from": 1,
+     "to": 2,
+     "speed": "Swift",
+     "keywords": [
+      "Quick Attack"
+     ],
+     "trigger": "On Knockout",
+     "text": "Return it to your hand."
+    },
+    {
+     "name": "Staravia",
+     "art": "staravia",
+     "hasArt": false,
+     "from": 3,
+     "to": 4,
+     "speed": "Swift",
+     "keywords": [
+      "Quick Attack",
+      "Intimidate 1"
+     ],
+     "trigger": "On Knockout",
+     "text": "Return it to your hand."
+    },
+    {
+     "name": "Staraptor",
+     "art": "staraptor",
+     "hasArt": false,
+     "from": 5,
+     "to": 6,
+     "speed": "Swift",
+     "keywords": [
+      "Quick Attack",
+      "Intimidate 1"
+     ],
+     "trigger": "On Knockout",
+     "text": "Return it to your hand, and draw 1 card."
+    }
+   ],
+   "stats": {
+    "1": {
+     "attack": 2,
+     "strength": 1
+    },
+    "2": {
+     "attack": 3,
+     "strength": 2
+    },
+    "3": {
+     "attack": 3,
+     "strength": 2
+    },
+    "4": {
+     "attack": 3,
+     "strength": 3
+    },
+    "5": {
+     "attack": 4,
+     "strength": 3
+    },
+    "6": {
+     "attack": 4,
+     "strength": 4
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "caterpie",
+   "name": "Caterpie",
+   "batch": 4,
+   "type": "Bug",
+   "series": "Light",
+   "legendary": false,
+   "attackType": "Special",
+   "guard": "Defence",
+   "theme": "Cheap, hardy, and pays you back when it falls.",
+   "forms": [
+    {
+     "name": "Caterpie",
+     "art": "caterpie",
+     "hasArt": false,
+     "from": 1,
+     "to": 2,
+     "speed": "Slow",
+     "keywords": [],
+     "trigger": "On Defeated",
+     "text": "Draw 1 card."
+    },
+    {
+     "name": "Metapod",
+     "art": "metapod",
+     "hasArt": true,
+     "from": 3,
+     "to": 4,
+     "speed": "Slow",
+     "keywords": [
+      "Shell 1"
+     ],
+     "trigger": "On Defeated",
+     "text": "Draw 1 card."
+    },
+    {
+     "name": "Butterfree",
+     "art": "butterfree",
+     "hasArt": false,
+     "from": 5,
+     "to": 6,
+     "speed": "Slow",
+     "keywords": [
+      "Shell 1",
+      "Agility"
+     ],
+     "trigger": "On Defeated",
+     "text": "Draw 2 cards."
+    }
+   ],
+   "stats": {
+    "1": {
+     "attack": 3,
+     "strength": 2
+    },
+    "2": {
+     "attack": 4,
+     "strength": 3
+    },
+    "3": {
+     "attack": 2,
+     "strength": 5
+    },
+    "4": {
+     "attack": 2,
+     "strength": 6
+    },
+    "5": {
+     "attack": 4,
+     "strength": 3
+    },
+    "6": {
+     "attack": 5,
+     "strength": 4
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "sewaddle",
+   "name": "Sewaddle",
+   "batch": 4,
+   "type": "Bug",
+   "series": "Mid",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": null,
+   "theme": "Looks after the little ones: shelters your small Pokémon.",
+   "forms": [
+    {
+     "name": "Sewaddle",
+     "art": "sewaddle",
+     "hasArt": true,
+     "from": 2,
+     "to": 3,
+     "speed": "Steady",
+     "keywords": [
+      "Swarm"
+     ],
+     "trigger": "Aura",
+     "text": "Your Level 1–3 Pokémon in its Location have +1 Strength."
+    },
+    {
+     "name": "Swadloon",
+     "art": "swadloon",
+     "hasArt": true,
+     "from": 4,
+     "to": 5,
+     "speed": "Steady",
+     "keywords": [
+      "Swarm"
+     ],
+     "trigger": "Aura",
+     "text": "Your Level 1–3 Pokémon in its Location have +1 Strength."
+    },
+    {
+     "name": "Leavanny",
+     "art": "leavanny",
+     "hasArt": true,
+     "from": 6,
+     "to": 7,
+     "speed": "Steady",
+     "keywords": [
+      "Swarm"
+     ],
+     "trigger": "Aura",
+     "text": "Your Level 1–3 Pokémon in its Location have +1 Attack and +1 Strength."
+    }
+   ],
+   "stats": {
+    "2": {
+     "attack": 2,
+     "strength": 3
+    },
+    "3": {
+     "attack": 3,
+     "strength": 4
+    },
+    "4": {
+     "attack": 3,
+     "strength": 6
+    },
+    "5": {
+     "attack": 4,
+     "strength": 7
+    },
+    "6": {
+     "attack": 6,
+     "strength": 6
+    },
+    "7": {
+     "attack": 7,
+     "strength": 7
+    }
+   },
+   "cost": "ceil(Level/2)"
+  },
+  {
+   "id": "scyther",
+   "name": "Scyther",
+   "batch": 4,
+   "type": "Bug",
+   "series": "Mid",
+   "legendary": false,
+   "attackType": "Physical",
+   "guard": null,
+   "theme": "Fury Cutter: sharper with every swing.",
+   "forms": [
+    {
+     "name": "Scyther",
+     "art": "scyther",
+     "hasArt": false,
+     "from": 2,
+     "to": 4,
+     "speed": "Swift",
+     "keywords": [],
+     "trigger": "On Attack",
+     "text": "+1 Attack (kept)."
+    },
+    {
+     "name": "Scizor",
+     "art": "scizor",
+     "hasArt": false,
+     "from": 5,
+     "to": 7,
+     "speed": "Swift",
+     "keywords": [
+      "Shell 1"
+     ],
+     "trigger": "On Attack",
+     "text": "+1 Attack (kept)."
+    }
+   ],
+   "stats": {
+    "2": {
+     "attack": 3,
+     "strength": 3
+    },
+    "3": {
+     "attack": 4,
+     "strength": 4
+    },
+    "4": {
+     "attack": 5,
+     "strength": 5
+    },
+    "5": {
+     "attack": 5,
+     "strength": 5
+    },
+    "6": {
+     "attack": 6,
+     "strength": 6
+    },
+    "7": {
+     "attack": 7,
+     "strength": 7
+    }
+   },
+   "cost": "ceil(Level/2)"
+  }
+ ],
+ "moves": [
+  {
+   "id": "recover",
+   "name": "Recover",
+   "batch": 1,
+   "type": "Normal",
+   "art": "recover",
+   "hasArt": true,
+   "theme": "Staple healing that also toughens.",
+   "modes": [
+    {
+     "mode": "React",
+     "cost": 1,
+     "cardText": "Heal 3 first",
+     "text": "Heal 3 to your Pokémon being attacked, before the damage."
+    },
+    {
+     "mode": "Adapt",
+     "cost": 2,
+     "cardText": "Heal 5, +1 Strength (kept)",
+     "text": "Heal 5 to one of your Pokémon, and it gets +1 Strength (kept)."
+    },
+    {
+     "mode": "Strat",
+     "cost": 3,
+     "cardText": "Heal 4, +1 Strength to all",
+     "text": "Heal 4 to each of your Pokémon, and they get +1 Strength (kept)."
+    }
+   ]
+  },
+  {
+   "id": "protect",
+   "name": "Protect",
+   "batch": 1,
+   "type": "Normal",
+   "art": "protect",
+   "hasArt": false,
+   "theme": "The cleanest answer to one attack.",
+   "modes": [
+    {
+     "mode": "React",
+     "cost": 2,
+     "cardText": "No damage from the attack",
+     "text": "The attack deals no damage."
+    },
+    {
+     "mode": "Adapt",
+     "cost": 1,
+     "cardText": "Shell 2 until Supper",
+     "text": "One of your Pokémon gets Shell 2 until Supper."
+    }
+   ]
+  },
+  {
+   "id": "ember",
+   "name": "Ember",
+   "batch": 1,
+   "type": "Fire",
+   "art": "ember",
+   "hasArt": true,
+   "theme": "Cheap, flexible burn (bible example; on curve).",
+   "modes": [
+    {
+     "mode": "React",
+     "cost": 1,
+     "cardText": "2 damage",
+     "text": "2 damage to an enemy Pokémon."
+    },
+    {
+     "mode": "Adapt",
+     "cost": 2,
+     "cardText": "3 damage",
+     "text": "3 damage to an enemy Pokémon."
+    },
+    {
+     "mode": "Strat",
+     "cost": 3,
+     "cardText": "5 damage",
+     "text": "5 damage to an enemy Pokémon."
+    }
+   ]
+  },
+  {
+   "id": "flame-charge",
+   "name": "Flame Charge",
+   "batch": 1,
+   "type": "Fire",
+   "art": "flame-charge",
+   "hasArt": true,
+   "theme": "Powers up an attacker for good.",
+   "modes": [
+    {
+     "mode": "React",
+     "cost": 1,
+     "cardText": "+1 Attack, +1 Strength",
+     "text": "Your Pokémon being attacked gets +1 Attack and +1 Strength until Supper."
+    },
+    {
+     "mode": "Adapt",
+     "cost": 2,
+     "cardText": "+2 Attack (kept), Active",
+     "text": "One of your Pokémon gets +2 Attack (kept) and becomes Active."
+    },
+    {
+     "mode": "Strat",
+     "cost": 3,
+     "cardText": "+3 Attack, +2 Strength kept",
+     "text": "One of your Pokémon gets +3 Attack and +2 Strength (kept)."
+    }
+   ]
+  },
+  {
+   "id": "heat-wave",
+   "name": "Heat Wave",
+   "batch": 1,
+   "type": "Fire",
+   "art": "heat-wave",
+   "hasArt": true,
+   "theme": "Scorches the whole enemy side.",
+   "modes": [
+    {
+     "mode": "React",
+     "cost": 1,
+     "cardText": "1 damage in its Location",
+     "text": "1 damage to each enemy Pokémon in the attacker's Location."
+    },
+    {
+     "mode": "Adapt",
+     "cost": 2,
+     "cardText": "1 damage to all, −1 Attack",
+     "text": "1 damage to each enemy Pokémon, and they get −1 Attack until Supper."
+    },
+    {
+     "mode": "Strat",
+     "cost": 4,
+     "cardText": "3 damage to all, −1 Attack",
+     "text": "3 damage to each enemy Pokémon, and they get −1 Attack until Supper."
+    }
+   ]
+  },
+  {
+   "id": "surf",
+   "name": "Surf",
+   "batch": 1,
+   "type": "Water",
+   "art": "surf",
+   "hasArt": true,
+   "theme": "A wave across one Location.",
+   "modes": [
+    {
+     "mode": "React",
+     "cost": 1,
+     "cardText": "Heal 3 first",
+     "text": "Heal 3 to your Pokémon being attacked, before the damage."
+    },
+    {
+     "mode": "Adapt",
+     "cost": 3,
+     "cardText": "3 damage in a Location",
+     "text": "3 damage to each enemy Pokémon in a Location."
+    },
+    {
+     "mode": "Strat",
+     "cost": 4,
+     "cardText": "5 damage in a Location",
+     "text": "5 damage to each enemy Pokémon in a Location."
+    }
+   ]
+  },
+  {
+   "id": "bubble-beam",
+   "name": "Bubble Beam",
+   "batch": 1,
+   "type": "Water",
+   "art": "bubble-beam",
+   "hasArt": true,
+   "theme": "Damage that also stops a Pokémon.",
+   "modes": [
+    {
+     "mode": "React",
+     "cost": 1,
+     "cardText": "The attack deals 2 less",
+     "text": "The attack deals 2 less damage (minimum 0)."
+    },
+    {
+     "mode": "Adapt",
+     "cost": 2,
+     "cardText": "2 damage, Spent",
+     "text": "2 damage to an enemy Pokémon, and it becomes Spent."
+    },
+    {
+     "mode": "Strat",
+     "cost": 3,
+     "cardText": "3 damage, Spent",
+     "text": "3 damage to an enemy Pokémon, and it becomes Spent."
+    }
+   ]
+  },
+  {
+   "id": "dive",
+   "name": "Dive",
+   "batch": 1,
+   "type": "Water",
+   "art": "dive",
+   "hasArt": true,
+   "theme": "Saves a Pokémon and re-uses its On Summon.",
+   "modes": [
+    {
+     "mode": "React",
+     "cost": 1,
+     "cardText": "Save it: back to your hand",
+     "text": "Return your Pokémon being attacked to your hand. The attack fizzles."
+    },
+    {
+     "mode": "Adapt",
+     "cost": 1,
+     "cardText": "Back to your hand",
+     "text": "Return one of your Pokémon to your hand."
+    },
+    {
+     "mode": "Strat",
+     "cost": 2,
+     "cardText": "Back to your hand, draw 1",
+     "text": "Return one of your Pokémon to your hand, and draw 1 card."
+    }
+   ]
+  },
+  {
+   "id": "thunderbolt",
+   "name": "Thunderbolt",
+   "batch": 1,
+   "type": "Electric",
+   "art": "thunderbolt",
+   "hasArt": true,
+   "theme": "The big single-target hit.",
+   "modes": [
+    {
+     "mode": "React",
+     "cost": 2,
+     "cardText": "3 damage to the attacker",
+     "text": "3 damage to the attacker, before its attack."
+    },
+    {
+     "mode": "Adapt",
+     "cost": 3,
+     "cardText": "5 damage",
+     "text": "5 damage to an enemy Pokémon."
+    },
+    {
+     "mode": "Strat",
+     "cost": 4,
+     "cardText": "7 damage",
+     "text": "7 damage to an enemy Pokémon."
+    }
+   ]
+  },
+  {
+   "id": "thunder-wave",
+   "name": "Thunder Wave",
+   "batch": 1,
+   "type": "Electric",
+   "art": "thunder-wave",
+   "hasArt": false,
+   "theme": "Stops enemies in their tracks.",
+   "modes": [
+    {
+     "mode": "React",
+     "cost": 1,
+     "cardText": "The attacker gets −2 Attack",
+     "text": "The attacker gets −2 Attack until Supper."
+    },
+    {
+     "mode": "Adapt",
+     "cost": 1,
+     "cardText": "An enemy becomes Spent",
+     "text": "An enemy Pokémon becomes Spent."
+    },
+    {
+     "mode": "Strat",
+     "cost": 2,
+     "cardText": "Spend all in a Location",
+     "text": "Each enemy Pokémon in a Location becomes Spent."
+    }
+   ]
+  },
+  {
+   "id": "leech-seed",
+   "name": "Leech Seed",
+   "batch": 1,
+   "type": "Grass",
+   "art": "leech-seed",
+   "hasArt": true,
+   "theme": "Damage that heals your side.",
+   "modes": [
+    {
+     "mode": "React",
+     "cost": 1,
+     "cardText": "1 damage, heal 1",
+     "text": "1 damage to the attacker, and heal 1 to your Pokémon being attacked."
+    },
+    {
+     "mode": "Adapt",
+     "cost": 2,
+     "cardText": "2 damage, heal 2",
+     "text": "2 damage to an enemy Pokémon, and heal 2 to one of yours."
+    },
+    {
+     "mode": "Strat",
+     "cost": 3,
+     "cardText": "3 damage, heal 3 to all",
+     "text": "3 damage to an enemy Pokémon, and heal 3 to each of yours."
+    }
+   ]
+  },
+  {
+   "id": "solar-beam",
+   "name": "Solar Beam",
+   "batch": 1,
+   "type": "Grass",
+   "art": "solar-beam",
+   "hasArt": true,
+   "theme": "Charge it as a Strat for a huge hit.",
+   "modes": [
+    {
+     "mode": "Adapt",
+     "cost": 3,
+     "cardText": "4 damage",
+     "text": "4 damage to an enemy Pokémon."
+    },
+    {
+     "mode": "Strat",
+     "cost": 3,
+     "cardText": "6 damage",
+     "text": "6 damage to an enemy Pokémon."
+    }
+   ]
+  },
+  {
+   "id": "psychic",
+   "name": "Psychic",
+   "batch": 2,
+   "type": "Psychic",
+   "art": "psychic",
+   "hasArt": false,
+   "theme": "Damage that also weakens.",
+   "modes": [
+    {
+     "mode": "React",
+     "cost": 2,
+     "cardText": "2 damage, −1 Attack",
+     "text": "2 damage to the attacker, and it gets −1 Attack until Supper."
+    },
+    {
+     "mode": "Adapt",
+     "cost": 2,
+     "cardText": "3 damage, −1 Attack",
+     "text": "3 damage to an enemy Pokémon, and it gets −1 Attack until Supper."
+    },
+    {
+     "mode": "Strat",
+     "cost": 3,
+     "cardText": "4 damage, −2 Attack",
+     "text": "4 damage to an enemy Pokémon, and it gets −2 Attack until Supper."
+    }
+   ]
+  },
+  {
+   "id": "calm-mind",
+   "name": "Calm Mind",
+   "batch": 2,
+   "type": "Psychic",
+   "art": "calm-mind",
+   "hasArt": false,
+   "theme": "Cheap, lasting growth; feeds On Command.",
+   "modes": [
+    {
+     "mode": "React",
+     "cost": 1,
+     "cardText": "+2 Strength first",
+     "text": "Your Pokémon being attacked gets +2 Strength until Supper."
+    },
+    {
+     "mode": "Adapt",
+     "cost": 1,
+     "cardText": "+1 Atk, +1 Str kept",
+     "text": "One of your Pokémon gets +1 Attack and +1 Strength (kept)."
+    },
+    {
+     "mode": "Strat",
+     "cost": 2,
+     "cardText": "+2 Atk, +2 Str kept",
+     "text": "One of your Pokémon gets +2 Attack and +2 Strength (kept)."
+    }
+   ]
+  },
+  {
+   "id": "close-combat",
+   "name": "Close Combat",
+   "batch": 2,
+   "type": "Fighting",
+   "art": "close-combat",
+   "hasArt": false,
+   "theme": "A huge hit that costs your fighter.",
+   "modes": [
+    {
+     "mode": "Adapt",
+     "cost": 2,
+     "cardText": "4 damage, yours takes 1",
+     "text": "4 damage to the enemy across from one of your Pokémon, and yours takes 1 damage."
+    },
+    {
+     "mode": "Strat",
+     "cost": 3,
+     "cardText": "6 damage, yours takes 2",
+     "text": "6 damage to the enemy across from one of your Pokémon, and yours takes 2 damage."
+    }
+   ]
+  },
+  {
+   "id": "detect",
+   "name": "Detect",
+   "batch": 2,
+   "type": "Fighting",
+   "art": "detect",
+   "hasArt": false,
+   "theme": "Read the blow and hit back.",
+   "modes": [
+    {
+     "mode": "React",
+     "cost": 1,
+     "cardText": "−1 damage, 1 to attacker",
+     "text": "The attack deals 1 less damage, and 1 damage to the attacker."
+    },
+    {
+     "mode": "Adapt",
+     "cost": 1,
+     "cardText": "Retaliate 2 until Supper",
+     "text": "One of your Pokémon gets Retaliate 2 until Supper."
+    }
+   ]
+  },
+  {
+   "id": "shadow-ball",
+   "name": "Shadow Ball",
+   "batch": 2,
+   "type": "Ghost",
+   "art": "shadow-ball",
+   "hasArt": false,
+   "theme": "Damage, and a fallen card comes back.",
+   "modes": [
+    {
+     "mode": "React",
+     "cost": 1,
+     "cardText": "2 damage to the attacker",
+     "text": "2 damage to the attacker, before its attack."
+    },
+    {
+     "mode": "Adapt",
+     "cost": 2,
+     "cardText": "3 damage",
+     "text": "3 damage to an enemy Pokémon."
+    },
+    {
+     "mode": "Strat",
+     "cost": 3,
+     "cardText": "4 damage, recover 1",
+     "text": "4 damage to an enemy Pokémon, and return a Pokémon card from your Discard Pile to your hand."
+    }
+   ]
+  },
+  {
+   "id": "destiny-bond",
+   "name": "Destiny Bond",
+   "batch": 2,
+   "type": "Ghost",
+   "art": "destiny-bond",
+   "hasArt": false,
+   "theme": "If it goes down, it takes the attacker with it.",
+   "modes": [
+    {
+     "mode": "React",
+     "cost": 2,
+     "cardText": "Attacker falls with it",
+     "text": "If your Pokémon being attacked is defeated, the attacker is defeated too."
+    },
+    {
+     "mode": "Adapt",
+     "cost": 1,
+     "cardText": "Defeated: 3 damage back",
+     "text": "Until Supper, one of your Pokémon has \"On Defeated: 3 damage to the Pokémon that defeated it.\""
+    }
+   ]
+  },
+  {
+   "id": "sucker-punch",
+   "name": "Sucker Punch",
+   "batch": 2,
+   "type": "Dark",
+   "art": "sucker-punch",
+   "hasArt": false,
+   "theme": "Punishes the Pokémon about to strike.",
+   "modes": [
+    {
+     "mode": "React",
+     "cost": 1,
+     "cardText": "2 damage to the attacker",
+     "text": "2 damage to the attacker, before its attack."
+    },
+    {
+     "mode": "Adapt",
+     "cost": 1,
+     "cardText": "2 damage, Active enemy",
+     "text": "2 damage to an Active enemy Pokémon."
+    }
+   ]
+  },
+  {
+   "id": "thief",
+   "name": "Thief",
+   "batch": 2,
+   "type": "Dark",
+   "art": "thief",
+   "hasArt": false,
+   "theme": "Steals from the opponent's hand.",
+   "modes": [
+    {
+     "mode": "React",
+     "cost": 1,
+     "cardText": "Gain $2",
+     "text": "Gain $2."
+    },
+    {
+     "mode": "Adapt",
+     "cost": 1,
+     "cardText": "They discard at random",
+     "text": "The opponent discards a random card."
+    },
+    {
+     "mode": "Strat",
+     "cost": 2,
+     "cardText": "Take a random card",
+     "text": "Put a random card from the opponent's hand into yours."
+    }
+   ]
+  },
+  {
+   "id": "rock-slide",
+   "name": "Rock Slide",
+   "batch": 3,
+   "type": "Rock",
+   "art": "rock-slide",
+   "hasArt": true,
+   "theme": "Rocks across a Location that also fortify your side.",
+   "modes": [
+    {
+     "mode": "Adapt",
+     "cost": 2,
+     "cardText": "2 damage in a Location",
+     "text": "2 damage to each enemy Pokémon in a Location."
+    },
+    {
+     "mode": "Strat",
+     "cost": 3,
+     "cardText": "3 damage there, +1 Str",
+     "text": "3 damage to each enemy Pokémon in a Location, and your Pokémon there get +1 Strength (kept)."
+    }
+   ]
+  },
+  {
+   "id": "dragon-dance",
+   "name": "Dragon Dance",
+   "batch": 3,
+   "type": "Dragon",
+   "art": "dragon-dance",
+   "hasArt": false,
+   "theme": "Powers a dragon up for good.",
+   "modes": [
+    {
+     "mode": "Adapt",
+     "cost": 1,
+     "cardText": "+1 Attack (kept), faster",
+     "text": "One of your Pokémon gets +1 Attack (kept), and its Speed is one step higher (kept)."
+    },
+    {
+     "mode": "Strat",
+     "cost": 2,
+     "cardText": "+2 Attack (kept), Active",
+     "text": "One of your Pokémon gets +2 Attack (kept) and becomes Active."
+    }
+   ]
+  },
+  {
+   "id": "draco-meteor",
+   "name": "Draco Meteor",
+   "batch": 3,
+   "type": "Dragon",
+   "art": "draco-meteor",
+   "hasArt": false,
+   "theme": "The biggest hit in the game.",
+   "modes": [
+    {
+     "mode": "Adapt",
+     "cost": 4,
+     "cardText": "6 damage",
+     "text": "6 damage to an enemy Pokémon."
+    },
+    {
+     "mode": "Strat",
+     "cost": 5,
+     "cardText": "7 damage, splash 2",
+     "text": "7 damage to an enemy Pokémon, and 2 to each other enemy in its Location."
+    }
+   ]
+  },
+  {
+   "id": "iron-defense",
+   "name": "Iron Defense",
+   "batch": 3,
+   "type": "Steel",
+   "art": "iron-defense",
+   "hasArt": false,
+   "theme": "Armour plating, now or for good.",
+   "modes": [
+    {
+     "mode": "React",
+     "cost": 1,
+     "cardText": "Shell 2 first",
+     "text": "Your Pokémon being attacked gets Shell 2 until Supper."
+    },
+    {
+     "mode": "Adapt",
+     "cost": 2,
+     "cardText": "Shell 1, +1 Strength (kept)",
+     "text": "One of your Pokémon gets Shell 1 and +1 Strength (kept)."
+    }
+   ]
+  },
+  {
+   "id": "flash-cannon",
+   "name": "Flash Cannon",
+   "batch": 3,
+   "type": "Steel",
+   "art": "flash-cannon",
+   "hasArt": false,
+   "theme": "Hits harder if you hold an Item.",
+   "modes": [
+    {
+     "mode": "Adapt",
+     "cost": 2,
+     "cardText": "3 damage, 4 with an Item",
+     "text": "3 damage to an enemy Pokémon; 4 if one of your Pokémon holds an Item."
+    },
+    {
+     "mode": "Strat",
+     "cost": 3,
+     "cardText": "5 damage, 6 with an Item",
+     "text": "5 damage to an enemy Pokémon; 6 if one of your Pokémon holds an Item."
+    }
+   ]
+  },
+  {
+   "id": "moonblast",
+   "name": "Moonblast",
+   "batch": 3,
+   "type": "Fairy",
+   "art": "moonblast",
+   "hasArt": false,
+   "theme": "Damage with a healing glow.",
+   "modes": [
+    {
+     "mode": "React",
+     "cost": 1,
+     "cardText": "1 to the attacker, heal 2",
+     "text": "1 damage to the attacker, and heal 2 to your Pokémon being attacked."
+    },
+    {
+     "mode": "Adapt",
+     "cost": 2,
+     "cardText": "3 damage, heal 1 to all",
+     "text": "3 damage to an enemy Pokémon, and heal 1 to each of your Pokémon."
+    },
+    {
+     "mode": "Strat",
+     "cost": 3,
+     "cardText": "4 damage, heal 2 to all",
+     "text": "4 damage to an enemy Pokémon, and heal 2 to each of your Pokémon."
+    }
+   ]
+  },
+  {
+   "id": "misty-terrain",
+   "name": "Misty Terrain",
+   "batch": 3,
+   "type": "Fairy",
+   "art": "misty-terrain",
+   "hasArt": false,
+   "theme": "A protective mist over your side.",
+   "modes": [
+    {
+     "mode": "React",
+     "cost": 1,
+     "cardText": "1 less damage, heal 1",
+     "text": "The attack deals 1 less damage, and heal 1 to your Pokémon being attacked."
+    },
+    {
+     "mode": "Adapt",
+     "cost": 2,
+     "cardText": "Shell 1 there, heal 2",
+     "text": "Your Pokémon in a Location get Shell 1 until Supper, and heal 2 to each."
+    },
+    {
+     "mode": "Strat",
+     "cost": 3,
+     "cardText": "Shell 1 to all, heal 4",
+     "text": "Your Pokémon get Shell 1 until Supper, and heal 4 to each."
+    }
+   ]
+  },
+  {
+   "id": "ice-beam",
+   "name": "Ice Beam",
+   "batch": 4,
+   "type": "Ice",
+   "art": "ice-beam",
+   "hasArt": false,
+   "theme": "Damage that freezes the target.",
+   "modes": [
+    {
+     "mode": "Adapt",
+     "cost": 3,
+     "cardText": "4 damage, Spent",
+     "text": "4 damage to an enemy Pokémon, and it becomes Spent."
+    },
+    {
+     "mode": "Strat",
+     "cost": 4,
+     "cardText": "5 damage, Spent",
+     "text": "5 damage to an enemy Pokémon, and it becomes Spent."
+    }
+   ]
+  },
+  {
+   "id": "blizzard",
+   "name": "Blizzard",
+   "batch": 4,
+   "type": "Ice",
+   "art": "blizzard",
+   "hasArt": false,
+   "theme": "Freezes a Location, or the whole board.",
+   "modes": [
+    {
+     "mode": "Adapt",
+     "cost": 3,
+     "cardText": "1 damage there, all Spent",
+     "text": "1 damage to each enemy Pokémon in a Location, and they become Spent."
+    },
+    {
+     "mode": "Strat",
+     "cost": 5,
+     "cardText": "2 damage to all, Spent",
+     "text": "2 damage to each enemy Pokémon, and they become Spent."
+    }
+   ]
+  },
+  {
+   "id": "toxic",
+   "name": "Toxic",
+   "batch": 4,
+   "type": "Poison",
+   "art": "toxic",
+   "hasArt": false,
+   "theme": "Poison that lasts.",
+   "modes": [
+    {
+     "mode": "React",
+     "cost": 1,
+     "cardText": "1 damage, −1 Attack kept",
+     "text": "1 damage to the attacker, and it gets −1 Attack (kept)."
+    },
+    {
+     "mode": "Adapt",
+     "cost": 1,
+     "cardText": "−2 Attack (kept)",
+     "text": "An enemy Pokémon gets −2 Attack (kept)."
+    },
+    {
+     "mode": "Strat",
+     "cost": 2,
+     "cardText": "−2 Atk, −2 Str (kept)",
+     "text": "An enemy Pokémon gets −2 Attack and −2 Strength (kept)."
+    }
+   ]
+  },
+  {
+   "id": "sludge-bomb",
+   "name": "Sludge Bomb",
+   "batch": 4,
+   "type": "Poison",
+   "art": "sludge-bomb",
+   "hasArt": false,
+   "theme": "Damage that leaves lasting poison.",
+   "modes": [
+    {
+     "mode": "Adapt",
+     "cost": 2,
+     "cardText": "3 damage, −1 Attack kept",
+     "text": "3 damage to an enemy Pokémon, and it gets −1 Attack (kept)."
+    },
+    {
+     "mode": "Strat",
+     "cost": 3,
+     "cardText": "4 damage, −2 Attack kept",
+     "text": "4 damage to an enemy Pokémon, and it gets −2 Attack (kept)."
+    }
+   ]
+  },
+  {
+   "id": "earthquake",
+   "name": "Earthquake",
+   "batch": 4,
+   "type": "Ground",
+   "art": "earthquake",
+   "hasArt": false,
+   "theme": "Shakes everyone, yours a little too.",
+   "modes": [
+    {
+     "mode": "Adapt",
+     "cost": 3,
+     "cardText": "3 to all enemies, 1 to yours",
+     "text": "3 damage to each enemy Pokémon, and 1 to each of yours."
+    },
+    {
+     "mode": "Strat",
+     "cost": 4,
+     "cardText": "4 to all enemies, 1 to yours",
+     "text": "4 damage to each enemy Pokémon, and 1 to each of yours."
+    }
+   ]
+  },
+  {
+   "id": "dig",
+   "name": "Dig",
+   "batch": 4,
+   "type": "Ground",
+   "art": "dig",
+   "hasArt": false,
+   "theme": "Go underground, come back stronger.",
+   "modes": [
+    {
+     "mode": "Adapt",
+     "cost": 1,
+     "cardText": "Stealth, +1 Strength (kept)",
+     "text": "One of your Pokémon gets Stealth until Supper and +1 Strength (kept)."
+    },
+    {
+     "mode": "Strat",
+     "cost": 2,
+     "cardText": "Stealth, +2 Attack (kept)",
+     "text": "One of your Pokémon gets Stealth until Supper and +2 Attack (kept)."
+    }
+   ]
+  },
+  {
+   "id": "tailwind",
+   "name": "Tailwind",
+   "batch": 4,
+   "type": "Flying",
+   "art": "tailwind",
+   "hasArt": false,
+   "theme": "Your whole side moves first.",
+   "modes": [
+    {
+     "mode": "Adapt",
+     "cost": 1,
+     "cardText": "All yours one step faster",
+     "text": "Your Pokémon's Speed is one step higher until Supper."
+    },
+    {
+     "mode": "Strat",
+     "cost": 2,
+     "cardText": "All yours become Active",
+     "text": "Your Pokémon become Active."
+    }
+   ]
+  },
+  {
+   "id": "aerial-ace",
+   "name": "Aerial Ace",
+   "batch": 4,
+   "type": "Flying",
+   "art": "aerial-ace",
+   "hasArt": false,
+   "theme": "A strike that can't be answered.",
+   "modes": [
+    {
+     "mode": "Adapt",
+     "cost": 2,
+     "cardText": "3 damage, no React",
+     "text": "3 damage to an enemy Pokémon. This can't be Reacted to."
+    },
+    {
+     "mode": "Strat",
+     "cost": 3,
+     "cardText": "5 damage, no React",
+     "text": "5 damage to an enemy Pokémon. This can't be Reacted to."
+    }
+   ]
+  },
+  {
+   "id": "u-turn",
+   "name": "U-turn",
+   "batch": 4,
+   "type": "Bug",
+   "art": "u-turn",
+   "hasArt": false,
+   "theme": "Hit, then pull your Pokémon back to replay it.",
+   "modes": [
+    {
+     "mode": "Adapt",
+     "cost": 1,
+     "cardText": "Back to hand, 1 damage",
+     "text": "Return one of your Pokémon to your hand, and 1 damage to an enemy Pokémon."
+    },
+    {
+     "mode": "Strat",
+     "cost": 2,
+     "cardText": "Back to hand, 2 damage",
+     "text": "Return one of your Pokémon to your hand, and 2 damage to an enemy Pokémon."
+    }
+   ]
+  }
+ ],
+ "supporters": [
+  {
+   "id": "nurse-joy",
+   "name": "Nurse Joy",
+   "batch": 1,
+   "art": "nurse-joy",
+   "hasArt": true,
+   "release": 1,
+   "text": "Heal 3 to each of your Pokémon, and draw 1 card.",
+   "favour": {
+    "release": "a Water Pokémon",
+    "text": "Heal 5 instead.",
+    "recognition": 3
+   }
+  },
+  {
+   "id": "professor-oak",
+   "name": "Professor Oak",
+   "batch": 1,
+   "art": "professor-oak",
+   "hasArt": true,
+   "release": 1,
+   "text": "Put 2 Pokémon cards from your Draw Pile into your hand.",
+   "favour": {
+    "release": "a Location",
+    "text": "3 cards instead.",
+    "recognition": 3
+   }
+  },
+  {
+   "id": "brock",
+   "name": "Brock",
+   "batch": 1,
+   "art": "brock",
+   "hasArt": true,
+   "release": 1,
+   "text": "+1 Strength (kept) to each of your Pokémon, and heal 2 to each.",
+   "favour": {
+    "release": "a Pokémon of Level 4 or more",
+    "text": "+2 Strength instead.",
+    "recognition": 3
+   }
+  },
+  {
+   "id": "flannery",
+   "name": "Flannery",
+   "batch": 1,
+   "art": "flannery",
+   "hasArt": true,
+   "release": 1,
+   "text": "Each of your Pokémon gets +2 Attack until Supper.",
+   "favour": {
+    "release": "a Fire Pokémon",
+    "text": "+3 Attack instead.",
+    "recognition": 3
+   }
+  },
+  {
+   "id": "pokemon-breeder",
+   "name": "Pokémon Breeder",
+   "batch": 1,
+   "art": "pokemon-breeder",
+   "hasArt": true,
+   "release": 1,
+   "text": "Put 2 Pokémon cards from your Discard Pile into your hand.",
+   "favour": {
+    "release": "an Item",
+    "text": "3 cards instead.",
+    "recognition": 3
+   }
+  },
+  {
+   "id": "tracey",
+   "name": "Tracey",
+   "batch": 1,
+   "art": "tracey",
+   "hasArt": true,
+   "release": 1,
+   "text": "Draw 3 cards.",
+   "favour": {
+    "release": "a Move",
+    "text": "Draw 4 instead.",
+    "recognition": 3
+   }
+  },
+  {
+   "id": "fisherman",
+   "name": "Fisherman",
+   "batch": 1,
+   "art": "fisherman",
+   "hasArt": true,
+   "release": 1,
+   "text": "Put a Pokémon card from your Draw Pile into your hand. It gains +2 Levels.",
+   "favour": {
+    "release": "a Water Pokémon",
+    "text": "+4 Levels instead.",
+    "recognition": 3
+   }
+  },
+  {
+   "id": "swimmer",
+   "name": "Swimmer",
+   "batch": 1,
+   "art": "swimmer",
+   "hasArt": true,
+   "release": 1,
+   "text": "Return one of your Pokémon to your hand, and draw 2 cards.",
+   "favour": {
+    "release": "a Water Pokémon",
+    "text": "Draw 3 instead.",
+    "recognition": 3
+   }
+  },
+  {
+   "id": "firebreather",
+   "name": "Firebreather",
+   "batch": 1,
+   "art": "firebreather",
+   "hasArt": true,
+   "release": 1,
+   "text": "2 damage to an enemy Pokémon, and 1 to each other enemy in its Location.",
+   "favour": {
+    "release": "a Fire Pokémon",
+    "text": "3 and 2 instead.",
+    "recognition": 3
+   }
+  },
+  {
+   "id": "chili",
+   "name": "Chili",
+   "batch": 1,
+   "art": "chili",
+   "hasArt": true,
+   "release": 1,
+   "text": "One of your Pokémon becomes Active and gets +2 Attack until Supper.",
+   "favour": {
+    "release": "a Fire Pokémon",
+    "text": "+3 Attack, and Overrun until Supper.",
+    "recognition": 3
+   }
+  },
+  {
+   "id": "crasher-wake",
+   "name": "Crasher Wake",
+   "batch": 1,
+   "art": "crasher-wake",
+   "hasArt": true,
+   "release": 2,
+   "text": "3 damage to each enemy in a Location, and heal 2 to each of yours there.",
+   "favour": {
+    "release": "a Water Pokémon",
+    "text": "4 damage instead.",
+    "recognition": 3
+   }
+  },
+  {
+   "id": "kabu",
+   "name": "Kabu",
+   "batch": 1,
+   "art": "kabu",
+   "hasArt": true,
+   "release": 2,
+   "text": "2 damage to each enemy. Your Pokémon get +1 Attack until Supper.",
+   "favour": {
+    "release": "a Fire Pokémon",
+    "text": "3 damage instead.",
+    "recognition": 3
+   }
+  },
+  {
+   "id": "wallace",
+   "name": "Wallace",
+   "batch": 1,
+   "art": "wallace",
+   "hasArt": true,
+   "release": 2,
+   "text": "Heal 3 to each of your Pokémon, and they get Shell 1 until Supper.",
+   "favour": {
+    "release": "a Water Pokémon",
+    "text": "Shell 2 instead.",
+    "recognition": 3
+   }
+  },
+  {
+   "id": "ramos",
+   "name": "Ramos",
+   "batch": 1,
+   "art": "ramos",
+   "hasArt": true,
+   "release": 1,
+   "text": "+1 Attack and +1 Strength (kept) to each of your Pokémon in a Location.",
+   "favour": {
+    "release": "a Grass Pokémon",
+    "text": "+2 and +2 instead.",
+    "recognition": 3
+   }
+  },
+  {
+   "id": "gardenia",
+   "name": "Gardenia",
+   "batch": 1,
+   "art": "gardenia",
+   "hasArt": true,
+   "release": 1,
+   "text": "Each Pokémon card in your hand gains +1 Level. Draw 1 card.",
+   "favour": {
+    "release": "a Grass Pokémon",
+    "text": "+2 Levels instead.",
+    "recognition": 3
+   }
+  },
+  {
+   "id": "black-belt",
+   "name": "Black Belt",
+   "batch": 2,
+   "art": "black-belt",
+   "hasArt": true,
+   "release": 1,
+   "text": "One of your Pokémon gets +2 Attack and +2 Strength (kept).",
+   "favour": {
+    "release": "a Fighting Pokémon",
+    "text": "+3 and +3 instead.",
+    "recognition": 3
+   }
+  },
+  {
+   "id": "burglar",
+   "name": "Burglar",
+   "batch": 2,
+   "art": "burglar",
+   "hasArt": true,
+   "release": 1,
+   "text": "Put a random card from the opponent's hand into yours, and gain $1.",
+   "favour": {
+    "release": "a Dark Pokémon",
+    "text": "Gain $3 instead.",
+    "recognition": 3
+   }
+  },
+  {
+   "id": "officer-jenny",
+   "name": "Officer Jenny",
+   "batch": 2,
+   "art": "officer-jenny",
+   "hasArt": false,
+   "release": 1,
+   "text": "Each enemy Pokémon in a Location becomes Spent.",
+   "favour": {
+    "release": "a Move",
+    "text": "They also take 1 damage.",
+    "recognition": 3
+   }
+  },
+  {
+   "id": "bill",
+   "name": "Bill",
+   "batch": 2,
+   "art": "bill",
+   "hasArt": false,
+   "release": 1,
+   "text": "Put any 2 cards from your Draw Pile into your hand.",
+   "favour": {
+    "release": "a Psychic Pokémon",
+    "text": "3 cards instead.",
+    "recognition": 3
+   }
+  },
+  {
+   "id": "mr-fuji",
+   "name": "Mr. Fuji",
+   "batch": 2,
+   "art": "mr-fuji",
+   "hasArt": false,
+   "release": 1,
+   "text": "Summon a Pokémon of Level 3 or less from your Discard Pile, for free.",
+   "favour": {
+    "release": "a Ghost Pokémon",
+    "text": "Level 5 or less instead.",
+    "recognition": 3
+   }
+  },
+  {
+   "id": "team-rocket-grunt",
+   "name": "Team Rocket Grunt",
+   "batch": 2,
+   "art": "team-rocket-grunt",
+   "hasArt": false,
+   "release": 1,
+   "text": "The opponent discards 2 random cards, and you gain $1.",
+   "favour": {
+    "release": "a Dark Pokémon",
+    "text": "3 cards instead.",
+    "recognition": 3
+   }
+  },
+  {
+   "id": "hiker",
+   "name": "Hiker",
+   "batch": 3,
+   "art": "hiker",
+   "hasArt": false,
+   "release": 1,
+   "text": "+2 Strength (kept) and heal 2 to your Pokémon in a Location.",
+   "favour": {
+    "release": "a Rock Pokémon",
+    "text": "+3 Strength instead.",
+    "recognition": 3
+   }
+  },
+  {
+   "id": "ace-trainer",
+   "name": "Ace Trainer",
+   "batch": 3,
+   "art": "ace-trainer",
+   "hasArt": false,
+   "release": 2,
+   "text": "Draw 3 cards, and +1 Energy this Round.",
+   "favour": {
+    "release": "a Pokémon of Level 6 or more",
+    "text": "Draw 4 instead.",
+    "recognition": 3
+   }
+  },
+  {
+   "id": "bug-catcher",
+   "name": "Bug Catcher",
+   "batch": 4,
+   "art": "bug-catcher",
+   "hasArt": false,
+   "release": 1,
+   "text": "Put 3 Pokémon cards of Level 3 or less from your Draw Pile into your hand.",
+   "favour": {
+    "release": "a Bug Pokémon",
+    "text": "4 cards instead.",
+    "recognition": 3
+   }
+  }
+ ],
+ "items": [
+  {
+   "id": "oran-berry",
+   "name": "Oran Berry",
+   "batch": 1,
+   "art": "oran-berry",
+   "hasArt": true,
+   "price": 1,
+   "kind": "Consumed",
+   "stock": 8,
+   "text": "Heal 4 to one of your Pokémon."
+  },
+  {
+   "id": "sitrus-berry",
+   "name": "Sitrus Berry",
+   "batch": 1,
+   "art": "sitrus-berry",
+   "hasArt": false,
+   "price": 2,
+   "kind": "Consumed",
+   "stock": 6,
+   "text": "Heal 5 to one of your Pokémon, and it gets +1 Strength (kept)."
+  },
+  {
+   "id": "potion",
+   "name": "Potion",
+   "batch": 1,
+   "art": "potion",
+   "hasArt": true,
+   "price": 2,
+   "kind": "Consumed",
+   "stock": 6,
+   "text": "Heal 8 to one of your Pokémon."
+  },
+  {
+   "id": "super-potion",
+   "name": "Super Potion",
+   "batch": 1,
+   "art": "super-potion",
+   "hasArt": false,
+   "price": 3,
+   "kind": "Consumed",
+   "stock": 4,
+   "text": "Heal 8 to one of your Pokémon, and it gets +2 Strength (kept)."
+  },
+  {
+   "id": "x-attack",
+   "name": "X Attack",
+   "batch": 1,
+   "art": "x-attack",
+   "hasArt": true,
+   "price": 1,
+   "kind": "Consumed",
+   "stock": 8,
+   "text": "One of your Pokémon gets +2 Attack until Supper and becomes Active."
+  },
+  {
+   "id": "amulet-coin",
+   "name": "Amulet Coin",
+   "batch": 1,
+   "art": "amulet-coin",
+   "hasArt": true,
+   "price": 3,
+   "kind": "Consumed",
+   "stock": 4,
+   "text": "Gain 5 Recognition."
+  },
+  {
+   "id": "charcoal",
+   "name": "Charcoal",
+   "batch": 1,
+   "art": "charcoal",
+   "hasArt": true,
+   "price": 2,
+   "kind": "Held",
+   "stock": 6,
+   "text": "+2 Attack. A Fire Pokémon also has Overrun."
+  },
+  {
+   "id": "mystic-water",
+   "name": "Mystic Water",
+   "batch": 1,
+   "art": "mystic-water",
+   "hasArt": true,
+   "price": 2,
+   "kind": "Held",
+   "stock": 6,
+   "text": "+2 Strength. A Water Pokémon also has Shell 1."
+  },
+  {
+   "id": "miracle-seed",
+   "name": "Miracle Seed",
+   "batch": 1,
+   "art": "miracle-seed",
+   "hasArt": true,
+   "price": 2,
+   "kind": "Held",
+   "stock": 6,
+   "text": "Regenerate 1. A Grass Pokémon also has Drain."
+  },
+  {
+   "id": "magnet",
+   "name": "Magnet",
+   "batch": 1,
+   "art": "magnet",
+   "hasArt": false,
+   "price": 2,
+   "kind": "Held",
+   "stock": 6,
+   "text": "+1 Attack. An Electric Pokémon also has Infiltrator."
+  },
+  {
+   "id": "quick-claw",
+   "name": "Quick Claw",
+   "batch": 1,
+   "art": "quick-claw",
+   "hasArt": true,
+   "price": 1,
+   "kind": "Held",
+   "stock": 8,
+   "text": "Its Speed is one step higher."
+  },
+  {
+   "id": "choice-band",
+   "name": "Choice Band",
+   "batch": 1,
+   "art": "choice-band",
+   "hasArt": true,
+   "price": 3,
+   "kind": "Held",
+   "stock": 4,
+   "text": "+3 Attack, but it can't hit back."
+  },
+  {
+   "id": "leftovers",
+   "name": "Leftovers",
+   "batch": 1,
+   "art": "leftovers",
+   "hasArt": true,
+   "price": 2,
+   "kind": "Held",
+   "stock": 6,
+   "text": "Regenerate 2."
+  },
+  {
+   "id": "rocky-helmet",
+   "name": "Rocky Helmet",
+   "batch": 1,
+   "art": "rocky-helmet",
+   "hasArt": true,
+   "price": 2,
+   "kind": "Held",
+   "stock": 6,
+   "text": "Retaliate 2."
+  },
+  {
+   "id": "revive",
+   "name": "Revive",
+   "batch": 2,
+   "art": "revive",
+   "hasArt": false,
+   "price": 3,
+   "kind": "Consumed",
+   "stock": 4,
+   "text": "Summon a Pokémon of Level 4 or less from your Discard Pile, for free."
+  },
+  {
+   "id": "x-defend",
+   "name": "X Defend",
+   "batch": 2,
+   "art": "x-defend",
+   "hasArt": false,
+   "price": 1,
+   "kind": "Consumed",
+   "stock": 8,
+   "text": "One of your Pokémon gets +3 Strength until Supper."
+  },
+  {
+   "id": "x-speed",
+   "name": "X Speed",
+   "batch": 2,
+   "art": "x-speed",
+   "hasArt": false,
+   "price": 1,
+   "kind": "Consumed",
+   "stock": 8,
+   "text": "One of your Pokémon becomes Active, and its Speed is one step higher until Supper."
+  },
+  {
+   "id": "ether",
+   "name": "Ether",
+   "batch": 2,
+   "art": "ether",
+   "hasArt": false,
+   "price": 2,
+   "kind": "Consumed",
+   "stock": 6,
+   "text": "+2 Energy this Round."
+  },
+  {
+   "id": "choice-specs",
+   "name": "Choice Specs",
+   "batch": 2,
+   "art": "choice-specs",
+   "hasArt": false,
+   "price": 3,
+   "kind": "Held",
+   "stock": 4,
+   "text": "+2 Attack and Agility."
+  },
+  {
+   "id": "rare-candy",
+   "name": "Rare Candy",
+   "batch": 3,
+   "art": "rare-candy",
+   "hasArt": true,
+   "price": 1,
+   "kind": "Consumed",
+   "stock": 8,
+   "text": "A Pokémon card in your hand gains +3 Levels."
+  },
+  {
+   "id": "escape-rope",
+   "name": "Escape Rope",
+   "batch": 3,
+   "art": "escape-rope",
+   "hasArt": false,
+   "price": 1,
+   "kind": "Consumed",
+   "stock": 8,
+   "text": "Return one of your Pokémon to your hand, and draw 1 card."
+  },
+  {
+   "id": "focus-sash",
+   "name": "Focus Sash",
+   "batch": 3,
+   "art": "focus-sash",
+   "hasArt": false,
+   "price": 2,
+   "kind": "Held",
+   "stock": 6,
+   "text": "Sturdy."
+  },
+  {
+   "id": "life-orb",
+   "name": "Life Orb",
+   "batch": 3,
+   "art": "life-orb",
+   "hasArt": false,
+   "price": 3,
+   "kind": "Held",
+   "stock": 4,
+   "text": "+3 Attack. When it attacks, it takes 1 damage."
+  },
+  {
+   "id": "assault-vest",
+   "name": "Assault Vest",
+   "batch": 4,
+   "art": "assault-vest",
+   "hasArt": false,
+   "price": 3,
+   "kind": "Held",
+   "stock": 4,
+   "text": "+3 Strength. Moves deal 1 less damage to it."
+  }
+ ],
+ "locations": [
+  {
+   "id": "cerulean-cape",
+   "name": "Cerulean Cape",
+   "batch": 1,
+   "art": "cerulean-cape",
+   "hasArt": true,
+   "lanes": 2,
+   "rounds": 3,
+   "passive": "Pokémon here have +1 Strength.",
+   "dominance": "+3 Recognition at Supper"
+  },
+  {
+   "id": "mt-ember",
+   "name": "Mt. Ember",
+   "batch": 1,
+   "art": "mt-ember",
+   "hasArt": true,
+   "lanes": 3,
+   "rounds": 3,
+   "passive": "Pokémon here have +1 Attack.",
+   "dominance": "+3 Recognition at Supper"
+  },
+  {
+   "id": "lake-of-rage",
+   "name": "Lake of Rage",
+   "batch": 1,
+   "art": "lake-of-rage",
+   "hasArt": true,
+   "lanes": 2,
+   "rounds": 3,
+   "passive": "Pokémon here have Rage.",
+   "dominance": "+3 Recognition at Supper"
+  },
+  {
+   "id": "route-119",
+   "name": "Route 119",
+   "batch": 1,
+   "art": "route-119",
+   "hasArt": true,
+   "lanes": 4,
+   "rounds": 2,
+   "passive": "Summoning a Pokémon here costs 1 less (minimum 0).",
+   "dominance": "+3 Recognition at Supper"
+  },
+  {
+   "id": "cinnabar-volcano",
+   "name": "Cinnabar Volcano",
+   "batch": 1,
+   "art": "cinnabar-volcano",
+   "hasArt": true,
+   "lanes": 3,
+   "rounds": 2,
+   "passive": "Pokémon here have Overrun.",
+   "dominance": "+3 Recognition at Supper"
+  },
+  {
+   "id": "eterna-forest",
+   "name": "Eterna Forest",
+   "batch": 1,
+   "art": "eterna-forest",
+   "hasArt": true,
+   "lanes": 3,
+   "rounds": 3,
+   "passive": "Pokémon here have Stealth.",
+   "dominance": "+3 Recognition at Supper"
+  },
+  {
+   "id": "floaroma-meadow",
+   "name": "Floaroma Meadow",
+   "batch": 1,
+   "art": "floaroma-meadow",
+   "hasArt": true,
+   "lanes": 2,
+   "rounds": 3,
+   "passive": "Pokémon here heal 2 at Breakfast.",
+   "dominance": "+3 Recognition at Supper"
+  },
+  {
+   "id": "pallet-town",
+   "name": "Pallet Town",
+   "batch": 1,
+   "art": "pallet-town",
+   "hasArt": true,
+   "lanes": 4,
+   "rounds": 2,
+   "passive": "Pokémon of Level 3 or less here have +1 Attack and +1 Strength.",
+   "dominance": "+3 Recognition at Supper"
+  },
+  {
+   "id": "power-plant",
+   "name": "Power Plant",
+   "batch": 1,
+   "art": "power-plant",
+   "hasArt": false,
+   "lanes": 3,
+   "rounds": 2,
+   "passive": "Pokémon here have Quick Attack.",
+   "dominance": "+3 Recognition at Supper"
+  },
+  {
+   "id": "shalour-city",
+   "name": "Shalour City",
+   "batch": 2,
+   "art": "shalour-city",
+   "hasArt": true,
+   "lanes": 3,
+   "rounds": 3,
+   "passive": "Pokémon here have Retaliate 1.",
+   "dominance": "+3 Recognition at Supper"
+  },
+  {
+   "id": "lavender-town",
+   "name": "Lavender Town",
+   "batch": 2,
+   "art": "lavender-town",
+   "hasArt": false,
+   "lanes": 2,
+   "rounds": 3,
+   "passive": "When a Pokémon here is defeated, its owner draws 1 card.",
+   "dominance": "+3 Recognition at Supper"
+  },
+  {
+   "id": "saffron-city",
+   "name": "Saffron City",
+   "batch": 2,
+   "art": "saffron-city",
+   "hasArt": false,
+   "lanes": 3,
+   "rounds": 2,
+   "passive": "Pokémon here have Agility.",
+   "dominance": "+3 Recognition at Supper"
+  },
+  {
+   "id": "stark-mountain",
+   "name": "Stark Mountain",
+   "batch": 3,
+   "art": "stark-mountain",
+   "hasArt": true,
+   "lanes": 3,
+   "rounds": 2,
+   "passive": "At Supper, 1 damage to each Pokémon here.",
+   "dominance": "+3 Recognition at Supper"
+  },
+  {
+   "id": "dragons-den",
+   "name": "Dragon's Den",
+   "batch": 3,
+   "art": "dragons-den",
+   "hasArt": false,
+   "lanes": 2,
+   "rounds": 3,
+   "passive": "Pokémon of Level 6 or more here have +1 Attack and +1 Strength.",
+   "dominance": "+3 Recognition at Supper"
+  },
+  {
+   "id": "iron-island",
+   "name": "Iron Island",
+   "batch": 3,
+   "art": "iron-island",
+   "hasArt": false,
+   "lanes": 3,
+   "rounds": 3,
+   "passive": "Pokémon here have Shell 1.",
+   "dominance": "+3 Recognition at Supper"
+  },
+  {
+   "id": "petalburg-woods",
+   "name": "Petalburg Woods",
+   "batch": 4,
+   "art": "petalburg-woods",
+   "hasArt": true,
+   "lanes": 3,
+   "rounds": 2,
+   "passive": "Pokémon here have Swarm.",
+   "dominance": "+3 Recognition at Supper"
+  },
+  {
+   "id": "seafoam-islands",
+   "name": "Seafoam Islands",
+   "batch": 4,
+   "art": "seafoam-islands",
+   "hasArt": false,
+   "lanes": 2,
+   "rounds": 3,
+   "passive": "Pokémon here have Shell 1, but their Speed is one step lower.",
+   "dominance": "+3 Recognition at Supper"
+  },
+  {
+   "id": "viridian-forest",
+   "name": "Viridian Forest",
+   "batch": 4,
+   "art": "viridian-forest",
+   "hasArt": false,
+   "lanes": 4,
+   "rounds": 2,
+   "passive": "Pokémon of Level 3 or less here have Stealth.",
+   "dominance": "+3 Recognition at Supper"
+  }
+ ],
+ "trainers": [
+  {
+   "id": "misty",
+   "name": "Misty",
+   "batch": 1,
+   "type": "Water",
+   "art": "misty",
+   "hasArt": true,
+   "command": {
+    "cost": 2,
+    "text": "Draw 2 cards."
+   },
+   "objective": {
+    "text": "Defeat 8 enemy Pokémon.",
+    "need": 8
+   },
+   "partner": {
+    "id": "starmie",
+    "name": "Starmie",
+    "art": "starmie",
+    "hasArt": true,
+    "level": 8,
+    "cost": 4,
+    "speed": "Swift",
+    "attackType": "Special",
+    "attack": 8,
+    "strength": 10,
+    "keywords": [],
+    "trigger": "On Summon",
+    "text": "Draw 2 cards."
+   }
+  },
+  {
+   "id": "blaine",
+   "name": "Blaine",
+   "batch": 1,
+   "type": "Fire",
+   "art": "blaine",
+   "hasArt": true,
+   "command": {
+    "cost": 1,
+    "text": "1 damage to each enemy Pokémon."
+   },
+   "objective": {
+    "text": "Dominate a Location 5 times.",
+    "need": 5
+   },
+   "partner": {
+    "id": "ninetales",
+    "name": "Ninetales",
+    "art": "ninetales",
+    "hasArt": true,
+    "level": 8,
+    "cost": 4,
+    "speed": "Steady",
+    "attackType": "Special",
+    "attack": 9,
+    "strength": 11,
+    "keywords": [],
+    "trigger": "On Summon",
+    "text": "2 damage to each enemy Pokémon."
+   }
+  },
+  {
+   "id": "erika",
+   "name": "Erika",
+   "batch": 1,
+   "type": "Grass",
+   "art": "erika",
+   "hasArt": true,
+   "command": {
+    "cost": 2,
+    "text": "Heal 2 and +1 Strength (kept) to each of your Pokémon."
+   },
+   "objective": {
+    "text": "Give your Pokémon kept Attack or Strength 10 times.",
+    "need": 10
+   },
+   "partner": {
+    "id": "bellossom",
+    "name": "Bellossom",
+    "art": "bellossom",
+    "hasArt": true,
+    "level": 8,
+    "cost": 4,
+    "speed": "Steady",
+    "attackType": "Special",
+    "attack": 8,
+    "strength": 10,
+    "keywords": [],
+    "trigger": "On Summon",
+    "text": "Heal 4 to each of your Pokémon, and they get +1 Strength (kept)."
+   }
+  },
+  {
+   "id": "lt-surge",
+   "name": "Lt. Surge",
+   "batch": 1,
+   "type": "Electric",
+   "art": "lt-surge",
+   "hasArt": false,
+   "command": {
+    "cost": 2,
+    "text": "3 damage to an enemy Pokémon."
+   },
+   "objective": {
+    "text": "Gain 8 extra Energy from your cards.",
+    "need": 8
+   },
+   "partner": {
+    "id": "raichu",
+    "name": "Raichu",
+    "art": "raichu",
+    "hasArt": false,
+    "level": 8,
+    "cost": 4,
+    "speed": "Swift",
+    "attackType": "Special",
+    "attack": 9,
+    "strength": 9,
+    "keywords": [
+     "Quick Attack"
+    ],
+    "trigger": "On Summon",
+    "text": "3 damage to the enemy across from it."
+   }
+  },
+  {
+   "id": "whitney",
+   "name": "Whitney",
+   "batch": 1,
+   "type": "Normal",
+   "art": "whitney",
+   "hasArt": false,
+   "command": {
+    "cost": 2,
+    "text": "Gain $2, and draw 1 card."
+   },
+   "objective": {
+    "text": "Buy 5 Items from the PokéMart.",
+    "need": 5
+   },
+   "partner": {
+    "id": "miltank",
+    "name": "Miltank",
+    "art": "miltank",
+    "hasArt": false,
+    "level": 8,
+    "cost": 4,
+    "speed": "Slow",
+    "attackType": "Physical",
+    "attack": 8,
+    "strength": 12,
+    "keywords": [
+     "Regenerate 2"
+    ],
+    "trigger": "On Summon",
+    "text": "Heal 3 to each of your Pokémon."
+   }
+  },
+  {
+   "id": "sabrina",
+   "name": "Sabrina",
+   "batch": 2,
+   "type": "Psychic",
+   "art": "sabrina",
+   "hasArt": false,
+   "command": {
+    "cost": 2,
+    "text": "The opponent discards a card you choose. Draw 1 card."
+   },
+   "objective": {
+    "text": "Play 8 Moves as Adapt or Strat.",
+    "need": 8
+   },
+   "partner": {
+    "id": "espeon",
+    "name": "Espeon",
+    "art": "espeon",
+    "hasArt": false,
+    "level": 8,
+    "cost": 4,
+    "speed": "Swift",
+    "attackType": "Special",
+    "attack": 8,
+    "strength": 8,
+    "keywords": [
+     "Agility"
+    ],
+    "trigger": "On Summon",
+    "text": "3 damage to an enemy Pokémon, and draw 1 card."
+   }
+  },
+  {
+   "id": "bruno",
+   "name": "Bruno",
+   "batch": 2,
+   "type": "Fighting",
+   "art": "bruno",
+   "hasArt": false,
+   "command": {
+    "cost": 2,
+    "text": "One of your Pokémon gets +2 Attack and +2 Strength (kept)."
+   },
+   "objective": {
+    "text": "Your Pokémon survive 8 enemy attacks.",
+    "need": 8
+   },
+   "partner": {
+    "id": "hitmonchan",
+    "name": "Hitmonchan",
+    "art": "hitmonchan",
+    "hasArt": false,
+    "level": 8,
+    "cost": 4,
+    "speed": "Steady",
+    "attackType": "Physical",
+    "attack": 8,
+    "strength": 10,
+    "keywords": [
+     "Retaliate 1"
+    ],
+    "trigger": "On Summon",
+    "text": "3 damage to an enemy Pokémon."
+   }
+  },
+  {
+   "id": "morty",
+   "name": "Morty",
+   "batch": 2,
+   "type": "Ghost",
+   "art": "morty",
+   "hasArt": false,
+   "command": {
+    "cost": 1,
+    "text": "Return a Pokémon card from your Discard Pile to your hand."
+   },
+   "objective": {
+    "text": "Return 5 cards from your Discard Pile.",
+    "need": 5
+   },
+   "partner": {
+    "id": "mismagius",
+    "name": "Mismagius",
+    "art": "mismagius",
+    "hasArt": false,
+    "level": 8,
+    "cost": 4,
+    "speed": "Swift",
+    "attackType": "Special",
+    "attack": 8,
+    "strength": 9,
+    "keywords": [
+     "Stealth"
+    ],
+    "trigger": "On Summon",
+    "text": "Return 2 Pokémon cards from your Discard Pile to your hand."
+   }
+  },
+  {
+   "id": "karen",
+   "name": "Karen",
+   "batch": 2,
+   "type": "Dark",
+   "art": "karen",
+   "hasArt": false,
+   "command": {
+    "cost": 2,
+    "text": "2 damage to the enemy Player Character, and a random discard."
+   },
+   "objective": {
+    "text": "Damage the enemy Player Character 8 times.",
+    "need": 8
+   },
+   "partner": {
+    "id": "umbreon",
+    "name": "Umbreon",
+    "art": "umbreon",
+    "hasArt": false,
+    "level": 8,
+    "cost": 4,
+    "speed": "Steady",
+    "attackType": "Special",
+    "attack": 7,
+    "strength": 12,
+    "keywords": [
+     "Intimidate 1"
+    ],
+    "trigger": "On Summon",
+    "text": "Each enemy Pokémon gets −2 Attack until Supper."
+   }
+  },
+  {
+   "id": "lance",
+   "name": "Lance",
+   "batch": 3,
+   "type": "Dragon",
+   "art": "lance",
+   "hasArt": false,
+   "command": {
+    "cost": 2,
+    "text": "+1 Level to Pokémon cards in your hand, and +1 Energy."
+   },
+   "objective": {
+    "text": "Summon 4 Pokémon of Level 6 or more.",
+    "need": 4
+   },
+   "partner": {
+    "id": "salamence",
+    "name": "Salamence",
+    "art": "salamence",
+    "hasArt": false,
+    "level": 8,
+    "cost": 4,
+    "speed": "Swift",
+    "attackType": "Physical",
+    "attack": 9,
+    "strength": 9,
+    "keywords": [
+     "Overrun"
+    ],
+    "trigger": "On Summon",
+    "text": "2 damage to each enemy Pokémon in its Location."
+   }
+  },
+  {
+   "id": "jasmine",
+   "name": "Jasmine",
+   "batch": 3,
+   "type": "Steel",
+   "art": "jasmine",
+   "hasArt": false,
+   "command": {
+    "cost": 1,
+    "text": "Gain $2."
+   },
+   "objective": {
+    "text": "Give your Pokémon a Held Item 5 times.",
+    "need": 5
+   },
+   "partner": {
+    "id": "steelix",
+    "name": "Steelix",
+    "art": "steelix",
+    "hasArt": false,
+    "level": 8,
+    "cost": 4,
+    "speed": "Slow",
+    "attackType": "Physical",
+    "attack": 8,
+    "strength": 14,
+    "keywords": [
+     "Shell 1"
+    ],
+    "trigger": "On Summon",
+    "text": "Your Pokémon get Shell 1 until Supper."
+   }
+  },
+  {
+   "id": "koga",
+   "name": "Koga",
+   "batch": 4,
+   "type": "Poison",
+   "art": "koga",
+   "hasArt": false,
+   "command": {
+    "cost": 1,
+    "text": "An enemy Pokémon gets −2 Attack (kept)."
+   },
+   "objective": {
+    "text": "Lower enemy Pokémon's Attack 10 times.",
+    "need": 10
+   },
+   "partner": {
+    "id": "muk",
+    "name": "Muk",
+    "art": "muk",
+    "hasArt": false,
+    "level": 8,
+    "cost": 4,
+    "speed": "Slow",
+    "attackType": "Special",
+    "attack": 8,
+    "strength": 13,
+    "keywords": [
+     "Retaliate 1"
+    ],
+    "trigger": "On Summon",
+    "text": "Each enemy Pokémon gets −1 Attack (kept)."
+   }
+  }
+ ]
+}

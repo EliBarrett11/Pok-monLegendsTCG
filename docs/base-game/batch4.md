@@ -1,6 +1,6 @@
 # Base Game · Batch 4 · Ice, Poison, Ground, Flying, Bug (B2)
 
-Status: **awaiting Elliott's approval.** Every card scores within ±1.5 of its budget (design bible section 3); every series keeps one theme. Cards without art use the Art Pending panel.
+Status: **approved.** Every card scores within ±1.5 of its budget (design bible section 3); every series keeps one theme. Cards without art use the Art Pending panel.
 
 Card sheets in `batch4/`: `series-ice.jpg`, `series-poison.jpg`, `series-ground.jpg`, `series-flying.jpg`, `series-bug.jpg` (each series Level by Level), then `batch4-moves.jpg`, `-supporters`, `-items`, `-locations`, `-trainers`.
 
@@ -253,5 +253,5 @@ Checked against the design bible's section 1 targets once every batch was design
 
 - **Every card is within budget** (±1.5), apart from the written Charizard exception.
 - **Strategy seeds:** every seed now has 20+ supporting cards. Afterlife and Swarm were at 18 and 19, so Mr. Fuji, Revive, Lavender Town, Pokémon Breeder (Afterlife) and Petalburg Woods, Bug Catcher, Viridian Forest, Pallet Town, Route 119 (Swarm) were tagged for the seeds they already support. No card text changed.
-- **A guarded Pokémon in every Type:** fixed in this batch for Poison (Koffing), Ground (Phanpy), Flying (Wingull) and Bug (Caterpie), each paying 1 Strength for its guard. **Six Types from approved batches still have none.** Proposed, the same way (a guard for −1 Strength at every Level, same points), for Elliott's approval: Normal: Munchlax → Snorlax (Special Defence); Fire: Magby → Magmar → Magmortar (Special Defence); Fighting: Machop → Machoke → Machamp (Defence); Ghost: Duskull → Dusclops → Dusknoir (Special Defence); Dark: Absol (Special Defence); Dragon: Dratini → Dragonair → Dragonite (Special Defence).
+- **A guarded Pokémon in every Type:** fixed in this batch for Poison (Koffing), Ground (Phanpy), Flying (Wingull) and Bug (Caterpie), each paying 1 Strength for its guard. **Six Types from approved batches had none; Elliott approved the fix (12 Nov 2026) and it's applied:** (a guard for −1 Strength at every Level, same points): Normal: Munchlax → Snorlax (Special Defence); Fire: Magby → Magmar → Magmortar (Special Defence); Fighting: Machop → Machoke → Machamp (Defence); Ghost: Duskull → Dusclops → Dusknoir (Special Defence); Dark: Absol (Special Defence); Dragon: Dratini → Dragonair → Dragonite (Special Defence).
 

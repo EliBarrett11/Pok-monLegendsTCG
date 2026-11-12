@@ -1,6 +1,6 @@
 # Base Game · Batch 2 · Psychic, Fighting, Ghost, Dark (B2)
 
-Status: **awaiting Elliott's approval.** Every card scores within ±1.5 of its budget (design bible section 3); every series keeps one theme. Art isn't waited for: cards without art use the Art Pending panel (Elliott, 12 Nov 2026).
+Status: **approved.** Guard update (12 Nov 2026, library health check): some series below gained a guard for −1 Strength at every Level; `cards.json` and the sheets have the current numbers. Every card scores within ±1.5 of its budget (design bible section 3); every series keeps one theme. Art isn't waited for: cards without art use the Art Pending panel (Elliott, 12 Nov 2026).
 
 Card sheets in `batch2/`: `series-psychic.jpg`, `-fighting`, `-ghost`, `-dark` (each series Level by Level; Mewtwo is on the Psychic sheet), then `batch2-moves.jpg`, `-supporters`, `-items`, `-locations`, `-trainers`.
 

@@ -1,6 +1,6 @@
 # Base Game · Batch 1 · Pokémon (B2, part 1, second pass)
 
-Status: **awaiting Elliott's approval.** Second pass after Elliott's feedback (12 Nov 2026): every series now has **one theme**: the same trigger and kind of effect at every form, growing bigger or wider, with keywords carrying forward (design bible 3.1). Every form at every Level scores within ±1.5 of its budget, except Charizard (+2.5 at Levels 7 and 8, the accepted Heavy-payoff exception).
+Status: **approved.** Guard update (12 Nov 2026, library health check): some series below gained a guard for −1 Strength at every Level; `cards.json` and the sheets have the current numbers. Second pass after Elliott's feedback (12 Nov 2026): every series now has **one theme**: the same trigger and kind of effect at every form, growing bigger or wider, with keywords carrying forward (design bible 3.1). Every form at every Level scores within ±1.5 of its budget, except Charizard (+2.5 at Levels 7 and 8, the accepted Heavy-payoff exception).
 
 Card sheets show each series Level by Level, the way the Library will: `batch1/series-normal.jpg`, `-fire`, `-water`, `-grass`, `-electric`, `-legendary`. Plain panels are placeholders until the art arrives.
 

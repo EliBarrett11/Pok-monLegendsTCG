@@ -1,6 +1,6 @@
 # Base Game · Batch 3 · Rock, Dragon, Steel, Fairy (B2)
 
-Status: **awaiting Elliott's approval.** Every card scores within ±1.5 of its budget (design bible section 3); every series keeps one theme. Cards without art use the Art Pending panel.
+Status: **approved.** Guard update (12 Nov 2026, library health check): some series below gained a guard for −1 Strength at every Level; `cards.json` and the sheets have the current numbers. Every card scores within ±1.5 of its budget (design bible section 3); every series keeps one theme. Cards without art use the Art Pending panel.
 
 Card sheets in `batch3/`: `series-rock.jpg`, `series-dragon.jpg`, `series-steel.jpg`, `series-fairy.jpg` (each series Level by Level), then `batch3-moves.jpg`, `-supporters`, `-items`, `-locations`, `-trainers`.
 

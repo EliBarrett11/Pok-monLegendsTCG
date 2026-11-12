@@ -1,6 +1,6 @@
 # Base Game · Batch 1 · Moves, Supporters, Items, Locations, Trainers (B2, part 2)
 
-Status: **awaiting Elliott's approval.** Batch 1's Pokémon (part 1) are approved. Every card here scores within ±1.5 of its budget (design bible section 3). Scores are shown as *points / target*.
+Status: **approved.** Batch 1's Pokémon (part 1) are approved. Every card here scores within ±1.5 of its budget (design bible section 3). Scores are shown as *points / target*.
 
 Card sheets: `batch1/batch1-moves.jpg`, `-supporters`, `-items`, `-locations`, `-trainers`. Plain panels are placeholders until the art arrives (Protect, Thunder Wave, Sitrus Berry, Super Potion, Magnet, Power Plant, Lt. Surge, Raichu, Whitney, Miltank).
 
