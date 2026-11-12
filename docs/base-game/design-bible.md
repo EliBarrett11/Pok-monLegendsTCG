@@ -123,6 +123,12 @@ A form's **points** are its Attack + Strength plus the prices of its Speed, guar
 | Shell X until Supper to one of yours | 1 per X (to each of yours: 2 per X) |
 | A Pokémon card in hand gains N Levels | 1 per Level per card |
 | A Held Item's keyword that only one Type gets | ×0.7 |
+| N damage to the enemy Player Character | 1 per point |
+| The opponent discards a random card | 2 per card (a card you choose: 3) |
+| Put a random card from the opponent's hand into yours | 4 |
+| Summon a Pokémon from your Discard Pile for free | 5 (Level 3 or less), 6.5 (Level 4 or less), 7.5 (Level 5 or less) |
+| On Defeated: return it to your hand | 2 (before the ×0.7) |
+| Return another of your Pokémon to your hand (it may gain Levels) | 1.5, +1 per Level |
 
 ### 3.3 Trigger multipliers
 
