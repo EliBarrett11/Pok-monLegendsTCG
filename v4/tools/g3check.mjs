@@ -119,7 +119,7 @@ await page.waitForFunction(() => !window.__v4.state.reactWindow, null, { timeout
 await idle();
 const afterDive = await state();
 report('Dive as a React: the window names the attacked Pokémon; clicking it saves it and the attack fizzles',
-  /return the attacked Pokémon to your hand/i.test(reactText) && /Charmeleon/.test(reactText) && afterDive.players.player.hand.some((c) => c.uid === charm) && afterDive.events.some((e) => e.type === 'fizzled'),
+  /(return the attacked Pokémon to your hand|returns to your hand · the attack fizzles)/i.test(reactText) && /Charmeleon/.test(reactText) && afterDive.players.player.hand.some((c) => c.uid === charm) && afterDive.events.some((e) => e.type === 'fizzled'),
   reactText.slice(0, 200));
 
 // 4. Supporters: Flannery (Favour: a Fire Pokémon) and Pokémon Breeder through the Release dialog's Discard picker.

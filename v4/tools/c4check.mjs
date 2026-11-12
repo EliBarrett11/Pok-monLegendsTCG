@@ -134,6 +134,7 @@ await page.mouse.move(960, 1060);
 await page.evaluate(() => { window.__afterClick = []; });
 await io.play({ type: 'decline', who: 'player' });
 await page.screenshot({ path: `${OUT}/c4-4-after-let-it-happen.png` });
+await page.evaluate(() => new Promise((r) => { requestAnimationFrame(() => r()); }));
 const after1 = await page.evaluate(() => window.__afterClick.at(-1));
 report('Let it happen: nothing of the window left on the next frame, before the beat', after1 && after1.left === 0 && after1.presenting, JSON.stringify(after1));
 await page.waitForTimeout(900);
@@ -151,6 +152,7 @@ await page.waitForTimeout(60);
 const trayStays = await page.evaluate(() => !!document.querySelector('.v4-rtray') && document.querySelectorAll('.v4-space.target').length >= 2);
 report('a React with a target: picking it highlights the targets (the tray stays until one is clicked)', trayStays);
 await page.locator('.v4-row.opponent .v4-space[data-space="7"].target').click();
+await page.evaluate(() => new Promise((r) => { requestAnimationFrame(() => r()); }));   // the click's own frame record
 const after2 = await page.evaluate(() => window.__afterClick.at(-1));
 report('…clicking a target removes the window before the next frame', after2 && after2.left === 0 && after2.presenting, JSON.stringify(after2));
 await idle();
