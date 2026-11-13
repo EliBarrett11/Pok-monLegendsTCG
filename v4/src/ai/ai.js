@@ -96,6 +96,9 @@ export function moves(s, who) {
   if (legal.includes('summon')) {
     const seen = new Set();
     for (const c of summonable(s, who)) {
+      // B3-2: never a card that came back to its hand this Round (two "return another of yours" Pokémon in a free
+      // Location could otherwise swap every turn, so the Round never ends; the rules allow it, but it gains nothing).
+      if (c.backRound === s.round) continue;
       if (seen.has(`${c.id}:${c.level}`)) continue;
       seen.add(`${c.id}:${c.level}`);
       for (const space of emptySpaces(s, who)) if (summonCost(s, c, space) <= energyLeft(p)) out.push({ type: 'summon', who, uid: c.uid, space });

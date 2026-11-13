@@ -824,7 +824,7 @@ function returnToHand(s, who, space, levels = 0) {
   if (!c) return;
   s.players[who].row[space] = null;
   if (c.held) { s.mart.pool.push(c.held); log(s, `${c.held.name} goes back to the PokéMart.`); }
-  s.players[who].hand.push({ ...cardAtRound(c.id, s.round, levels), uid: c.uid });
+  s.players[who].hand.push({ ...cardAtRound(c.id, s.round, levels), uid: c.uid, backRound: s.round });
   emit(s, 'returned', { who, space, id: c.id, name: c.name, uid: c.uid, levels });
   log(s, `${POSS[who]} ${c.name} returns to ${who === 'player' ? 'your' : 'their'} hand${levels ? ` with +${levels} Level${levels === 1 ? '' : 's'}` : ''}.`);
 }

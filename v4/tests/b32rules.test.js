@@ -425,4 +425,23 @@ const trace = (s, re) => s.log.filter((l) => re.test(l));
   eq([sab(['potion', 'mewtwo']), sab(['mewtwo', 'potion'])], ['ph-1', 'ph-0'], 'Sabrina: the AI reads the hand for this pick only (it takes Mewtwo wherever it is)');
 }
 
+// --- The AI never re-summons a card that came back to its hand this Round (two Ralts in Route 119 could swap forever) ----
+{
+  let s = battle('ai');
+  s = place(s, 'ai', 'route-119', 0);
+  s.turn = 'ai';
+  s.players.ai.baseEnergy = 0;
+  s.players.ai.row[1] = { ...pokemonAt('ralts', 2), uid: 'r-a', currentStrength: 3, spent: true, summonedRound: 1, bonusAttack: 0, bonusStrength: 0, tempAttack: 0 };
+  s.players.ai.hand = [{ ...cardAtRound('ralts', 1), uid: 'r-b' }];
+  let a = chooseAction(s, 'ai', { rng: () => 0.5 });
+  eq([a.type, a.uid], ['summon', 'r-b'], 'a free Ralts: the AI summons it');
+  s = applyAction(s, a);
+  if (s.choice) s = applyAction(s, chooseAction(s, 'ai', { rng: () => 0.5 }));
+  const back = s.players.ai.hand.find((c) => c.uid === 'r-a');
+  ok(back?.backRound === s.round, 'the other Ralts is back in hand, marked with this Round');
+  s.turn = 'ai'; s.passesInARow = 0;
+  a = chooseAction(s, 'ai', { rng: () => 0.5 });
+  ok(!(a.type === 'summon' && a.uid === 'r-a'), `then it doesn't summon it again this Round (${a.type})`);
+}
+
 console.log(`b32rules: ${checks} checks passed`);
