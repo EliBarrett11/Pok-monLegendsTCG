@@ -3,15 +3,15 @@
 //
 // effectiveStats(s, who, space) returns the Attack its attack deals now (before the target's Shell) and its
 // current and maximum Strength, with every source applied, and their parts (which always add up):
-//   - Location passives, Weather brackets (Sun 2 adds to Physical attacks), Held Items: the engine keeps these in
-//     step on the card (syncBonuses) and attackParts / damageOf read them the way combat does;
+//   - Location passives, Held Items and Intimidate: the engine keeps these in step on the card (syncBonuses) and
+//     attackParts / damageOf read them the way combat does;
 //   - "until Supper" effects (tempAttack) and "kept" gains (Rage, Flame Charge, Brock, Charmander's On Attack):
 //     the difference between the card's own numbers and its printed ones;
 //   - damage taken.
 // The Attack shown is damageOf, the number RESOLVE.attack deals; the Strength shown is currentStrength, the
 // Strength damage is taken from and dominance counts. tests/c4.test.js checks both against combat.
 import { TRAINERS, pokemonAt, pathDef } from './cards.js?v=202611120821';
-import { applyAction, damageOf, locationAt, activeBrackets, syncBonuses } from './game.js?v=202611120821';
+import { applyAction, damageOf, locationAt, passiveOps, heldOps, syncBonuses } from './game.js?v=202611120821';
 import { attackParts } from './preview.js?v=202611120821';
 
 // A Pokémon's printed stats (its Level's, or a Partner's own).
@@ -34,26 +34,26 @@ export function effectiveStats(s, who, space) {
   if (!card) return null;
   const printed = printedOf(card);
   // Attack: attackParts (UX3) splits damageOf into the card's own Attack and each bonus; its first part is the
-  // card's Attack without the Location, Weather, Held and until-Supper bonuses: printed + kept.
+  // card's Attack without the Location, Held, Intimidate and until-Supper changes: printed + kept.
   const ap = attackParts(s, who, space);
   const own = ap[0].n;
   const attackPartsOut = [{ label: 'printed', n: printed.attack }];
   if (own !== printed.attack) attackPartsOut.push({ label: 'kept', n: own - printed.attack });
   for (const p of ap.slice(1)) attackPartsOut.push({ label: p.label.replace(' (Physical)', ', Physical'), n: p.n });
   const attack = damageOf(s, card);
-  // Strength: printed + kept + Location + Weather + Held, then damage taken.
+  // Strength: printed + kept + Location + Held + until Supper, then damage taken.
   const l = locationAt(s, space);
-  const locSt = l?.passive.kind === 'strength' ? l.passive.amount : 0;
-  const wx = activeBrackets(s).filter((b) => b.kind === 'strength');
-  const heldSt = card.held?.op === 'strength' ? card.held.amount : 0;
+  const locSt = passiveOps(l).filter((o) => o.op === 'strength' && (!o.maxLevel || card.level <= o.maxLevel)).reduce((n, o) => n + o.amount, 0);
+  const heldSt = heldOps(card).filter((o) => o.op === 'strength').reduce((n, o) => n + o.amount, 0);
+  const temp = card.tempStrength ?? 0;
   const bonus = card.bonusStrength ?? 0;
   const strengthParts = [{ label: 'printed', n: printed.strength }];
-  const kept = card.strength - printed.strength - bonus;
+  const kept = card.strength - printed.strength - bonus - temp;
   if (kept) strengthParts.push({ label: 'kept', n: kept });
   if (locSt) strengthParts.push({ label: l.name, n: locSt });
-  for (const b of wx) strengthParts.push({ label: `${b.type} ${b.at}`, n: b.amount });
   if (heldSt) strengthParts.push({ label: card.held.name, n: heldSt });
-  const rest = bonus - locSt - wx.reduce((n, b) => n + b.amount, 0) - heldSt;
+  if (temp) strengthParts.push({ label: 'until Supper', n: temp });
+  const rest = bonus - locSt - heldSt;
   if (rest) strengthParts.push({ label: 'other bonuses', n: rest });
   const lost = card.strength - card.currentStrength;
   if (lost) strengthParts.push({ label: 'damage', n: -lost });
@@ -76,7 +76,7 @@ export function oneLine(stat, total, parts) {
 export const statSumLines = (st) => ({ attack: oneLine('Attack', st.attack, st.attackParts), strength: oneLine('Strength', st.strength, st.strengthParts) });
 
 // What a card in hand would show once summoned into a space: the engine's own summon on a copy (so Location,
-// Weather and anything else the summon brings apply exactly), or, when that summon isn't legal now, the card
+// passives and anything else the summon brings apply exactly), or, when that summon isn't legal now, the card
 // placed and its bonuses synced. null if the space is taken.
 export function statsIfPlaced(s, who, card, space) {
   if (s.players[who].row[space]) return null;

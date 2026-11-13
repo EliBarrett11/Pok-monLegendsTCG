@@ -1,13 +1,13 @@
 // C3: the Codex's explanations. Pure: no DOM. Each one is built from the engine's own functions (attackParts,
-// wantedBonus, summonCost, effectiveSpeed, weatherTotals, levelFor, pokemonAt), so it always matches what the
+// wantedBonus, summonCost, effectiveSpeed, levelFor, pokemonAt), so it always matches what the
 // board shows. tests/c3.test.js checks the sums over 200 random mid-match states.
 // Copied from v2/src/engine/explain.js (C3): the idea of "where its numbers come from" as parts that add up
 // to the stat shown, and the version arrows (▲/▼); rewritten for v4's stats.
 // Never the series names (Light, Mid, Heavy): a line's Levels are given by its forms.
 import { RULES, SERIES_RANGE, levelFor, costFor } from '../rules.js?v=202611120821';
-import { PATHS, pathDef, pokemonAt, TRAINERS, WEATHER_BRACKETS } from './cards.js?v=202611120821';
+import { PATHS, pathDef, pokemonAt } from './cards.js?v=202611120821';
 import {
-  locationAt, activeBrackets, weatherTotals, summonCost, effectiveSpeed, damageOf, strengthIn, tournamentStrength, lanesOf,
+  summonCost, effectiveSpeed, strengthIn, tournamentStrength, lanesOf, passiveOps, heldOps,
   isReady, REC_KINDS, boosted,
 } from './game.js?v=202611120821';
 import { printedOf, effectiveStats } from './stats.js?v=202611120821';
@@ -26,8 +26,7 @@ export { printedOf };
 
 // Where a Pokémon's numbers come from. On the board ({ who, space }): effectiveStats (C4), the engine's own
 // numbers; elsewhere (a card in hand or a pile): its printed stats and its cost at this Round.
-//   attack: parts sum to the Attack shown, the damage its attack deals now (Sun 2 included for a Physical
-//   attack); strength: parts sum to the current Strength shown; cost; speed.
+//   attack: parts sum to the Attack shown, the damage its attack deals now; strength: parts sum to the current Strength shown; cost; speed.
 export function statSums(s, card, where = null) {
   const printed = printedOf(card);
   const out = {};
@@ -37,23 +36,27 @@ export function statSums(s, card, where = null) {
     out.strength = { total: st.strength, max: st.strengthMax, parts: st.strengthParts.map((p) => (p.label === 'printed' ? { ...p, label: 'base' } : p)) };
     out.cost = card.partner || card.series === 'Partner'
       ? { total: 0, parts: [], words: 'A Partner arrives free.' }
-      : { total: costFor(card.level), parts: [{ label: `Level ${card.level} ÷ 2, rounded up`, n: costFor(card.level) }], words: 'Paid when it was summoned.' };
+      : { total: card.cost, parts: [costPart(card)], words: 'Paid when it was summoned.' };
   } else {
     out.attack = { total: card.attack, parts: [{ label: 'base', n: card.attack }] };
     out.strength = { total: card.currentStrength ?? card.strength, max: card.strength, parts: [{ label: 'base', n: card.strength }] };
     if (card.partner || card.series === 'Partner') out.cost = { total: 0, parts: [], words: 'A Partner arrives free.' };
     else {
-      const c = costFor(card.level);
-      const cheaper = s ? s.locations.filter((l) => l.passive.kind === 'discount') : [];
-      out.cost = { total: c, parts: [{ label: `Level ${card.level} ÷ 2, rounded up`, n: c }],
-        words: cheaper.length ? cheaper.map((l) => `${c - Math.max(0, c - l.passive.amount)} less in ${l.name} (${Math.max(0, c - l.passive.amount)})`).join('; ') : '' };
+      const c = card.cost;
+      const off = (l) => passiveOps(l).filter((o) => o.op === 'discount').reduce((n, o) => n + o.amount, 0);
+      const cheaper = s ? s.locations.filter((l) => off(l)) : [];
+      out.cost = { total: c, parts: [costPart(card)],
+        words: cheaper.length ? cheaper.map((l) => `${c - Math.max(0, c - off(l))} less in ${l.name} (${Math.max(0, c - off(l))})`).join('; ') : '' };
     }
   }
   const speedParts = [{ label: 'base', n: printed.speed }];
-  if (card.held?.op === 'speed') speedParts.push({ label: card.held.name, n: 'one step higher' });
+  if (heldOps(card).some((o) => o.op === 'speed')) speedParts.push({ label: card.held.name, n: 'one step higher' });
+  if (card.tempSpeed) speedParts.push({ label: 'until Supper', n: 'one step higher' });
   out.speed = { total: effectiveSpeed(card), parts: speedParts };
   return out;
 }
+// B3-1: a Legendary costs 5 at any Level; every other Pokémon, its Level ÷ 2, rounded up.
+const costPart = (card) => (card.legendary ? { label: 'a Legendary always costs', n: costFor(card.level, true) } : { label: `Level ${card.level} ÷ 2, rounded up`, n: costFor(card.level) });
 // The sums as lines of words.
 export function statLines(sums) {
   const lines = [sumLine('Attack', sums.attack.total, sums.attack.parts)];
@@ -81,17 +84,21 @@ export function levelGrowth(card, round) {
   const r = lineRange(card.id);
   if (!r) return '';
   const now = levelFor(pathDef(card.id).series, round);
-  return now >= r[1] ? `Level ${now} now: its line's maximum.` : `Level ${now} now; +1 each Round it stays off the battlefield, up to ${r[1]}.`;
+  if (card.legendary) return `Level ${r[1]}: a Legendary doesn't grow.`;
+  const lv = Math.min(r[1], now + (card.levelBonus ?? 0));
+  const gained = card.levelBonus ? ` (${now} for the Round, +${card.levelBonus} gained in hand)` : '';
+  return lv >= r[1] ? `Level ${lv} now${gained}: its line's maximum.` : `Level ${lv} now${gained}; +1 each Round it stays off the battlefield, up to ${r[1]}.`;
 }
 // What a card in hand becomes next Round: { level, name, attack, strength, cost, arrows, text } or null at its
 // maximum. ▲/▼ compare with now (v2's version arrows).
 export function nextRound(card, round) {
   const p = pathDef(card.id);
   if (!p) return null;
-  const lv = levelFor(p.series, round + 1);
-  const now = pokemonAt(card.id, levelFor(p.series, round));
+  const bonus = card.levelBonus ?? 0;
+  const now = pokemonAt(card.id, levelFor(p.series, round), bonus);
+  const next = pokemonAt(card.id, levelFor(p.series, round + 1), bonus);
+  const lv = next.level;
   if (lv === now.level) return { level: lv, same: true, text: `Stays Level ${lv} next Round (its maximum).` };
-  const next = pokemonAt(card.id, lv);
   const arrow = (a, b) => (b > a ? '▲' : b < a ? '▼' : '');
   const bits = [`Attack ${next.attack}${arrow(now.attack, next.attack)}`, `Strength ${next.strength}${arrow(now.strength, next.strength)}`, `cost ${next.cost}${arrow(now.cost, next.cost)}`];
   return {
@@ -106,7 +113,11 @@ export function pokemonState(s, card, where) {
   if (where) {
     out.push(isReady(s, card) ? 'Ready: it can attack, and hits back if attacked.' : card.spent ? 'Spent: it can\'t attack until Breakfast.' : 'Active, but not Ready: a faster Pokémon is Active.');
     if (card.currentStrength < card.strength) out.push(`Damaged: ${card.currentStrength} of ${card.strength} Strength.`);
-    if (card.tempAttack) out.push(`+${card.tempAttack} Attack until Supper.`);
+    if (card.tempAttack) out.push(`${card.tempAttack > 0 ? '+' : ''}${card.tempAttack} Attack until Supper.`);
+    if (card.tempStrength) out.push(`+${card.tempStrength} Strength until Supper.`);
+    if (card.tempShell) out.push(`Shell ${card.tempShell} until Supper.`);
+    if (card.tempKw?.overrun) out.push('Overrun until Supper.');
+    if (card.sturdyUsed) out.push('Its Sturdy is used up.');
     if (card.held) out.push(`Holding ${card.held.name}: ${card.held.text.replace(/^Held: /, '')}.`);
   }
   out.push(`${card.attackType} attacks.`);
@@ -115,7 +126,7 @@ export function pokemonState(s, card, where) {
   return out;
 }
 
-// --- Recognition, Energy, Weather, the PokéMart, Locations, Objectives --------------------------------
+// --- Recognition, Energy, the PokéMart, Locations, Objectives --------------------------------
 
 // The ring's history by source: [{ kind, label, total, items: [{ round, amount, source }] }], with the
 // Tournament's bonus (amount − base) as its own group. Totals add up to the player's Recognition.
@@ -151,17 +162,6 @@ export function energyExplain(s, who) {
   return lines;
 }
 
-// The Weather: the full bracket table (reached or not), the totals and which Locations add them.
-export function weatherExplain(s) {
-  const t = weatherTotals(s);
-  return {
-    totals: t,
-    tournament: !!s.tournament,
-    brackets: WEATHER_BRACKETS.map((b) => ({ ...b, reached: !s.tournament && t[b.type] >= b.at })),
-    sources: s.locations.map((l) => ({ name: l.name, type: l.weather.type, count: l.weather.count, owner: l.owner })),
-  };
-}
-
 // The PokéMart in words.
 export function martExplain(s) {
   const m = s.mart;
@@ -186,7 +186,6 @@ export function locationExplain(s, l) {
     `${l.passive.text}.`,
     `Lanes ${lanes[0] + 1}–${lanes.at(-1) + 1} (${l.width}), placed by ${l.owner === 'player' ? 'you' : 'the Opponent'}.`,
     `${l.roundsLeft} Round${l.roundsLeft === 1 ? '' : 's'} left: it counts down at Supper, after scoring.`,
-    `Weather: adds ${l.weather.count} ${l.weather.type}.`,
     `Strength here: you ${a}, the Opponent ${b}. ${a > b ? 'You dominate it' : b > a ? 'The Opponent dominates it' : 'Nobody dominates it (a tie)'}.`,
     `Dominating it at Supper: +${boosted(s, RULES.perDominance)} Recognition.`,
   ];
@@ -196,7 +195,7 @@ export function tournamentExplain(s) {
   const b = tournamentStrength(s, 'ai');
   return [
     s.tournament ? `It began at Round ${s.tournament.startedRound}'s Breakfast.` : `It begins at Breakfast in Round ${RULES.tournamentRound}, or at the first Breakfast where either player has ${RULES.tournamentRecognition}+ Recognition.`,
-    `It covers all ${RULES.lanes} lanes: no Location passives, no Weather, and no Location can be placed.`,
+    `It covers all ${RULES.lanes} lanes: no Location passives, and no Location can be placed.`,
     'Passive: all Recognition earned is increased by half, rounded up (1 → 2, 3 → 5, 4 → 6).',
     `Strength across the battlefield: you ${a}, the Opponent ${b}.`,
     `Dominating it at Supper: +${RULES.perTournamentDominance} Recognition, ${boosted({ tournament: true }, RULES.perTournamentDominance)} with the passive. It counts for Blaine's Objective.`,

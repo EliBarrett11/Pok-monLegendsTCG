@@ -6,7 +6,7 @@ import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RULES } from '../src/rules.js';
 import { createGame, applyAction, legalActions, actor, whyNot, playReason, passBlockers } from '../src/engine/game.js';
-import { pokemonAt, cardAtRound, COMMANDS, SUPPORTERS, DEMO_DECK } from '../src/engine/cards.js';
+import { pokemonAt, cardAtRound, COMMANDS, SUPPORTERS } from '../src/engine/cards.js';
 import { chooseAction } from '../src/ai/ai.js';
 
 let n = 0;
@@ -27,20 +27,18 @@ const give = (s, who, id) => { const c = card(id); s.players[who].hand.push(c); 
 const types = (s) => s.events.map((e) => e.type);
 
 // --- The cards ------------------------------------------------------------------------------------------------------------
+// B3-1: the cards come from docs/base-game/cards.json (tests/cardsdata.test.js checks them); here only what the rules need.
 {
   const V4 = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-  assert.equal(COMMANDS.length, 9, 'G3: the nine Commands of 5.1');
+  assert.equal(COMMANDS.length, 12, 'B3-1: the twelve Batch 1 Moves');
   for (const c of COMMANDS) {
-    const { adapt, react, strat } = c.modes;
-    assert.ok(react.cost <= adapt.cost && adapt.cost < strat.cost, `${c.name}: React no dearer than Adapt, Strat dearer`);
-    assert.ok(existsSync(join(V4, '..', 'assets/cards', `${c.art}.jpg`)), `${c.name}: art`);
-    assert.ok(DEMO_DECK.includes(c.id));
+    assert.ok(Object.keys(c.modes).length >= 2, `${c.name}: two or three modes`);
+    if (c.hasArt) assert.ok(existsSync(join(V4, '..', 'assets/cards', `${c.art}.jpg`)), `${c.name}: art`);
   }
-  assert.equal(SUPPORTERS.length, 5, 'G3: Flannery and Pokémon Breeder');
+  assert.equal(SUPPORTERS.length, 15, 'B3-1: the fifteen Batch 1 Supporters');
   for (const c of SUPPORTERS) {
     assert.ok(c.release >= 1 && c.favour, `${c.name}: a Release cost and a Favour`);
-    assert.ok(existsSync(join(V4, '..', 'assets/cards', `${c.art}.jpg`)), `${c.name}: art`);
-    assert.ok(DEMO_DECK.includes(c.id));
+    if (c.hasArt) assert.ok(existsSync(join(V4, '..', 'assets/cards', `${c.art}.jpg`)), `${c.name}: art`);
   }
 }
 
@@ -56,25 +54,25 @@ const types = (s) => s.events.map((e) => e.type);
   assert.equal(s.players.player.baseEnergy, 6 - 2, 'Adapt costs 2');
   assert.ok(s.players.player.discard.some((c) => c.id === 'ember'), 'then discarded');
   assert.equal(s.turn, 'ai', 'it is the turn\'s action');
-  // Flame Charge React: +1 Attack until Supper (G3: X Attack is an Item now).
+  // Flame Charge React (B3-1): your Pokémon being attacked gets +1 Attack and +1 Strength until Supper.
   s = battle();
-  s.players.player.row[0] = mon('ponyta', 2);
+  s.players.player.row[0] = mon('ponyta', 2, { strength: 20, currentStrength: 20 });
   s.players.ai.row[5] = mon('squirtle', 4, { spent: false });
   give(s, 'player', 'flame-charge');
   s.turn = 'ai';
   const atk = s.players.player.row[0].attack;
-  s = applyAction(s, { type: 'attack', who: 'ai', from: 5, target: { kind: 'player' } });
+  s = applyAction(s, { type: 'attack', who: 'ai', from: 5, target: { kind: 'pokemon', space: 0 } });
   s = applyAction(s, { type: 'react', who: 'player', uid: s.players.player.hand[0].uid, target: { who: 'player', space: 0 } });
   assert.equal(s.players.player.row[0].attack, atk + 1);
   while (s.round === 1) { for (const sp of passBlockers(s, s.turn)) s.players[s.turn].row[sp].spent = true; s = applyAction(s, { type: 'pass', who: s.turn }); }
   assert.equal(s.players.player.row[0].attack, atk, 'gone at Supper');
-  // Rock Slide (G3): pick a Location, or a lane with no Location: 1 damage to each enemy Pokémon there.
+  // Surf (B3-1; Rock Slide before it): pick a Location, or a lane with no Location: 3 damage to each enemy Pokémon there.
   // No Locations here, so only lane 5's Pokémon is hit.
   s = battle();
   for (const i of [0, 4, 8]) s.players.ai.row[i] = mon('squirtle', 4);
-  s = applyAction(s, { type: 'command', who: 'player', uid: give(s, 'player', 'rock-slide'), mode: 'adapt', target: { who: 'ai', space: 4, lane: true } });
+  s = applyAction(s, { type: 'command', who: 'player', uid: give(s, 'player', 'surf'), mode: 'adapt', target: { who: 'ai', space: 4, lane: true } });
   for (const i of [0, 8]) assert.equal(s.players.ai.row[i].currentStrength, s.players.ai.row[i].strength);
-  assert.equal(s.players.ai.row[4].currentStrength, s.players.ai.row[4].strength - 1);
+  assert.equal(s.players.ai.row[4].currentStrength, s.players.ai.row[4].strength - 3);
 }
 
 // --- React: a window opens only with an affordable React; it resolves before the committed action ---------------------------
@@ -82,7 +80,7 @@ const types = (s) => s.events.map((e) => e.type);
   // The player attacks; the Opponent holds Recover (React 1) and has Energy: a window opens.
   let s = battle();
   s.players.player.row[1] = mon('growlithe', 4, { spent: false });
-  s.players.ai.row[3] = mon('squirtle', 4);
+  s.players.ai.row[3] = mon('squirtle', 4, { strength: 10, currentStrength: 10 });   // (B3-1: sturdier than its new stats)
   const target = s.players.ai.row[3];
   target.currentStrength = target.strength - 1;
   give(s, 'ai', 'recover');
@@ -117,9 +115,12 @@ const types = (s) => s.events.map((e) => e.type);
   assert.equal(n2.reactWindow, null, 'unaffordable React: no window');
   assert.equal(n2.players.ai.row[3].currentStrength, n2.players.ai.row[3].strength - 4);
   // Not eligible: Pass, Retain, Place Location and Strat don't open a window.
+  // (B3-1: Recover's React now heals your Pokémon being attacked, so it answers only attacks; Ember's React answers
+  // anything.)
   let s3 = battle();
-  s3.players.ai.row[3] = mon('squirtle', 4);
-  give(s3, 'ai', 'recover');
+  s3.players.ai.row[3] = mon('squirtle', 4, { strength: 10, currentStrength: 10 });
+  s3.players.player.row[0] = mon('wooper', 4);
+  give(s3, 'ai', 'ember');
   s3 = applyAction(s3, { type: 'command', who: 'player', uid: give(s3, 'player', 'ember'), mode: 'strat', target: { who: 'ai', space: 3 } });
   assert.equal(s3.reactWindow, null, 'a Strat is not reacted to');
   s3.turn = 'player';
@@ -191,7 +192,8 @@ const types = (s) => s.events.map((e) => e.type);
 {
   let s = battle();
   s.players.ai.row[4] = mon('squirtle', 6, { strength: 9, currentStrength: 9 });   // Strength 9
-  give(s, 'ai', 'recover');
+  s.players.player.row[0] = mon('wooper', 4);
+  give(s, 'ai', 'ember');   // (B3-1: Ember's React answers a Strat; Recover's now answers only attacks)
   s = applyAction(s, { type: 'command', who: 'player', uid: give(s, 'player', 'ember'), mode: 'strat', target: { who: 'ai', space: 4 } });
   assert.equal(s.players.player.baseEnergy, 6 - 3, 'Strat costs 3, paid now');
   assert.equal(s.strats.length, 1);
@@ -200,7 +202,7 @@ const types = (s) => s.events.map((e) => e.type);
   assert.equal(s.turn, 'ai');
   s = applyAction(s, { type: 'pass', who: 'ai' });   // the opponent's next turn
   assert.equal(s.turn, 'player');
-  // G1: as it resolves, the Opponent (who holds Recover) may React; it lets it happen.
+  // G1: as it resolves, the Opponent (who holds Ember) may React; it lets it happen.
   assert.equal(s.reactWindow?.pending.type, 'strat', 'a React window on the resolving Strat');
   assert.equal(s.players.ai.row[4].currentStrength, 9, 'not until the window closes');
   s = applyAction(s, { type: 'decline', who: 'ai' });
@@ -231,26 +233,24 @@ const types = (s) => s.events.map((e) => e.type);
 
 // --- Supporters: Release (permanent), self-Release, Favour and its Recognition, no Energy ---------------------------------------------
 {
-  // Nurse Joy, no Favour: Release a Ponyta (Fire): heal 2.
+  // Nurse Joy, no Favour: Release a Ponyta (Fire): heal 3 and draw 1 (B3-1).
   let s = battle();
-  s.players.player.row[0] = mon('squirtle', 4);
-  s.players.player.row[0].currentStrength = 1;
+  s.players.player.row[0] = mon('squirtle', 4, { strength: 10, currentStrength: 1 });
   const joy = give(s, 'player', 'nurse-joy');
   const pon = give(s, 'player', 'ponyta');
   s = applyAction(s, { type: 'supporter', who: 'player', uid: joy, release: [pon] });
-  assert.equal(s.players.player.row[0].currentStrength, 3, 'heal 2');
+  assert.equal(s.players.player.row[0].currentStrength, 4, 'heal 3');
   assert.deepEqual(s.players.player.released.map((c) => c.id), ['ponyta', 'nurse-joy'], 'the Released card, then the Supporter itself');
-  assert.equal(s.players.player.hand.length, 0);
+  assert.equal(s.players.player.hand.length, 1, 'and draw 1');
   assert.equal(s.players.player.recognition, 0, 'no Favour, no Recognition');
   assert.equal(s.players.player.baseEnergy, 6, 'no Energy');
-  // With the Favour (a Water Pokémon): heal 4 and +1 Recognition.
+  // With the Favour (a Water Pokémon): heal 5 and +3 Recognition.
   s = battle();
-  s.players.player.row[0] = mon('squirtle', 4);
-  s.players.player.row[0].currentStrength = 1;
+  s.players.player.row[0] = mon('squirtle', 4, { strength: 10, currentStrength: 1 });
   const joy2 = give(s, 'player', 'nurse-joy');
   const sq = give(s, 'player', 'squirtle');
   s = applyAction(s, { type: 'supporter', who: 'player', uid: joy2, release: [sq] });
-  assert.equal(s.players.player.row[0].currentStrength, 5, 'Favour: heal 4');
+  assert.equal(s.players.player.row[0].currentStrength, 6, 'Favour: heal 5');
   assert.equal(s.players.player.recognition, RULES.perFavour, 'Favour: Recognition');
   assert.equal(RULES.perFavour, 3, 'G1: a Favour is +3');
   // Released cards never come back: the Discard Pile reshuffles, the Released Pile doesn't.
@@ -262,27 +262,26 @@ const types = (s) => s.events.map((e) => e.type);
   const all = [...s.players.player.hand, ...s.players.player.drawPile, ...s.players.player.discard].map((c) => c.id);
   assert.ok(!all.includes('nurse-joy') && !all.includes('squirtle'), 'never reshuffled');
   assert.equal(s.players.player.released.length, 2);
-  // Professor Oak: search for a Pokémon (Favour, a Location: 2).
+  // Professor Oak (B3-1): search for 2 Pokémon (Favour, a Location: 3).
   s = battle();
   s.players.player.drawPile = [card('ember'), card('ponyta'), card('recover'), card('squirtle'), card('growlithe')];
   const oak = give(s, 'player', 'professor-oak');
   const loc = give(s, 'player', 'mt-ember');
   s = applyAction(s, { type: 'supporter', who: 'player', uid: oak, release: [loc] });
-  assert.deepEqual(s.players.player.hand.map((c) => c.id), ['ponyta', 'squirtle'], 'Favour: 2 Pokémon');
-  assert.equal(s.players.player.drawPile.length, 3);
-  // Brock: Release 2; +1 Strength (Favour, a Pokémon of Level 4+: +2).
+  assert.deepEqual(s.players.player.hand.map((c) => c.id), ['ponyta', 'squirtle', 'growlithe'], 'Favour: 3 Pokémon');
+  assert.equal(s.players.player.drawPile.length, 2);
+  // Brock (B3-1): Release 1; +1 Strength (kept) and heal 2 (Favour, a Pokémon of Level 4+: +2 Strength).
   s = battle();
   s.players.player.row[0] = mon('ponyta', 1);
   const base = s.players.player.row[0].strength;
   const brock = give(s, 'player', 'brock');
   s.players.player.hand.push({ ...pokemonAt('growlithe', 4), uid: 'g4' });
-  const e = give(s, 'player', 'ember');
-  s = applyAction(s, { type: 'supporter', who: 'player', uid: brock, release: ['g4', e] });
+  s = applyAction(s, { type: 'supporter', who: 'player', uid: brock, release: ['g4'] });
   assert.equal(s.players.player.row[0].strength, base + 2);
   assert.equal(s.players.player.recognition, RULES.perFavour);
-  // Wrong Release counts and the Supporter itself are refused.
+  // Wrong Release counts and the Supporter itself are refused (Crasher Wake Releases 2).
   s = battle();
-  const b2 = give(s, 'player', 'brock');
+  const b2 = give(s, 'player', 'crasher-wake');
   const x = give(s, 'player', 'ember');
   assert.equal(whyNot(s, 'player', 'supporter', s.players.player.hand[0]), 'Needs 2 other cards in hand to Release');
   assert.ok(!legalActions(s, 'player').includes('supporter'));

@@ -1,11 +1,11 @@
 // Result previews (UX3): what an attack or an effect would do, before it's committed. Pure: no DOM.
 // Each preview runs the engine's own functions (applyAction for an attack, applyCommand, applyItem and
 // runOps for effects) on a copy of the state and reads the difference, so a preview can never disagree
-// with the result. The attack's number is also split into its parts (base Attack, Location, Weather,
-// Held Item, "until Supper"), which always add up to the engine's damageOf.
+// with the result. The attack's number is also split into its parts (base Attack, Location, Held Item,
+// Intimidate, "until Supper"), which always add up to the engine's damageOf.
 import { RULES } from '../rules.js?v=202611120821';
 import {
-  applyAction, applyCommand, applyItem, runOps, syncBonuses, damageOf, canHitBack, locationAt, activeBrackets, opponentOf, pokemonOf,
+  applyAction, applyCommand, applyItem, runOps, syncBonuses, damageOf, canHitBack, locationAt, passiveOps, heldOps, opponentOf, pokemonOf,
 } from './game.js?v=202611120821';
 
 const clone = (s) => structuredClone(s);
@@ -24,18 +24,20 @@ export function attackParts(s, who, space) {
   const card = s.players[who].row[space];
   const parts = [];
   const l = locationAt(s, space);
-  const brackets = activeBrackets(s);
-  const locAtk = l?.passive.kind === 'attack' ? l.passive.amount : 0;
-  const wxAtk = brackets.filter((b) => b.kind === 'attack');
-  const heldAtk = card.held?.op === 'attack' ? card.held.amount : 0;
+  const locAtk = passiveOps(l).filter((o) => o.op === 'attack').reduce((n, o) => n + o.amount, 0);
+  const heldAtk = heldOps(card).filter((o) => o.op === 'attack').reduce((n, o) => n + o.amount, 0);
+  // B3-1: Intimidate (enemy Pokémon in its Location): whatever syncBonuses took off beyond the Location and Held Item.
+  const bonus = card.bonusAttack ?? 0;
+  const intim = bonus - locAtk - heldAtk;
   const temp = card.tempAttack ?? 0;
-  const base = card.attack - locAtk - wxAtk.reduce((n, b) => n + b.amount, 0) - heldAtk - temp;
+  const base = card.attack - bonus - temp;
   parts.push({ label: 'Attack', n: base });
   if (locAtk) parts.push({ label: l.name, n: locAtk });
-  for (const b of wxAtk) parts.push({ label: `${b.type} ${b.at}`, n: b.amount });
   if (heldAtk) parts.push({ label: card.held.name, n: heldAtk });
+  if (intim) parts.push({ label: 'Intimidate', n: intim });
   if (temp) parts.push({ label: 'until Supper', n: temp });
-  if (card.attackType === 'Physical') for (const b of brackets.filter((x) => x.kind === 'physical')) parts.push({ label: `${b.type} ${b.at} (Physical)`, n: b.amount });
+  // An Attack below 0 deals 0.
+  if (card.attack < 0) parts.push({ label: 'minimum 0', n: -card.attack });
   return parts;
 }
 
@@ -130,19 +132,17 @@ export function effectPreview(s, who, card, mode, target) {
   if (card.cardType === 'Command') {
     const t = { ...target, uid: target.space === null || target.lane ? undefined : s.players[target.who].row[target.space]?.uid };
     applyCommand(sim, who, card, mode, t);
-    const { op, amount } = card.modes[mode];
-    if (op === 'attackUp') notes.push(`+${amount} Attack until Supper`);
-    if (op === 'attackKept') notes.push(`+${amount} Attack, kept`);
-    if (op === 'reduce') notes.push(`The attack deals ${amount} less damage`);
-    if (op === 'dive') notes.push(mode === 'react' ? 'Back to your hand: the attack fizzles' : `Back to your hand${amount ? `; draw ${amount}` : ''}`);
+    notes.push(...opNotes(card.modes[mode].ops, mode));
   } else if (card.cardType === 'Item') {
     applyItem(sim, who, card, { who, space: card.noTarget ? null : target.space });
     if (card.itemType === 'Held') notes.push(`Held: ${card.text.replace(/^Held: /, '')} while it holds it`);
-    if (card.op === 'attackUp') notes.push(`+${card.amount} Attack until Supper`);
+    else notes.push(...opNotes(card.ops, 'use'));
   } else if (card.cardType === 'Trainer') {
-    runOps(sim, who, card.command.ops);
-    for (const o of card.command.ops) if (o.op === 'draw') notes.push(`Draw ${o.amount} card${o.amount === 1 ? '' : 's'}`);
+    runOps(sim, who, card.command.ops, card.name, target && target.space !== null && target.space !== undefined ? target : null);
+    notes.push(...opNotes(card.command.ops, 'command'));
   } else throw new Error(`No preview for ${card.cardType}`);
+  // An effect waiting on a second choice (Leech Seed's heal, say): the preview shows what's known so far.
+  sim.choice = null;
   syncBonuses(sim);
   return {
     card: card.name,
@@ -153,6 +153,36 @@ export function effectPreview(s, who, card, mode, target) {
     text: notes.join(' · '),
     tournament: !!s.tournament,
   };
+}
+
+// B3-1: the sentence-only parts of an effect (the numbers show as before → after).
+function opNotes(ops, mode) {
+  const out = [];
+  const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  for (const o of ops) {
+    const n = o.amount ?? 0;
+    switch (o.op) {
+      case 'tempAttack': if (n > 0) out.push(`+${n} Attack until Supper`); else out.push(`${n} Attack until Supper`); break;
+      case 'tempStrength': out.push(`+${n} Strength until Supper`); break;
+      case 'attack': if (o.to) out.push(`+${n} Attack, kept`); break;
+      case 'strength': if (o.to) out.push(`+${n} Strength, kept`); break;
+      case 'shellTemp': out.push(`Shell ${n} until Supper`); break;
+      case 'tempKeyword': out.push(`${o.keyword === 'overrun' ? 'Overrun' : o.keyword} until Supper`); break;
+      case 'speed': if (o.to) out.push('Speed one step higher'); break;
+      case 'reduce': out.push(`The attack deals ${n} less damage`); break;
+      case 'noDamage': out.push('The attack deals no damage'); break;
+      case 'returnHand': out.push(mode === 'react' ? 'Back to your hand' : 'Back to its owner\'s hand'); break;
+      case 'attackFizzles': out.push('the attack fizzles'); break;
+      case 'spend': out.push('Becomes Spent'); break;
+      case 'activate': out.push('Becomes Active'); break;
+      case 'draw': out.push(`Draw ${plural(n, 'card')}`); break;
+      case 'energy': out.push(`+${n} Energy`); break;
+      case 'search': out.push(`Search for ${n === 1 ? 'a Pokémon card' : plural(n, 'Pokémon card')}`); break;
+      case 'handLevels': out.push(`+${plural(n, 'Level')} in hand`); break;
+      default: break;
+    }
+  }
+  return out;
 }
 
 // G2: what a chosen-target On Summon would do with this target: the engine's own choose action on a copy.

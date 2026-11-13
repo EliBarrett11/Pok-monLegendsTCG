@@ -5,9 +5,10 @@ import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RULES } from '../src/rules.js';
 import {
-  createGame, applyAction, legalActions, locationOf, locationStarts, placeable, whyNot, weatherTotals, activeBrackets,
+  createGame, applyAction, legalActions, locationOf, locationStarts, placeable, whyNot,
   dominantOf, strengthIn, summonCost, damageOf, passBlockers } from '../src/engine/game.js';
-import { pokemonAt, cardAtRound, LOCATIONS, DEMO_DECK, WEATHER_BRACKETS } from '../src/engine/cards.js';
+import { pokemonAt, cardAtRound, LOCATIONS } from '../src/engine/cards.js';
+import { DECKS } from '../src/engine/decks.js';
 import { chooseAction, moves } from '../src/ai/ai.js';
 
 let n = 0;
@@ -35,20 +36,22 @@ const pass = (s) => { for (const sp of passBlockers(s, s.turn)) s.players[s.turn
 const nextRound = (s) => { const r = s.round; while (s.round === r && s.phase !== 'gameOver') s = pass(s); return s; };
 const loc = (s, id) => s.locations.find((l) => l.id === id);
 
-// --- The four Location cards and the demo deck -----------------------------------------------------------------
+// --- The nine Batch 1 Location cards and the decks (B3-1) ---------------------------------------------------------
 {
   const V4 = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-  assert.equal(LOCATIONS.length, 4);
-  assert.deepEqual(LOCATIONS.map((l) => l.id), ['cerulean-cape', 'mt-ember', 'lake-of-rage', 'route-119']);
-  assert.equal(new Set(LOCATIONS.map((l) => l.passive.kind)).size, 4, 'each has a different passive');
+  assert.equal(LOCATIONS.length, 9);
+  assert.deepEqual(LOCATIONS.slice(0, 4).map((l) => l.id), ['cerulean-cape', 'mt-ember', 'lake-of-rage', 'route-119']);
   for (const l of LOCATIONS) {
     assert.ok([2, 3, 4].includes(l.width), `${l.name}: covers 2, 3 or 4 lanes`);
-    assert.ok(l.rounds >= 1 && ['Rain', 'Sun'].includes(l.weather.type) && l.weather.count >= 1, `${l.name}: rounds and Weather`);
-    assert.ok(existsSync(join(V4, '..', 'assets/cards', `${l.art}.jpg`)), `${l.name}: art`);
-    assert.equal(DEMO_DECK.filter((id) => id === l.id).length, 1, `${l.name} is in the demo deck`);
+    assert.ok(l.rounds >= 1 && l.passive.ops.length >= 1, `${l.name}: Rounds and a passive`);
+    assert.ok(!('weather' in l), `${l.name}: B3-1: no Weather`);
+    if (l.hasArt) assert.ok(existsSync(join(V4, '..', 'assets/cards', `${l.art}.jpg`)), `${l.name}: art`);
   }
-  const s = createGame(3);
-  for (const w of ['player', 'ai']) assert.equal(s.players[w].drawPile.concat(s.players[w].hand).filter((c) => c.cardType === 'Location').length, 4, 'both players have the 4 Locations');
+  const s = createGame(3, { decks: { player: 'mistys-tide', ai: 'erikas-garden' } });
+  for (const w of ['player', 'ai']) {
+    const want = DECKS[w === 'player' ? 'mistys-tide' : 'erikas-garden'].list.filter((id) => LOCATIONS.some((l) => l.id === id)).length;
+    assert.equal(s.players[w].drawPile.concat(s.players[w].hand).filter((c) => c.cardType === 'Location').length, want, 'each player has their deck\'s Locations');
+  }
 }
 
 // --- Placement: widths, free lanes, over Pokémon, no room, no Energy -------------------------------------------------
@@ -88,18 +91,19 @@ const loc = (s, id) => s.locations.find((l) => l.id === id);
 
 // --- Duration and removal: Rounds count down at Supper; then the lanes are Default again ----------------------------
 {
+  // (B3-1: Route 119 lasts 2 Rounds.)
   let s = battle();
-  s = place(s, 'player', 'lake-of-rage', 0);
+  s = place(s, 'player', 'route-119', 0);
   s.players.player.row[1] = mon('squirtle', 2);
-  assert.equal(loc(s, 'lake-of-rage').roundsLeft, 2);
+  assert.equal(loc(s, 'route-119').roundsLeft, 2);
   s = nextRound(s);
-  assert.equal(loc(s, 'lake-of-rage').roundsLeft, 1, 'one Round passed');
+  assert.equal(loc(s, 'route-119').roundsLeft, 1, 'one Round passed');
   s = nextRound(s);
-  assert.equal(loc(s, 'lake-of-rage'), undefined, 'removed after its Rounds');
+  assert.equal(loc(s, 'route-119'), undefined, 'removed after its Rounds');
   assert.equal(locationOf(s, 0), 'default');
   assert.equal(locationOf(s, 1), 'default');
   assert.equal(s.players.player.row[1]?.name, 'Squirtle', 'Pokémon in a removed Location stay where they are');
-  assert.ok(s.players.player.discard.some((c) => c.id === 'lake-of-rage') || s.players.player.hand.some((c) => c.id === 'lake-of-rage') || s.players.player.drawPile.some((c) => c.id === 'lake-of-rage'), 'the card goes back to its owner\'s piles (the Discard Pile)');
+  assert.ok(s.players.player.discard.some((c) => c.id === 'route-119') || s.players.player.hand.some((c) => c.id === 'route-119') || s.players.player.drawPile.some((c) => c.id === 'route-119'), 'the card goes back to its owner\'s piles (the Discard Pile)');
 }
 
 // --- Passives -----------------------------------------------------------------------------------------------------------
@@ -133,11 +137,11 @@ const loc = (s, id) => s.locations.find((l) => l.id === id);
   s = applyAction(s, { type: 'summon', who: 'player', uid: 'p1', space: 2 });
   assert.equal(s.players.player.row[2].attack, pokemonAt('ponyta', 1).attack + 1);
 
-  // Lake of Rage: Pokémon there heal 2 at Breakfast (not above their Strength); others don't.
+  // Floaroma Meadow (B3-1; Lake of Rage before it): Pokémon there heal 2 at Breakfast (not above their Strength).
   s = battle();
   s.players.player.row[0] = mon('squirtle', 2);
   s.players.player.row[4] = mon('squirtle', 2);
-  s = place(s, 'player', 'lake-of-rage', 0);
+  s = place(s, 'player', 'floaroma-meadow', 0);
   const max = s.players.player.row[0].strength;
   s.players.player.row[0].currentStrength = max - 3;
   s.players.player.row[4].currentStrength = max - 3;
@@ -176,57 +180,25 @@ const loc = (s, id) => s.locations.find((l) => l.id === id);
   for (const m of ms) applyAction(s, m);
 }
 
-// --- Weather: counts combine across placed Locations; brackets apply to both players ------------------------------------
+// --- B3-1: no Weather. A Location keeps only its passive, lanes, Rounds and dominance; attacks deal their Attack --------
 {
-  assert.deepEqual(WEATHER_BRACKETS.map((b) => `${b.type}${b.at}`), ['Rain2', 'Rain4', 'Sun2', 'Sun4']);
   let s = battle();
   s.players.player.row[0] = mon('ponyta', 1);
-  s.players.ai.row[8] = mon('squirtle', 2);
+  s.players.ai.row[8] = mon('squirtle', 2, { strength: 20, currentStrength: 20 });
   const ponyta = s.players.player.row[0];
-  const squirtle = s.players.ai.row[8];
-  assert.deepEqual(weatherTotals(s), { Rain: 0, Sun: 0 });
-  assert.equal(activeBrackets(s).length, 0);
-  assert.equal(damageOf(s, ponyta), ponyta.attack);
-  // Sun 1: no bracket yet.
   s = place(s, 'player', 'lake-of-rage', 0);
-  assert.deepEqual(weatherTotals(s), { Rain: 0, Sun: 1 });
-  assert.equal(activeBrackets(s).length, 0);
-  // Sun 3 (combined): Sun 2 — Physical attacks deal +1 damage (Ponyta is Physical; Squirtle Special).
   s = place(s, 'ai', 'mt-ember', 2);
-  assert.deepEqual(weatherTotals(s), { Rain: 0, Sun: 3 });
-  assert.deepEqual(activeBrackets(s).map((b) => `${b.type}${b.at}`), ['Sun2']);
-  assert.equal(damageOf(s, s.players.player.row[0]), ponyta.attack + 1);
-  assert.equal(damageOf(s, s.players.ai.row[8]), squirtle.attack, 'Special attacks: unchanged');
-  // An attack uses it.
+  s = place(s, 'player', 'route-119', 5);
+  for (const l of s.locations) assert.deepEqual(Object.keys(l).filter((k) => /weather/i.test(k)), [], `${l.name}: no Weather`);
+  assert.equal(damageOf(s, s.players.player.row[0]), ponyta.attack, 'Lake of Rage adds nothing to its Attack');
+  assert.equal(s.players.ai.row[8].attack, pokemonAt('squirtle', 2).attack, 'nothing outside a Location changes');
+  // Lake of Rage (B3-1): Pokémon there have Rage.
+  assert.ok(s.players.player.row[0].locKw?.rage, 'Rage from Lake of Rage');
   s.players.player.row[0].spent = false;
-  s.players.ai.row[8].strength = 20;
-  s.players.ai.row[8].currentStrength = 20;
   s.turn = 'player';
   s = applyAction(s, { type: 'attack', who: 'player', from: 0, target: { kind: 'pokemon', space: 8 } });
-  assert.equal(s.players.ai.row[8].currentStrength, 20 - (ponyta.attack + 1));
-  // Sun 5: Sun 4 — every Pokémon has +1 Attack, in or out of a Location.
-  s = place(s, 'player', 'mt-ember', 5);
-  assert.equal(weatherTotals(s).Sun, 5);
-  assert.equal(s.players.ai.row[8].attack, squirtle.attack + 1, 'Sun 4: +1 Attack everywhere (both players)');
-  assert.equal(s.players.player.row[0].attack, ponyta.attack + 1, 'in Lake of Rage too');
-
-  // Rain 2: every Pokémon heals 1 at Breakfast; Rain 4: every Pokémon has +1 Strength.
-  s = battle();
-  s.players.player.row[8] = mon('squirtle', 2);
-  s.players.ai.row[8] = mon('squirtle', 2);
-  const str = s.players.player.row[8].strength;
-  s = place(s, 'player', 'route-119', 0);
-  assert.deepEqual(weatherTotals(s), { Rain: 2, Sun: 0 });
-  assert.deepEqual(activeBrackets(s).map((b) => `${b.type}${b.at}`), ['Rain2']);
-  s.players.player.row[8].currentStrength = str - 2;
-  s.players.ai.row[8].currentStrength = str - 2;
-  s = nextRound(s);
-  assert.equal(s.players.player.row[8].currentStrength, str - 1, 'Rain 2: heals 1');
-  assert.equal(s.players.ai.row[8].currentStrength, str - 1, 'both players');
-  s = place(s, 'ai', 'route-119', 4);
-  assert.equal(weatherTotals(s).Rain, 4);
-  assert.equal(s.players.player.row[8].strength, str + 1, 'Rain 4: +1 Strength everywhere');
-  assert.equal(s.players.ai.row[8].strength, str + 1);
+  assert.equal(s.players.ai.row[8].currentStrength, 20 - ponyta.attack, 'an attack deals its Attack');
+  assert.ok(!JSON.stringify(s.log).match(/Weather|Rain|\bSun\b/), 'the log never says Weather');
 }
 
 // --- Dominance and its Recognition at Supper; ties give nothing ---------------------------------------------------------
@@ -237,9 +209,9 @@ const loc = (s, id) => s.locations.find((l) => l.id === id);
   s = place(s, 'ai', 'lake-of-rage', 3);
   s = place(s, 'player', 'route-119', 5);
   // Cerulean Cape: you 2 Pokémon vs 1; Lake of Rage: tied; Route 119: the Opponent only.
-  s.players.player.row[0] = mon('ponyta', 1);
-  s.players.player.row[1] = mon('ponyta', 1);
-  s.players.ai.row[0] = mon('ponyta', 1);
+  s.players.player.row[0] = mon('ponyta', 3);   // (B3-1: Level 3, Strength 3 each)
+  s.players.player.row[1] = mon('ponyta', 3);
+  s.players.ai.row[0] = mon('ponyta', 3);
   s.players.player.row[3] = mon('squirtle', 2);
   s.players.ai.row[4] = mon('squirtle', 2);
   s.players.ai.row[7] = mon('magikarp', 1);
@@ -288,4 +260,4 @@ const loc = (s, id) => s.locations.find((l) => l.id === id);
   assert.ok([4, 5].includes(b.space), `contests Lake of Rage (chose lane ${b.space + 1})`);
 }
 
-console.log('v4 locations: placement, duration and removal, passives, Weather brackets, dominance, ties, AI — ok');
+console.log('v4 locations: placement, duration and removal, passives, no Weather, dominance, ties, AI — ok');

@@ -6,7 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { RULES, levelFor, costFor, SERIES_RANGE } from '../src/rules.js';
 import {
   createGame, applyAction, legalTargets, isReady, readySpaces, passSpends, gainRecognition, whyNot, passBlockers, passReason, legalActions } from '../src/engine/game.js';
-import { pokemonAt, cardAtRound, PATHS, DEMO_DECK } from '../src/engine/cards.js';
+import { pokemonAt, cardAtRound, PATHS } from '../src/engine/cards.js';
+import { DECKS } from '../src/engine/decks.js';
 import { payCost, refreshEnergy, newEnergy, availableExert, canPay } from '../src/engine/energy.js';
 
 // G2: board Pokémon are staged plain (no trigger or keywords): these tests check rules; tests/g2.test.js checks the Pokémon.
@@ -41,14 +42,17 @@ const clear = (s) => { for (const w of ['player', 'ai']) s.players[w].row = s.pl
     }
     if (/\/(engine|ai)\/|rules\.js$/.test(f)) assert.ok(!/document\.|window\./.test(text), `${f}: no DOM code`);
   }
-  for (const p of PATHS) for (const f of p.forms) assert.ok(existsSync(join(V4, '..', 'assets/cards', `${f.art}.jpg`)), `${f.name}: art`);
-  const s = createGame(2);
+  // B3-1: a form with "hasArt": true has its art; the others show the Art Pending panel.
+  for (const p of PATHS) for (const f of p.forms) if (f.hasArt) assert.ok(existsSync(join(V4, '..', 'assets/cards', `${f.art}.jpg`)), `${f.name}: art`);
+  // B3-1: each side plays one of the four decks (here both Misty's Tide).
+  const DEMO_DECK = DECKS['mistys-tide'].list;
+  const s = createGame(2, { decks: { player: 'mistys-tide', ai: 'mistys-tide' } });
   assert.equal(s.players.player.row.length, 9, '9 lanes');
-  assert.deepEqual(s.players.player.drawPile.map((c) => c.id).sort().concat(s.players.player.hand.map((c) => c.id)).sort(), [...DEMO_DECK].sort(), 'the demo deck');
+  assert.deepEqual(s.players.player.drawPile.map((c) => c.id).sort().concat(s.players.player.hand.map((c) => c.id)).sort(), [...DEMO_DECK].sort(), 'the chosen deck');
   assert.deepEqual([...DEMO_DECK].sort(), s.players.ai.drawPile.concat(s.players.ai.hand).map((c) => c.id).sort(), 'both players use the same list');
   assert.equal(s.players.player.hand.length, RULES.handDraw, 'Round 1: draw 7');
-  // The demo deck: Light, Mid and Heavy, a Defence and a Special Defence guard.
-  const lines = new Set(DEMO_DECK.map((id) => PATHS.find((p) => p.id === id)).filter(Boolean));
+  // The deck: Light, Mid and Heavy, a Defence and a Special Defence guard.
+  const lines = new Set(Object.values(DECKS).flatMap((d) => d.list).map((id) => PATHS.find((p) => p.id === id)).filter(Boolean));
   for (const series of ['Light', 'Mid', 'Heavy']) assert.ok([...lines].some((p) => p.series === series), series);
   assert.ok([...lines].some((p) => p.guard === 'Defence') && [...lines].some((p) => p.guard === 'Special Defence'), 'a guard of each kind');
   // Mulligan (v1): the chosen cards go to the Discard Pile; as many are drawn.
@@ -60,7 +64,7 @@ const clear = (s) => { for (const w of ['player', 'ai']) s.players[w].row = s.pl
 
 // --- Development levels and snapshots -----------------------------------------------------------------------
 {
-  assert.deepEqual(SERIES_RANGE, { Light: [1, 6], Mid: [2, 7], Heavy: [3, 8] });
+  assert.deepEqual(SERIES_RANGE, { Light: [1, 6], Mid: [2, 7], Heavy: [3, 8], Legendary: [8, 8] }, 'B3-1: a Legendary is Level 8 from the start');
   assert.equal(levelFor('Light', 1), 1);
   assert.equal(levelFor('Mid', 1), 2);
   assert.equal(levelFor('Heavy', 1), 3);

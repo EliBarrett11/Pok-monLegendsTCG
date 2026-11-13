@@ -5,15 +5,18 @@ import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RULES } from '../src/rules.js';
 import { createGame, applyAction, legalActions, whyNot, playReason, buyReason, passBlockers } from '../src/engine/game.js';
-import { pokemonAt, cardAtRound, ITEMS, TRAINERS, DEMO_DECK, BAG_SIZE } from '../src/engine/cards.js';
+import { pokemonAt, cardAtRound, ITEMS, TRAINERS, BAG_SIZE } from '../src/engine/cards.js';
 import { chooseAction } from '../src/ai/ai.js';
+import { DECKS } from '../src/engine/decks.js';
 
 let n = 0;
 // G2: board Pokémon are staged plain (no trigger or keywords): these tests check rules; tests/g2.test.js checks the Pokémon.
 const mon = (id, level, extra = {}) => { const c = pokemonAt(id, level); return { ...c, keywords: {}, trigger: null, uid: `m-${n++}`, currentStrength: c.strength, spent: true, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...extra }; };
 const card = (id) => ({ ...cardAtRound(id, 1), uid: `c-${n++}` });
+// B3-1: a deck with Misty and Blaine (Misty's Tide with Blaine for Whitney), for both sides.
+const MB = DECKS['mistys-tide'].list.map((id) => (id === 'whitney' ? 'blaine' : id));
 const battle = (turn = 'player', energy = 6, dollars = 10) => {
-  let s = createGame(9);
+  let s = createGame(9, { decks: { player: MB, ai: MB } });
   s = applyAction(s, { type: 'mulligan', who: 'player', cards: [] });
   s = applyAction(s, { type: 'mulligan', who: 'ai', cards: [] });
   for (const w of ['player', 'ai']) { const p = s.players[w]; p.hand = []; p.row = p.row.map(() => null); p.baseEnergy = energy; p.exertMax = 0; p.exhaust = []; p.dollars = dollars; }
@@ -39,11 +42,10 @@ const stock = (s, id, slot = 0) => {
 // --- The cards ---------------------------------------------------------------------------------------------------------
 {
   const V4 = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-  assert.equal(ITEMS.length, 10, 'G3: the 5.3 pool');
+  assert.equal(ITEMS.length, 14, 'B3-1: the fourteen Batch 1 Items');
   assert.ok(ITEMS.filter((c) => c.itemType === 'Held').length >= 2 && ITEMS.filter((c) => c.itemType === 'Consumed').length >= 2);
-  assert.equal(ITEMS.filter((c) => DEMO_DECK.includes(c.id)).length, 5, 'G3: 5 Items in the deck; the others only in the PokéMart');
-  for (const c of [...ITEMS, ...TRAINERS, ...TRAINERS.map((t) => t.partner)]) assert.ok(existsSync(join(V4, '..', 'assets/cards', `${c.art}.jpg`)), `${c.name}: art`);
-  assert.equal(TRAINERS.filter((c) => DEMO_DECK.includes(c.id)).length, 2);
+  // B3-1: art where "hasArt" is true (the others show the Art Pending panel).
+  for (const c of [...ITEMS, ...TRAINERS, ...TRAINERS.map((t) => t.partner)]) if (c.hasArt) assert.ok(existsSync(join(V4, '..', 'assets/cards', `${c.art}.jpg`)), `${c.name}: art`);
   assert.equal(BAG_SIZE, 6);
 }
 
@@ -72,7 +74,7 @@ const stock = (s, id, slot = 0) => {
 
 // --- Purchase Item: from hand or the PokéMart; use now or store; the Bag limit; play from the Bag -------------------------------------
 {
-  // From hand, used now: Potion heals 4 (G3); $2 paid; then it goes to the PokéMart's pool.
+  // From hand, used now: Potion heals 8 (B3-1); $2 paid; then it goes to the PokéMart's pool.
   let s = battle();
   s.players.player.row[0] = mon('squirtle', 4, { currentStrength: 1 });
   const potion = give(s, 'player', 'potion');
@@ -107,7 +109,7 @@ const stock = (s, id, slot = 0) => {
   s.players.player.row[0] = mon('growlithe', 3, { currentStrength: 1 });   // Strength 4
   stock(s, 'oran-berry', 0);
   s = applyAction(s, { type: 'buyItem', who: 'player', from: 'mart', slot: 0, then: 'use', target: { space: 0 } });
-  assert.equal(s.players.player.row[0].currentStrength, 3);
+  assert.equal(s.players.player.row[0].currentStrength, 4, 'B3-1: Oran Berry heals 4 (up to its Strength)');
   assert.equal(s.players.player.dollars, 9);
   // The Bag holds 6: a 7th can't be stored (it can still be used now).
   s = battle();
@@ -174,22 +176,22 @@ const stock = (s, id, slot = 0) => {
   const atk = s.players.player.row[0].attack;
   s.players.player.bag = [card('charcoal'), card('mystic-water'), card('x-attack')];
   s = applyAction(s, { type: 'useItem', who: 'player', uid: s.players.player.bag[0].uid, target: { space: 0 } });
-  assert.equal(s.players.player.row[0].attack, atk + 1, 'Charcoal: +1 Attack while held');
+  assert.equal(s.players.player.row[0].attack, atk + 2, 'Charcoal (B3-1): +2 Attack while held');
   s.turn = 'player';
   assert.equal(whyNot(s, 'player', 'useItem', s.players.player.bag[0]), 'No Pokémon of yours without a Held Item', 'one Held Item each');
   assert.throws(() => applyAction(s, { type: 'useItem', who: 'player', uid: s.players.player.bag[0].uid, target: { space: 0 } }));
   // Consumed X Attack (G3): +2 Attack until Supper (on top of the Held Item).
   s = applyAction(s, { type: 'useItem', who: 'player', uid: s.players.player.bag[1].uid, target: { space: 0 } });
-  assert.equal(s.players.player.row[0].attack, atk + 3);
+  assert.equal(s.players.player.row[0].attack, atk + 4);
   s = nextRound(s);
-  assert.equal(s.players.player.row[0].attack, atk + 1, 'the X Attack ends at Supper; the Charcoal stays');
-  // Leftovers (G3: Regenerate 1): heal 1 at Breakfast.
+  assert.equal(s.players.player.row[0].attack, atk + 2, 'the X Attack ends at Supper; the Charcoal stays');
+  // Leftovers (B3-1: Regenerate 2): heal 2 at Breakfast.
   s = battle();
   s.players.player.row[0] = mon('squirtle', 4, { currentStrength: 2 });
   s.players.player.bag = [card('leftovers')];
   s = applyAction(s, { type: 'useItem', who: 'player', uid: s.players.player.bag[0].uid, target: { space: 0 } });
   s = nextRound(s);
-  assert.equal(s.players.player.row[0].currentStrength, 3);
+  assert.equal(s.players.player.row[0].currentStrength, 4);
 }
 
 // --- Trainer Objective (UX1: tracked from match setup): progress, completion, the Partner (and waiting for a space), Recognition --------------------
@@ -228,7 +230,7 @@ const stock = (s, id, slot = 0) => {
   // Waiting for a free space: every space is taken when Blaine's Objective completes at Supper.
   s = battle();
   for (let i = 0; i < 9; i++) s.players.player.row[i] = mon('squirtle', 4);
-  s.players.ai.row[0] = mon('ponyta', 1);
+  s.players.ai.row[0] = mon('ponyta', 1, { strength: 5, currentStrength: 5 });
   s = applyAction(s, { type: 'placeLocation', who: 'player', uid: give(s, 'player', 'cerulean-cape'), start: 0 });
   s.players.player.trainers.find((t) => t.name === 'Blaine').progress = 4;   // UX2: 5 needed; 1 short
   s = nextRound(s);
@@ -252,14 +254,14 @@ const stock = (s, id, slot = 0) => {
   s.players.player.drawPile = Array.from({ length: 4 }, () => card('ponyta'));
   s = applyAction(s, { type: 'trainerCommand', who: 'player', uid: give(s, 'player', 'misty') });
   assert.equal(s.players.player.hand.length, 2, 'Misty: draw 2');
-  assert.equal(s.players.player.baseEnergy, 5);
+  assert.equal(s.players.player.baseEnergy, 4, 'B3-1: Misty\'s Command costs 2');
   assert.ok(s.players.player.discard.some((c) => c.id === 'misty'), 'then discarded');
   assert.ok(s.players.player.trainers.every((x) => !x.complete && x.progress === 0), 'the Command doesn\'t affect its Objective');
   s = battle();
   s.players.ai.row[2] = mon('squirtle', 4);
   s = applyAction(s, { type: 'trainerCommand', who: 'player', uid: give(s, 'player', 'blaine') });
   assert.equal(s.players.ai.row[2].currentStrength, s.players.ai.row[2].strength - 1);
-  assert.equal(s.players.player.baseEnergy, 4, 'Blaine\'s Command costs 2');
+  assert.equal(s.players.player.baseEnergy, 5, 'B3-1: Blaine\'s Command costs 1');
 }
 
 // --- Unaffordable or unavailable: refused with a reason ---------------------------------------------------------------------------------
@@ -270,10 +272,10 @@ const stock = (s, id, slot = 0) => {
   assert.equal(playReason(s, 'player', s.players.player.hand[0]), 'Costs $2 · you have $0');
   assert.throws(() => applyAction(s, { type: 'buyItem', who: 'player', from: 'hand', uid: potion, then: 'use', target: { space: 0 } }));
   stock(s, 'leftovers', 0);
-  assert.equal(buyReason(s, 'player', s.mart.onSale[0], 'store'), 'Costs $3 · you have $0');
+  assert.equal(buyReason(s, 'player', s.mart.onSale[0], 'store'), 'Costs $2 · you have $0');
   assert.ok(!legalActions(s, 'player').includes('buyItem'));
   give(s, 'player', 'misty');
-  assert.equal(whyNot(s, 'player', 'trainerCommand', s.players.player.hand.at(-1)), 'Trainer Command needs 1 Energy · you have 0');
+  assert.equal(whyNot(s, 'player', 'trainerCommand', s.players.player.hand.at(-1)), 'Trainer Command needs 2 Energy · you have 0');
   s.players.player.baseEnergy = 5;
   give(s, 'player', 'blaine');
   assert.equal(whyNot(s, 'player', 'trainerCommand', s.players.player.hand.at(-1)), 'No enemy Pokémon');
@@ -309,7 +311,7 @@ const stock = (s, id, slot = 0) => {
   a = chooseAction(s, 'ai', { rng: () => 0 });
   assert.deepEqual([a.type, a.then], ['buyItem', 'store']);
   // UX1: a Trainer is only a Trainer Command; the AI never tries an Objective.
-  s = battle('ai', 1, 0);
+  s = battle('ai', 2, 0);   // (B3-1: Misty's Command costs 2)
   s.players.ai.drawPile = Array.from({ length: 4 }, () => card('ponyta'));
   give(s, 'ai', 'misty');
   a = chooseAction(s, 'ai', { rng: () => 0 });

@@ -96,7 +96,8 @@ const types = (s) => s.events.map((e) => e.type);
   // A Strat being played doesn't; resolving at the start of its owner's next turn does.
   s = battle();
   s.players.ai.row[4] = mon('squirtle', 6, { spent: true, strength: 9, currentStrength: 9 });   // Strength 9
-  give(s, 'ai', 'recover');
+  s.players.player.row[0] = mon('wooper', 4, { spent: true });
+  give(s, 'ai', 'ember');   // (B3-1: Recover's React now answers only attacks; Ember's answers a Strat)
   s = applyAction(s, { type: 'command', who: 'player', uid: give(s, 'player', 'ember'), mode: 'strat', target: { who: 'ai', space: 4 } });
   eq(s.reactWindow, null, 'no window when a Strat is played face-down');
   s = applyAction(s, { type: 'pass', who: 'ai' });
@@ -105,20 +106,25 @@ const types = (s) => s.events.map((e) => e.type);
   eq(s.players.ai.row[4].currentStrength, 9, 'not resolved yet');
 }
 {
-  // The Opponent Reacts with Recover (React: heal 2) on the target; then the Strat resolves (5 damage).
+  // The Opponent Reacts with Ember (React: 2 damage) on the player's Wooper; then the Strat resolves (5 damage).
+  // (B3-1: Recover's React now heals only a Pokémon being attacked.)
   let s = battle();
-  s.players.ai.row[4] = mon('squirtle', 6, { spent: true, currentStrength: 6 });
-  give(s, 'ai', 'recover');
+  s.players.ai.row[4] = mon('squirtle', 6, { spent: true, strength: 9, currentStrength: 9 });
+  s.players.player.row[0] = mon('wooper', 4, { spent: true });
+  const woo = s.players.player.row[0].currentStrength;
+  give(s, 'ai', 'ember');
   s = applyAction(s, { type: 'command', who: 'player', uid: give(s, 'player', 'ember'), mode: 'strat', target: { who: 'ai', space: 4 } });
   s = applyAction(s, { type: 'pass', who: 'ai' });
-  s = applyAction(s, { type: 'react', who: 'ai', uid: s.players.ai.hand[0].uid, target: { who: 'ai', space: 4 } });
-  eq(s.players.ai.row[4].currentStrength, 6 + 2 - 5, 'the React resolves first, then the Strat');
+  s = applyAction(s, { type: 'react', who: 'ai', uid: s.players.ai.hand[0].uid, target: { who: 'player', space: 0 } });
+  eq(s.players.player.row[0].currentStrength, woo - 2, 'the React resolves first');
+  eq(s.players.ai.row[4].currentStrength, 9 - 5, 'then the Strat');
   eq(s.turn, 'player', 'the owner\'s turn goes on');
   // A React that removes the Strat's target makes it fizzle.
   s = battle();
   s.players.player.row[1] = mon('ponyta', 1, { spent: true, currentStrength: 1 });
   give(s, 'ai', 'ember');
-  s = applyAction(s, { type: 'command', who: 'player', uid: give(s, 'player', 'recover'), mode: 'strat', target: { who: 'player', space: 1 } });
+  // (B3-1: Recover's Strat now heals each of your Pokémon; Flame Charge's has one target.)
+  s = applyAction(s, { type: 'command', who: 'player', uid: give(s, 'player', 'flame-charge'), mode: 'strat', target: { who: 'player', space: 1 } });
   s = applyAction(s, { type: 'pass', who: 'ai' });
   eq(s.reactWindow?.pending.type, 'strat');
   s = applyAction(s, { type: 'react', who: 'ai', uid: s.players.ai.hand[0].uid, target: { who: 'player', space: 1 } });
@@ -133,7 +139,7 @@ const types = (s) => s.events.map((e) => e.type);
   const loc = card('mt-ember');
   s.players.player.hand.push(loc);
   s = applyAction(s, { type: 'placeLocation', who: 'player', uid: loc.uid, start: 0 });
-  s.players.ai.hand = [card('recover')];
+  s.players.ai.hand = [card('ember')];
   s.strats.push({ uid: 'strat-x', owner: 'player', card: card('ember'), target: { who: 'ai', space: 4, uid: s.players.ai.row[4].uid }, targetName: 'Blastoise', playedRound: s.round });
   s.turn = 'ai';
   s.passesInARow = 1;
@@ -150,7 +156,8 @@ const types = (s) => s.events.map((e) => e.type);
 }
 
 // --- C. Costs (2.3) --------------------------------------------------------------------------------------
-eq([1, 2, 3, 4, 5, 6, 7, 8].map(costFor), [1, 1, 2, 2, 3, 3, 4, 4], 'cost = half the Level, rounded up');
+eq([1, 2, 3, 4, 5, 6, 7, 8].map((l) => costFor(l)), [1, 1, 2, 2, 3, 3, 4, 4], 'cost = half the Level, rounded up');
+eq(costFor(8, true), 5, 'B3-1: a Legendary costs 5');
 for (const t of TRAINERS) eq(t.partner.cost, 4, `${t.partner.name} stays cost 4`);
 eq(pokemonAt('ponyta', 1).cost, 1, 'nothing is free');
 
@@ -199,10 +206,8 @@ eq([RULES.perDominance, RULES.perFavour, RULES.perTournamentDominance, RULES.per
 }
 
 // --- F. The PokéMart (2.6) -------------------------------------------------------------------------------
-eq(Object.fromEntries(ITEMS.map((c) => [c.id, [c.price, c.stock]])), {
-  'oran-berry': [1, 8], potion: [2, 6], 'x-attack': [2, 6], charcoal: [2, 6], 'mystic-water': [2, 6], 'quick-claw': [3, 4],
-  'rocky-helmet': [3, 4], leftovers: [3, 4], 'choice-band': [4, 3], 'amulet-coin': [4, 3],
-}, 'prices and Stock (G3: the 5.3 pool)');
+// B3-1: the prices come from cards.json; Stock follows the price ($1 → 8, $2 → 6, $3 → 4, $4 → 3).
+for (const c of ITEMS) eq(c.stock, { 1: 8, 2: 6, 3: 4, 4: 3 }[c.price], `${c.name}: Stock by its price`);
 {
   // Stock counts down one per turn (either player), React decisions aren't turns; replaced at 0.
   let s = battle();

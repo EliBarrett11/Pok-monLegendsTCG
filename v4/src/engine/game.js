@@ -131,7 +131,7 @@ export const pokemonOf = (s, who) => s.players[who].row.map((card, space) => (ca
 const allPokemon = (s) => PLAYERS.flatMap((who) => pokemonOf(s, who).map((p) => ({ ...p, who })));
 // G3: Quick Claw (Held): one step higher (Slow → Steady → Swift; Swift stays Swift). Every Speed check uses it.
 // B3-1: Quick Claw (Held: speed 1), and "Speed one step higher" (kept: speedUp; until Supper: tempSpeed).
-const heldOps = (card) => card?.held?.ops ?? [];
+export const heldOps = (card) => card?.held?.ops ?? [];
 const speedRank = (card) => Math.min(SPEEDS.length - 1, SPEEDS.indexOf(card.speed) + heldOps(card).filter((o) => o.op === 'speed').reduce((n, o) => n + o.amount, 0) + (card.speedUp ?? 0) + (card.tempSpeed ?? 0));
 export const effectiveSpeed = (card) => SPEEDS[speedRank(card)];
 // G3: Choice Band: the holder can't hit back.
@@ -316,7 +316,7 @@ export function whyNot(s, who, action, card, mode) {
       if (mode === 'react' && !s.reactWindow) return 'React only in response to an opponent\'s attack, Adapt or resolving Strat';
       const cost = card.modes[mode].cost;
       if (!canPay(p, cost)) return `${MODE_NAMES[mode]} needs ${cost} Energy · you have ${energyLeft(p)}`;
-      if (!commandTargets(s, who, card, mode).length) return { enemy: 'No target: no enemy Pokémon it can choose', location: 'No target: no enemy Pokémon', allEnemies: 'No target: no enemy Pokémon', own: 'No target: none of your Pokémon', ownLocation: 'No target: none of your Pokémon', allOwn: 'No target: none of your Pokémon', attacker: 'React to an attack only', attacked: 'Only when one of your Pokémon is attacked' }[modeTarget(card, mode)];
+      if (!commandTargets(s, who, card, mode).length) return { enemy: pokemonOf(s, opponentOf(who)).length ? 'No target: every enemy Pokémon has Agility' : 'No target: no enemy Pokémon', location: 'No target: no enemy Pokémon', allEnemies: 'No target: no enemy Pokémon', own: 'No target: none of your Pokémon', ownLocation: 'No target: none of your Pokémon', allOwn: 'No target: none of your Pokémon', attacker: 'React to an attack only', attacked: 'Only when one of your Pokémon is attacked' }[modeTarget(card, mode)];
       return null;
     }
     case 'buyItem': return buyReason(s, who, card, mode);
@@ -876,7 +876,7 @@ function runTrigger(s, t) {
   const live = s.players[t.who].row[t.space];
   const card = t.when === 'defeated' ? t.card : live?.uid === t.uid ? live : null;
   if (!card) return;
-  const label = triggerText(card.trigger);
+  const label = card.trigger.effect ? triggerText(card.trigger) : TRIGGER_NAMES[card.trigger.on];   // (a staged trigger may have ops only)
   log(s, `${POSS[t.who]} ${card.name}: ${label}.`);
   runEffect(s, { who: t.who, name: card.name, id: card.id, kind: 'trigger', on: card.trigger.on, src: { space: t.space, uid: t.uid, type: card.type }, trig: t.ctx, label, then: 'endTurn' }, card.trigger.ops);
 }
@@ -1262,8 +1262,8 @@ export function syncBonuses(s) {
 function heal(card, n) { card.currentStrength = Math.min(card.strength, card.currentStrength + n); }
 
 // B3-1: an effect's ops for a player (a Trainer Command's, in previews).
-export function runOps(s, who, ops, name = 'an effect') {
-  runEffect(s, { who, name, kind: 'trainer' }, ops);
+export function runOps(s, who, ops, name = 'an effect', preset = null) {
+  runEffect(s, { who, name, kind: 'trainer', preset }, ops);
   drainTriggers(s);
 }
 
@@ -1322,6 +1322,7 @@ export function gainRecognition(s, who, base, source, from = null) {
   log(s, `${NAMES[who]}: +${amount} Recognition (${source}${amount !== base ? `; Tournament: ${base} +50%` : ''}), now ${p.recognition}.`);
   if (p.recognition >= RULES.win) {
     s.phase = 'gameOver';
+    s.choice = null;   // (B3-1: a win mid-effect ends any choice it was waiting for)
     s.winner = who;
     s.turn = null;
     s.result = { winner: who, round: s.round };
@@ -1345,7 +1346,7 @@ function draw(s, who, n) {
   for (let i = 0; i < n; i++) {
     if (!p.drawPile.length) {
       if (!p.discard.length) return;
-      p.drawPile = shuffle(s, p.discard.map((c) => ({ ...cardAtRound(c.id, s.round), uid: c.uid })));
+      p.drawPile = shuffle(s, p.discard.map((c) => (c.cardType === 'Hidden' ? c : { ...cardAtRound(c.id, s.round), uid: c.uid })));   // (Hidden: the AI's view of the other player's cards)
       p.discard = [];
       emit(s, 'reshuffled', { who });
       log(s, `${NAMES[who]} shuffled the Discard Pile into a new Draw Pile.`);

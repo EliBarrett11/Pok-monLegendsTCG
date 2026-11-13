@@ -3,9 +3,10 @@
 import assert from 'node:assert/strict';
 import { RULES } from '../src/rules.js';
 import {
-  createGame, applyAction, legalActions, whyNot, locationStarts, locationOf, weatherTotals, activeBrackets, gainRecognition,
+  createGame, applyAction, legalActions, whyNot, locationStarts, locationOf, gainRecognition,
   tournamentDominant, damageOf, playReason, passBlockers } from '../src/engine/game.js';
-import { pokemonAt, cardAtRound, DEMO_DECK, PATHS, LOCATIONS, COMMANDS, SUPPORTERS, ITEMS, TRAINERS } from '../src/engine/cards.js';
+import { pokemonAt, cardAtRound, PATHS, LOCATIONS, COMMANDS, SUPPORTERS, ITEMS, TRAINERS } from '../src/engine/cards.js';
+import { DECKS, DECK_IDS, validateDeck } from '../src/engine/decks.js';
 import { chooseAction } from '../src/ai/ai.js';
 
 let n = 0;
@@ -14,7 +15,7 @@ const mon = (id, level, extra = {}) => { const c = pokemonAt(id, level); return 
 const card = (id) => ({ ...cardAtRound(id, 1), uid: `c-${n++}` });
 // UX1: Trainer Objectives are active from setup; these checks leave them out unless `trainers` is true.
 const battle = (turn = 'player', { trainers = false } = {}) => {
-  let s = createGame(21);
+  let s = createGame(21, { decks: { player: 'blaines-blitz', ai: 'blaines-blitz' } });   // (B3-1: a deck with Blaine)
   s = applyAction(s, { type: 'mulligan', who: 'player', cards: [] });
   s = applyAction(s, { type: 'mulligan', who: 'ai', cards: [] });
   for (const w of ['player', 'ai']) { const p = s.players[w]; p.hand = []; p.row = p.row.map(() => null); p.baseEnergy = 9; p.exertMax = 0; p.exhaust = []; if (!trainers) p.trainers = []; }
@@ -29,23 +30,23 @@ const pass = (s) => { for (const sp of passBlockers(s, s.turn)) s.players[s.turn
 const nextRound = (s) => { const r = s.round; while (s.round === r && s.phase !== 'gameOver') { s.players.player.hand = []; s.players.ai.hand = []; s = pass(s); } return s; };
 const place = (s, who, id, start) => { s.players[who].hand.push(card(id)); s.turn = who; s.passesInARow = 0; return applyAction(s, { type: 'placeLocation', who, uid: s.players[who].hand.at(-1).uid, start }); };
 
-// --- The final foundation deck (section 9): 40 cards, the same for both players, every feature --------------------------------
+// --- B3-1: the four Batch 1 decks: 40 cards each, legal, each side plays the one chosen, every feature in play ----------------
 {
-  assert.equal(DEMO_DECK.length, 40, 'G3: the final 40-card deck (5.4)');
-  const s = createGame(3);
-  const ids = (w) => [...s.players[w].hand, ...s.players[w].drawPile].map((c) => c.id).sort();
-  assert.deepEqual(ids('player'), [...DEMO_DECK].sort());
-  assert.deepEqual(ids('ai'), [...DEMO_DECK].sort(), 'both players: exactly the same list');
-  const has = (list) => list.filter((c) => DEMO_DECK.includes(c.id));
-  for (const series of ['Light', 'Mid', 'Heavy']) assert.ok(has(PATHS).some((p) => p.series === series), `${series} development`);
+  for (const id of DECK_IDS) {
+    const list = DECKS[id].list;
+    assert.equal(list.length, 40, `${DECKS[id].name}: 40 cards`);
+    assert.deepEqual(validateDeck(list), [], `${DECKS[id].name}: legal`);
+    const s = createGame(3, { decks: { player: id, ai: DECK_IDS[(DECK_IDS.indexOf(id) + 1) % 4] } });
+    const ids = (w) => [...s.players[w].hand, ...s.players[w].drawPile].map((c) => c.id).sort();
+    assert.deepEqual(ids('player'), [...list].sort(), `${DECKS[id].name}: the player's deck`);
+    assert.deepEqual(ids('ai'), [...DECKS[DECK_IDS[(DECK_IDS.indexOf(id) + 1) % 4]].list].sort(), 'the Opponent\'s deck');
+  }
+  const all = Object.values(DECKS).flatMap((d) => d.list);
+  const has = (list) => list.filter((c) => all.includes(c.id));
+  for (const series of ['Light', 'Mid', 'Heavy', 'Legendary']) assert.ok(has(PATHS).some((p) => p.series === series), `${series} Pokémon`);
   assert.ok(has(PATHS).some((p) => p.forms.length === 3), 'Pokémon with several evolution Levels');
-  assert.equal(has(LOCATIONS).length, 4);
-  assert.equal(new Set(has(LOCATIONS).map((l) => l.weather.type)).size, 2, 'both Weather types');
-  assert.equal(has(COMMANDS).length, 9, 'Command Cards (Adapt, React, Strat)');
-  assert.equal(has(SUPPORTERS).length, 5, 'Supporters with Favours');
-  assert.equal(has(ITEMS).length, 5, 'Items in the deck (the others in the PokéMart)');
+  assert.ok(has(LOCATIONS).length >= 4 && has(COMMANDS).length >= 9 && has(SUPPORTERS).length >= 5 && has(TRAINERS).length >= 4);
   assert.ok(has(ITEMS).some((i) => i.itemType === 'Held') && has(ITEMS).some((i) => i.itemType === 'Consumed'));
-  assert.equal(has(TRAINERS).length, 2, 'Trainers (Objective or Command)');
 }
 
 // --- The trigger: Breakfast of Round 10 ---------------------------------------------------------------------------------------
@@ -73,32 +74,27 @@ const place = (s, who, id, start) => { s.players[who].hand.push(card(id)); s.tur
   assert.equal(s.tournament.reason, `${RULES.tournamentRecognition}+ Recognition`);
 }
 
-// --- The transition: Locations removed (cards to their owners' Discard Piles); Pokémon stay; passives and Weather end; no new Locations ----------
+// --- The transition: Locations removed (cards to their owners' Discard Piles); Pokémon stay; passives end; no new Locations ----------
 {
   let s = battle();
   s.players.player.row[0] = mon('ponyta', 2);
   s.players.ai.row[5] = mon('squirtle', 4);
-  s = place(s, 'player', 'cerulean-cape', 0);   // +1 Strength, 1 Rain
-  s = place(s, 'player', 'mt-ember', 2);        // 2 Sun: Physical +1 damage
-  s = place(s, 'ai', 'route-119', 5);          // 2 Rain → Rain 3: Rain 2 bracket (heal 1 at Breakfast)
-  assert.equal(weatherTotals(s).Rain, 3);
-  assert.ok(activeBrackets(s).length >= 2);
+  s = place(s, 'player', 'cerulean-cape', 0);   // +1 Strength
+  s = place(s, 'player', 'mt-ember', 2);
+  s = place(s, 'ai', 'floaroma-meadow', 5);    // heal 2 at Breakfast (B3-1; Route 119's Rain before)
   const base = pokemonAt('ponyta', 2);
   assert.equal(s.players.player.row[0].strength, base.strength + 1);
-  assert.equal(damageOf(s, s.players.player.row[0]), s.players.player.row[0].attack + 1, 'Sun 2: +1 Physical damage');
   s.players.player.recognition = 70;
   s.players.ai.row[5].currentStrength = 1;
   s = nextRound(s);
   assert.ok(s.tournament);
   assert.deepEqual(s.locations, [], 'every placed Location is removed');
   assert.ok(s.players.player.discard.some((c) => c.id === 'cerulean-cape') && s.players.player.discard.some((c) => c.id === 'mt-ember'), 'to their owners\' Discard Piles');
-  assert.ok(s.players.ai.discard.some((c) => c.id === 'route-119'));
+  assert.ok(s.players.ai.discard.some((c) => c.id === 'floaroma-meadow'));
   assert.equal(s.players.player.row[0].name, 'Ponyta', 'Pokémon stay where they are');
   assert.equal(s.players.ai.row[5].name, 'Wartortle');
   assert.equal(s.players.player.row[0].strength, base.strength, 'the Location passive no longer applies');
-  assert.deepEqual(weatherTotals(s), { Rain: 0, Sun: 0 });
-  assert.equal(activeBrackets(s).length, 0, 'Weather no longer applies');
-  assert.equal(s.players.ai.row[5].currentStrength, 1, 'no Rain heal at this Breakfast (the Tournament came first)');
+  assert.equal(s.players.ai.row[5].currentStrength, 1, 'no Floaroma Meadow heal at this Breakfast (the Tournament came first)');
   assert.equal(damageOf(s, s.players.player.row[0]), s.players.player.row[0].attack);
   for (let i = 0; i < 9; i++) assert.equal(locationOf(s, i), 'tournament', 'the Tournament covers all 9 lanes');
   // No new Locations.
@@ -146,16 +142,17 @@ const place = (s, who, id, start) => { s.players[who].hand.push(card(id)); s.tur
 {
   let s = battle();
   s.tournament = { startedRound: 1, reason: 'test' };
-  s.players.player.row[0] = mon('squirtle', 4);   // 6
-  s.players.player.row[8] = mon('ponyta', 1);     // 2
-  s.players.ai.row[4] = mon('squirtle', 5);       // 7
+  // (B3-1: Strengths set here; the cards' own changed.)
+  s.players.player.row[0] = mon('squirtle', 4, { strength: 6, currentStrength: 6 });   // 6
+  s.players.player.row[8] = mon('ponyta', 1, { strength: 2, currentStrength: 2 });     // 2
+  s.players.ai.row[4] = mon('squirtle', 5, { strength: 7, currentStrength: 7 });       // 7
   assert.equal(tournamentDominant(s), 'player', 'across the whole battlefield: 8 against 7');
   s = nextRound(s);
   assert.equal(s.players.player.recognition, RULES.perTournamentDominance + Math.ceil(RULES.perTournamentDominance / 2));
   assert.equal(s.players.player.recognition, 8, 'G1: +5, ×1.5 → 8');
   assert.equal(s.players.ai.recognition, 0);
   // A tie: nothing.
-  s.players.ai.row[5] = mon('ponyta', 1);   // 7 + 2 = 9 against 6 + 2 + heals
+  s.players.ai.row[5] = mon('ponyta', 1, { strength: 2, currentStrength: 2 });   // 7 + 2 = 9 against 6 + 2 + 1
   s.players.player.row[0].currentStrength = 6;
   s.players.player.row[8].currentStrength = 2;
   s.players.player.row[1] = mon('ponyta', 1, { currentStrength: 1 });
@@ -210,4 +207,4 @@ const place = (s, who, id, start) => { s.players[who].hand.push(card(id)); s.tur
   assert.equal(a.type, 'summon', 'it summons to win the Tournament\'s dominance');
 }
 
-console.log('v4 tournament: the final deck, the trigger (Round 10, 70 Recognition), Locations removed, Pokémon stay, passives and Weather end, no Locations, Recognition +50%, Tournament dominance, ties, winning at 100, AI — ok');
+console.log('v4 tournament: the four decks, the trigger (Round 10, 70 Recognition), Locations removed, Pokémon stay, passives end, no Locations, Recognition +50%, Tournament dominance, ties, winning at 100, AI — ok');

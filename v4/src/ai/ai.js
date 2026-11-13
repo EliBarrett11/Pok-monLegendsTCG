@@ -21,8 +21,9 @@ function evaluateNow(s, who) {
   if (s.phase === 'gameOver') return s.winner === who ? 1e6 : -1e6;
   const side = (w) => {
     const p = s.players[w];
-    // Cards in hand (an unbought Item counts less: it's discarded at Supper unless bought).
-    let v = p.recognition * 1.6 + p.hand.reduce((n, c) => n + (c.cardType === 'Item' ? 0.2 : 0.5), 0);
+    // Cards in hand (an unbought Item counts less: it's discarded at Supper unless bought). B3-1: the other
+    // player's hand is only a count (hiddenView hides its cards).
+    let v = p.recognition * 1.6 + p.hand.reduce((n, c) => n + (c.cardType === 'Item' ? 0.2 : c.cardType === 'Hidden' ? 0.45 : 0.5), 0);
     // F4: PokéDollars, Items in the Bag, Trainers working on their Objectives, waiting Partners.
     v += p.dollars * 0.3 + p.bag.reduce((n, c) => n + 0.25 + c.price * 0.4, 0);
     // G1: buying the PokéMart's one Item also takes it away from the opponent (Sold out until the
@@ -30,11 +31,14 @@ function evaluateNow(s, who) {
     if (s.mart.soldOut?.by === w) v += 0.4;
     for (const tr of p.trainers.filter((x) => !x.complete)) v += (2 * tr.progress) / tr.objective.need;
     v += p.waiting.length * 3;
-    // G2: keywords are worth a little on the board (Infiltrator's reach, Shell, Retaliate, Regenerate, Rage, Overrun).
+    // G2: keywords are worth a little on the board (Infiltrator's reach, Shell, Retaliate, Regenerate, Rage, Overrun;
+    // B3-1: Drain, Sturdy, Agility, Intimidate, Stealth, Pickup).
     for (const { card } of pokemonOf(s, w)) {
-      v += card.attack * 0.9 + card.currentStrength * 0.45 + (isReady(s, card) ? 0.5 : 0);
+      v += Math.max(0, card.attack) * 0.9 + card.currentStrength * 0.45 + (isReady(s, card) ? 0.5 : 0);
       v += (hasKw(card, 'infiltrator') ? 0.8 : 0) + kwNum(card, 'shell') * 0.6 + kwNum(card, 'retaliate') * 0.5 + kwNum(card, 'regenerate') * 0.4
-        + (hasKw(card, 'rage') ? 0.4 : 0) + (hasKw(card, 'overrun') ? 0.3 : 0);
+        + (hasKw(card, 'rage') ? 0.4 : 0) + (hasKw(card, 'overrun') ? 0.3 : 0)
+        + (hasKw(card, 'drain') ? 0.4 : 0) + (hasKw(card, 'sturdy') ? 0.8 : 0) + (hasKw(card, 'agility') ? 0.4 : 0)
+        + kwNum(card, 'intimidate') * 0.5 + (hasKw(card, 'stealth') ? 0.4 : 0) + (hasKw(card, 'pickup') ? 0.2 : 0);
     }
     return v;
   };
@@ -128,16 +132,17 @@ export function moves(s, who) {
 
 // G3: Pokémon Breeder: take back the highest-Level Pokémon cards from the Discard Pile (its normal choice).
 function recoverPick(s, who, card, release) {
-  const eff = favourMet(card, release) ? card.favour : card.effect;
-  if (eff.op !== 'recover') return [];
-  return s.players[who].discard.filter((c) => c.cardType === 'Pokémon').sort((a, b) => b.level - a.level).slice(0, eff.amount).map((c) => c.uid);
+  const rec = (favourMet(card, release) ? card.favour : card).ops.find((o) => o.op === 'recover');
+  if (!rec) return [];
+  return s.players[who].discard.filter((c) => c.cardType === 'Pokémon').sort((a, b) => b.level - a.level).slice(0, rec.amount).map((c) => c.uid);
 }
 
 const dedupe = (cards) => { const seen = new Set(); return cards.filter((c) => !seen.has(c.id) && seen.add(c.id)); };
 // How much a card in hand is worth keeping (for choosing what to Release).
 const worth = (c) => (c.cardType === 'Pokémon' ? 1 + c.level : c.cardType === 'Supporter' ? 0.5 : 2);
 
-// After a move, any On Summon target choice of ours resolved greedily (one step deep each).
+// After a move, any target choice of ours (an On Summon's, a Supporter's, a Trainer Command's) resolved greedily
+// (one step deep each).
 function bestChoice(s, who) {
   for (let i = 0; i < 4 && s.choice?.who === who; i++) {
     let best = null;
@@ -155,9 +160,17 @@ function bestChoice(s, who) {
 // C4 (hidden Strats): the AI never reads the player's sealed Strat cards. It decides on a view of the state
 // without the other player's waiting Strats (it neither reads their names and effects nor simulates them);
 // a Strat being revealed in a React window (s.reactWindow.pending) is no longer sealed.
+// B3-1: nor the other player's hand or Draw Pile: in the view each of those cards is an unknown card (only how many
+// there are), so the AI's look-ahead can't see what they could React with or draw.
+const HIDDEN = (c) => ({ uid: c.uid, id: 'hidden', cardType: 'Hidden', name: 'a hidden card' });
 export function hiddenView(s, who) {
-  if (!s.strats?.some((x) => x.owner !== who)) return s;
-  return { ...s, strats: s.strats.filter((x) => x.owner === who) };
+  const foe = opponentOf(who);
+  const fp = s.players[foe];
+  return {
+    ...s,
+    strats: (s.strats ?? []).filter((x) => x.owner === who),
+    players: { ...s.players, [foe]: { ...fp, hand: fp.hand.map(HIDDEN), drawPile: fp.drawPile.map(HIDDEN) } },
+  };
 }
 export function chooseAction(real, who, { rng = Math.random } = {}) {
   const s = hiddenView(real, who);
