@@ -15,16 +15,18 @@ export const RULES = {
   dollarsPerDefeat: 1,    // PokéDollars for each enemy Pokémon defeated, Partners included (G1: was its cost)
   // The Pokémon League Tournament (F5; Elliott's starting values): it begins at Breakfast in this
   // Round, or at the first Breakfast where either player has this much Recognition, whichever first.
+  legendaryCost: 5,            // B3-1: a Legendary always costs 5 (design bible 3.9)
   tournamentRound: 10,
   tournamentRecognition: 70,
   perTournamentDominance: 5,   // Recognition at Supper for dominating the Tournament (before its passive; G1: was 3)
 };
 // The three development series (section 4A): Level range.
-export const SERIES_RANGE = { Light: [1, 6], Mid: [2, 7], Heavy: [3, 8] };
+// B3-1: Legendaries are Level 8 from the start and don't grow (docs/base-game-plan.md; design bible 3.9).
+export const SERIES_RANGE = { Light: [1, 6], Mid: [2, 7], Heavy: [3, 8], Legendary: [8, 8] };
 export const SPEEDS = ['Slow', 'Steady', 'Swift'];
 // Level off the battlefield: the series' first Level in Round 1, +1 each Round, up to its maximum.
 export const levelFor = (series, round) => Math.min(SERIES_RANGE[series][0] + round - 1, SERIES_RANGE[series][1]);
 // Cost by Level (G1, gameplay update 2.3): half the Level, rounded up, one curve for every series:
 // Level 1–2 → 1, 3–4 → 2, 5–6 → 3, 7–8 → 4. Nothing is free; in any Round a Heavy card (2 Levels above
 // a Light one) costs about 1 more Energy. Partners are Level 8, cost 4.
-export const costFor = (level) => Math.ceil(level / 2);
+export const costFor = (level, legendary = false) => (legendary ? RULES.legendaryCost : Math.ceil(level / 2));
