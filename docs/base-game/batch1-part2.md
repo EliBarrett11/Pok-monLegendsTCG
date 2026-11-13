@@ -162,7 +162,7 @@ Weather is gone, so each Location is its passive alone. Passives apply to both p
 | Cerulean Cape | 2 | 3 | Pokémon here have +1 Strength. | keep (Weather removed) |
 | Mt. Ember | 3 | 3 | Pokémon here have +1 Attack. | keep (Weather removed) |
 | Lake of Rage | 2 | 3 | Pokémon here have Rage. | re-tune: Rage replaces healing; 3 Rounds |
-| Route 119 | 4 | 2 | Summoning a Pokémon here costs 1 less (minimum 0). | keep (Weather removed) |
+| Route 119 | 4 | 2 | Summoning a Pokémon here costs 1 less (minimum 1). | keep (Weather removed) |
 | Cinnabar Volcano | 3 | 2 | Pokémon here have Overrun. | new |
 | Eterna Forest | 3 | 3 | Pokémon here have Stealth. | new |
 | Floaroma Meadow | 2 | 3 | Pokémon here heal 2 at Breakfast. | new |

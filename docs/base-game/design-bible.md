@@ -184,7 +184,7 @@ Scored on the tables above, the current cards land on target:
 ### 3.8 Locations
 
 - **Shape:** free, 2–4 lanes, lasting 2–4 Rounds. Wider and longer means a milder passive.
-- **The passive:** one clear rule about Pokémon **in that Location**, e.g. +1 Attack, +1 Strength, summoning costs 1 less (minimum 0), heal 1 at Breakfast, or Pokémon here have a keyword. With Weather gone, a Location is defined by its passive alone.
+- **The passive:** one clear rule about Pokémon **in that Location**, e.g. +1 Attack, +1 Strength, summoning costs 1 less (minimum 1, so no summon is free), heal 1 at Breakfast, or Pokémon here have a keyword. With Weather gone, a Location is defined by its passive alone.
 - **Ownership:** a Location's passive is symmetric (it applies to both players' Pokémon there) unless it says "your".
 - **Dominance:** +3 Recognition at Supper, as now.
 

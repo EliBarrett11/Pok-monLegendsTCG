@@ -6007,7 +6007,7 @@
    "hasArt": true,
    "lanes": 4,
    "rounds": 2,
-   "passive": "Summoning a Pokémon here costs 1 less (minimum 0).",
+   "passive": "Summoning a Pokémon here costs 1 less (minimum 1).",
    "dominance": "+3 Recognition at Supper"
   },
   {
