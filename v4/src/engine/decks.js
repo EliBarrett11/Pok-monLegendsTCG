@@ -1,6 +1,6 @@
 // B3-1: the deck rules (docs/base-game-plan.md section 2, decided by Elliott) and the four Batch 1 test decks, which
 // replace the old demo deck until the deck builder (B4) arrives. Pure: no DOM.
-import { pathDef, trainerDef, cardKind, isCardId } from './cards.js?v=202611131336';
+import { pathDef, trainerDef, cardKind, isCardId } from './cards.js?v=202611131710';
 
 export const DECK_RULES = { size: 40, copies: 2, legendaryCopies: 1, trainerCopies: 1, maxTrainers: 3 };
 

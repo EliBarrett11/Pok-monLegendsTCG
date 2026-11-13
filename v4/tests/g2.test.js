@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { RULES } from '../src/rules.js';
 import { createGame, applyAction, legalActions, legalTargets, actor, MAX_CHAIN, lanesHere } from '../src/engine/game.js';
 import { pokemonAt, cardAtRound, TRAINERS, keywordList, triggerText, KEYWORD_ORDER, TRIGGER_NAMES } from '../src/engine/cards.js';
-import { GLOSSARY } from '../src/engine/glossary.js';
+import { GLOSSARY, triggerTermId } from '../src/engine/glossary.js';
 import { chooseAction } from '../src/ai/ai.js';
 
 let n = 0;
@@ -37,7 +37,7 @@ eq(TRAINERS.map((t) => triggerText(t.partner.trigger)), ['On Summon: Draw 2 card
   // B3-2: Sabrina, Bruno, Morty, Karen.
   'On Summon: 3 damage to an enemy Pokémon, and draw 1 card', 'On Summon: 3 damage to an enemy Pokémon', 'On Summon: Return 2 Pokémon cards from your Discard Pile to your hand', 'On Summon: Each enemy Pokémon gets −2 Attack until Supper'], 'Partner triggers');
 for (const k of KEYWORD_ORDER) ok(GLOSSARY.some((g) => g.id === k && g.kind === 'keyword'), `glossary: ${k}`);
-for (const t of Object.keys(TRIGGER_NAMES)) ok(GLOSSARY.some((g) => g.id === t && g.kind === 'trigger'), `glossary: ${t}`);
+for (const t of Object.keys(TRIGGER_NAMES)) ok(GLOSSARY.some((g) => g.id === triggerTermId(t) && g.kind === 'trigger'), `glossary: ${t}`);
 ok(!GLOSSARY.some((g) => /\bAlert\b/.test(g.text)), 'v4 terms (Ready, not Alert)');
 eq(keywordList({ shell: 1, rage: true }), ['Shell 1', 'Rage'], 'keyword wording');
 

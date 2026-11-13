@@ -11,9 +11,9 @@
 // returns the element. Every piece of text sits in its frame's fixed zone (tests/cardtext.test.js).
 // No engine state is read here: the caller passes what the card needs to show (its modes now, Stock,
 // Objective progress) in opts.state.
-import { RULES } from '../rules.js?v=202611131336';
-import { PATHS, COMMANDS, SUPPORTERS, ITEMS, LOCATIONS, TRAINERS, FAVOURS, KEYWORD_NAMES, KEYWORD_ORDER, TRIGGER_NAMES, MODE_NAMES, MODES, effectText, modeTarget, shortModeTextOf } from '../engine/cards.js?v=202611131336';
-import { effectiveSpeed } from '../engine/game.js?v=202611131336';
+import { RULES } from '../rules.js?v=202611131710';
+import { PATHS, COMMANDS, SUPPORTERS, ITEMS, LOCATIONS, TRAINERS, FAVOURS, KEYWORD_NAMES, KEYWORD_ORDER, TRIGGER_NAMES, MODE_NAMES, MODES, effectText, modeTarget, shortModeTextOf } from '../engine/cards.js?v=202611131710';
+import { effectiveSpeed } from '../engine/game.js?v=202611131710';
 
 export const W = 340;
 export const H = 476;

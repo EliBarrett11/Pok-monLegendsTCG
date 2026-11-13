@@ -31,11 +31,11 @@
 // per Retained card; Round 1: draw 7 then a mulligan, as in v1), Battle (alternating turns, one
 // action each: Summon, Attack, Retain, Pass; two Passes in a row end it), Supper (the hand is
 // discarded except Retained cards). Initiative switches each Round.
-import { RULES, SPEEDS, levelFor } from '../rules.js?v=202611131336';
-import { nextRandom, shuffle } from './random.js?v=202611131336';
-import { newEnergy, refreshEnergy, canPay, payCost, availableExert } from './energy.js?v=202611131336';
-import { cardAtRound, pokemonAt, pathDef, locationDef, FAVOURS, MODE_NAMES, ITEMS, BAG_SIZE, TRIGGER_NAMES, CHOSEN, modeTarget, modeText, triggerText, effectOps } from './cards.js?v=202611131336';
-import { DECKS, DECK_IDS } from './decks.js?v=202611131336';
+import { RULES, SPEEDS, levelFor } from '../rules.js?v=202611131710';
+import { nextRandom, shuffle } from './random.js?v=202611131710';
+import { newEnergy, refreshEnergy, canPay, payCost, availableExert } from './energy.js?v=202611131710';
+import { cardAtRound, pokemonAt, pathDef, locationDef, FAVOURS, MODE_NAMES, ITEMS, BAG_SIZE, TRIGGER_NAMES, CHOSEN, modeTarget, modeText, triggerText, effectOps } from './cards.js?v=202611131710';
+import { DECKS, DECK_IDS } from './decks.js?v=202611131710';
 
 export const PLAYERS = ['player', 'ai'];
 export const NAMES = { player: 'You', ai: 'The Opponent' };
@@ -1463,7 +1463,9 @@ function defeat(s, who, space, by, killer = null) {
   log(s, `${POSS[who]} ${card.name} was defeated.`);
   // B3-2: Lavender Town: when a Pokémon there is defeated, its owner draws.
   for (const o of passiveOps(where).filter((x) => x.op === 'drawOnDefeat')) { log(s, `${where.name}: ${NAMES[who]} draw${who === 'player' ? '' : 's'} ${o.amount}.`); draw(s, who, o.amount); }
-  // G1 (2.5): a flat $1 for each enemy Pokémon defeated (Partners included).
+  // G1 (2.5): a flat $1 for each enemy Pokémon defeated (Partners included). B3-2: one of your own Pokémon defeated by
+  // your own effect (Close Combat's damage to yours) is no enemy's defeat: no rewards for anyone.
+  if (by === who) return;
   gainDollars(s, by, RULES.dollarsPerDefeat, `defeating ${card.name}`, { kind: 'space', who, space });
   gainRecognition(s, by, RULES.perDefeat, `defeating ${card.name}`, { kind: 'space', who, space });
   progressTrainers(s, by, 'defeat');

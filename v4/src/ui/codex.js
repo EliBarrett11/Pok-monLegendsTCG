@@ -19,19 +19,19 @@
 //   rec:<who> · energy:<who> · decks · mart
 //   pile:<who>:<draw|discard|released> · bag:<who> · log:<i>
 //   term:<id> · rules[:<query>]
-import { GLOSSARY, KINDS, glossaryEntry, termsIn, searchGlossary } from '../engine/glossary.js?v=202611131336';
+import { GLOSSARY, KINDS, glossaryEntry, termsIn, searchGlossary, triggerTermId } from '../engine/glossary.js?v=202611131710';
 import {
   pathDef, pokemonAt, cardAtRound, keywordList, triggerText, KEYWORD_NAMES, KEYWORD_ORDER, TRIGGER_NAMES, MODES, MODE_NAMES,
   modeText, modeTarget, modesOf, effectText, FAVOURS, TRAINERS, ITEMS, COMMANDS, SUPPORTERS, LOCATIONS,
-} from '../engine/cards.js?v=202611131336';
-import { DECKS } from '../engine/decks.js?v=202611131336';
-import { RULES } from '../rules.js?v=202611131336';
-import { playReason, commandModesFor, summonCost, emptySpaces, locationAt } from '../engine/game.js?v=202611131336';
+} from '../engine/cards.js?v=202611131710';
+import { DECKS } from '../engine/decks.js?v=202611131710';
+import { RULES } from '../rules.js?v=202611131710';
+import { playReason, commandModesFor, summonCost, emptySpaces, locationAt } from '../engine/game.js?v=202611131710';
 import {
   statSums, statLines, formsRow, nextRound, levelGrowth, pokemonState, recognitionHistory, energyExplain,
   martExplain, locationExplain, tournamentExplain, objectiveExplain,
-} from '../engine/explain.js?v=202611131336';
-import { cardHTML } from './card.js?v=202611131336';
+} from '../engine/explain.js?v=202611131710';
+import { cardHTML } from './card.js?v=202611131710';
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const cap = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
@@ -92,7 +92,7 @@ function keywordsAndTriggers(c) {
     for (const o of (c.held?.ops ?? []).filter((x) => x.op === 'keyword' && (!x.type || x.type === c.type))) all[o.keyword] = typeof o.amount === 'number' ? (typeof all[o.keyword] === 'number' ? all[o.keyword] : 0) + o.amount : true;
     if (all.sturdy && c.sturdyUsed) delete all.sturdy;
     for (const k of KEYWORD_ORDER.filter((x) => all[x])) out.push(meaning(k, all[k] === true ? KEYWORD_NAMES[k] : `${KEYWORD_NAMES[k]} ${all[k]}`));
-    if (c.trigger) { out.push(meaning(c.trigger.on)); if (c.trigger.ops.some((o) => /chosen/.test(o.to ?? ''))) out.push(meaning('on-summon-targets')); }
+    if (c.trigger) { out.push(meaning(triggerTermId(c.trigger.on))); if (c.trigger.ops.some((o) => /chosen/.test(o.to ?? ''))) out.push(meaning('on-summon-targets')); }
     if (c.trigger?.ops.some((o) => /Here$/.test(o.to ?? ''))) out.push(meaning('in-its-location'));
     if (c.trigger?.ops.some((o) => /TargetLoc$/.test(o.to ?? ''))) out.push(meaning('targets-location'));
     if (c.trigger?.ops.some((o) => o.op === 'attack' || o.op === 'strength')) out.push(meaning('kept'));

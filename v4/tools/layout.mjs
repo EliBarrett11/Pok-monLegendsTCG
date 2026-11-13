@@ -280,6 +280,40 @@ const SCENARIOS = {
     await to(p, 3);
     await v4(p, () => { const L = window.__v4; const uid = L.giveCard('brock'); L.set((s, ui) => { ui.select = { kind: 'supporter', uid, release: [s.players.player.hand[0].uid] }; }); });
   },
+  // B3-2: the card pickers: the Opponent's hand (Sabrina, Full cards), your Discard Pile (Mr. Fuji), and Bill's list of
+  // a long Draw Pile (Mini cards).
+  'pick-opponent-hand': async (p) => {
+    await to(p, 3);
+    await v4(p, async () => {
+      const C = await import('/v4/src/engine/cards.js');
+      let uid;
+      window.__v4.set((s) => { const p = s.players.player; p.baseEnergy = 9; p.exhaust = []; s.players.ai.hand = ['mewtwo', 'potion', 'gastly', 'shadow-ball', 'officer-jenny', 'saffron-city'].map((id, i) => ({ ...C.cardAtRound(id, s.round), uid: `lp-${i}` })); const c = { ...C.cardAtRound('sabrina', s.round), uid: 'lp-sab' }; p.hand.unshift(c); uid = c.uid; });
+      window.__v4.show({ type: 'trainerCommand', who: 'player', uid });
+    });
+    await p.waitForSelector('.v4-cardpick');
+    await p.locator('[data-cpick="lp-0"]').click();
+  },
+  'pick-discard': async (p) => {
+    await to(p, 3);
+    await v4(p, async () => {
+      const C = await import('/v4/src/engine/cards.js');
+      let ids;
+      window.__v4.set((s) => { const p = s.players.player; p.baseEnergy = 9; p.exhaust = []; p.discard = ['absol', 'abra', 'machop', 'ember'].map((id, i) => ({ ...C.cardAtRound(id, 1), uid: `ld-${i}` })); const f = { ...C.cardAtRound('mr-fuji', s.round), uid: 'ld-fuji' }; const r = { ...C.cardAtRound('gastly', s.round), uid: 'ld-rel' }; p.hand.unshift(f, r); ids = [f.uid, r.uid]; });
+      window.__v4.show({ type: 'supporter', who: 'player', uid: ids[0], release: [ids[1]] });
+    });
+    await p.waitForSelector('.v4-cardpick');
+  },
+  'pick-bill': async (p) => {
+    await to(p, 3);
+    await v4(p, async () => {
+      const C = await import('/v4/src/engine/cards.js');
+      let ids;
+      const pool = ['surf', 'ember', 'machop', 'abra', 'ether', 'gastly', 'pokemon-breeder', 'thunderbolt', 'absol', 'riolu', 'duskull', 'officer-jenny', 'choice-specs', 'lavender-town', 'close-combat', 'mewtwo', 'karen', 'x-speed', 'charmander', 'sucker-punch'];
+      window.__v4.set((s) => { const p = s.players.player; p.baseEnergy = 9; p.exhaust = []; p.drawPile = pool.map((id, i) => ({ ...C.cardAtRound(id, s.round), uid: `lb-${i}` })); const b = { ...C.cardAtRound('bill', s.round), uid: 'lb-bill' }; const r = { ...C.cardAtRound('potion', s.round), uid: 'lb-rel' }; p.hand.unshift(b, r); ids = [b.uid, r.uid]; });
+      window.__v4.show({ type: 'supporter', who: 'player', uid: ids[0], release: [ids[1]] });
+    });
+    await p.waitForSelector('.v4-cardpick');
+  },
   // F4: Items, the PokéMart and Bags, Trainer areas, a Partner, the buy and Trainer choosers.
   items: async (p) => {
     await to(p, 5);

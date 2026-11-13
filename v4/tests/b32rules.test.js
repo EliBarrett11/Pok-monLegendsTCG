@@ -285,6 +285,12 @@ const trace = (s, re) => s.log.filter((l) => re.test(l));
   eq(commandTargets(s, 'player', card('close-combat'), 'adapt'), [{ who: 'player', space: 1 }], 'Close Combat: only a Pokémon of yours with an enemy across from it');
   s = cmd(s, 'player', 'close-combat', 'adapt', { who: 'player', space: 1 });
   eq([s.players.ai.row[1].currentStrength, s.players.player.row[1].currentStrength], [16, 8], '4 damage across, and yours takes 1');
+  // Its 1 damage defeating your own Pokémon: a defeat (On Defeated, Gastly back to hand) but no rewards for anyone.
+  s = battle();
+  s.players.player.row[1] = mon('gastly', 2, { real: true, currentStrength: 1 });
+  s.players.ai.row[1] = mon('wooper', 7, { strength: 20, currentStrength: 20 });
+  s = cmd(s, 'player', 'close-combat', 'adapt', { who: 'player', space: 1 });
+  eq([s.players.player.row[1], s.players.player.hand.some((c) => c.id === 'gastly'), s.players.player.recognition, s.players.ai.recognition, s.players.player.dollars, s.players.ai.dollars], [null, true, 0, 0, 10, 10], 'your own Pokémon defeated by your own Close Combat: no rewards; Gastly still returns');
   s = battle();
   s.players.player.row[1] = mon('machop', 3);
   ok(!commandTargets(s, 'player', card('close-combat'), 'adapt').length && !legalActions(s, 'player').includes('command'), 'nothing across: it can\'t be played');
