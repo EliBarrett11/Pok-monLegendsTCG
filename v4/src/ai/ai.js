@@ -23,7 +23,8 @@ function evaluateNow(s, who) {
     const p = s.players[w];
     // Cards in hand (an unbought Item counts less: it's discarded at Supper unless bought). B3-1: the other
     // player's hand is only a count (hiddenView hides its cards).
-    let v = p.recognition * 1.6 + p.hand.reduce((n, c) => n + (c.cardType === 'Item' ? 0.2 : c.cardType === 'Hidden' ? 0.45 : 0.5), 0);
+    // B3-2: a Pokémon card a little more for each Level (so a pick from a pile, Bill's, Mr. Fuji's, takes the stronger card).
+    let v = p.recognition * 1.6 + p.hand.reduce((n, c) => n + (c.cardType === 'Item' ? 0.2 : c.cardType === 'Hidden' ? 0.45 : c.cardType === 'Pokémon' ? 0.5 + 0.03 * (c.level ?? 0) : 0.5), 0);
     // F4: PokéDollars, Items in the Bag, Trainers working on their Objectives, waiting Partners.
     v += p.dollars * 0.3 + p.bag.reduce((n, c) => n + 0.25 + c.price * 0.4, 0);
     // G1: buying the PokéMart's one Item also takes it away from the opponent (Sold out until the

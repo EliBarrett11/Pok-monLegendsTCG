@@ -210,7 +210,12 @@ function describe(s, a) {
     case 'useItem': return `${who} uses ${card.name} on ${on({ who: a.who, space: a.target.space })}`;
     case 'trainerCommand': return `${who} plays ${card.name} (Trainer Command)`;
     case 'retain': return `${who} Retains a card`;
-    case 'choose': return `${who}'s ${s.choice.name} On Summon targets ${s.players[a.target.who].row[a.target.space].name}`;
+    // (B3-2: a card from a pile or a hand; an empty space to summon into.)
+    case 'choose': {
+      if (a.target.uid) { const from = s.choice.from === 'opponentHand' ? 'your hand' : s.choice.from === 'drawPile' ? 'its Draw Pile' : 'its Discard Pile'; const c = s.choice.targets.find((t) => t.uid === a.target.uid); return `${who}'s ${s.choice.name} takes ${c?.name ?? 'a card'} from ${from}`; }
+      const on = s.players[a.target.who].row[a.target.space];
+      return on ? `${who}'s ${s.choice.name} targets ${on.name}` : `${who}'s ${s.choice.name}: space ${a.target.space + 1}`;
+    }
     case 'pass': return `${who} ends the turn (Pass)`;
     case 'mulligan': return `${who} ${a.cards?.length ? `mulligans ${a.cards.length}` : 'keeps the hand'}`;
     default: return `${who}: ${a.type}`;
@@ -226,7 +231,7 @@ function aimFor(a) {
   if (a.type === 'attack') { from = space(a.who, a.from); to = a.target.kind === 'player' ? q(`.v4-ring.${foe}`) : space(foe, a.target.space); }
   else if (a.type === 'summon') { from = hand; to = space(a.who, a.space); }
   else if (a.type === 'command' || a.type === 'react') { from = hand; to = space(a.target.who, a.target.space); }
-  else if (a.type === 'choose') { from = space(a.who, state.choice.space); to = space(a.target.who, a.target.space); }
+  else if (a.type === 'choose' && !a.target.uid) { from = space(a.who, state.choice.space); to = space(a.target.who, a.target.space); }
   else if (a.type === 'placeLocation') { from = hand; to = space(a.who, a.start); }
   else if (a.type === 'useItem' || (a.type === 'buyItem' && a.then === 'use')) { from = a.type === 'useItem' ? q(`.v4-hud.${a.who === 'ai' ? 'opp' : 'you'} .v4-bag`) : a.from === 'mart' ? q('.v4-martcard') : hand; to = space(a.who, a.target.space); }
   if (!from || !to || !interaction) return null;

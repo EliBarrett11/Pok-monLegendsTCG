@@ -41,7 +41,7 @@ const loc = (s, id) => s.locations.find((l) => l.id === id);
 // --- The nine Batch 1 Location cards and the decks (B3-1) ---------------------------------------------------------
 {
   const V4 = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-  assert.equal(LOCATIONS.length, 9);
+  assert.equal(LOCATIONS.length, 12);   // B3-2: Batches 1–2
   assert.deepEqual(LOCATIONS.slice(0, 4).map((l) => l.id), ['cerulean-cape', 'mt-ember', 'lake-of-rage', 'route-119']);
   for (const l of LOCATIONS) {
     assert.ok([2, 3, 4].includes(l.width), `${l.name}: covers 2, 3 or 4 lanes`);

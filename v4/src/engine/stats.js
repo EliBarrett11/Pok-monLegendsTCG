@@ -11,7 +11,7 @@
 // The Attack shown is damageOf, the number RESOLVE.attack deals; the Strength shown is currentStrength, the
 // Strength damage is taken from and dominance counts. tests/c4.test.js checks both against combat.
 import { TRAINERS, pokemonAt, pathDef } from './cards.js?v=202611131336';
-import { applyAction, damageOf, locationAt, passiveOps, heldOps, syncBonuses } from './game.js?v=202611131336';
+import { applyAction, damageOf, locationAt, passiveOps, heldOps, syncBonuses, auraOf } from './game.js?v=202611131336';
 import { attackParts } from './preview.js?v=202611131336';
 
 // A Pokémon's printed stats (its Level's, or a Partner's own).
@@ -52,8 +52,10 @@ export function effectiveStats(s, who, space) {
   if (kept) strengthParts.push({ label: 'kept', n: kept });
   if (locSt) strengthParts.push({ label: l.name, n: locSt });
   if (heldSt) strengthParts.push({ label: card.held.name, n: heldSt });
+  const aura = auraOf(s, who, space);
+  if (aura.strength) strengthParts.push({ label: `Aura (${aura.names.join(', ')})`, n: aura.strength });
   if (temp) strengthParts.push({ label: 'until Supper', n: temp });
-  const rest = bonus - locSt - heldSt;
+  const rest = bonus - locSt - heldSt - aura.strength;
   if (rest) strengthParts.push({ label: 'other bonuses', n: rest });
   const lost = card.strength - card.currentStrength;
   if (lost) strengthParts.push({ label: 'damage', n: -lost });

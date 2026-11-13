@@ -194,6 +194,31 @@ for (const n of [5, 7, 9, 11]) {
   handTexts += r.count;
   for (const p of r.out) handProblems.push(`${n}-card hand: ${p}`);
 }
+// --- B3-2 (Elliott, 13 Nov 2026): Art Pending in the fanned hand. A strip (only part of the art showing) keeps the
+// glow but not the words; the card that shows whole, and the hovered Full card, keep the words.
+const pend = await page.evaluate(async () => {
+  const C = await import('/v4/src/engine/cards.js');
+  const ids = ['abra', 'machop', 'gastly', 'absol', 'calm-mind', 'bill', 'ether'];
+  window.__v4.set((s) => { s.players.player.hand = ids.map((id, k) => ({ ...C.cardAtRound(id, 3), uid: `pp-${k}`, hasArt: false })); });
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const slots = [...document.querySelectorAll('.v4-hand .v4-slot')];
+  return slots.map((sl) => ({ glow: !!sl.querySelector('.cd-pending'), words: !!sl.querySelector('.cd-pendt'), strip: !!sl.querySelector('.cd-name.strip') }));
+});
+const pendProblems = [];
+if (pend.length !== 7) pendProblems.push(`a hand of 7 Art Pending cards shows ${pend.length}`);
+pend.forEach((x, i) => {
+  if (!x.glow) pendProblems.push(`card ${i + 1}: no Art Pending glow`);
+  if (x.strip && x.words) pendProblems.push(`card ${i + 1}: a strip shows the ART PENDING words`);
+  if (!x.strip && !x.words) pendProblems.push(`card ${i + 1}: shows whole but has no ART PENDING words`);
+});
+if (pend.filter((x) => x.strip).length < 6 || pend.at(-1)?.strip) pendProblems.push(`expected 6 strips and a whole last card: ${JSON.stringify(pend)}`);
+{
+  const r = await page.evaluate(() => { const q = document.querySelector('.v4-hand .v4-slot .v4-hcard').getBoundingClientRect(); return { x: q.left + 12, y: q.top + q.height / 2 }; });
+  await page.mouse.move(r.x, r.y);
+  await page.waitForTimeout(400);
+  const z = await page.evaluate(() => { const el = document.querySelector('.v4-zoom'); return el && getComputedStyle(el).display !== 'none' ? { glow: !!el.querySelector('.cd-pending'), words: !!el.querySelector('.cd-pendt') } : null; });
+  if (!z || !z.glow || !z.words) pendProblems.push(`the hovered Full card keeps the words: ${JSON.stringify(z)}`);
+}
 await browser.close();
 server.close();
 if (errors.length) { console.error('page errors:', errors); process.exit(1); }
@@ -202,6 +227,11 @@ if (handProblems.length) {
   for (const p of handProblems.slice(0, 60)) console.error(`  ${p}`);
   process.exit(1);
 }
+if (pendProblems.length) {
+  console.error(`cardtext: Art Pending in the hand: ${pendProblems.join('; ')}`);
+  process.exit(1);
+}
+console.log('v4 cardtext: Art Pending in a fanned hand: 6 strips with the glow and no words, the whole card and the hovered Full card with the words — ok');
 console.log(`v4 cardtext: hands of 5, 7, 9 and 11 cards: ${handTexts} visible text elements, none partly covered — ok`);
 if (result.problems.length) {
   console.error(`cardtext: ${result.problems.length} problems in ${result.cards} card renders:`);

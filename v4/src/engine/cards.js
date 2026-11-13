@@ -55,7 +55,7 @@ export const COMMANDS = MOVES.map((m) => ({
   id: m.id, name: m.name, cardType: 'Command', type: m.type, art: m.art, hasArt: m.hasArt,
   modes: Object.fromEntries(Object.entries(m.modes).map(([k, x]) => {
     const ops = effectOps(x.effect);
-    return [k, { cost: x.cost, effect: x.effect, ops, target: modeTargetOf(ops), text: effectText(x.effect), short: shortModeText(x.effect, x.style) }];
+    return [k, { cost: x.cost, effect: x.effect, ops, target: modeTargetOf(ops), text: effectText(x.effect), short: shortModeText(x.effect, x.style), ...(x.style ? { style: x.style } : {}) }];
   })),
 }));
 for (const c of COMMANDS) c.target = (c.modes.adapt ?? c.modes.strat ?? c.modes.react).target;

@@ -938,7 +938,7 @@ export function runEffect(s, ctx, ops, start = 0) {
       const need = cardNeed(s, ctx, o, st);
       if (need === 'none') { fizzle(s, ctx.who, `${POSS[ctx.who]} ${ctx.name}`, 'there is nothing to choose'); continue; }
       if (need) {
-        s.choice = { who: ctx.who, kind: ctx.kind, pick: need.pick, from: need.from, count: need.count, space: ctx.src?.space ?? null, uid: ctx.src?.uid ?? null, name: ctx.name, text: ctx.label, op: o, ops, index: i, targets: need.targets, ctx };
+        s.choice = { who: ctx.who, kind: ctx.kind, pick: need.pick, from: need.from, count: need.count, ...(need.cardName ? { cardName: need.cardName } : {}), space: ctx.src?.space ?? null, uid: ctx.src?.uid ?? null, name: ctx.name, text: ctx.label, op: o, ops, index: i, targets: need.targets, ctx };
         emit(s, 'cardChoice', { who: ctx.who, name: ctx.name, pick: need.pick, from: need.from, count: need.count });
         log(s, `${POSS[ctx.who]} ${ctx.name}: ${ctx.who === 'player' ? 'choose' : 'the Opponent chooses'} ${need.pick === 'space' ? 'a space' : 'a card'}.`);
         return 'paused';
@@ -952,7 +952,7 @@ export function runEffect(s, ctx, ops, start = 0) {
         const targets = effectChoices(s, ctx, o);
         if (!targets.length) { fizzle(s, ctx.who, `${POSS[ctx.who]} ${ctx.name}${ctx.on ? `'s ${TRIGGER_NAMES[ctx.on]}` : ''}`, 'there is no target'); ctx.last = []; continue; }
         s.choice = { who: ctx.who, kind: ctx.kind, space: ctx.src?.space ?? null, uid: ctx.src?.uid ?? null, name: ctx.name, text: ctx.label, op: o, ops, index: i, targets, ctx };
-        emit(s, 'triggerChoice', { who: ctx.who, space: ctx.src?.space ?? null, name: ctx.name, text: ctx.label, targets, kind: ctx.kind });
+        emit(s, 'triggerChoice', { who: ctx.who, space: ctx.src?.space ?? null, name: ctx.name, on: ctx.on, text: ctx.label, targets, kind: ctx.kind });
         log(s, `${POSS[ctx.who]} ${ctx.name}: ${ctx.who === 'player' ? 'choose' : 'the Opponent chooses'} a target.`);
         return 'paused';
       }
@@ -994,7 +994,7 @@ function cardNeed(s, ctx, o, st) {
     }
     if (st.space === null) {
       if (empty.length === 1) st.space = empty[0];
-      else return { pick: 'space', from: 'row', count: 1, targets: empty.map((space) => ({ who: ctx.who, space })) };
+      else return { pick: 'space', from: 'row', count: 1, cardName: p.discard.find((c) => c.uid === st.picks[0])?.name, targets: empty.map((space) => ({ who: ctx.who, space })) };
     }
     return null;
   }

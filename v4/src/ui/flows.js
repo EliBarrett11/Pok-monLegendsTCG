@@ -60,7 +60,8 @@ export function hitsFor(s, sel) {
     case 'command':
     case 'react': return cmdHits(s, c, modeOf(s, sel, c));
     case 'item': return noTargetItem(c) ? [{ kind: 'board' }] : itemTargets(s, 'player', c).map((t) => sp('player', t.space));
-    case 'choice': return (s.choice?.targets ?? []).map((t) => sp(t.who, t.space));
+    // (B3-2: a card pick is made in its picker, not on the board; a space pick glows the empty spaces offered.)
+    case 'choice': return s.choice?.pick === 'card' ? [] : (s.choice?.targets ?? []).map((t) => sp(t.who, t.space));
     case 'hand':
       if (c.cardType === 'Pokémon') return whyNot(s, 'player', 'summon', c) ? [] : emptySpaces(s, 'player').filter((i) => energyLeft(s.players.player) >= summonCost(s, c, i)).map((i) => sp('player', i));
       if (c.cardType === 'Location') return locationStarts(s, c).map((i) => sp('player', i));
@@ -118,7 +119,7 @@ function reasonAt(s, sel, c, hit) {
   const me = s.players.player;
   const occupant = hit.kind === 'space' ? s.players[hit.who].row[hit.space] : null;
   if (hit.kind === 'board') return '';
-  if (sel.kind === 'choice') return hit.kind === 'pc' ? 'It targets Pokémon only' : occupant ? `Not a target for ${s.choice?.name ?? 'this effect'}` : 'No Pokémon here';
+  if (sel.kind === 'choice') return hit.kind === 'pc' ? 'It targets Pokémon only' : s.choice?.pick === 'space' ? (occupant ? 'Choose an empty space' : `Not a space for ${s.choice?.name ?? 'this effect'}`) : occupant ? `Not a target for ${s.choice?.name ?? 'this effect'}` : 'No Pokémon here';
   if (sel.kind === 'attack') {
     if (hit.kind === 'pc') { const g = playerGuard(s, 'player', sel.from, 'ai'); return g ? `The Opponent is guarded by ${g.card.name}` : ''; }
     if (hit.who === 'player') return 'Choose an enemy Pokémon or the Opponent';

@@ -1,12 +1,12 @@
 // B3-1: the cards come from data. Run: node v4/tests/cardsdata.test.js
-//   - Every Batch 1 entry of docs/base-game/cards.json (the source of truth) is in the game, with its numbers.
+//   - Every Batch 1–2 entry (B3-2) of docs/base-game/cards.json (the source of truth) is in the game, with its numbers.
 //   - The wording round-trip: every text the game shows is generated from the structured ops (src/engine/wording.js)
 //     and equals cards.json word for word: Pokémon trigger text, Move text and cardText, Supporter text and Favour
 //     text, Item text, Location passives, Trainer Commands, Objectives and Partners.
 //   - The generator is stable: tools/buildcards.mjs --check finds src/data/cards.js up to date (a re-run gives an
 //     identical file).
 //   - The cost rules: a Pokémon costs ceil(Level / 2); a Legendary costs 5 and is Level 8 from the start (it doesn't grow).
-//   - validateDeck on the four decks (legal) and on broken ones (41 cards, 3 copies, 2 of a Legendary, 4 Trainers).
+//   - validateDeck on the eight decks (B3-2: four more) (legal) and on broken ones (41 cards, 3 copies, 2 of a Legendary, 4 Trainers).
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -24,17 +24,17 @@ const J = JSON.parse(readFileSync(`${ROOT}docs/base-game/cards.json`, 'utf8'));
 let checks = 0;
 const eq = (a, b, m) => { assert.deepEqual(a, b, m); checks += 1; };
 const ok = (c, m) => { assert.ok(c, m); checks += 1; };
-const b1 = (list) => list.filter((x) => x.batch === 1);
+const b1 = (list) => list.filter((x) => x.batch === 1 || x.batch === 2);   // (B3-2: Batches 1–2)
 
-// --- Every Batch 1 entry is present ---------------------------------------------------------------------------------
-eq(PATHS.map((p) => p.id).sort(), b1(J.pokemon).map((p) => p.id).sort(), 'every Batch 1 Pokémon series');
-eq(COMMANDS.map((c) => c.id).sort(), b1(J.moves).map((c) => c.id).sort(), 'every Batch 1 Move');
-eq(SUPPORTERS.map((c) => c.id).sort(), b1(J.supporters).map((c) => c.id).sort(), 'every Batch 1 Supporter');
-eq(ITEMS.map((c) => c.id).sort(), b1(J.items).map((c) => c.id).sort(), 'every Batch 1 Item');
-eq(LOCATIONS.map((c) => c.id).sort(), b1(J.locations).map((c) => c.id).sort(), 'every Batch 1 Location');
-eq(TRAINERS.map((c) => c.id).sort(), b1(J.trainers).map((c) => c.id).sort(), 'every Batch 1 Trainer');
+// --- Every Batch 1–2 entry is present ---------------------------------------------------------------------------------
+eq(PATHS.map((p) => p.id).sort(), b1(J.pokemon).map((p) => p.id).sort(), 'every Batch 1–2 Pokémon series');
+eq(COMMANDS.map((c) => c.id).sort(), b1(J.moves).map((c) => c.id).sort(), 'every Batch 1–2 Move');
+eq(SUPPORTERS.map((c) => c.id).sort(), b1(J.supporters).map((c) => c.id).sort(), 'every Batch 1–2 Supporter');
+eq(ITEMS.map((c) => c.id).sort(), b1(J.items).map((c) => c.id).sort(), 'every Batch 1–2 Item');
+eq(LOCATIONS.map((c) => c.id).sort(), b1(J.locations).map((c) => c.id).sort(), 'every Batch 1–2 Location');
+eq(TRAINERS.map((c) => c.id).sort(), b1(J.trainers).map((c) => c.id).sort(), 'every Batch 1–2 Trainer');
 const total = [J.pokemon, J.moves, J.supporters, J.items, J.locations, J.trainers].reduce((n, l) => n + b1(l).length, 0);
-eq(total, 79, 'the 79 Batch 1 entries');
+eq(total, 119, 'the 119 Batch 1–2 entries (79 + 40)');
 
 // --- Pokémon: forms, stats by Level, speed per form, guard, keywords per form, trigger wording ----------------------------
 for (const jp of b1(J.pokemon)) {
@@ -62,7 +62,8 @@ for (const p of PATHS) {
     eq(cardAtRound(p.id, 1, 2).level, 8, `${p.id}: gained Levels never take it past 8`);
   }
 }
-ok(PATHS.filter((p) => p.legendary).length === 4, 'four Batch 1 Legendaries');
+ok(PATHS.filter((p) => p.legendary).length === 5, 'five Legendaries (Batch 1\'s four and Mewtwo)');
+eq(['Mewtwo', pathDef('mewtwo').legendary, cardAtRound('mewtwo', 1).level, cardAtRound('mewtwo', 1).cost], ['Mewtwo', true, 8, 5], 'Mewtwo: Level 8, cost 5');
 
 // --- Moves: each mode's text and card line, word for word; its cost and Type ------------------------------------------
 for (const jm of b1(J.moves)) {
@@ -74,7 +75,7 @@ for (const jm of b1(J.moves)) {
     eq(MODE_NAMES[jmode.mode.toLowerCase()], jmode.mode);
     eq(m.cost, jmode.cost, `${jm.name} ${jmode.mode}: cost`);
     eq(effectText(m.effect), jmode.text, `${jm.name} ${jmode.mode}: text, word for word`);
-    eq(shortModeText(m.effect), jmode.cardText, `${jm.name} ${jmode.mode}: cardText, word for word`);
+    eq(shortModeText(m.effect, m.style), jmode.cardText, `${jm.name} ${jmode.mode}: cardText, word for word`);
     eq(m.short, jmode.cardText);
     ok(effectOps(m.effect).length > 0, `${jm.name} ${jmode.mode}: structured ops`);
   }
@@ -129,7 +130,9 @@ ok(/^\/\/ /.test(data) && data.includes('ops'), 'the data module documents its v
 
 // --- validateDeck -------------------------------------------------------------------------------------------------------------
 eq(DECK_RULES, { size: 40, copies: 2, legendaryCopies: 1, trainerCopies: 1, maxTrainers: 3 });
-for (const id of DECK_IDS) eq(validateDeck(DECKS[id].list), [], `${DECKS[id].name}: legal`);
+eq(DECK_IDS.length, 8, 'eight decks');
+for (const id of DECK_IDS) eq([validateDeck(DECKS[id].list), DECKS[id].list.length], [[], 40], `${DECKS[id].name}: legal`);
+eq(['sabrinas-mind', 'brunos-dojo', 'mortys-haunt', 'karens-night'].map((id) => DECK_IDS.includes(id)), [true, true, true, true], 'B3-2: the four new decks');
 const base = DECKS['blaines-blitz'].list;
 const has = (reasons, re) => reasons.some((r) => re.test(r));
 let r = validateDeck([...base, 'ponyta']);

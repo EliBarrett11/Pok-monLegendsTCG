@@ -33,7 +33,9 @@ const trig = (s) => s.events.filter((e) => e.type === 'trigger').map((e) => `${e
 const fired = (s) => trig(s).filter((x, i, a) => a.indexOf(x) === i);
 
 // The Partners' triggers (B3-1: cards.json) and the glossary has every trigger and keyword.
-eq(TRAINERS.map((t) => triggerText(t.partner.trigger)), ['On Summon: Draw 2 cards', 'On Summon: 2 damage to each enemy Pokémon', 'On Summon: Heal 4 to each of your Pokémon, and they get +1 Strength (kept)', 'On Summon: 3 damage to the enemy across from it', 'On Summon: Heal 3 to each of your Pokémon'], 'Partner triggers');
+eq(TRAINERS.map((t) => triggerText(t.partner.trigger)), ['On Summon: Draw 2 cards', 'On Summon: 2 damage to each enemy Pokémon', 'On Summon: Heal 4 to each of your Pokémon, and they get +1 Strength (kept)', 'On Summon: 3 damage to the enemy across from it', 'On Summon: Heal 3 to each of your Pokémon',
+  // B3-2: Sabrina, Bruno, Morty, Karen.
+  'On Summon: 3 damage to an enemy Pokémon, and draw 1 card', 'On Summon: 3 damage to an enemy Pokémon', 'On Summon: Return 2 Pokémon cards from your Discard Pile to your hand', 'On Summon: Each enemy Pokémon gets −2 Attack until Supper'], 'Partner triggers');
 for (const k of KEYWORD_ORDER) ok(GLOSSARY.some((g) => g.id === k && g.kind === 'keyword'), `glossary: ${k}`);
 for (const t of Object.keys(TRIGGER_NAMES)) ok(GLOSSARY.some((g) => g.id === t && g.kind === 'trigger'), `glossary: ${t}`);
 ok(!GLOSSARY.some((g) => /\bAlert\b/.test(g.text)), 'v4 terms (Ready, not Alert)');

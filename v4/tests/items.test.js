@@ -42,7 +42,7 @@ const stock = (s, id, slot = 0) => {
 // --- The cards ---------------------------------------------------------------------------------------------------------
 {
   const V4 = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-  assert.equal(ITEMS.length, 14, 'B3-1: the fourteen Batch 1 Items');
+  assert.equal(ITEMS.length, 19, 'B3-2: the nineteen Batch 1–2 Items');
   assert.ok(ITEMS.filter((c) => c.itemType === 'Held').length >= 2 && ITEMS.filter((c) => c.itemType === 'Consumed').length >= 2);
   // B3-1: art where "hasArt" is true (the others show the Art Pending panel).
   for (const c of [...ITEMS, ...TRAINERS, ...TRAINERS.map((t) => t.partner)]) if (c.hasArt) assert.ok(existsSync(join(V4, '..', 'assets/cards', `${c.art}.jpg`)), `${c.name}: art`);

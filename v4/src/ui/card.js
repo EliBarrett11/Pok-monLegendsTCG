@@ -59,6 +59,8 @@ export function chipCrop(art, S) {
 
 // --- Colours and glyphs (the mockup's) -------------------------------------------------------------------
 const ACC = { Fire: '#d9773f', Water: '#5f9bd6', Electric: '#d7b440', Rock: '#b39a6c', Normal: '#b7ad9a', Grass: '#6fb04f',
+  // B3-2: Batch 2's Types.
+  Psychic: '#d0679a', Fighting: '#c8643c', Ghost: '#8b74cc', Dark: '#7d6a5c',
   Supporter: '#c46a6a', Item: '#5fb59a', Trainer: '#a786d6', Location: '#c2a36a' };
 const G = {
   pa: '<path d="M5 16C7 11 10 7 15 4M9 19.5c2.5-5 5.5-8.5 11-11.5M13 22c2-3.5 4.5-6 8-8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
@@ -73,6 +75,11 @@ const G = {
   Normal: '<circle cx="12" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="2.2"/>',
   // B3-1: Grass, a leaf with its vein.
   Grass: '<path d="M19.5 4C11 4.5 5 9 5 15.5c0 1.6.4 3 1 4.2C8 13.5 12 10 16 8.5c-3.6 2.4-6.6 5.8-8.4 11 1.1.6 2.4.9 3.9.9C17 20.4 20.4 13 19.5 4z" fill="currentColor"/>',
+  // B3-2: Psychic, an eye; Fighting, a fist; Ghost, a wisp with eyes; Dark, a crescent moon.
+  Psychic: '<path d="M2.5 12C5 7.6 8.3 5.5 12 5.5s7 2.1 9.5 6.5c-2.5 4.4-5.8 6.5-9.5 6.5S5 16.4 2.5 12z" fill="currentColor"/><circle cx="12" cy="12" r="3.3" fill="#0b0705"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/>',
+  Fighting: '<path d="M6 9.5a2 2 0 0 1 2-2h1V6a1.6 1.6 0 0 1 3.2 0v1.5h.6V6a1.6 1.6 0 0 1 3.2 0v1.5h.4a1.6 1.6 0 0 1 1.6 1.6v5.4c0 3.6-2.6 6-6 6h-1c-2.8 0-5-2.2-5-5z" fill="currentColor"/><path d="M8.5 12.5h5.5" stroke="#0b0705" stroke-width="1.4" stroke-linecap="round"/>',
+  Ghost: '<path d="M12 2.8a7 7 0 0 1 7 7v11l-2.4-1.8-2.3 1.8-2.3-1.8-2.3 1.8-2.3-1.8L5 20.8v-11a7 7 0 0 1 7-7z" fill="currentColor"/><circle cx="9.4" cy="10.5" r="1.5" fill="#0b0705"/><circle cx="14.6" cy="10.5" r="1.5" fill="#0b0705"/>',
+  Dark: '<path d="M15.5 3.2A8.8 8.8 0 1 0 20.8 16 7.2 7.2 0 0 1 15.5 3.2z" fill="currentColor"/>',
   Supporter: '<circle cx="12" cy="8" r="3.6" fill="currentColor"/><path d="M5 20c0-4.4 3.4-6.4 7-6.4s7 2 7 6.4z" fill="currentColor"/>',
   Item: '<path d="M9.5 3.5h5v2.8l2.8 3.6v8.6a1.8 1.8 0 0 1-1.8 1.8H8.5a1.8 1.8 0 0 1-1.8-1.8V9.9l2.8-3.6z" fill="currentColor"/>',
   Trainer: '<path d="M12 3l2.6 5.4 5.9.9-4.3 4.1 1 5.9L12 16.6l-5.2 2.7 1-5.9L3.5 9.3l5.9-.9z" fill="currentColor"/>',
@@ -230,8 +237,11 @@ function frame(kind, art, acc, panel, size, holo = null, pending = false) {
   // The lower part darkens smoothly under the art, from just above the panel rule.
   const shade = `linear-gradient(180deg, rgba(10,7,5,0) ${p(panel - 90)}%, rgba(10,7,5,.78) ${p(panel - 10)}%, rgba(10,7,5,.92) ${p(panel + 20)}%, rgba(7,5,4,.97) 100%)`;
   // B3-1: Art Pending: the glow, with "ART PENDING" in small spaced capitals in the middle of the art area.
+  // B3-2 (Elliott, 13 Nov 2026): where only part of the art shows (a strip of a fanned hand: pending === 'glow'), the
+  // glow alone, never cut words; full, hovered and Codex cards keep the words.
+  const words = pending === 'glow' ? '' : `<span class="cd-pendt" style="top:${Math.round(panel * 0.42)}px">Art Pending</span>`;
   const artDiv = pending
-    ? `<div class="cd-art cd-pending" style="clip-path:path('${o}');background-image:${shade},${pendingGlow(acc)}"><span class="cd-pendt" style="top:${Math.round(panel * 0.42)}px">Art Pending</span></div>`
+    ? `<div class="cd-art cd-pending" style="clip-path:path('${o}');background-image:${shade},${pendingGlow(acc)}">${words}</div>`
     : `<div class="cd-art" style="clip-path:path('${o}');background-image:${shade},url('${artUrl(art)}');background-position:0 0,${f.x}% ${f.y}%"></div>`;
   const inner = SH[kind](7);
   const lines = `<path d="${o}" fill="none" stroke="#050302" stroke-width="3"/><path d="${o}" fill="none" stroke="${BR}" stroke-width="1.6"/><path d="${inner}" fill="none" stroke="rgba(194,163,106,.55)" stroke-width="1"/>`;
@@ -360,7 +370,9 @@ export function cardHTML(c, opts = {}) {
   const fk = size === 'token' ? 'pokemon' : kind;
   const panel = PANEL[size]?.[fk] ?? PANEL.full[fk];
   const holo = holoKind(c, size);
-  const fr = frame(fk, c.art, acc, panel, size, holo, isPending(c));
+  // (B3-2: a fanned hand's strip shows only part of the art.)
+  const partial = size === 'mini' && opts.strip && opts.strip < w;
+  const fr = frame(fk, c.art, acc, panel, size, holo, isPending(c) && (partial ? 'glow' : true));
   let svg = fr.svg;
   let html = '';
   // Cost well and crest (tokens show neither: the board needs the art).

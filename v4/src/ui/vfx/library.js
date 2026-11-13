@@ -199,15 +199,21 @@ export const commandMs = (id, mode) => MODE_STYLE[mode].rise + timelineDuration(
 
 // B3-1: each Supporter's effect from its first op (data-driven: no per-card list).
 const SUPPORTER_BY_OP = { heal: 'heal-glow', search: 'v4-search', draw: 'v4-search', recover: 'v4-breeder', handLevels: 'v4-search', strength: 'v4-strength', attack: 'v4-strength',
-  tempAttack: 'v4-flannery', activate: 'v4-flannery', returnHand: 'v4-search', damage: 'v4-effect-hit' };
+  tempAttack: 'v4-flannery', activate: 'v4-flannery', returnHand: 'v4-search', damage: 'v4-effect-hit',
+  // B3-2: hand control and the Discard Pile (Burglar, Team Rocket Grunt; Bill; Mr. Fuji), Officer Jenny's Spent.
+  steal: 'v4-search', discardRandom: 'v4-effect-hit', pickDraw: 'v4-search', reviveSummon: 'v4-breeder', spend: 'v4-effect-hit' };
 export const SUPPORTER_ANIMS = Object.fromEntries(SUPPORTERS.map((c) => [c.id, SUPPORTER_BY_OP[c.ops[0]?.op] ?? 'v4-search']));
 // By Item id first (G3: a small effect of its own for each new Item), then by op.
 export const ITEM_ANIMS = {
   heal: 'heal-glow', attackUp: 'v4-x-attack', tempAttack: 'v4-x-attack', attack: 'v4-held', strength: 'v4-held', speed: 'v4-held', keyword: 'v4-held', recognition: 'v4-amulet',
   'x-attack': 'v4-x-attack', 'choice-band': 'v4-choice-band', 'quick-claw': 'v4-quick-claw', 'rocky-helmet': 'v4-rocky-helmet', leftovers: 'v4-leftovers', 'amulet-coin': 'v4-amulet',
+  // B3-2: Revive (from the Discard Pile), X Speed (Active), Ether (Energy), X Defend (Strength until Supper).
+  revive: 'v4-breeder', activate: 'v4-flannery', energy: 'v4-amulet', tempStrength: 'v4-held',
 };
 export const itemAnim = (id, op) => ITEM_ANIMS[id] ?? ITEM_ANIMS[op] ?? 'v4-held';
-export const TRAINER_COMMAND_ANIMS = { draw: 'v4-search', damageAll: 'v4-effect-hit', damage: 'v4-effect-hit', heal: 'heal-glow', strength: 'v4-strength', dollars: 'v4-amulet' };
+export const TRAINER_COMMAND_ANIMS = { draw: 'v4-search', damageAll: 'v4-effect-hit', damage: 'v4-effect-hit', heal: 'heal-glow', strength: 'v4-strength', dollars: 'v4-amulet',
+  // B3-2: Sabrina (a card you choose), Bruno (Attack), Morty (from the Discard Pile), Karen (a random discard).
+  discardChosen: 'v4-effect-hit', attack: 'v4-strength', returnDiscard: 'v4-breeder', discardRandom: 'v4-effect-hit' };
 Object.assign(V4_TIMELINES, {
   // Searching or drawing: motes rising from the Draw Pile.
   'v4-search': { id: 'v4-search', budget: 'effect', duration: 700, beats: [{ at: 0, cue: 'search', bloom: 0.4 }, { at: 0, end: 600, emit: 'evolveMotes', on: 'target' }, { at: 0, emit: 'flareRing', on: 'target' }] },
@@ -381,6 +387,13 @@ export const EVENT_BEATS = {
   effectChoice: { when: 'after', beat: 'note', budget: 'note', sfx: null },
   handLevels: { when: 'after', beat: 'note', budget: 'note', sfx: null },
   pcDamage: { when: 'after', beat: 'note', budget: 'note', sfx: null },
+  // B3-2: a pick from a pile or a hand being asked for; cards discarded or stolen from a hand; cards back to hand
+  // from the Discard Pile; cards picked from the Draw Pile (Bill).
+  cardChoice: { when: 'quiet', beat: null, budget: null, sfx: null },
+  cardsDiscarded: { when: 'after', beat: 'note', budget: 'note', sfx: null },
+  cardsStolen: { when: 'after', beat: 'note', budget: 'note', sfx: null },
+  cardsReturned: { when: 'after', beat: 'note', budget: 'note', sfx: null },
+  cardsPicked: { when: 'after', beat: 'note', budget: 'note', sfx: null },
 };
 
 // The sound hooks (src/ui/sound.js names them; every beat calls one).

@@ -680,6 +680,11 @@ const BEATS = {
       effectChoice: () => [e.target ? cardEl(e.target.who, e.target.space) ?? boardEl() : boardEl(), e.name],
       handLevels: () => [ringEl(e.who), `Hand: +${e.amount} Level${e.amount === 1 ? '' : 's'}`],
       pcDamage: () => [ringEl(e.who === 'player' ? 'ai' : 'player'), `${e.name}: ${e.amount} damage`],
+      // B3-2
+      cardsDiscarded: () => [ringEl(e.who), `Discarded ${e.count} card${e.count === 1 ? '' : 's'}`],
+      cardsStolen: () => [ringEl(e.who), `${e.count} card${e.count === 1 ? '' : 's'} stolen`],
+      cardsReturned: () => [pileEl(e.who, 'disc') ?? ringEl(e.who), `${e.names.join(', ')} back to hand`],
+      cardsPicked: () => [pileEl(e.who, 'draw') ?? ringEl(e.who), `${e.uids.length} card${e.uids.length === 1 ? '' : 's'} picked`],
     }[e.type]?.();
     if (!at) return;
     floatText(at[0], at[1], 'status', t(MS.note));

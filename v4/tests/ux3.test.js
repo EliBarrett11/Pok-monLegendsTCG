@@ -3,9 +3,10 @@
 // Tournament; effectPreview on every Command mode, every Item and both Trainer Commands.
 // Run: node v4/tests/ux3.test.js
 import assert from 'node:assert/strict';
-import { createGame, applyAction, legalActions, actor, attackers, legalTargets, syncBonuses, locationAt, damageOf, commandTargets, pokemonOf } from '../src/engine/game.js';
+import { createGame, applyAction, legalActions, actor, attackers, legalTargets, syncBonuses, locationAt, damageOf, commandTargets, pokemonOf, passBlockers } from '../src/engine/game.js';
 import { attackPreview, attackParts, effectPreview } from '../src/engine/preview.js';
 import { chooseAction } from '../src/ai/ai.js';
+import { DECK_IDS } from '../src/engine/decks.js';
 import { pokemonAt, cardAtRound, COMMANDS, ITEMS, TRAINERS, MODES, modeTarget } from '../src/engine/cards.js';
 
 let k = 12345;
@@ -13,7 +14,10 @@ const rnd = () => { k = (k * 1103515245 + 12345) % 2147483648; return k / 214748
 const pick = (xs) => xs[Math.floor(rnd() * xs.length)];
 const resolve = (s) => (s.reactWindow ? applyAction(s, { type: 'decline', who: s.reactWindow.reactor }) : s);
 const gainOf = (a, b, who) => ({ recognition: b.players[who].recognition - a.players[who].recognition, dollars: b.players[who].dollars - a.players[who].dollars });
-const strengthNow = (s, who, space, uid) => (s.players[who].row[space]?.uid === uid ? s.players[who].row[space].currentStrength : s.players[who].released.find((c) => c.uid === uid)?.currentStrength);
+// B3-2: a Pokémon whose On Defeated returns it to its owner's hand (Gastly's line) was defeated: its Strength there is
+// a fresh card's, so it reads as defeated (the preview's own number is taken).
+const strengthNow = (s, who, space, uid, shown) => (s.players[who].row[space]?.uid === uid ? s.players[who].row[space].currentStrength
+  : s.players[who].hand.some((c) => c.uid === uid) && shown <= 0 ? shown : s.players[who].released.find((c) => c.uid === uid)?.currentStrength);
 
 // --- attackPreview against 200+ real attacks ---------------------------------------------------------------------------
 {
@@ -22,7 +26,8 @@ const strengthNow = (s, who, space, uid) => (s.players[who].row[space]?.uid === 
   const cover = { location: 0, held: 0, tournament: 0, hitBack: 0, player: 0, defeat: 0 };
   const charcoal = { ...cardAtRound('charcoal', 1), uid: 'held-test' };
   for (let m = 0; checked < 300 && m < 60; m++) {
-    let s = createGame(1000 + m);
+    // B3-2: every deck in turn (eight since Batch 2), against another.
+    let s = createGame(1000 + m, { decks: { player: DECK_IDS[m % DECK_IDS.length], ai: DECK_IDS[(m * 3 + 1) % DECK_IDS.length] } });
     for (let step = 0; step < 900 && s.phase !== 'gameOver' && checked < 300; step++) {
       const who = actor(s);
       if (!who) break;
@@ -56,18 +61,18 @@ const strengthNow = (s, who, space, uid) => (s.players[who].row[space]?.uid === 
         if (d) {
           assert.equal(pv.target.before, d.currentStrength);
           assert.equal(pv.target.defeated, after.players[foe].row[target.space]?.uid !== d.uid, 'target defeat');
-          assert.equal(pv.target.after, strengthNow(after, foe, target.space, d.uid), 'target Strength after');
+          assert.equal(pv.target.after, strengthNow(after, foe, target.space, d.uid, pv.target.after), 'target Strength after');
           if (pv.target.defeated) cover.defeat += 1;
           if (pv.hitBack) {
             cover.hitBack += 1;
             if (atk) assert.equal(pv.hitBack.damage, atk.back, 'hit-back damage');
             assert.equal(pv.hitBack.defeated, after.players[who].row[from]?.uid !== a.uid, 'attacker defeat');
-            assert.equal(pv.hitBack.attackerAfter, strengthNow(after, who, from, a.uid), 'attacker Strength after');
+            assert.equal(pv.hitBack.attackerAfter, strengthNow(after, who, from, a.uid, pv.hitBack.attackerAfter), 'attacker Strength after');
             assert.deepEqual(pv.hitBack.rewards, gainOf(s, after, foe), 'the opponent\'s rewards');
           }
           // The attacker afterwards, in every case (a hit-back, or e.g. a Partner's On Summon set off by the attack).
           assert.equal(pv.attacker.defeated, after.players[who].row[from]?.uid !== a.uid, 'attacker defeat');
-          assert.equal(pv.attacker.after, strengthNow(after, who, from, a.uid), 'attacker Strength after');
+          assert.equal(pv.attacker.after, strengthNow(after, who, from, a.uid, pv.attacker.after), 'attacker Strength after');
           assert.deepEqual(pv.foeRewards, gainOf(s, after, foe), 'the opponent\'s gains');
         } else cover.player += 1;
         if (locationAt(s, from)) cover.location += 1;
@@ -133,6 +138,7 @@ const setBoard = (s) => {
   s.players.ai.row[6] = mon('growlithe', 4);              // 5, elsewhere
   s.players.player.row[3] = mon('squirtle', 6, { currentStrength: 2 });   // hurt: heals show
   s.players.player.row[4] = mon('ponyta', 3);
+  s.players.ai.row[4] = mon('squirtle', 3, { spent: false });   // B3-2: Active (Sucker Punch), across from one of yours (Close Combat)
 };
 let effects = 0;
 const seenModes = new Set();
@@ -174,6 +180,7 @@ for (const c of COMMANDS) {
         before = s;
         pv = effectPreview(s, 'player', cc, 'strat', target);
         after = applyAction(s, { type: 'command', who: 'player', uid: cc.uid, mode: 'strat', target });
+        for (const sp of passBlockers(after, 'ai')) after.players.ai.row[sp].spent = true;   // (B3-2: an Active one can't pass)
         after = applyAction(after, { type: 'pass', who: 'ai' });   // the Strat resolves at the start of the player's next turn
         assert.equal(after.strats.length, 0);
       } else {
@@ -213,10 +220,12 @@ for (const t of TRAINERS) {
   const tc = card(t.id);
   s.players.player.hand = [tc];
   // (B3-1: a Command that names "an enemy Pokémon", Lt. Surge's, previews with its target, then chooses it.)
-  const chosen = t.command.ops.some((o) => o.to === 'chosenEnemy') ? { who: 'ai', space: 1 } : null;
+  // (B3-2: Bruno's names one of your Pokémon.)
+  const chosen = t.command.ops.some((o) => o.to === 'chosenEnemy') ? { who: 'ai', space: 1 } : t.command.ops.some((o) => o.to === 'chosenOwn') ? { who: 'player', space: 3 } : null;
   const pv = effectPreview(s, 'player', tc, 'command', chosen);
   let after = applyAction(s, { type: 'trainerCommand', who: 'player', uid: tc.uid });
-  if (after.choice) after = applyAction(after, { type: 'choose', who: 'player', target: chosen });
+  // (B3-2: a card pick, Sabrina's from the opponent's hand: the first card offered.)
+  while (after.choice) after = applyAction(after, { type: 'choose', who: 'player', target: after.choice.pick === 'card' ? after.choice.targets[0] : chosen });
   agree(s, after, { ...pv, rewards: pv.rewards }, `${t.name}'s Trainer Command`);
   if (t.id === 'misty') {
     assert.equal(pv.text, 'Draw 2 cards', 'a sentence for an effect with no number');

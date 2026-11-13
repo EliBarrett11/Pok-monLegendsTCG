@@ -4,7 +4,9 @@ import assert from 'node:assert/strict';
 import { RULES } from '../src/rules.js';
 import { createGame, applyAction, commandTargets, hasKw, damageOf, effectiveSpeed, passBlockers, syncBonuses, legalActions } from '../src/engine/game.js';
 import { pokemonAt, cardAtRound } from '../src/engine/cards.js';
-import { DECKS } from '../src/engine/decks.js';
+import { DECKS, DECK_IDS } from '../src/engine/decks.js';
+import { chooseAction } from '../src/ai/ai.js';
+import { actor } from '../src/engine/game.js';
 
 let n = 0;
 let checks = 0;
@@ -387,6 +389,34 @@ const trace = (s, re) => s.log.filter((l) => re.test(l));
   ok(s.choice?.targets.every((t) => t.lane), 'On Command: choose a Location');
   s = choose(s, { who: 'ai', space: 4, lane: true });
   eq([4, 5, 8].map((sp) => s.players.ai.row[sp].strength - s.players.ai.row[sp].currentStrength), [2, 2, 0], '2 damage to each enemy Pokémon in it');
+}
+
+// --- Hidden information (the B3-2 prompt E): the AI's choices are the same whatever is in the player's hand and Draw
+// Pile (the same number of cards, the same uids); the one exception is inside Sabrina's pick from that hand. ---------------
+{
+  const seeded = (k) => { let x = k; return () => { x = (x * 9301 + 49297) % 233280; return x / 233280; }; };
+  const swap = (x, ids) => { const y = structuredClone(x); const p = y.players.player; p.hand = p.hand.map((c, i) => ({ ...cardAtRound(ids[i % ids.length], y.round), uid: c.uid })); p.drawPile = p.drawPile.map((c, i) => ({ ...cardAtRound(ids[(i + 3) % ids.length], y.round), uid: c.uid })); return y; };
+  let tested = 0;
+  for (let seed = 1; seed < 400 && tested < 40; seed++) {
+    const rng = seeded(seed);
+    let s = createGame(seed, { decks: { player: DECK_IDS[seed % 8], ai: DECK_IDS[(seed * 5 + 3) % 8] } });
+    for (let i = 0; i < 40 + (seed % 120) && s.phase !== 'gameOver'; i++) s = applyAction(s, chooseAction(s, actor(s), { rng }));
+    if (s.phase === 'gameOver' || actor(s) !== 'ai' || (s.choice?.from === 'opponentHand')) continue;
+    const picks = [['ember', 'mewtwo', 'bill', 'ether'], ['gastly', 'thief', 'potion', 'sabrina'], ['abra', 'abra', 'surf', 'close-combat']]
+      .map((ids) => JSON.stringify(chooseAction(swap(s, ids), 'ai', { rng: seeded(7) })));
+    ok(picks.every((x) => x === picks[0]), `seed ${seed}: the same choice whatever the player holds and will draw (${picks[0].slice(0, 90)})`);
+    tested += 1;
+  }
+  ok(tested >= 30, `hidden information: ${tested} AI decisions compared`);
+  // Inside Sabrina's pick the AI does read the player's hand: it discards the Pokémon card, not the Item, wherever it is.
+  const sab = (handIds) => {
+    let s = battle('ai', { trainers: ['sabrina'] });
+    s.players.player.hand = handIds.map((id, i) => ({ ...card(id, 3), uid: `ph-${i}` }));
+    s = applyAction(s, { type: 'trainerCommand', who: 'ai', uid: give(s, 'ai', 'sabrina') });
+    ok(s.choice?.who === 'ai' && s.choice.from === 'opponentHand', 'the AI picks from the player\'s hand');
+    return chooseAction(s, 'ai', { rng: seeded(3) }).target.uid;
+  };
+  eq([sab(['potion', 'mewtwo']), sab(['mewtwo', 'potion'])], ['ph-1', 'ph-0'], 'Sabrina: the AI reads the hand for this pick only (it takes Mewtwo wherever it is)');
 }
 
 console.log(`b32rules: ${checks} checks passed`);

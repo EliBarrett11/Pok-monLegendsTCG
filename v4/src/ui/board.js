@@ -16,7 +16,7 @@ import {
   commandModesFor, damageOf, effectiveSpeed, locationAt,
   itemTargets, buyReason, tournamentDominant, tournamentStrength, boosted, buyableFromHand, buyableFromMart, usableFromBag, playableTrainers, trainerReason,
 } from '../engine/game.js?v=202611131336';
-import { COMMANDS, SUPPORTERS, ITEMS, LOCATIONS, MODE_NAMES, FAVOURS, TRIGGER_NAMES, modeText, effectText, BAG_SIZE, PATHS, TRAINERS } from '../engine/cards.js?v=202611131336';
+import { COMMANDS, SUPPORTERS, ITEMS, LOCATIONS, MODE_NAMES, FAVOURS, TRIGGER_NAMES, modeText, effectText, BAG_SIZE, PATHS, TRAINERS, cardAtRound } from '../engine/cards.js?v=202611131336';
 import { DECKS } from '../engine/decks.js?v=202611131336';
 import { baseEnergyFor, EXERT_LIMIT } from '../engine/energy.js?v=202611131336';
 import { icon, attackIcon, STAT_NAMES, attackKey, strengthKey } from './icons.js?v=202611131336';
@@ -140,7 +140,10 @@ export function promptFor(s, ui, ctx = {}) {
   if (s.choice) {
     const what = s.choice.kind === 'trigger' ? 'On Summon' : s.choice.kind === 'trainer' ? 'Trainer Command' : s.choice.kind === 'supporter' ? 'Supporter' : s.choice.kind === 'item' ? 'Item' : 'Move';
     const tag = `${s.choice.name} · ${s.choice.kind === 'trigger' ? TRIGGER_NAMES[s.choice.ctx?.on] ?? what : what}`;
-    if (s.choice.who !== 'player') return { tag, text: 'The Opponent is choosing a target…' };
+    // B3-2: a card from a pile or a hand (its picker), or an empty space to summon into.
+    if (s.choice.who !== 'player') return { tag, text: s.choice.pick === 'card' ? `The Opponent is choosing a card${s.choice.from === 'opponentHand' ? ' from your hand' : ''}…` : 'The Opponent is choosing a target…' };
+    if (s.choice.pick === 'card') return { tag, text: `${esc(s.choice.text ?? '')}: choose <b>a card</b>. (It's played: this can't be cancelled.)`, gold: true };
+    if (s.choice.pick === 'space') return { tag, text: `${esc(s.choice.text ?? '')}: choose <b>a glowing empty space</b> for ${esc(s.choice.cardName ?? 'it')}. (It's played: this can't be cancelled.)`, gold: true };
     return { tag, text: `${esc(s.choice.text ?? '')}: choose <b>a glowing target</b>. (It's played: this can't be cancelled.)`, gold: true };
   }
   if (s.phase === 'gameOver') return { tag: s.winner === 'player' ? 'Champion!' : 'Defeat', text: esc(s.log.at(-1)) };
@@ -760,6 +763,25 @@ function dialogs(s, ui) {
       <p><b>Passive:</b> all Recognition earned ×1.5 (rounded up). <b>Dominance:</b> at each Supper, more total Strength on the battlefield earns +${RULES.perTournamentDominance} (+${boosted(s, RULES.perTournamentDominance)}). No Locations from now on. First to ${RULES.win} Recognition is the Pokémon League Champion.</p>
       <div class="v4-buttons"><button data-action="tournament-ok">To the Tournament</button></div></div></div>`;
   }
+  // B3-2: the card picker: the Opponent's hand (Sabrina's "a card you choose", shown for this choice only), your
+  // Discard Pile, or Bill's list of your Draw Pile (sorted by name). Select a card, then confirm; Esc unselects.
+  if (s.choice?.who === 'player' && s.choice.pick === 'card' && !ui.presenting) {
+    const c = s.choice;
+    const pool = c.from === 'opponentHand' ? s.players.ai.hand : c.from === 'drawPile' ? me.drawPile : me.discard;
+    // (Mr. Fuji, Revive: each card as it would arrive, at this Round's Level for its series.)
+    const asNow = (x) => (c.op?.op === 'reviveSummon' ? { ...cardAtRound(x.id, s.round), uid: x.uid } : x);
+    const cards = c.targets.map((t) => pool.find((x) => x.uid === t.uid)).filter(Boolean).map(asNow);
+    const sel = cards.some((x) => x.uid === ui.cardPick) ? ui.cardPick : null;
+    const where = { opponentHand: 'the Opponent\'s hand (shown for this choice only)', drawPile: 'your Draw Pile (sorted by name; it is shuffled afterwards)', discard: 'your Discard Pile' }[c.from] ?? 'the cards offered';
+    const verb = c.op?.op === 'discardChosen' ? 'Discard' : c.op?.op === 'reviveSummon' ? 'Summon' : 'Take';
+    const left = c.count > 1 ? ` (${c.count} to choose, one at a time)` : '';
+    return `<div class="v4-ask" role="dialog"><div class="v4-panel v4-wide v4-release v4-cardpick">
+      <p><b>${esc(c.name)}</b>: ${esc(c.text ?? '')}</p>
+      <p class="v4-pickt">Choose a card from ${where}${left}:</p>
+      <div class="v4-cardrow ${cards.length > 6 ? 'mini' : 'full'} v4-picks">${cards.map((x) => `<button class="v4-cbtn${sel === x.uid ? ' on' : ''}" data-cpick="${x.uid}" data-codex="card:${x.uid}" data-zoom="${zoomKey(x)}">${cardHTML(x, { size: cards.length > 6 ? 'mini' : 'full', state: { selected: sel === x.uid } })}${sel === x.uid ? `<em>${verb}</em>` : ''}</button>`).join('')}</div>
+      <div class="v4-buttons"><button data-action="cpick-done"${sel ? '' : ' disabled'}>${sel ? `${verb} ${esc(cards.find((x) => x.uid === sel).name)}` : 'Choose a card'} <small>(Enter)</small></button></div>
+      <p class="v4-small">Esc unselects. The effect is played: the choice can't be cancelled.</p></div></div>`;
+  }
   if (ui.select?.kind === 'supporter') {
     const sup = me.hand.find((c) => c.uid === ui.select.uid);
     const chosen = ui.select.release;
@@ -951,6 +973,9 @@ function wire(root, s, ui, ctx) {
     ui.select.pick = r.includes(u) ? r.filter((x) => x !== u) : [...(r.length >= want ? r.slice(1) : r), u];
     ctx.redraw();
   });
+  // B3-2: the card picker.
+  on('[data-cpick]', (el) => { ui.cardPick = ui.cardPick === el.dataset.cpick ? null : el.dataset.cpick; ctx.redraw(); });
+  on('[data-action="cpick-done"]', () => { const uid = ui.cardPick; ui.cardPick = null; if (uid) ctx.act({ type: 'choose', who: 'player', target: { uid } }); });
   on('[data-action="sup-done"]', () => {
     // G3: only as many picks as the effect allows (the Favour can change with the Released cards).
     const sup = s.players.player.hand.find((c) => c.uid === ui.select.uid);

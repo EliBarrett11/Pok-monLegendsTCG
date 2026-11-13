@@ -49,7 +49,7 @@ export function setupInteraction({ stage, ui, ctx, getState }) {
 
   // --- State of a choice ---
   const dialogOpen = (s) => !!(ui.confirm || ui.keys || s.phase === 'gameOver' || (s.phase === 'mulligan' && !s.players.player.mulliganed)
-    || ui.select?.kind === 'supporter' || (s.tournament && ui.seenTournament !== s.tournament.startedRound && s.phase === 'battle'));
+    || ui.select?.kind === 'supporter' || (s.choice?.who === 'player' && s.choice.pick === 'card') || (s.tournament && ui.seenTournament !== s.tournament.startedRound && s.phase === 'battle'));
   const myTurn = (s) => s.phase === 'battle' && s.turn === 'player' && !s.reactWindow && !ui.locked;
   const currentSel = (s) => {
     if (ui.drag) return ui.drag.sel;
@@ -267,6 +267,13 @@ export function setupInteraction({ stage, ui, ctx, getState }) {
     if (s.tournament && ui.seenTournament !== s.tournament.startedRound && s.phase === 'battle') { if (key === 'Enter') { done(); ui.seenTournament = s.tournament.startedRound; ctx.redraw(); } return; }
     if (s.phase === 'gameOver' || (s.phase === 'mulligan' && !s.players.player.mulliganed)) return;
     if (ui.select?.kind === 'supporter') { if (key === 'Escape') { done(); ui.select = null; ctx.redraw(); } return; }
+    // B3-2: a card picker (Sabrina's, the Discard Pile, Bill's list): Esc takes back the card selected (the effect is
+    // played, so the pick itself stays); Enter confirms it.
+    if (s.choice?.who === 'player' && s.choice.pick === 'card') {
+      if (key === 'Escape') { done(); ui.cardPick = null; ctx.redraw(); }
+      else if (key === 'Enter' && ui.cardPick && s.choice.targets.some((t) => t.uid === ui.cardPick)) { done(); const uid = ui.cardPick; ui.cardPick = null; ctx.act({ type: 'choose', who: 'player', target: { uid } }); }
+      return;
+    }
     if (ui.picker) { if (key === 'Escape') { done(); cancel(); } return; }
     if (key === 'l' || key === 'L') { done(); ui.drawer = ui.drawer === 'log' ? null : 'log'; ctx.redraw(); return; }
     if (key === '?') { done(); ui.keys = true; ctx.redraw(); return; }

@@ -6,6 +6,7 @@
 import { RULES } from '../rules.js?v=202611131336';
 import {
   applyAction, applyCommand, applyItem, runOps, syncBonuses, damageOf, canHitBack, locationAt, passiveOps, heldOps, opponentOf, pokemonOf,
+  auraOf,
 } from './game.js?v=202611131336';
 
 const clone = (s) => structuredClone(s);
@@ -26,14 +27,17 @@ export function attackParts(s, who, space) {
   const l = locationAt(s, space);
   const locAtk = passiveOps(l).filter((o) => o.op === 'attack').reduce((n, o) => n + o.amount, 0);
   const heldAtk = heldOps(card).filter((o) => o.op === 'attack').reduce((n, o) => n + o.amount, 0);
-  // B3-1: Intimidate (enemy Pokémon in its Location): whatever syncBonuses took off beyond the Location and Held Item.
+  // B3-2: Aura (your other Pokémon in its Location), named for the Pokémon whose Aura it is.
+  const aura = auraOf(s, who, space);
+  // B3-1: Intimidate (enemy Pokémon in its Location): whatever syncBonuses took off beyond the Location, Held Item and Aura.
   const bonus = card.bonusAttack ?? 0;
-  const intim = bonus - locAtk - heldAtk;
+  const intim = bonus - locAtk - heldAtk - aura.attack;
   const temp = card.tempAttack ?? 0;
   const base = card.attack - bonus - temp;
   parts.push({ label: 'Attack', n: base });
   if (locAtk) parts.push({ label: l.name, n: locAtk });
   if (heldAtk) parts.push({ label: card.held.name, n: heldAtk });
+  if (aura.attack) parts.push({ label: `Aura (${aura.names.join(', ')})`, n: aura.attack });
   if (intim) parts.push({ label: 'Intimidate', n: intim });
   if (temp) parts.push({ label: 'until Supper', n: temp });
   // An Attack below 0 deals 0.

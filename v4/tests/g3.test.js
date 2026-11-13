@@ -35,7 +35,7 @@ const attackOn = (s, on, attacker = mon('growlithe', 4, { spent: false })) => { 
 
 // --- Every Move mode resolves through the engine and does what its ops say ---------------------------------------------------
 // Each Command has two or three modes; its card line is one short sentence.
-eq(COMMANDS.length, 12, 'the twelve Batch 1 Moves');
+eq(COMMANDS.length, 20, 'the twenty Batch 1–2 Moves');
 for (const c of COMMANDS) for (const m of modesOf(c)) ok(modeText(c, m).length > 4 && shortModeText(c, m).length > 0, `${c.name} ${m}: wording`);
 // A board where every target kind exists: two of your Pokémon (one damaged), two enemies (sturdy, Ready-less).
 const board = (turn = 'player') => {
@@ -197,7 +197,7 @@ for (const c of SUPPORTERS) {
 
 const useItem = (s, id, space) => applyAction(s, { type: 'buyItem', who: 'player', from: 'hand', uid: give(s, 'player', id), then: 'use', target: { space } });
 // --- Every Item: Consumed Items resolve; Held Items attach -------------------------------------------------------------------------
-eq(ITEMS.length, 14, 'the fourteen Batch 1 Items');
+eq(ITEMS.length, 19, 'the nineteen Batch 1–2 Items');
 eq(createGame(1).mart.pool.length + 1, ITEMS.length, 'one copy of each in the PokéMart (one on sale)');
 for (const it of ITEMS) {
   const s = board();

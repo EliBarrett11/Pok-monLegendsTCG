@@ -55,7 +55,7 @@ for (let seed = 1; states < 300; seed++) {
     s = applyAction(s, chooseAction(s, actor(s), { rng }));
     if (!stops.has(i) || s.reactWindow || s.choice || s.phase !== 'battle') continue;
     const x = enrich(structuredClone(s), rng);
-    if (x.phase === 'gameOver') continue;
+    if (x.phase === 'gameOver' || x.choice || x.reactWindow) continue;   // B3-2: an On Command (Mewtwo) can leave a choice pending
     states++;
     for (const who of ['player', 'ai']) {
       const foe = who === 'player' ? 'ai' : 'player';

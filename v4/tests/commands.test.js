@@ -30,7 +30,7 @@ const types = (s) => s.events.map((e) => e.type);
 // B3-1: the cards come from docs/base-game/cards.json (tests/cardsdata.test.js checks them); here only what the rules need.
 {
   const V4 = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-  assert.equal(COMMANDS.length, 12, 'B3-1: the twelve Batch 1 Moves');
+  assert.equal(COMMANDS.length, 20, 'B3-2: the twenty Batch 1–2 Moves');
   for (const c of COMMANDS) {
     assert.ok(Object.keys(c.modes).length >= 2, `${c.name}: two or three modes`);
     if (c.hasArt) assert.ok(existsSync(join(V4, '..', 'assets/cards', `${c.art}.jpg`)), `${c.name}: art`);

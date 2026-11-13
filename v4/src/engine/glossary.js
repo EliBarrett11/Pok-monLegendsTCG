@@ -69,6 +69,10 @@ export const GLOSSARY = [
   { id: 'knockout', term: 'On Knockout', kind: 'trigger', text: 'Fires when this Pokémon\'s attack, or its hit-back, defeats an enemy Pokémon, if it\'s still in play. A defeat by Retaliate alone doesn\'t count.' },
   { id: 'breakfast', term: 'On Breakfast', kind: 'trigger', text: 'Fires at each Breakfast while this Pokémon is in play.' },
   { id: 'dominate', term: 'On Dominate', kind: 'trigger', text: 'Resolves at Supper, after dominance is decided, for each of your Pokémon in a Location you dominate (in the Tournament, all of them).' },
+  // B3-2 (design bible 4; Elliott, 13 Nov 2026)
+  { id: 'command', term: 'On Command', kind: 'trigger', text: 'Fires after you play a Move as an Adapt (once it resolves) or as a Strat (when it\'s sealed). A React never sets it off.' },
+  { id: 'supper', term: 'On Supper', kind: 'trigger', text: 'Resolves at each Supper while this Pokémon is in play: after the Strats, before dominance, in lane order, the player with initiative first.' },
+  { id: 'aura', term: 'Aura', kind: 'trigger', text: 'Always on while this Pokémon is in play. Auras of different Pokémon stack; a copy of the same Aura doesn\'t add to it.' },
   { id: 'trigger-order', term: 'triggers', kind: 'trigger', aliases: ['trigger'], text: 'Each form has one trigger. Triggers resolve after the action that caused them, in a queue: the acting Pokémon\'s, then the other Pokémon\'s, then On Defeated. A chain stops after 4 levels. Triggers can\'t be Reacted to.' },
   // --- Keywords ---
   { id: 'quickAttack', term: 'Quick Attack', kind: 'keyword', text: 'This Pokémon arrives Active instead of Spent, so it can attack the turn it is summoned if it\'s Ready.' },
