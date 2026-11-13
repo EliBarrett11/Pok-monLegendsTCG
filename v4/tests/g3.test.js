@@ -4,7 +4,7 @@
 // tests/cardsdata.test.js (against docs/base-game/cards.json). Run: node v4/tests/g3.test.js
 import assert from 'node:assert/strict';
 import { RULES } from '../src/rules.js';
-import { createGame, applyAction, legalActions, syncBonuses, commandTargets, isReady, effectiveSpeed, canHitBack, itemTargets, buyReason, whyNot, hasKw } from '../src/engine/game.js';
+import { createGame, applyAction, legalActions, syncBonuses, commandTargets, isReady, effectiveSpeed, canHitBack, itemTargets, buyReason, whyNot, hasKw, passBlockers } from '../src/engine/game.js';
 import { pokemonAt, cardAtRound, COMMANDS, SUPPORTERS, ITEMS, TRAINERS, FAVOURS, modeText, shortModeTextOf as shortModeText, modeTarget, modesOf, effectOps } from '../src/engine/cards.js';
 import { chooseAction, moves } from '../src/ai/ai.js';
 
@@ -29,7 +29,7 @@ const str = (s, who, sp) => s.players[who].row[sp]?.currentStrength;
 const hurtBy = (before, after, who, sp) => before.players[who].row[sp].currentStrength - (after.players[who].row[sp]?.currentStrength ?? 0);
 const play = (s, who, id, mode, target) => applyAction(s, { type: 'command', who, uid: give(s, who, id), mode, target });
 // Let the Strat resolve: the opponent passes, and it resolves at the start of the owner's next turn.
-const strat = (s, who, id, target) => { s = play(s, who, id, 'strat', target); return applyAction(s, { type: 'pass', who: who === 'player' ? 'ai' : 'player' }); };
+const strat = (s, who, id, target) => { s = play(s, who, id, 'strat', target); const o = who === 'player' ? 'ai' : 'player'; for (const sp of passBlockers(s, o)) s.players[o].row[sp].spent = true; return applyAction(s, { type: 'pass', who: o }); };   // (B3-2: an Active one can't pass)
 // The Opponent's committed attack, so the player can React: an AI Pokémon at space 8 (Ready) attacks space `on`.
 const attackOn = (s, on, attacker = mon('growlithe', 4, { spent: false })) => { s.turn = 'ai'; s.players.ai.row[8] = attacker; return applyAction(s, { type: 'attack', who: 'ai', from: 8, target: { kind: 'pokemon', space: on } }); };
 
@@ -44,6 +44,7 @@ const board = (turn = 'player') => {
   s.players.player.row[4] = mon('squirtle', 7, { strength: 20, currentStrength: 10 });
   s.players.ai.row[2] = mon('wooper', 7, { strength: 20, currentStrength: 20 });
   s.players.ai.row[6] = mon('wooper', 7, { strength: 20, currentStrength: 20 });
+  s.players.ai.row[4] = mon('wooper', 7, { strength: 20, currentStrength: 20, spent: false });   // B3-2: Active, across from one of yours (Close Combat, Sucker Punch)
   return s;
 };
 // Resolve any choice an effect waits for with its first target.
@@ -103,9 +104,11 @@ for (const c of COMMANDS) {
 }
 
 // --- Every Supporter, without and with its Favour (+3 Recognition) --------------------------------------------------------------
-eq(SUPPORTERS.length, 15, 'the fifteen Batch 1 Supporters');
-const meets = { water: 'squirtle', fire: 'ponyta', grass: 'oddish', electric: 'pichu', location: 'mt-ember', bigPokemon: null, item: 'potion', move: 'ember' };
-const misses = { water: 'ponyta', fire: 'squirtle', grass: 'ponyta', electric: 'ponyta', location: 'potion', bigPokemon: 'potion', item: 'ember', move: 'potion' };
+eq(SUPPORTERS.length, 21, 'the twenty-one Batch 1–2 Supporters');
+const meets = { water: 'squirtle', fire: 'ponyta', grass: 'oddish', electric: 'pichu', location: 'mt-ember', bigPokemon: null, item: 'potion', move: 'ember',
+  fighting: 'machop', dark: 'absol', psychic: 'abra', ghost: 'gastly' };   // (B3-2)
+const misses = { water: 'ponyta', fire: 'squirtle', grass: 'ponyta', electric: 'ponyta', location: 'potion', bigPokemon: 'potion', item: 'ember', move: 'potion',
+  fighting: 'ponyta', dark: 'ponyta', psychic: 'ponyta', ghost: 'ponyta' };
 for (const c of SUPPORTERS) {
   for (const fav of [false, true]) {
     let s = board();

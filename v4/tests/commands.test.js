@@ -35,7 +35,7 @@ const types = (s) => s.events.map((e) => e.type);
     assert.ok(Object.keys(c.modes).length >= 2, `${c.name}: two or three modes`);
     if (c.hasArt) assert.ok(existsSync(join(V4, '..', 'assets/cards', `${c.art}.jpg`)), `${c.name}: art`);
   }
-  assert.equal(SUPPORTERS.length, 15, 'B3-1: the fifteen Batch 1 Supporters');
+  assert.equal(SUPPORTERS.length, 21, 'B3-2: the twenty-one Batch 1–2 Supporters');
   for (const c of SUPPORTERS) {
     assert.ok(c.release >= 1 && c.favour, `${c.name}: a Release cost and a Favour`);
     if (c.hasArt) assert.ok(existsSync(join(V4, '..', 'assets/cards', `${c.art}.jpg`)), `${c.name}: art`);
