@@ -31,11 +31,11 @@
 // per Retained card; Round 1: draw 7 then a mulligan, as in v1), Battle (alternating turns, one
 // action each: Summon, Attack, Retain, Pass; two Passes in a row end it), Supper (the hand is
 // discarded except Retained cards). Initiative switches each Round.
-import { RULES, SPEEDS, levelFor } from '../rules.js?v=202611131710';
-import { nextRandom, shuffle } from './random.js?v=202611131710';
-import { newEnergy, refreshEnergy, canPay, payCost, availableExert } from './energy.js?v=202611131710';
-import { cardAtRound, pokemonAt, pathDef, locationDef, FAVOURS, MODE_NAMES, ITEMS, BAG_SIZE, TRIGGER_NAMES, CHOSEN, modeTarget, modeText, triggerText, effectOps } from './cards.js?v=202611131710';
-import { DECKS, DECK_IDS } from './decks.js?v=202611131710';
+import { RULES, SPEEDS, levelFor } from '../rules.js?v=202611132108';
+import { nextRandom, shuffle } from './random.js?v=202611132108';
+import { newEnergy, refreshEnergy, canPay, payCost, availableExert } from './energy.js?v=202611132108';
+import { cardAtRound, pokemonAt, pathDef, locationDef, FAVOURS, MODE_NAMES, ITEMS, BAG_SIZE, TRIGGER_NAMES, CHOSEN, modeTarget, modeText, triggerText, effectOps } from './cards.js?v=202611132108';
+import { DECKS, DECK_IDS } from './decks.js?v=202611132108';
 
 export const PLAYERS = ['player', 'ai'];
 export const NAMES = { player: 'You', ai: 'The Opponent' };

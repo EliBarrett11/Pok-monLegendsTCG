@@ -3,8 +3,8 @@
 // default under the OS's reduced-motion setting) means fewer particles, no shake, no distortion and no
 // ambient effects. Both are kept in localStorage, inside try/catch (the page works without it).
 // ?autoplay uses Fast; ?speed=<name> forces a speed for checks (the layout tool and tests use Instant).
-import { SPEEDS } from './vfx/library.js?v=202611131710';
-import { setLowMotion, osReducedMotion } from './vfx/engine.js?v=202611131710';
+import { SPEEDS } from './vfx/library.js?v=202611132108';
+import { setLowMotion, osReducedMotion } from './vfx/engine.js?v=202611132108';
 
 export const SPEED_NAMES = Object.keys(SPEEDS);
 const read = (k) => { try { return localStorage.getItem(k); } catch { return null; } };

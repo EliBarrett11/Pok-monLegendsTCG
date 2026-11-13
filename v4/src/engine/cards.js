@@ -2,11 +2,11 @@
 // docs/base-game/cards.json (the approved Base Game). This module turns that data into the cards the engine plays with
 // and keeps the names the rest of the game imports (PATHS, pokemonAt, COMMANDS, …). Its wording comes from the ops
 // (src/engine/wording.js). No card is defined by hand here. Data only.
-import { SERIES_RANGE, levelFor, costFor } from '../rules.js?v=202611131710';
-import { POKEMON, MOVES, SUPPORTERS as SUP_DATA, ITEMS as ITEM_DATA, LOCATIONS as LOC_DATA, TRAINERS as TR_DATA } from '../data/cards.js?v=202611131710';
+import { SERIES_RANGE, levelFor, costFor } from '../rules.js?v=202611132108';
+import { POKEMON, MOVES, SUPPORTERS as SUP_DATA, ITEMS as ITEM_DATA, LOCATIONS as LOC_DATA, TRAINERS as TR_DATA } from '../data/cards.js?v=202611132108';
 import {
   effectText, effectOps, shortModeText, favourText, objectiveText, triggerLine, KEYWORD_NAMES, KEYWORD_ORDER, TRIGGER_NAMES, keywordText, FAVOUR_RELEASE,
-} from './wording.js?v=202611131710';
+} from './wording.js?v=202611132108';
 
 export { KEYWORD_NAMES, KEYWORD_ORDER, TRIGGER_NAMES };
 // (In the card's own order, as cards.json prints them.)

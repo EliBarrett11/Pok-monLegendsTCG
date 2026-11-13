@@ -4,14 +4,14 @@
 // Copied from v2/src/engine/explain.js (C3): the idea of "where its numbers come from" as parts that add up
 // to the stat shown, and the version arrows (▲/▼); rewritten for v4's stats.
 // Never the series names (Light, Mid, Heavy): a line's Levels are given by its forms.
-import { RULES, SERIES_RANGE, levelFor, costFor } from '../rules.js?v=202611131710';
-import { PATHS, pathDef, pokemonAt } from './cards.js?v=202611131710';
+import { RULES, SERIES_RANGE, levelFor, costFor } from '../rules.js?v=202611132108';
+import { PATHS, pathDef, pokemonAt } from './cards.js?v=202611132108';
 import {
   summonCost, effectiveSpeed, strengthIn, tournamentStrength, lanesOf, passiveOps, heldOps,
   isReady, REC_KINDS, boosted,
-} from './game.js?v=202611131710';
-import { printedOf, effectiveStats } from './stats.js?v=202611131710';
-import { baseEnergyFor, exertMaxFor, availableExert } from './energy.js?v=202611131710';
+} from './game.js?v=202611132108';
+import { printedOf, effectiveStats } from './stats.js?v=202611132108';
+import { baseEnergyFor, exertMaxFor, availableExert } from './energy.js?v=202611132108';
 
 const signed = (n) => (n < 0 ? `− ${-n}` : `+ ${n}`);
 // "Attack 9 = 8 base + 1 Mt. Ember": parts [{ label, n }] in words.

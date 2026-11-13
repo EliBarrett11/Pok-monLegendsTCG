@@ -8,8 +8,8 @@
 // Copied from v2/src/engine/glossary.js (C3): the entry shape { id, term, kind, aliases, text }, the
 // term index, [[Term|shown]] explicit links, termsIn() and searchGlossary(). The G2 ids of the
 // triggers and keywords are kept (tests/g2.test.js reads them by id).
-import { RULES } from '../rules.js?v=202611131710';
-import { BAG_SIZE, PATHS, LOCATIONS, COMMANDS, SUPPORTERS, ITEMS, TRAINERS } from './cards.js?v=202611131710';
+import { RULES } from '../rules.js?v=202611132108';
+import { BAG_SIZE, PATHS, LOCATIONS, COMMANDS, SUPPORTERS, ITEMS, TRAINERS } from './cards.js?v=202611132108';
 
 // kind: the Rules page's groups, in its order.
 export const KINDS = [
