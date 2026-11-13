@@ -26,6 +26,8 @@ export function realInput(page, { onOpen = () => {} } = {}) {
     if (a.type === 'mulligan') { for (const u of a.cards) await click(`[data-mull="${u}"]`); return click('[data-action="mull-done"]'); }
     if (a.type === 'pass') { await click('[data-action="pass"]:not([disabled])'); return confirm(); }
     if (a.type === 'decline') return click('[data-action="decline"]');
+    // B3-2: a card from a picker (the Opponent's hand, the Discard Pile, Bill's list): click it, then confirm.
+    if (a.type === 'choose' && a.target.uid) { await click(`[data-cpick="${a.target.uid}"]`); return click('[data-action="cpick-done"]'); }
     if (a.type === 'choose') return click(`${spaceSel(a.target.who, a.target.space)}.target`);
     if (a.type === 'react') {
       await click(`[data-react="${a.uid}"]`);
