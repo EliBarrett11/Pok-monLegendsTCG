@@ -84,7 +84,7 @@ export function levelGrowth(card, round) {
   const r = lineRange(card.id);
   if (!r) return '';
   const now = levelFor(pathDef(card.id).series, round);
-  if (card.legendary) return `Level ${r[1]}: a Legendary doesn't grow.`;
+  if (card.legendary) return `Level ${r[1]} now: a Legendary doesn't grow.`;
   const lv = Math.min(r[1], now + (card.levelBonus ?? 0));
   const gained = card.levelBonus ? ` (${now} for the Round, +${card.levelBonus} gained in hand)` : '';
   return lv >= r[1] ? `Level ${lv} now${gained}: its line's maximum.` : `Level ${lv} now${gained}; +1 each Round it stays off the battlefield, up to ${r[1]}.`;

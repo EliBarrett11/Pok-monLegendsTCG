@@ -5,7 +5,7 @@
 // pure preview helpers.
 import {
   legalTargets, emptySpaces, whyNot, locationStarts, summonCost, commandTargets, commandModesFor, itemTargets, buyReason,
-  trainerReason, supporterPlayable, playerGuard, guardOf, energyLeft, locationAt, damageOf, pokemonOf,
+  trainerReason, supporterPlayable, playerGuard, guardOf, energyLeft, locationAt, damageOf, pokemonOf, hasKw,
 } from '../engine/game.js?v=202611120821';
 import { MODE_NAMES, modeTarget } from '../engine/cards.js?v=202611120821';
 import { attackPreview, effectPreview, choicePreview } from '../engine/preview.js?v=202611120821';
@@ -130,9 +130,12 @@ function reasonAt(s, sel, c, hit) {
     if (sel.kind === 'hand') { const m = commandModesFor(s, 'player', c.uid); if (!m.some((x) => !x.reason)) return m[0]?.reason ?? 'Not now'; }
     const tg = modeTarget(c, modeOf(s, sel, c));
     if (tg === 'location') return hit.who === 'player' ? 'Choose a Location (or lane) with an enemy Pokémon' : 'No enemy Pokémon in this Location';
+    if (tg === 'ownLocation') return hit.who === 'ai' ? 'Choose a Location (or lane) with one of your Pokémon' : 'None of your Pokémon in this Location';
     if (!occupant) return 'No Pokémon here';
-    return { enemy: 'Choose an enemy Pokémon', allEnemies: 'It hits each enemy Pokémon: choose any of them', attacker: 'Only the attacker', attacked: 'Only your Pokémon being attacked' }[tg]
-      ?? (c.modes[modeOf(s, sel, c)].op === 'dive' && occupant.partner ? 'A Partner can\'t Dive (it isn\'t a deck card)' : 'Choose one of your Pokémon');
+    // B3-1: Agility: the opponent's Moves can't choose it.
+    if (tg === 'enemy' && hit.who === 'ai' && hasKw(occupant, 'agility')) return `${occupant.name} has Agility: Moves can't choose it`;
+    return { enemy: 'Choose an enemy Pokémon', allEnemies: 'It hits each enemy Pokémon: choose any of them', allOwn: 'It acts on each of your Pokémon: choose any of them', attacker: 'Only the attacker', attacked: 'Only your Pokémon being attacked' }[tg]
+      ?? (c.modes[modeOf(s, sel, c)].ops.some((o) => o.op === 'returnHand') && occupant.partner ? 'A Partner can\'t go back to a hand (it isn\'t a deck card)' : 'Choose one of your Pokémon');
   }
   if (sel.kind === 'item' || (sel.kind === 'hand' && c.cardType === 'Item')) {
     if (sel.kind === 'hand') { const why = buyReason(s, 'player', c, 'use'); if (why) return why; }
@@ -211,7 +214,7 @@ export function previewHTML(s, sel, hit) {
     const stats = st ? `<div class="m stats"><span class="${st.attackTrend}">Attack ${st.attack}${arrow[st.attackTrend]}</span> · <span class="${st.strengthTrend}">Strength ${st.strength}${arrow[st.strengthTrend]}</span>${why.length ? ` <span class="k">on ${esc([...new Set(why)].join(', '))}</span>` : ''}</div>` : '';
     return `<div class="h">Summon ${esc(c.name)} here</div>${stats}<div class="m">${icon('energy')} ${cost} Energy${cost < c.cost ? ` <span class="k">(${esc(l?.name ?? 'discount')}: −${c.cost - cost})</span>` : ''}</div><div class="sub">Lane ${hit.space + 1}${l ? ` · in ${esc(l.name)}: ${esc(l.passive.text)}` : ''} · arrives Spent</div>`;
   }
-  if (c.cardType === 'Location') return `<div class="h">Place ${esc(c.name)}</div><div class="m">Lanes ${hit.space + 1}–${hit.space + c.width} · ${c.rounds} Rounds · no Energy</div><div class="sub">${esc(c.passive.text)} · +${c.weather.count} ${c.weather.type}</div>`;
+  if (c.cardType === 'Location') return `<div class="h">Place ${esc(c.name)}</div><div class="m">Lanes ${hit.space + 1}–${hit.space + c.width} · ${c.rounds} Rounds · no Energy</div><div class="sub">${esc(c.passive.text)}</div>`;
   if (r.open === 'supporter') return `<div class="h">Play ${esc(c.name)}</div><div class="sub">Then choose ${c.release} card${c.release === 1 ? '' : 's'} to Release</div>`;
   // Effects: Commands (the chosen mode, or each available mode), Items, Trainer Commands.
   const target = hit.kind === 'space' ? (c.cardType === 'Command' ? cmdTarget(s, c, modeOf(s, sel, c), hit) : { who: hit.who, space: hit.space }) : noTargetItem(c) ? { who: 'player', space: null } : null;

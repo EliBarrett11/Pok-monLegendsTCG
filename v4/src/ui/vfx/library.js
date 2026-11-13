@@ -13,6 +13,7 @@ import {
   TIMELINES, BUDGETS as ROOT_BUDGETS, COUNTERS, SUMMONS, attackAnimation, composeAttack, composeCounter,
   STRATEGY_OPENING, tintOf, impactScale, timelineDuration, MAX_SCALE,
 } from './shared.js?v=202611120821';
+import { COMMANDS, SUPPORTERS } from '../../engine/cards.js?v=202611120821';
 
 export { TIMELINES, composeAttack, composeCounter, tintOf, impactScale, timelineDuration, MAX_SCALE };
 
@@ -161,7 +162,8 @@ export const COMMAND_ANIMS = {
   ember: 'strategy-ember', thunderbolt: 'strategy-thunderbolt', 'rock-slide': 'strategy-rock-slide', 'heat-wave': 'strategy-heat-wave',
   surf: 'v4-surf', 'bubble-beam': 'v4-bubble-beam', recover: 'v4-recover', 'flame-charge': 'strategy-flame-charge', dive: 'v4-dive',
 };
-export const COMMAND_TYPES = { ember: 'Fire', thunderbolt: 'Electric', 'rock-slide': 'Rock', 'heat-wave': 'Fire', surf: 'Water', 'bubble-beam': 'Water', recover: 'Grass', 'flame-charge': 'Fire', dive: 'Water' };
+// B3-1: each Move's Type, from the card data (Normal Moves use Normal).
+export const COMMAND_TYPES = Object.fromEntries(COMMANDS.map((c) => [c.id, c.type ?? 'Normal']));
 export const commandTint = (id) => tintOf(COMMAND_TYPES[id] ?? 'Normal');
 // The sweeps (Rock Slide, Heat Wave, Surf), and any single-target version of them, roll across the hit Pokémon.
 export const SWEEP_COMMANDS = ['rock-slide', 'heat-wave', 'surf'];
@@ -195,14 +197,17 @@ export const commandMs = (id, mode) => MODE_STYLE[mode].rise + timelineDuration(
 
 // --- Supporters, Items, Trainer Commands (B7, B8) ----------------------------------------------------
 
-export const SUPPORTER_ANIMS = { 'nurse-joy': 'heal-glow', 'professor-oak': 'v4-search', brock: 'v4-strength', flannery: 'v4-flannery', 'pokemon-breeder': 'v4-breeder' };
+// B3-1: each Supporter's effect from its first op (data-driven: no per-card list).
+const SUPPORTER_BY_OP = { heal: 'heal-glow', search: 'v4-search', draw: 'v4-search', recover: 'v4-breeder', handLevels: 'v4-search', strength: 'v4-strength', attack: 'v4-strength',
+  tempAttack: 'v4-flannery', activate: 'v4-flannery', returnHand: 'v4-search', damage: 'v4-effect-hit' };
+export const SUPPORTER_ANIMS = Object.fromEntries(SUPPORTERS.map((c) => [c.id, SUPPORTER_BY_OP[c.ops[0]?.op] ?? 'v4-search']));
 // By Item id first (G3: a small effect of its own for each new Item), then by op.
 export const ITEM_ANIMS = {
-  heal: 'heal-glow', attackUp: 'v4-x-attack', attack: 'v4-held', strength: 'v4-held', speed: 'v4-held', keyword: 'v4-held', recognition: 'v4-amulet',
+  heal: 'heal-glow', attackUp: 'v4-x-attack', tempAttack: 'v4-x-attack', attack: 'v4-held', strength: 'v4-held', speed: 'v4-held', keyword: 'v4-held', recognition: 'v4-amulet',
   'x-attack': 'v4-x-attack', 'choice-band': 'v4-choice-band', 'quick-claw': 'v4-quick-claw', 'rocky-helmet': 'v4-rocky-helmet', leftovers: 'v4-leftovers', 'amulet-coin': 'v4-amulet',
 };
 export const itemAnim = (id, op) => ITEM_ANIMS[id] ?? ITEM_ANIMS[op] ?? 'v4-held';
-export const TRAINER_COMMAND_ANIMS = { draw: 'v4-search', damageAll: 'v4-effect-hit' };
+export const TRAINER_COMMAND_ANIMS = { draw: 'v4-search', damageAll: 'v4-effect-hit', damage: 'v4-effect-hit', heal: 'heal-glow', strength: 'v4-strength', dollars: 'v4-amulet' };
 Object.assign(V4_TIMELINES, {
   // Searching or drawing: motes rising from the Draw Pile.
   'v4-search': { id: 'v4-search', budget: 'effect', duration: 700, beats: [{ at: 0, cue: 'search', bloom: 0.4 }, { at: 0, end: 600, emit: 'evolveMotes', on: 'target' }, { at: 0, emit: 'flareRing', on: 'target' }] },
@@ -215,20 +220,20 @@ Object.assign(V4_TIMELINES, {
   'v4-quick-claw': { id: 'v4-quick-claw', budget: 'item', duration: 600, beats: [{ at: 0, cue: 'held', bloom: 0.4 }, { at: 0, emit: 'speedLines', on: 'target', countScale: 0.5 }, { at: 0, emit: 'chargeSparks', on: 'target', countScale: 0.6 }, { at: 0, end: 500, track: 'target', motion: 'jolt' }] },
   'v4-rocky-helmet': { id: 'v4-rocky-helmet', budget: 'item', duration: 600, beats: [{ at: 0, cue: 'held', bloom: 0.4 }, { at: 0, emit: 'rockShards', on: 'target', countScale: 0.5 }, { at: 0, emit: 'flareRing', on: 'target' }, { at: 0, end: 500, track: 'target', motion: 'bound' }] },
   'v4-leftovers': { id: 'v4-leftovers', budget: 'item', duration: 650, beats: [{ at: 0, cue: 'held', bloom: 0.4 }, { at: 0, emit: 'regenSparkle', on: 'target' }, { at: 0, end: 600, track: 'target', motion: 'healGlowSoft' }] },
-  'v4-amulet': { id: 'v4-amulet', budget: 'item', duration: 650, beats: [{ at: 0, cue: 'fill', bloom: 0.6, flash: 'sun' }, { at: 0, emit: 'crestSparkle', on: 'target' }, { at: 0, emit: 'healGlints', on: 'target', tint: ['#ffd36b', '#fff6c8'] }] },
+  'v4-amulet': { id: 'v4-amulet', budget: 'item', duration: 650, beats: [{ at: 0, cue: 'fill', bloom: 0.6, flash: 'gold' }, { at: 0, emit: 'crestSparkle', on: 'target' }, { at: 0, emit: 'healGlints', on: 'target', tint: ['#ffd36b', '#fff6c8'] }] },
   // G3: Flannery: a small flame aura on each of your Pokémon; Pokémon Breeder: motes rising from the Discard Pile.
   'v4-flannery': { id: 'v4-flannery', budget: 'heal', duration: 750, beats: [{ at: 0, end: 520, emit: 'spiralEmbers', on: 'target', countScale: 0.5 }, { at: 0, end: 600, track: 'target', motion: 'charging' }, { at: 520, cue: 'aura', emit: 'auraMotes', on: 'target', bloom: 0.5 }] },
   'v4-breeder': { id: 'v4-breeder', budget: 'effect', duration: 700, beats: [{ at: 0, cue: 'search', bloom: 0.4 }, { at: 0, end: 600, emit: 'healSparkle', on: 'target' }, { at: 0, emit: 'flareRing', on: 'target' }] },
   // Recognition reaching the ring; the ring flaring at 50, 70 and 90; Champion.
   'v4-recognition': { id: 'v4-recognition', budget: 'recognition', duration: 520, beats: [{ at: 0, cue: 'fill', bloom: 0.4 }, { at: 0, emit: 'healGlints', on: 'target', tint: ['#ffd36b', '#fff6c8'] }] },
-  'v4-ring-flare': { id: 'v4-ring-flare', budget: 'recognition', duration: 800, beats: [{ at: 0, cue: 'flare', bloom: 1, flash: 'sun' }, { at: 0, emit: 'crestRing', on: 'target' }, { at: 0, emit: 'crestSparkle', on: 'target' }] },
+  'v4-ring-flare': { id: 'v4-ring-flare', budget: 'recognition', duration: 800, beats: [{ at: 0, cue: 'flare', bloom: 1, flash: 'gold' }, { at: 0, emit: 'crestRing', on: 'target' }, { at: 0, emit: 'crestSparkle', on: 'target' }] },
   // A Location unfolding (dust and a gold ring); a Partner's gold shockwave; the Tournament's sweep.
   'v4-location': { id: 'v4-location', budget: 'location', duration: 700, beats: [{ at: 0, cue: 'place', bloom: 0.5 }, { at: 0, emit: 'landDust', on: 'target' }, { at: 0, emit: 'flareRing', on: 'target' }] },
   'v4-partner': {
     id: 'v4-partner', budget: 'summon', duration: 1100,
     beats: [
       { at: 0, end: 260, track: 'target', motion: 'slamDown' },
-      { at: 260, cue: 'land', shake: 9, bloom: 1.1, distort: 'shockwave', flash: 'sun' },
+      { at: 260, cue: 'land', shake: 9, bloom: 1.1, distort: 'shockwave', flash: 'gold' },
       { at: 260, emit: 'bigLandRing', on: 'ground' },
       { at: 260, emit: 'crestRing', on: 'target' },
       { at: 260, emit: 'confettiGold', on: 'target', countScale: 0.3 },
@@ -237,7 +242,7 @@ Object.assign(V4_TIMELINES, {
     ],
   },
   'v4-tracker': { id: 'v4-tracker', budget: 'tracker', duration: 700, beats: [{ at: 0, cue: 'flare', bloom: 0.8 }, { at: 0, emit: 'crestRing', on: 'target' }, { at: 0, emit: 'healGlints', on: 'target', tint: ['#7fe08a', '#e6ffd8'] }] },
-  'v4-tournament': { id: 'v4-tournament', budget: 'tournament', duration: 2100, beats: [{ at: 0, cue: 'stadium', bloom: 1 }, { at: 0, end: 1100, emit: 'confettiGold', on: 'screen' }, { at: 1100, cue: 'stamp', flash: 'sun', bloom: 1.2 }, { at: 1100, emit: 'crestSparkle', on: 'target' }] },
+  'v4-tournament': { id: 'v4-tournament', budget: 'tournament', duration: 2100, beats: [{ at: 0, cue: 'stadium', bloom: 1 }, { at: 0, end: 1100, emit: 'confettiGold', on: 'screen' }, { at: 1100, cue: 'stamp', flash: 'gold', bloom: 1.2 }, { at: 1100, emit: 'crestSparkle', on: 'target' }] },
   'v4-dominance': { id: 'v4-dominance', budget: 'supper', duration: 650, beats: [{ at: 0, cue: 'glow', bloom: 0.6 }, { at: 0, emit: 'healGlints', on: 'target', tint: ['#ffd36b', '#fff6c8'] }, { at: 0, emit: 'flareRing', on: 'target' }] },
   'v4-champion': { id: 'v4-champion', budget: 'ending', duration: 3000, beats: [{ at: 0, cue: 'victory', bloom: 1.2 }, { at: 0, emit: 'crestRing', on: 'target' }, { at: 0, emit: 'crestSparkle', on: 'target' }, { at: 300, end: 2800, emit: 'confettiGold', on: 'screen' }] },
 });
@@ -284,7 +289,6 @@ export const MS = {
   deal: 600,           // the new hand dealing in
   champion: 1800,
   note: 900,
-  weatherPulse: 900,
   // G1: the Objective point moment (about 1.2 s in all) and the PokéMart's new Item sliding in.
   objIn: 150,          // the backdrop fades in
   objSlide: 250,       // the portrait slides in from that player's side
@@ -372,6 +376,11 @@ export const EVENT_BEATS = {
   triggerChoice: { when: 'quiet', beat: null, budget: null, sfx: null },
   // G3: Dive: a Pokémon back to its owner's hand (shown within the Command's own beat, so quiet here).
   returned: { when: 'quiet', beat: null, budget: null, sfx: null },
+  // B3-1: an effect's second choice resolving; Pokémon cards in hand gaining Levels; a trigger's damage to the
+  // enemy Player Character (Budew, Zapdos).
+  effectChoice: { when: 'after', beat: 'note', budget: 'note', sfx: null },
+  handLevels: { when: 'after', beat: 'note', budget: 'note', sfx: null },
+  pcDamage: { when: 'after', beat: 'note', budget: 'note', sfx: null },
 };
 
 // The sound hooks (src/ui/sound.js names them; every beat calls one).

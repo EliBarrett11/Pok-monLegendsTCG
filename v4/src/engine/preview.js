@@ -126,7 +126,8 @@ function changes(before, after) {
 // effects with no number give a sentence.
 export function effectPreview(s, who, card, mode, target) {
   const sim = clone(s);
-  sim.reactWindow = null;
+  // (A React's effect resolves with the window open, as in the engine: "your Pokémon being attacked", "the attacker".)
+  if (mode !== 'react') sim.reactWindow = null;
   const foe = opponentOf(who);
   const notes = [];
   if (card.cardType === 'Command') {
@@ -143,6 +144,7 @@ export function effectPreview(s, who, card, mode, target) {
   } else throw new Error(`No preview for ${card.cardType}`);
   // An effect waiting on a second choice (Leech Seed's heal, say): the preview shows what's known so far.
   sim.choice = null;
+  sim.reactWindow = null;
   syncBonuses(sim);
   return {
     card: card.name,

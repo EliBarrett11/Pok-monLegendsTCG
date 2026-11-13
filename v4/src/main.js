@@ -15,8 +15,9 @@ import { initFinish } from './ui/finish.js?v=202611120821';
 import { initCodex, drawCodex } from './ui/codex.js?v=202611120821';
 import { played } from './ui/sound.js?v=202611120821';
 import { MODE_NAMES } from './engine/cards.js?v=202611120821';
+import { deckByName } from './engine/decks.js?v=202611120821';
 
-export const BUILD = 'C4 — current stats, a React window that keeps the board visible, Bubble Beam and hidden Strats';
+export const BUILD = 'B3-1 — cards as data, and Batch 1 of the Base Game (four decks)';
 
 const STAGE = { width: 1920, height: 1080 };
 const stage = document.getElementById('stage');
@@ -140,7 +141,9 @@ function newMatch() {
   const seed = (match === 1 && Number(params.get('seed'))) || Date.now();
   let k = seed;
   aiRng = params.has('seed') ? () => { k = (k * 9301 + 49297) % 233280; return k / 233280; } : Math.random;
-  state = createGame(seed);
+  // B3-1: ?deck=<name> and ?aideck=<name> choose the decks (blaine, misty, erika, surge, or the full id); otherwise each
+  // side gets a random one.
+  state = createGame(seed, { decks: { player: deckByName(params.get('deck')) ?? undefined, ai: deckByName(params.get('aideck')) ?? undefined } });
   resetFx();
   Object.assign(ui, { presenting: false, aim: null, aiNote: null, select: null, ask: null, locked: false, seenTournament: null, drawer: null, martSeen: null, drag: null, picker: null, confirm: null, keys: false, focus: null, hover: null, codex: null });
   redraw();

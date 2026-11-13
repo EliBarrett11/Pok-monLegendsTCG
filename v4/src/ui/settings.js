@@ -1,7 +1,7 @@
 // Speed and motion settings (UX4 D). Slow, Normal, Fast and Instant (×1.5, ×1, ×0.5, none): every
 // presenter time is multiplied by the factor; Instant draws each new state at once. Low motion (on by
 // default under the OS's reduced-motion setting) means fewer particles, no shake, no distortion and no
-// ambient Weather. Both are kept in localStorage, inside try/catch (the page works without it).
+// ambient effects. Both are kept in localStorage, inside try/catch (the page works without it).
 // ?autoplay uses Fast; ?speed=<name> forces a speed for checks (the layout tool and tests use Instant).
 import { SPEEDS } from './vfx/library.js?v=202611120821';
 import { setLowMotion, osReducedMotion } from './vfx/engine.js?v=202611120821';

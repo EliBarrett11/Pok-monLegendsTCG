@@ -9,7 +9,8 @@ import {
 } from './wording.js?v=202611120821';
 
 export { KEYWORD_NAMES, KEYWORD_ORDER, TRIGGER_NAMES };
-export const keywordList = (kw = {}) => KEYWORD_ORDER.filter((k) => kw[k]).map((k) => keywordText(k, kw[k]));
+// (In the card's own order, as cards.json prints them.)
+export const keywordList = (kw = {}) => Object.keys(kw).filter((k) => kw[k] && KEYWORD_NAMES[k]).map((k) => keywordText(k, kw[k]));
 // A trigger's effect in words ("1 damage to an enemy Pokémon."), and with its trigger's name.
 export const triggerText = (t) => (t ? `${TRIGGER_NAMES[t.on]}: ${effectText(t.effect).replace(/\.$/, '')}` : '');
 export const cardText = (c) => [keywordList(c.keywords).join(', '), triggerText(c.trigger)].filter(Boolean).join('. ');

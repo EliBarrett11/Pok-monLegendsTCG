@@ -15,7 +15,7 @@ import {
 import { sfx } from './sound.js?v=202611120821';
 import { speedFactor } from './settings.js?v=202611120821';
 import { RULES } from '../rules.js?v=202611120821';
-import { activeBrackets, lanesHere } from '../engine/game.js?v=202611120821';
+import { lanesHere } from '../engine/game.js?v=202611120821';
 import { commandDef as cardCommand, itemDef, supporterDef, trainerDef, TRIGGER_NAMES } from '../engine/cards.js?v=202611120821';
 import { renderHandCard } from './board.js?v=202611120821';
 
@@ -475,7 +475,6 @@ const BEATS = {
     floatText(plate ?? tile, `${NAME[e.who]}: ${e.name}`, 'status', t(MS.note));
     const unfold = [{ clipPath: 'inset(0 50% 0 50%)', opacity: 0.3 }, { clipPath: 'inset(0 0 0 0)', opacity: 1 }];
     await Promise.all([animate(tile, unfold, t(MS.locationIn), { easing: 'cubic-bezier(.2,.9,.3,1)' }), plate && animate(plate, unfold, t(MS.locationIn)), play('v4-location', { target: plate ?? tile, tint: GOLD }, t)]);
-    weatherPulse(prev, next, t);
   },
 
   async locationRemoved({ prev, next, e, t }) {
@@ -563,7 +562,8 @@ const BEATS = {
   // G2: a keyword that acts: a small callout on its card ("Shell −1", "Retaliate 1", "Rage +1", "Overrun 3").
   async keyword({ e, t }) {
     const el = cardEl(e.who, e.space) ?? spaceEl(e.who, e.space);
-    const text = { Shell: `Shell −${e.amount}`, Retaliate: `Retaliate ${e.amount}`, Rage: 'Rage +1', Overrun: `Overrun ${e.amount}`, 'Quick Attack': 'Quick Attack' }[e.kw] ?? e.kw;
+    const text = { Shell: `Shell −${e.amount}`, Retaliate: `Retaliate ${e.amount}`, Rage: 'Rage +1', Overrun: `Overrun ${e.amount}`, 'Quick Attack': 'Quick Attack',
+      Drain: `Drain +${e.amount}`, Sturdy: 'Sturdy: stays at 1', Pickup: 'Pickup +$1' }[e.kw] ?? e.kw;
     sfx('keyword', { who: e.who, kw: e.kw, amount: e.amount });
     floatText(el, text, 'kw', t(MS.keyword));
     if (el && e.kw === 'Rage') el.classList.add('raged');
@@ -675,6 +675,10 @@ const BEATS = {
       trainerTaken: () => [pileEl(e.who, e.from === 'discard' ? 'disc' : 'draw') ?? ringEl(e.who), 'Trainer card leaves the deck'],
       pass: () => [ringEl(e.who), e.endsPhase ? 'Pass · the Battle Phase ends' : 'Pass · +1 Energy'],
       reshuffled: () => [pileEl(e.who, 'draw'), 'Reshuffled'],
+      // B3-1
+      effectChoice: () => [e.target ? cardEl(e.target.who, e.target.space) ?? boardEl() : boardEl(), e.name],
+      handLevels: () => [ringEl(e.who), `Hand: +${e.amount} Level${e.amount === 1 ? '' : 's'}`],
+      pcDamage: () => [ringEl(e.who === 'player' ? 'ai' : 'player'), `${e.name}: ${e.amount} damage`],
     }[e.type]?.();
     if (!at) return;
     floatText(at[0], at[1], 'status', t(MS.note));
@@ -788,16 +792,6 @@ export async function stampRings(t = (ms) => ms * speedFactor()) {
   }));
 }
 
-// A Weather bracket reached: the chip pulses and names what it now does.
-function weatherPulse(prev, next, t) {
-  const before = new Set(activeBrackets(prev).map((b) => `${b.type} ${b.at}`));
-  const now = activeBrackets(next).filter((b) => !before.has(`${b.type} ${b.at}`));
-  const chip = $('.v4-wx');
-  if (!now.length || !chip) return;
-  animate(chip, [{ filter: 'none', transform: 'scale(1)' }, { filter: 'brightness(1.8)', transform: 'scale(1.06)' }, { filter: 'none', transform: 'scale(1)' }], t(MS.weatherPulse));
-  floatText(chip, now.map((b) => `${b.type} ${b.at}: ${b.text}`).join(' · '), 'weather', t(MS.weatherPulse * 1.6));
-}
-
 // --- The queue -------------------------------------------------------------------------------------
 
 // Shows one action, from prev to next, then leaves the next state drawn. Instant (or no page) draws at
@@ -828,7 +822,6 @@ export async function present(prev, next, draw) {
     }
     draw();
     drawn = true;
-    weatherPulse(prev, next, t);
   };
   try {
     for (const [n, st] of steps.entries()) {

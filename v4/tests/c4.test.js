@@ -1,6 +1,6 @@
 // v4 C4: current stats, the React window's outcomes, Bubble Beam's React and hidden Strats.
 // Run: node v4/tests/c4.test.js
-//   - effectiveStats against combat: over 300 random mid-match states (with Locations, Weather, Held Items,
+//   - effectiveStats against combat: over 300 random mid-match states (with Locations, Held Items,
 //     until-Supper and kept effects added through the engine's own effects), the Attack shown equals the damage
 //     the attack deals before Shell, and the Strength shown is the Strength damage is taken from and
 //     dominance counts;
@@ -23,13 +23,13 @@ const seeded = (seed) => { let k = seed; return () => { k = (k * 9301 + 49297) %
 // --- effectiveStats against combat -------------------------------------------------------------------------
 const HELD = ITEMS.filter((c) => c.itemType === 'Held');
 function enrich(s, rng) {
-  // Locations (both kinds of Weather and every passive) over free lanes, as the engine stores them.
+  // Locations (every passive) over free lanes, as the engine stores them.
   if (!s.tournament && rng() < 0.7) {
     s.locations = [];
     let start = 0;
     for (const def of [...LOCATIONS].sort(() => rng() - 0.5)) {
       if (start + def.width > 9 || rng() < 0.3) continue;
-      s.locations.push({ uid: `t-${def.id}`, owner: rng() < 0.5 ? 'player' : 'ai', card: def, id: def.id, name: def.name, art: def.art, color: def.color, start, width: def.width, roundsLeft: 2, weather: def.weather, passive: def.passive, placedRound: s.round });
+      s.locations.push({ uid: `t-${def.id}`, owner: rng() < 0.5 ? 'player' : 'ai', card: def, id: def.id, name: def.name, art: def.art, color: def.color, start, width: def.width, roundsLeft: 2, passive: def.passive, placedRound: s.round });
       start += def.width;
     }
   }
@@ -39,7 +39,7 @@ function enrich(s, rng) {
       const r = rng();
       if (r < 0.35 && !card.held) applyItem(s, who, structuredClone(HELD[Math.floor(rng() * HELD.length)]), { who, space });
       else if (r < 0.5) applyItem(s, who, structuredClone(itemDef('x-attack')), { who, space });
-      else if (r < 0.65) applyCommand(s, who, structuredClone(commandDef('flame-charge')), rng() < 0.5 ? 'react' : 'strat', { who, space, uid: card.uid });
+      else if (r < 0.65) applyCommand(s, who, structuredClone(commandDef('flame-charge')), rng() < 0.5 ? 'adapt' : 'strat', { who, space, uid: card.uid });
     }
   }
   syncBonuses(s);
@@ -95,7 +95,7 @@ ok(compared > 300, `effectiveStats against combat: ${states} states, ${compared}
   s = applyAction(s, { type: 'mulligan', who: 'ai', cards: [] });
   for (const w of ['player', 'ai']) s.players[w].row = Array(9).fill(null);
   const ember = LOCATIONS.find((l) => l.id === 'mt-ember');
-  s.locations = [{ uid: 'loc-e', owner: 'player', card: ember, id: ember.id, name: ember.name, start: 2, width: 3, roundsLeft: 2, weather: ember.weather, passive: ember.passive, placedRound: 1 }];
+  s.locations = [{ uid: 'loc-e', owner: 'player', card: ember, id: ember.id, name: ember.name, start: 2, width: 3, roundsLeft: 2, passive: ember.passive, placedRound: 1 }];
   const mon = (id, lv, x = {}) => ({ ...pokemonAt(id, lv), uid: `m-${id}`, currentStrength: pokemonAt(id, lv).strength, spent: true, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...x });
   s.players.player.row[3] = mon('charmander', 8);
   s.players.player.row[6] = mon('squirtle', 7, { currentStrength: 4 });
@@ -103,9 +103,9 @@ ok(compared > 300, `effectiveStats against combat: ${states} states, ${compared}
   const z = effectiveStats(s, 'player', 3);
   ok(z.attack === 9 && z.attackTrend === 'up' && statSumLines(z).attack === 'Attack 9 = 8 + 1 Mt. Ember', `on Mt. Ember: ${statSumLines(z).attack}`);
   const q = effectiveStats(s, 'player', 6);
-  ok(q.strength === 4 && q.strengthMax === 9 && q.strengthTrend === 'down' && q.attackTrend === '', 'damaged: Strength down, Attack unchanged');
+  ok(q.strength === 4 && q.strengthMax === pokemonAt('squirtle', 7).strength && q.strengthTrend === 'down' && q.attackTrend === '', 'damaged: Strength down, Attack unchanged');
   // A card in hand keeps its printed values; summoned onto Mt. Ember it would show +1 Attack.
-  const hand = { ...cardAtRound('magby', s.round), uid: 'h-g' };   // Special: Mt. Ember's Sun 2 adds only to Physical attacks
+  const hand = { ...cardAtRound('magby', s.round), uid: 'h-g' };
   s.players.player.hand.push(hand);
   const there = statsIfPlaced(s, 'player', hand, 2);
   ok(there.attack === printedOf(hand).attack + 1 && there.attackTrend === 'up', 'statsIfPlaced: +1 Attack on Mt. Ember');
@@ -115,8 +115,8 @@ ok(compared > 300, `effectiveStats against combat: ${states} states, ${compared}
 // --- Bubble Beam's React ---------------------------------------------------------------------------------------
 {
   const bb = commandDef('bubble-beam');
-  ok(bb.modes.react.op === 'reduce' && bb.modes.react.amount === 2 && bb.modes.react.cost === 1, 'Bubble Beam React: cost 1, the attack deals 2 less');
-  ok(bb.modes.adapt.op === 'damageSpent' && bb.modes.strat.op === 'damageSpent', 'Adapt and Strat unchanged');
+  ok(bb.modes.react.ops[0].op === 'reduce' && bb.modes.react.ops[0].amount === 2 && bb.modes.react.cost === 1, 'Bubble Beam React: cost 1, the attack deals 2 less');
+  ok(['adapt', 'strat'].every((m) => bb.modes[m].ops.map((o) => o.op).join() === 'damage,spend'), 'Adapt and Strat: damage, and it becomes Spent');
 }
 
 // --- The React window's previews against what resolves -----------------------------------------------------------

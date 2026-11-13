@@ -474,8 +474,8 @@ const ACTIONS = {
     const ctx = { ...c.ctx, resume: pick, resumeAt: c.index };
     if (c.kind === 'trigger') {
       const src = s.players[c.who].row[c.space];
-      const ev = emit(s, 'trigger', { who: c.who, space: c.space, id: src?.id, name: c.name, on: ctx.on, text: c.text, chosen: true, target, op: c.op.op });
-      watch(s, ev, () => runEffect(s, ctx, c.ops, c.index));
+      ctx.tev = emit(s, 'trigger', { who: c.who, space: c.space, id: src?.id, name: c.name, on: ctx.on, text: c.text, chosen: true, target, op: c.op.op, ops: c.ops.slice(c.index).map((x) => x.op) });
+      runEffect(s, ctx, c.ops, c.index);
     } else {
       const ev = emit(s, 'effectChoice', { who: c.who, name: c.name, kind: c.kind, target, op: c.op.op });
       watch(s, ev, () => runEffect(s, ctx, c.ops, c.index));
@@ -907,9 +907,10 @@ export function runEffect(s, ctx, ops, start = 0) {
         return 'paused';
       }
     }
+    // A trigger is one event for the presenter (its first op names it; every op's results gather in its hits).
     if (ctx.kind === 'trigger') {
-      const ev = emit(s, 'trigger', { who: ctx.who, space: ctx.src?.space, id: ctx.id, name: ctx.name, on: ctx.on, text: ctx.label, op: o.op });
-      watch(s, ev, () => applyEffectOp(s, ctx, o, chosen));
+      ctx.tev ??= emit(s, 'trigger', { who: ctx.who, space: ctx.src?.space, id: ctx.id, name: ctx.name, on: ctx.on, text: ctx.label, op: o.op, ops: ops.slice(i).map((x) => x.op) });
+      watch(s, ctx.tev, () => applyEffectOp(s, ctx, o, chosen));
     } else applyEffectOp(s, ctx, o, chosen);
   }
   for (const w of ctx.keptFor ?? []) progressTrainers(s, w, 'keptGain');

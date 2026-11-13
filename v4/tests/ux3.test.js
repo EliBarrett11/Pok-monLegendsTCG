@@ -1,9 +1,9 @@
 // v4 UX3: result previews agree with the real results. attackPreview is checked on 200+ random legal
-// attacks from AI-played matches (fixed seeds), covering Locations, Weather, Held Items and the
+// attacks from AI-played matches (fixed seeds), covering Locations, Held Items and the
 // Tournament; effectPreview on every Command mode, every Item and both Trainer Commands.
 // Run: node v4/tests/ux3.test.js
 import assert from 'node:assert/strict';
-import { createGame, applyAction, legalActions, actor, attackers, legalTargets, syncBonuses, locationAt, activeBrackets, damageOf, commandTargets, pokemonOf } from '../src/engine/game.js';
+import { createGame, applyAction, legalActions, actor, attackers, legalTargets, syncBonuses, locationAt, damageOf, commandTargets, pokemonOf } from '../src/engine/game.js';
 import { attackPreview, attackParts, effectPreview } from '../src/engine/preview.js';
 import { chooseAction } from '../src/ai/ai.js';
 import { pokemonAt, cardAtRound, COMMANDS, ITEMS, TRAINERS, MODES, modeTarget } from '../src/engine/cards.js';
@@ -19,7 +19,7 @@ const strengthNow = (s, who, space, uid) => (s.players[who].row[space]?.uid === 
 {
   let checked = 0;
   const g2cover = {};
-  const cover = { location: 0, weather: 0, held: 0, tournament: 0, hitBack: 0, player: 0, defeat: 0 };
+  const cover = { location: 0, held: 0, tournament: 0, hitBack: 0, player: 0, defeat: 0 };
   const charcoal = { ...cardAtRound('charcoal', 1), uid: 'held-test' };
   for (let m = 0; checked < 300 && m < 60; m++) {
     let s = createGame(1000 + m);
@@ -71,7 +71,6 @@ const strengthNow = (s, who, space, uid) => (s.players[who].row[space]?.uid === 
           assert.deepEqual(pv.foeRewards, gainOf(s, after, foe), 'the opponent\'s gains');
         } else cover.player += 1;
         if (locationAt(s, from)) cover.location += 1;
-        if (activeBrackets(s).length) cover.weather += 1;
         if (a.held) cover.held += 1;
         if (s.tournament) cover.tournament += 1;
         void ev;
@@ -83,7 +82,8 @@ const strengthNow = (s, who, space, uid) => (s.players[who].row[space]?.uid === 
     }
   }
   assert.ok(checked >= 300, `300 attacks checked (${checked})`);
-  for (const k of ['Shell', 'Retaliate', 'Rage', 'Overrun', 'attack', 'knockout', 'defeated'])   // (no 4.2 line has On Defend: tests/g2.test.js stages it)
+  // (B3-1: no Batch 1 card has On Defeated: tests/g2.test.js stages it. The new keywords that act in an attack are covered too.)
+  for (const k of ['Shell', 'Retaliate', 'Rage', 'Overrun', 'Sturdy', 'Drain', 'Pickup', 'attack', 'knockout', 'defend'])
     assert.ok(g2cover[k] > 0, `G2 covered: ${k} (${JSON.stringify(g2cover)})`);
   for (const [key, n] of Object.entries(cover)) assert.ok(n > 0, `covered: ${key} (${n})`);
   console.log(`  attackPreview: ${checked} attacks agree with applyAction (${Object.entries(cover).map(([a, b]) => `${a} ${b}`).join(', ')}; G2: ${Object.entries(g2cover).map(([a, b]) => `${a} ${b}`).join(', ')})`);
@@ -137,8 +137,8 @@ const setBoard = (s) => {
 let effects = 0;
 const seenModes = new Set();
 // A React window: the Opponent attacks (with 0 Attack, so the attack itself changes nothing) when the
-// mode's target is the attacker or the attacked Pokémon (G3); otherwise it plays Recover as Adapt on a
-// Pokémon at full Strength (no change). G1: summons can't be Reacted to.
+// mode's target is the attacker or the attacked Pokémon (G3); otherwise it plays Protect as Adapt (B3-1: Shell
+// until Supper on its own Pokémon: no stat changes). G1: summons can't be Reacted to.
 function openWindow(s, c) {
   const tg = modeTarget(c, 'react');
   if (tg === 'attacker' || tg === 'attacked') {
@@ -147,17 +147,17 @@ function openWindow(s, c) {
     return applyAction(s, { type: 'attack', who: 'ai', from: 8, target });
   }
   s.players.ai.row[8] = mon('ponyta', 2);
-  s.players.ai.hand = [{ ...cardAtRound('recover', 1), uid: 'opp-adapt' }];
+  s.players.ai.hand = [{ ...cardAtRound('protect', 1), uid: 'opp-adapt' }];
   return applyAction(s, { type: 'command', who: 'ai', uid: 'opp-adapt', mode: 'adapt', target: { who: 'ai', space: 8 } });
 }
 for (const c of COMMANDS) {
-  for (const mode of MODES) {
+  for (const mode of MODES.filter((m) => c.modes[m])) {   // (B3-1: some Moves have two modes)
     let s0 = battle(mode === 'react' ? 'ai' : 'player');
     setBoard(s0);
     const cc0 = card(c.id);
     s0.players.player.hand = [cc0];
     if (mode === 'react') s0 = openWindow(s0, c);
-    // (Not the Pokémon the Opponent's Recover is about to heal: that would hide the React's change.)
+    // (Not the Pokémon the Opponent's Protect is about to shield: that would hide the React's change.)
     const targets = commandTargets(s0, 'player', cc0, mode).filter((t) => !(s0.reactWindow?.pending.type === 'command' && t.who === 'ai' && t.space === 8));
     assert.ok(targets.length, `${c.name} ${mode}: has targets on the test board`);
     for (const target of targets.slice(0, 4)) {
@@ -188,7 +188,7 @@ for (const c of COMMANDS) {
     }
   }
 }
-assert.equal(seenModes.size, COMMANDS.length * 3, 'every Command mode previewed');
+assert.equal(seenModes.size, COMMANDS.reduce((k, c) => k + Object.keys(c.modes).length, 0), 'every Command mode previewed');
 for (const it of ITEMS) {
   for (const space of [3, 4]) {
     const s = battle();
@@ -201,7 +201,8 @@ for (const it of ITEMS) {
     // Buying costs $: the preview is of the effect, so compare the effect's own rewards (none) on the board.
     agree(s, after, { ...pv, rewards: gainOf(s, after, 'player') }, `${it.name} → ${space}`);
     // G3: Amulet Coin's effect is Recognition; every other Item's effect gives nothing.
-    assert.deepEqual(pv.rewards, { recognition: it.op === 'recognition' ? it.amount : 0, dollars: 0 }, `${it.name}: the effect's own rewards`);
+    const rec = it.ops.find((o) => o.op === 'recognition');
+    assert.deepEqual(pv.rewards, { recognition: rec ? rec.amount : 0, dollars: 0 }, `${it.name}: the effect's own rewards`);
     effects += 1;
   }
 }
@@ -211,10 +212,13 @@ for (const t of TRAINERS) {
   s.players.player.drawPile = Array.from({ length: 5 }, () => card('ponyta'));
   const tc = card(t.id);
   s.players.player.hand = [tc];
-  const pv = effectPreview(s, 'player', tc, 'command', null);
-  const after = applyAction(s, { type: 'trainerCommand', who: 'player', uid: tc.uid });
-  agree(s, after, pv, `${t.name}'s Trainer Command`);
-  if (t.command.ops.some((o) => o.op === 'draw')) {
+  // (B3-1: a Command that names "an enemy Pokémon", Lt. Surge's, previews with its target, then chooses it.)
+  const chosen = t.command.ops.some((o) => o.to === 'chosenEnemy') ? { who: 'ai', space: 1 } : null;
+  const pv = effectPreview(s, 'player', tc, 'command', chosen);
+  let after = applyAction(s, { type: 'trainerCommand', who: 'player', uid: tc.uid });
+  if (after.choice) after = applyAction(after, { type: 'choose', who: 'player', target: chosen });
+  agree(s, after, { ...pv, rewards: pv.rewards }, `${t.name}'s Trainer Command`);
+  if (t.id === 'misty') {
     assert.equal(pv.text, 'Draw 2 cards', 'a sentence for an effect with no number');
     assert.equal(after.players.player.hand.length, 2);
   }
@@ -233,11 +237,12 @@ for (const t of TRAINERS) {
   assert.equal(pv.rewards.recognition, 3, 'a defeat: 2 → 3 in the Tournament');
   effects += 1;
 }
-// The parts of an attack number: Location, Weather (Sun 2 and Sun 4), Held Item, until Supper.
+// The parts of an attack number: Location, Held Item, Intimidate (B3-1), until Supper.
 {
   const s = battle();
   s.players.player.row[1] = mon('growlithe', 4, { spent: false });
-  for (const [id, start] of [['mt-ember', 0], ['mt-ember', 3]]) {
+  s.players.ai.row[2] = mon('squirtle', 4, { keywords: { intimidate: 1 } });   // in Mt. Ember with it
+  for (const [id, start] of [['mt-ember', 0]]) {
     s.players.player.hand.push(card(id));
     const x = applyAction(s, { type: 'placeLocation', who: 'player', uid: s.players.player.hand.at(-1).uid, start });
     Object.assign(s, x);
@@ -248,8 +253,8 @@ for (const t of TRAINERS) {
   s.players.player.row[1].tempAttack = 2;
   syncBonuses(s);
   const parts = attackParts(s, 'player', 1);
-  assert.deepEqual(parts.map((p) => p.label), ['Attack', 'Mt. Ember', 'Sun 4', 'Charcoal', 'until Supper', 'Sun 2 (Physical)']);
+  assert.deepEqual(parts.map((p) => [p.label, p.n]), [['Attack', pokemonAt('growlithe', 4).attack], ['Mt. Ember', 1], ['Charcoal', 2], ['Intimidate', -1], ['until Supper', 2]]);
   assert.equal(parts.reduce((a, p) => a + p.n, 0), damageOf(s, s.players.player.row[1]));
   assert.equal(parts[0].n, pokemonAt('growlithe', 4).attack);
 }
-console.log(`v4 UX3: previews agree with the engine — attacks, ${effects} effect cases (every Command mode, every Item, both Trainer Commands, the Tournament), attack parts — ok`);
+console.log(`v4 UX3: previews agree with the engine — attacks, ${effects} effect cases (every Command mode, every Item, every Trainer Command, the Tournament), attack parts — ok`);

@@ -666,7 +666,7 @@ function endSweep(beat, c) {
 const CUE_ANCHOR = { counterHit: 'counterImpact', impact: 'impact', jab: 'impact', overrunHit: 'trainer', infiltrate: 'guard', shell: 'target', bolt: 'attacker', land: 'ground', fall: 'ground' };
 const FLASH = {
   fire: [1, 0.6, 0.25], water: [0.55, 0.8, 1], electric: [1, 0.95, 0.5], dark: [0.72, 0.45, 1], white: [1, 1, 1],
-  grass: [0.6, 1, 0.45], rock: [0.95, 0.85, 0.6], sun: [1, 0.95, 0.6],
+  grass: [0.6, 1, 0.45], rock: [0.95, 0.85, 0.6], gold: [1, 0.95, 0.6],
 };
 
 function cue(beat, c, anchor, skipped) {

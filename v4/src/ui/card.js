@@ -12,7 +12,7 @@
 // No engine state is read here: the caller passes what the card needs to show (its modes now, Stock,
 // Objective progress) in opts.state.
 import { RULES } from '../rules.js?v=202611120821';
-import { PATHS, FAVOURS, KEYWORD_NAMES, KEYWORD_ORDER, TRIGGER_NAMES, MODE_NAMES, effectText, opText, modeTarget } from '../engine/cards.js?v=202611120821';
+import { PATHS, COMMANDS, FAVOURS, KEYWORD_NAMES, KEYWORD_ORDER, TRIGGER_NAMES, MODE_NAMES, MODES, effectText, modeTarget, shortModeTextOf } from '../engine/cards.js?v=202611120821';
 import { effectiveSpeed } from '../engine/game.js?v=202611120821';
 
 export const W = 340;
@@ -20,6 +20,10 @@ export const H = 476;
 export const SIZES = { full: 340, mini: 200, token: 164 };
 const ASSETS = '../assets';
 const artUrl = (name) => `${ASSETS}/cards/${name}.jpg`;
+// B3-1: a card whose art hasn't arrived ("hasArt": false in cards.json) shows the Art Pending panel instead: a soft
+// radial glow in its Type's (or card kind's) colour, drawn in code. artBg(card) is the CSS background for any art spot.
+export const pendingGlow = (acc) => `radial-gradient(ellipse at 50% 42%, ${acc}cc 0%, ${acc}55 32%, rgba(20,14,10,.92) 72%, #0b0806 100%)`;
+export const artBg = (c) => (c?.hasArt === false ? pendingGlow(accentOf(c)) : `url('${artUrl(c?.art)}')`);
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const cap = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
 const low = (t) => (t ? t.charAt(0).toLowerCase() + t.slice(1) : t);
@@ -51,7 +55,7 @@ export function chipCrop(art, S) {
 }
 
 // --- Colours and glyphs (the mockup's) -------------------------------------------------------------------
-const ACC = { Fire: '#d9773f', Water: '#5f9bd6', Electric: '#d7b440', Rock: '#b39a6c', Normal: '#b7ad9a',
+const ACC = { Fire: '#d9773f', Water: '#5f9bd6', Electric: '#d7b440', Rock: '#b39a6c', Normal: '#b7ad9a', Grass: '#6fb04f',
   Supporter: '#c46a6a', Item: '#5fb59a', Trainer: '#a786d6', Location: '#c2a36a' };
 const G = {
   pa: '<path d="M5 16C7 11 10 7 15 4M9 19.5c2.5-5 5.5-8.5 11-11.5M13 22c2-3.5 4.5-6 8-8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
@@ -64,6 +68,8 @@ const G = {
   Electric: '<path d="M13 2.5L5.5 13.5h5.6l-1 8 7.4-11h-5.6z" fill="currentColor"/>',
   Rock: '<path d="M4 18l4.5-9 4.5 3 3-6 4 12z" fill="currentColor"/>',
   Normal: '<circle cx="12" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="2.2"/>',
+  // B3-1: Grass, a leaf with its vein.
+  Grass: '<path d="M19.5 4C11 4.5 5 9 5 15.5c0 1.6.4 3 1 4.2C8 13.5 12 10 16 8.5c-3.6 2.4-6.6 5.8-8.4 11 1.1.6 2.4.9 3.9.9C17 20.4 20.4 13 19.5 4z" fill="currentColor"/>',
   Supporter: '<circle cx="12" cy="8" r="3.6" fill="currentColor"/><path d="M5 20c0-4.4 3.4-6.4 7-6.4s7 2 7 6.4z" fill="currentColor"/>',
   Item: '<path d="M9.5 3.5h5v2.8l2.8 3.6v8.6a1.8 1.8 0 0 1-1.8 1.8H8.5a1.8 1.8 0 0 1-1.8-1.8V9.9l2.8-3.6z" fill="currentColor"/>',
   Trainer: '<path d="M12 3l2.6 5.4 5.9.9-4.3 4.1 1 5.9L12 16.6l-5.2 2.7 1-5.9L3.5 9.3l5.9-.9z" fill="currentColor"/>',
@@ -73,8 +79,8 @@ const G = {
 const SC = { pa: '#d98a55', sa: '#a98ad8', hp: '#d9798a', def: '#b9c3cf', sdef: '#6fc2d6' };
 const glyph = (k, x, y, s, col) => `<svg x="${x}" y="${y}" width="${s}" height="${s}" viewBox="0 0 24 24" style="color:${col}">${G[k] ?? ''}</svg>`;
 const statKeys = (c) => [c.attackType === 'Special' ? 'sa' : 'pa', { Defence: 'def', 'Special Defence': 'sdef' }[c.strengthType] ?? 'hp'];
-// A Command's colour: the Type of the move (data for the type line and the crest only).
-export const COMMAND_TYPE = { ember: 'Fire', thunderbolt: 'Electric', 'rock-slide': 'Rock', 'heat-wave': 'Fire', surf: 'Water', 'bubble-beam': 'Water', recover: 'Normal', 'flame-charge': 'Fire', dive: 'Water' };
+// A Move's colour and crest: its Type, from the card data (B3-1; Normal Moves use Normal).
+export const COMMAND_TYPE = Object.fromEntries(COMMANDS.map((c) => [c.id, c.type ?? 'Normal']));
 
 // --- Silhouettes: near-rectangles with one trait each (the mockup's paths; i = inset) ---------------------------
 const R = 10;
@@ -111,48 +117,26 @@ const TAB = { w: 64, h: 46, y: H - 7 - 46 };
 // --- On-card wording -------------------------------------------------------------------------------------------
 // Each zone's text is written to fit (tests/cardtext.test.js). Where today's text doesn't fit, the card
 // carries a shorter wording here; the full text stays in the data (cards.js) for the Codex.
-export const SHORTENED = {
-  // Supporter Favours, by card id: before → after is listed in the README (C1).
-  'brock:favour': 'Release a Pokémon of Level 4+: +2 Strength (kept) to each.',
-};
+// B3-1: none now: the wording is generated from the ops (src/engine/wording.js), word for word as in cards.json.
+export const SHORTENED = {};
 // A Pokémon's rules: its keywords (a small-caps line), then its trigger: the name in bold, then the effect.
-const kwList = (c) => KEYWORD_ORDER.filter((k) => c.keywords?.[k]).map((k) => `${KEYWORD_NAMES[k]}${c.keywords[k] === true ? '' : ` ${c.keywords[k]}`}`);
+// B3-1: Sturdy is shown until it's used.
+const kwList = (c) => Object.keys(c.keywords ?? {}).filter((k) => c.keywords[k] && KEYWORD_NAMES[k] && !(k === 'sturdy' && c.sturdyUsed)).map((k) => `${KEYWORD_NAMES[k]}${c.keywords[k] === true ? '' : ` ${c.keywords[k]}`}`);
 function triggerHTML(c) {
   if (!c.trigger) return '';
   const short = SHORTENED[c.name];
   if (short) { const [h, ...t] = short.split(' · '); return `<b>${esc(h)}</b> · ${esc(t.join(' · '))}`; }
-  return `<b>${esc(TRIGGER_NAMES[c.trigger.on])}</b> · ${esc(stop(c.trigger.ops.map(opText).join(', then ')))}`;
+  return `<b>${esc(TRIGGER_NAMES[c.trigger.on])}</b> · ${esc(c.trigger.effect ? stop(effectText(c.trigger.effect)) : '')}`;
 }
-// A Command mode in a few words for its row on a Full card.
-export function rowModeText(card, m) {
-  const { op, amount } = card.modes[m];
-  const tg = modeTarget(card, m);
-  if (op === 'damage') return tg === 'location' ? `${amount} to each enemy there` : tg === 'allEnemies' ? `${amount} to each enemy` : tg === 'attacker' ? `${amount} to the attacker` : `${amount} damage`;
-  if (op === 'heal') return tg === 'attacked' ? `heal ${amount}, the attacked` : `heal ${amount}`;
-  if (op === 'attackUp') return `+${amount} Attack to Supper`;
-  if (op === 'attackKept') return `+${amount} Attack, kept`;
-  if (op === 'damageSpent') return `${amount} damage, Spent`;
-  if (op === 'reduce') return `the attack −${amount} damage`;
-  if (op === 'dive') return tg === 'attacked' ? 'save the attacked' : amount ? `to hand, draw ${amount}` : 'back to hand';
-  return op;
-}
-// The mode rows in the mockup's order: React (cheapest), Adapt, Strat (dearest).
+// A Move mode in one short line for its row on a Full card (B3-1: the card's own line, from cards.json's cardText).
+export const rowModeText = (card, m) => shortModeTextOf(card, m);
+// The mode rows in the mockup's order: React (cheapest), Adapt, Strat (dearest); only the modes the Move has.
 const ROW_ORDER = ['react', 'adapt', 'strat'];
-const TARGET_LINE = { enemy: 'an enemy Pokémon', own: 'one of your Pokémon', location: 'a Location', allEnemies: 'all enemies' };
-// An Item's rules: a Held Item says what the holder has (a keyword with its meaning, as in the mockup).
-const KW_MEANING = { retaliate: (n) => `an attacker that damages it takes ${n}`, regenerate: (n) => `it heals ${n} at each Breakfast` };
-function itemRules(c) {
-  if (c.itemType !== 'Held') return stop(cap(c.text));
-  if (c.op === 'keyword') {
-    const [k, n] = Object.entries(c.keywords)[0];
-    return `The holder has <b>${esc(KEYWORD_NAMES[k])} ${n}</b>: ${esc(KW_MEANING[k]?.(n) ?? '')}.`;
-  }
-  if (c.op === 'speed') return 'The holder\'s Speed is <b>one step higher</b> (Slow → Steady → Swift).';
-  if (c.noHitBack) return `The holder has <b>+${c.amount} Attack</b>, but it can't hit back.`;
-  return `The holder has <b>+${c.amount} ${c.op === 'strength' ? 'Strength' : 'Attack'}</b>.`;
-}
-const supRules = (c) => stop(cap(effectText(c.effect)));
-const favourRules = (c) => `${esc(SHORTENED[`${c.id}:favour`] ?? `Release ${FAVOURS[c.favour.condition].text}: ${low(effectText(c.favour))}.`)} <b>+${RULES.perFavour} Recognition.</b>`;
+const TARGET_LINE = { enemy: 'an enemy Pokémon', own: 'one of your Pokémon', location: 'a Location', ownLocation: 'your Pokémon in a Location', allEnemies: 'all enemies', allOwn: 'all of yours', attacker: 'the attacker', attacked: 'the attacked' };
+// An Item's rules (B3-1: its wording from the ops; a Held Item's is what the holder has).
+const itemRules = (c) => (c.itemType === 'Held' ? `<b>The holder:</b> ${esc(stop(c.text))}` : esc(stop(cap(c.text))));
+const supRules = (c) => stop(cap(c.text));
+const favourRules = (c) => `${esc(`Release ${FAVOURS[c.favour.condition].text}: ${c.favour.text}`)} <b>+${c.favour.recognition ?? RULES.perFavour} Recognition.</b>`;
 
 // --- Pieces ---------------------------------------------------------------------------------------------------------
 const zone = (cls, x, y, w, h, html, style = '') => `<div class="cd-t ${cls}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;${style}">${html}</div>`;
@@ -209,12 +193,13 @@ function statTabs(c, numPx = 25, stats = null) {
 }
 const SPEED_N = { Slow: 1, Steady: 2, Swift: 3 };
 function levelSpeed(c, px) {
-  const lv = c.partner ? '★' : `LV ${c.level}`;
+  // B3-1: a card in hand that gained Levels shows them (green, "+2").
+  const lv = c.partner ? '★' : `LV ${c.level}${c.levelBonus ? `<sup class="cd-lvup">+${c.levelBonus}</sup>` : ''}`;
   return zone('cd-lvs', 80, H - 50, W - 160, 40, `<span>${lv}</span><span class="cd-chev" style="font-size:${Math.round(px * 1.25)}px">${'›'.repeat(SPEED_N[effectiveSpeed(c)] ?? 1)}</span>`, `font-size:${px}px`);
 }
 function heldInset(c, cx, cy, r) {
   if (!c.held) return '';
-  return `<span class="cd-held" style="left:${cx - r}px;top:${cy - r}px;width:${2 * r}px;height:${2 * r}px;background-image:url('${artUrl(c.held.art)}');${chipCrop(c.held.art, 2 * r)}"></span>`;
+  return `<span class="cd-held" style="left:${cx - r}px;top:${cy - r}px;width:${2 * r}px;height:${2 * r}px;background-image:${artBg(c.held)};${c.held.hasArt === false ? 'background-size:cover' : chipCrop(c.held.art, 2 * r)}"></span>`;
 }
 
 // --- The frame: art (clipped to the silhouette, framed by its focal point), the panel's shade, the lines --------------
@@ -235,13 +220,16 @@ function holoDiv(kind, o, panel, holo) {
   const mask = `linear-gradient(180deg, #000 0%, #000 ${p(panel - 110)}%, transparent ${p(panel - 30)}%)`;
   return `<div class="cd-holo ${holo}" style="clip-path:path('${o}');-webkit-mask-image:${mask};mask-image:${mask}"></div>`;
 }
-function frame(kind, art, acc, panel, size, holo = null) {
+function frame(kind, art, acc, panel, size, holo = null, pending = false) {
   const o = SH[kind](0);
   const f = artFocus(art);
   const p = (y) => ((100 * y) / H).toFixed(1);
   // The lower part darkens smoothly under the art, from just above the panel rule.
   const shade = `linear-gradient(180deg, rgba(10,7,5,0) ${p(panel - 90)}%, rgba(10,7,5,.78) ${p(panel - 10)}%, rgba(10,7,5,.92) ${p(panel + 20)}%, rgba(7,5,4,.97) 100%)`;
-  const artDiv = `<div class="cd-art" style="clip-path:path('${o}');background-image:${shade},url('${artUrl(art)}');background-position:0 0,${f.x}% ${f.y}%"></div>`;
+  // B3-1: Art Pending: the glow, with "ART PENDING" in small spaced capitals in the middle of the art area.
+  const artDiv = pending
+    ? `<div class="cd-art cd-pending" style="clip-path:path('${o}');background-image:${shade},${pendingGlow(acc)}"><span class="cd-pendt" style="top:${Math.round(panel * 0.42)}px">Art Pending</span></div>`
+    : `<div class="cd-art" style="clip-path:path('${o}');background-image:${shade},url('${artUrl(art)}');background-position:0 0,${f.x}% ${f.y}%"></div>`;
   const inner = SH[kind](7);
   const lines = `<path d="${o}" fill="none" stroke="#050302" stroke-width="3"/><path d="${o}" fill="none" stroke="${BR}" stroke-width="1.6"/><path d="${inner}" fill="none" stroke="rgba(194,163,106,.55)" stroke-width="1"/>`;
   const rule = size === 'chip' ? '' : `<path d="M24,${panel} H${W / 2 - 12} M${W / 2 + 12},${panel} H${W - 24}" stroke="${BR}" stroke-width="1"/><path d="M${W / 2},${panel - 5} L${W / 2 + 5},${panel} L${W / 2},${panel + 5} L${W / 2 - 5},${panel}Z" fill="${acc}" stroke="#e2c88f" stroke-width=".8"/>`;
@@ -252,12 +240,12 @@ function frame(kind, art, acc, panel, size, holo = null) {
 // --- Per kind: what each size shows ----------------------------------------------------------------------------------
 function accentOf(c) {
   if (c.cardType === 'Pokémon') return ACC[c.type] ?? ACC.Normal;
-  if (c.cardType === 'Command') return ACC[COMMAND_TYPE[c.id]] ?? ACC.Normal;
+  if (c.cardType === 'Command') return ACC[c.type ?? COMMAND_TYPE[c.id]] ?? ACC.Normal;
   return ACC[c.cardType] ?? ACC.Location;
 }
 function crestKey(c) {
   if (c.cardType === 'Pokémon') return c.type;
-  if (c.cardType === 'Command') return COMMAND_TYPE[c.id] ?? 'Normal';
+  if (c.cardType === 'Command') return c.type ?? COMMAND_TYPE[c.id] ?? 'Normal';
   return c.cardType;
 }
 const nameZone = (c, y, px) => {
@@ -268,7 +256,7 @@ const typeZone = (text, y, acc) => zone('cd-type', 18, y, W - 36, 16, esc(text),
 const chipsZone = (chips, y, h, px) => zone('cd-chips', 16, y, W - 32, h, chips.map((t) => `<span class="cd-chip" style="font-size:${px}px">${esc(t)}</span>`).join(''));
 function typeLine(c) {
   if (c.cardType === 'Pokémon') return `${c.type} · ${c.attackType}${c.partner ? ' · Partner' : ''}`;
-  if (c.cardType === 'Command') return `Command · ${COMMAND_TYPE[c.id] ?? 'Normal'}`;
+  if (c.cardType === 'Command') return `Command · ${c.type ?? COMMAND_TYPE[c.id] ?? 'Normal'}`;
   if (c.cardType === 'Supporter') return `Supporter · Release ${c.release}`;
   if (c.cardType === 'Item') return `Item · ${c.itemType}`;
   if (c.cardType === 'Trainer') return 'Trainer';
@@ -279,7 +267,7 @@ function typeLine(c) {
 // the Release count (Supporter, a red ring), $ (Item, a gold ring). Partners and Locations have none.
 function cost(c, kind, state) {
   if (c.cardType === 'Pokémon') return c.partner ? null : costWell(kind, c.cost, false, '#7fb2e6');
-  if (c.cardType === 'Command') { const m = state.modes?.find((x) => !x.reason) ?? state.modes?.[0]; return costWell(kind, m?.cost ?? c.modes.adapt.cost); }
+  if (c.cardType === 'Command') { const m = state.modes?.find((x) => !x.reason) ?? state.modes?.[0]; return costWell(kind, m?.cost ?? (c.modes.adapt ?? c.modes.strat ?? c.modes.react).cost); }
   if (c.cardType === 'Supporter') return costWell(kind, c.release, false, '#d07070');
   if (c.cardType === 'Item') return costWell(kind, `$${c.price}`, true, '#e2c070', 23);
   if (c.cardType === 'Trainer') return costWell(kind, c.command.cost);
@@ -288,7 +276,7 @@ function cost(c, kind, state) {
 // The Command's mode chips on Mini cards: the modes allowed now (React in a React window), else Adapt and Strat.
 function modeChips(c, state) {
   const ms = state.modes ? state.modes.filter((m) => !m.reason) : [];
-  const list = ms.length ? ms : (state.modes ?? []).length ? state.modes : ['adapt', 'strat'].map((m) => ({ mode: m, cost: c.modes[m].cost }));
+  const list = ms.length ? ms : (state.modes ?? []).length ? state.modes : ['adapt', 'strat'].filter((m) => c.modes[m]).map((m) => ({ mode: m, cost: c.modes[m].cost }));
   return list.map((m) => `${MODE_NAMES[m.mode]} ${m.cost}`);
 }
 // One tag for a Mini card: the first trigger, the Command's modes, or (not in the mockup) the kind.
@@ -310,14 +298,14 @@ function fullBody(c, kind, acc, panel, state) {
     const kws = kwList(c);
     html += zone('cd-rules', 30, top, W - 60, TAB.y - 4 - top, `${kws.length ? `<div class="cd-kw" style="color:${acc}">${esc(kws.join(' · '))}</div>` : ''}<div>${triggerHTML(c) || '&nbsp;'}</div>`);
   } else if (c.cardType === 'Command') {
-    ROW_ORDER.forEach((m, k) => {
+    ROW_ORDER.filter((m) => c.modes[m]).forEach((m, k) => {
       const st = state.modes?.find((x) => x.mode === m);
       const off = state.modes ? !st || !!st.reason : false;
       const y = top + 2 + k * 30;
       html += zone(`cd-mrow${off ? ' off' : ''}`, 30, y, W - 60, 26, `<b>${MODE_NAMES[m]}</b><span class="tx">${esc(rowModeText(c, m))}</span><span class="c"><svg width="12" height="12" viewBox="0 0 24 24" style="color:#7fb2e6">${G.en}</svg>${c.modes[m].cost}</span>`);
       svg += `<path d="M30,${y + 26.5} H${W - 30}" stroke="rgba(194,163,106,.18)" stroke-width="1"/>`;
     });
-    html += zone('cd-type cd-target', 18, top + 98, W - 36, 16, `Target · ${esc(TARGET_LINE[c.target] ?? c.target)}`, 'color:#b8a57e');
+    if (TARGET_LINE[c.target]) html += zone('cd-type cd-target', 18, top + 98, W - 36, 16, `Target · ${esc(TARGET_LINE[c.target])}`, 'color:#b8a57e');
   } else if (c.cardType === 'Supporter') {
     html += zone('cd-rules', 30, top, W - 60, 40, `<div>${esc(supRules(c))}</div>`);
     const by = top + 46;
@@ -339,11 +327,11 @@ function fullBody(c, kind, acc, panel, state) {
     const cy = H - 44;
     for (let k = 0; k < need; k++) svg += `<circle cx="${40 + k * 21}" cy="${cy}" r="5.5" fill="${k < prog ? '#e6cf9a' : 'none'}" stroke="#c2a36a" stroke-width="1.2"/>`;
     svg += `<path d="M${40 + (need - 1) * 21 + 10},${cy} H${W - 74}" stroke="rgba(194,163,106,.45)" stroke-width="1" stroke-dasharray="2 4"/><circle cx="${W - 50}" cy="${cy}" r="19.5" fill="none" stroke="${BR}" stroke-width="1.4"/>`;
-    html += `<span class="cd-portrait" style="left:${W - 69}px;top:${cy - 19}px;background-image:url('${artUrl(c.partner.art)}');${chipCrop(c.partner.art, 38)}"></span>`;
+    html += `<span class="cd-portrait" style="left:${W - 69}px;top:${cy - 19}px;background-image:${artBg(c.partner)};${c.partner.hasArt === false ? 'background-size:cover' : chipCrop(c.partner.art, 38)}"></span>`;
     html += zone('cd-type cd-obj', 30, H - 30, 190, 14, `${prog} of ${need} · Partner`, 'color:#a991cf;justify-content:flex-start');
   } else if (c.cardType === 'Location') {
     html += zone('cd-rules', 30, top, W - 60, 40, `<div>${esc(stop(c.passive.text))}</div>`);
-    html += chipsZone([`${c.weather.type} +${c.weather.count}`, `Dominate · +${RULES.perDominance} Recognition`], top + 52, 26, 10.5);
+    html += chipsZone([`${c.rounds} Rounds`, `Dominate · +${RULES.perDominance} Recognition`], top + 52, 26, 10.5);
   }
   return { svg, html };
 }
@@ -358,7 +346,7 @@ export function cardHTML(c, opts = {}) {
   const kind = kindOf(c);
   if (size === 'chip') {
     const px = opts.px ?? 32;
-    return `<span class="cd-chipart ${opts.cls ?? ''}" ${opts.attrs ?? ''} style="width:${px}px;height:${px}px;background-image:url('${artUrl(c.art)}');${chipCrop(c.art, px)}" aria-label="${esc(c.name)}"></span>`;
+    return `<span class="cd-chipart ${opts.cls ?? ''}" ${opts.attrs ?? ''} style="width:${px}px;height:${px}px;background-image:${artBg(c)};${c.hasArt === false ? 'background-size:cover' : chipCrop(c.art, px)}" aria-label="${esc(c.name)}"></span>`;
   }
   const w = SIZES[size];
   const k = w / W;
@@ -366,7 +354,7 @@ export function cardHTML(c, opts = {}) {
   const fk = size === 'token' ? 'pokemon' : kind;
   const panel = PANEL[size]?.[fk] ?? PANEL.full[fk];
   const holo = holoKind(c, size);
-  const fr = frame(fk, c.art, acc, panel, size, holo);
+  const fr = frame(fk, c.art, acc, panel, size, holo, c.hasArt === false);
   let svg = fr.svg;
   let html = '';
   // Cost well and crest (tokens show neither: the board needs the art).
@@ -409,7 +397,7 @@ export function cardHTML(c, opts = {}) {
   const cls = ['cd', `cd-${size}`, `k-${kind}`,
     state.playable ? 'cd-ok' : '', state.playable === false ? 'cd-no' : '', state.ready ? 'cd-ready' : '', state.spent ? 'cd-spent' : '',
     c.currentStrength !== undefined && c.currentStrength < c.strength ? 'cd-damaged' : '', holo ? `cd-holo-${holo}` : '', state.selected ? 'cd-sel' : '', state.target ? 'cd-target' : '',
-    state.illegal ? 'cd-illegal' : '', state.retained ? 'cd-retained' : '', state.soldOut ? 'cd-soldout' : '', opts.cls ?? ''].filter(Boolean).join(' ');
+    state.illegal ? 'cd-illegal' : '', state.retained ? 'cd-retained' : '', state.soldOut ? 'cd-soldout' : '', c.hasArt === false ? 'cd-artpending' : '', opts.cls ?? ''].filter(Boolean).join(' ');
   const why = state.playable === false && state.reason ? state.reason : state.illegal ? state.illegalReason : '';
   return `<div class="${cls}" ${opts.attrs ?? ''} style="width:${w}px;height:${Math.round(H * k)}px"${why ? ` data-why="${esc(why)}"` : ''}><div class="cd-in" style="transform:scale(${k.toFixed(4)})">${fr.artDiv}<svg class="cd-fr" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${svg}</svg>${html}</div></div>`;
 }

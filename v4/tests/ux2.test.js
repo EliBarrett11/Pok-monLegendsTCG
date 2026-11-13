@@ -5,13 +5,16 @@ import { createGame, applyAction, passBlockers } from '../src/engine/game.js';
 import { pokemonAt, cardAtRound, TRAINERS, LOCATIONS, COMMANDS, SUPPORTERS, ITEMS } from '../src/engine/cards.js';
 import { attackIcon, strengthIcon, STAT_ICONS } from '../src/ui/icons.js';
 import { renderMatch, renderHandCard } from '../src/ui/board.js';
+import { DECKS } from '../src/engine/decks.js';
+// B3-1: a deck with Misty and Blaine (Misty's Tide with Blaine for Whitney), for both sides.
+const MB = DECKS['mistys-tide'].list.map((id) => (id === 'whitney' ? 'blaine' : id));
 
 let n = 0;
 // G2: board Pokémon are staged plain (no trigger or keywords): these tests check rules; tests/g2.test.js checks the Pokémon.
 const mon = (id, level, extra = {}) => { const c = pokemonAt(id, level); return { ...c, keywords: {}, trigger: null, uid: `m-${n++}`, currentStrength: c.strength, spent: true, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...extra }; };
 const card = (id) => ({ ...cardAtRound(id, 1), uid: `c-${n++}` });
 const battle = (turn = 'player') => {
-  let s = createGame(77);
+  let s = createGame(77, { decks: { player: MB, ai: MB } });
   s = applyAction(s, { type: 'mulligan', who: 'player', cards: [] });
   s = applyAction(s, { type: 'mulligan', who: 'ai', cards: [] });
   for (const w of ['player', 'ai']) { const p = s.players[w]; p.hand = []; p.row = p.row.map(() => null); p.baseEnergy = 9; p.exertMax = 0; p.exhaust = []; p.dollars = 0; }
@@ -30,7 +33,7 @@ const nextRound = (s) => { const r = s.round; while (s.round === r && s.phase !=
   const blaine = TRAINERS.find((t) => t.id === 'blaine');
   assert.deepEqual([misty.objective.kind, misty.objective.need, misty.objective.text], ['defeat', 8, 'Defeat 8 enemy Pokémon']);
   assert.deepEqual([blaine.objective.kind, blaine.objective.need, blaine.objective.text], ['dominate', 5, 'Dominate a Location 5 times']);
-  const s = createGame(3);
+  const s = createGame(3, { decks: { player: MB, ai: MB } });
   assert.equal(tracker(s, 'player', 'Misty').objective.need, 8);
   assert.equal(tracker(s, 'ai', 'Blaine').objective.need, 5);
 }
@@ -40,14 +43,14 @@ const nextRound = (s) => { const r = s.round; while (s.round === r && s.phase !=
   const star = TRAINERS.find((t) => t.id === 'misty').partner;
   const nine = TRAINERS.find((t) => t.id === 'blaine').partner;
   assert.deepEqual([star.level, star.speed, star.attackType, star.strengthType, star.attack, star.strength, star.cost], [8, 'Swift', 'Special', 'Hitpoints', 8, 10, 4]);
-  assert.deepEqual(star.trigger, { on: 'summon', ops: [{ op: 'draw', amount: 2 }] });
+  assert.deepEqual([star.trigger.on, star.trigger.ops], ['summon', [{ op: 'draw', amount: 2 }]]);
   assert.deepEqual([nine.level, nine.speed, nine.attackType, nine.strengthType, nine.attack, nine.strength, nine.cost], [8, 'Steady', 'Special', 'Hitpoints', 9, 11, 4]);
-  assert.deepEqual(nine.trigger, { on: 'summon', ops: [{ op: 'damage', amount: 2, to: 'eachEnemy' }] }, 'up from 1');
+  assert.deepEqual([nine.trigger.on, nine.trigger.ops], ['summon', [{ op: 'damage', amount: 2, to: 'eachEnemy' }]], 'up from 1');
   // Ninetales arriving deals 2 to each enemy Pokémon: Blaine one domination short, then a dominated Location at Supper.
   let s = battle();
   tracker(s, 'player', 'Blaine').progress = 4;
   s.players.player.row[0] = mon('squirtle', 5);
-  s.players.ai.row[6] = mon('squirtle', 5);   // Wartortle, Strength 7
+  s.players.ai.row[6] = mon('squirtle', 5, { strength: 7, currentStrength: 7 });   // Strength 7
   s = applyAction(s, { type: 'placeLocation', who: 'player', uid: (s.players.player.hand.push(card('cerulean-cape')), s.players.player.hand.at(-1).uid), start: 0 });
   s = nextRound(s);
   assert.ok(tracker(s, 'player', 'Blaine').complete);

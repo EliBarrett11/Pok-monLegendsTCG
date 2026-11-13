@@ -16,18 +16,19 @@
 //   mon:<who>:<space>         a Pokémon in play
 //   loc:<uid> · tournament    a placed Location; the Pokémon League Tournament
 //   trainer:<who>:<uid>       a Trainer Objective tracker
-//   rec:<who> · energy:<who> · weather · mart
+//   rec:<who> · energy:<who> · decks · mart
 //   pile:<who>:<draw|discard|released> · bag:<who> · log:<i>
 //   term:<id> · rules[:<query>]
 import { GLOSSARY, KINDS, glossaryEntry, termsIn, searchGlossary } from '../engine/glossary.js?v=202611120821';
 import {
   pathDef, pokemonAt, cardAtRound, keywordList, triggerText, KEYWORD_NAMES, KEYWORD_ORDER, TRIGGER_NAMES, MODES, MODE_NAMES,
-  modeText, modeTarget, effectText, FAVOURS, TRAINERS, ITEMS, COMMANDS, SUPPORTERS, LOCATIONS,
+  modeText, modeTarget, modesOf, effectText, FAVOURS, TRAINERS, ITEMS, COMMANDS, SUPPORTERS, LOCATIONS,
 } from '../engine/cards.js?v=202611120821';
+import { DECKS } from '../engine/decks.js?v=202611120821';
 import { RULES } from '../rules.js?v=202611120821';
 import { playReason, commandModesFor, summonCost, emptySpaces, locationAt } from '../engine/game.js?v=202611120821';
 import {
-  statSums, statLines, formsRow, nextRound, levelGrowth, pokemonState, recognitionHistory, energyExplain, weatherExplain,
+  statSums, statLines, formsRow, nextRound, levelGrowth, pokemonState, recognitionHistory, energyExplain,
   martExplain, locationExplain, tournamentExplain, objectiveExplain,
 } from '../engine/explain.js?v=202611120821';
 import { cardHTML } from './card.js?v=202611120821';
@@ -57,19 +58,19 @@ export function fullText(c) {
     case 'Pokémon': {
       const kws = keywordList(c.keywords);
       return [
-        `${c.partner ? 'Partner, Level 8' : `Level ${c.level}`} · ${c.type} · ${c.attackType} attack · ${c.speed} · ${c.strengthType === 'Hitpoints' ? 'Hitpoints (no guard)' : `${c.strengthType} guard`}.`,
+        `${c.partner ? 'Partner, Level 8' : c.legendary ? 'Legendary, Level 8 (it doesn\'t grow)' : `Level ${c.level}`} · ${c.type} · ${c.attackType} attack · ${c.speed} · ${c.strengthType === 'Hitpoints' ? 'Hitpoints (no guard)' : `${c.strengthType} guard`}.`,
         kws.length ? `Keywords: ${kws.join(', ')}.` : '',
         c.trigger ? stop(triggerText(c.trigger)) : '',
         c.held ? `Held Item: ${c.held.name} (${c.held.text.replace(/^Held: /, '')}).` : '',
       ];
     }
     case 'Command': {
-      const t = { enemy: 'an enemy Pokémon', own: 'one of your Pokémon', location: 'a Location (each enemy Pokémon there)', allEnemies: 'each enemy Pokémon (no choice)' }[c.target];
-      return [`Target: ${t}.`, ...['react', 'adapt', 'strat'].map((m) => `${MODE_NAMES[m]} (${c.modes[m].cost} Energy): ${stop(modeText(c, m))}`)];
+      const t = { enemy: 'an enemy Pokémon', own: 'one of your Pokémon', location: 'a Location (each enemy Pokémon there)', ownLocation: 'a Location (each of your Pokémon there)', allEnemies: 'each enemy Pokémon (no choice)', allOwn: 'each of your Pokémon (no choice)' }[c.target];
+      return [`${c.type} Move.${t ? ` Target: ${t}.` : ''}`, ...modesOf(c).map((m) => `${MODE_NAMES[m]} (${c.modes[m].cost} Energy): ${stop(modeText(c, m))}`)];
     }
     case 'Supporter':
-      return [`Release ${plural(c.release, 'other card')} from your hand, then this card is Released too. No Energy.`, `Effect: ${stop(effectText(c.effect))}`,
-        `Favour: Release ${FAVOURS[c.favour.condition].text} → ${effectText(c.favour)} instead, and +${RULES.perFavour} Recognition.`];
+      return [`Release ${plural(c.release, 'other card')} from your hand, then this card is Released too. No Energy.`, `Effect: ${stop(c.text)}`,
+        `Favour: Release ${FAVOURS[c.favour.condition].text} → ${c.favour.text} And +${c.favour.recognition ?? RULES.perFavour} Recognition.`];
     case 'Item':
       return [`$${c.price} · ${c.itemType} · Stock ${c.stock} in the PokéMart.`, stop(c.text), c.noHitBack ? 'The holder is still Ready, but never hits back.' : '', c.noTarget ? 'No target: buy it to use, and it resolves at once.' : ''];
     case 'Trainer':
@@ -77,7 +78,7 @@ export function fullText(c) {
         `Partner: ${c.partner.name}, Level 8, ${c.partner.type}, ${c.partner.attackType} attack, ${c.partner.speed}, Attack ${c.partner.attack}, Strength ${c.partner.strength}. ${stop(c.partner.text)}`,
         `Trainer Command (${c.command.cost} Energy): ${stop(c.command.text)} Then the card is discarded.`];
     case 'Location':
-      return [stop(c.passive.text), `Covers ${c.width} lanes for ${plural(c.rounds, 'Round')}. Weather: adds ${c.weather.count} ${c.weather.type}.`, `Placing it costs no Energy. Dominating it at Supper: +${RULES.perDominance} Recognition.`];
+      return [stop(c.passive.text), `Covers ${c.width} lanes for ${plural(c.rounds, 'Round')}.`, `Placing it costs no Energy. Dominating it at Supper: +${RULES.perDominance} Recognition.`];
     default: return [];
   }
 }
@@ -87,13 +88,15 @@ function keywordsAndTriggers(c) {
   const out = [];
   if (c.cardType === 'Pokémon') {
     const all = { ...(c.keywords ?? {}) };
-    for (const [k, v] of Object.entries(c.held?.keywords ?? {})) all[k] = typeof v === 'number' ? (all[k] ?? 0) + v : v;
+    // (A Held Item's keyword; a Type-only one only while it's that Type.)
+    for (const o of (c.held?.ops ?? []).filter((x) => x.op === 'keyword' && (!x.type || x.type === c.type))) all[o.keyword] = typeof o.amount === 'number' ? (typeof all[o.keyword] === 'number' ? all[o.keyword] : 0) + o.amount : true;
+    if (all.sturdy && c.sturdyUsed) delete all.sturdy;
     for (const k of KEYWORD_ORDER.filter((x) => all[x])) out.push(meaning(k, all[k] === true ? KEYWORD_NAMES[k] : `${KEYWORD_NAMES[k]} ${all[k]}`));
     if (c.trigger) { out.push(meaning(c.trigger.on)); if (c.trigger.ops.some((o) => /chosen/.test(o.to ?? ''))) out.push(meaning('on-summon-targets')); }
     if (c.trigger?.ops.some((o) => /Here$/.test(o.to ?? ''))) out.push(meaning('in-its-location'));
     if (c.trigger?.ops.some((o) => /TargetLoc$/.test(o.to ?? ''))) out.push(meaning('targets-location'));
     if (c.trigger?.ops.some((o) => o.op === 'attack' || o.op === 'strength')) out.push(meaning('kept'));
-    if (c.trigger?.ops.some((o) => o.op === 'tempAttack')) out.push(meaning('until-supper'));
+    if (c.trigger?.ops.some((o) => /^temp|shellTemp/.test(o.op))) out.push(meaning('until-supper'));
     if (c.strengthType !== 'Hitpoints') out.push(meaning(c.strengthType === 'Defence' ? 'defence' : 'special-defence'), meaning('guard'));
     out.push(meaning(c.attackType === 'Physical' ? 'physical' : 'special'));
     if (c.held) out.push(meaning('held'));
@@ -103,20 +106,25 @@ function keywordsAndTriggers(c) {
     if (c.target === 'location') out.push(meaning('location-target'));
     if (c.target === 'allEnemies') out.push(meaning('all-enemies'));
     if (MODES.some((m) => ['attacker', 'attacked'].includes(modeTarget(c, m)))) out.push(meaning('react-targets'));
-    if (MODES.some((m) => c.modes[m].op === 'attackKept')) out.push(meaning('kept'));
-    if (MODES.some((m) => c.modes[m].op === 'attackUp')) out.push(meaning('until-supper'));
-    if (MODES.some((m) => c.modes[m].op === 'dive')) out.push(meaning('dive'));
+    const ops = modesOf(c).flatMap((m) => c.modes[m].ops);
+    if (ops.some((o) => (o.op === 'attack' || o.op === 'strength') && o.to)) out.push(meaning('kept'));
+    if (ops.some((o) => /^temp|shellTemp/.test(o.op))) out.push(meaning('until-supper'));
+    if (ops.some((o) => o.op === 'returnHand')) out.push(meaning('dive'));
   } else if (c.cardType === 'Supporter') {
     out.push(meaning('release'), meaning('favour'));
-    if (c.effect.op === 'recover') out.push(meaning('recover'));
-    if (c.effect.op === 'strengthAll') out.push(meaning('kept'));
-    if (c.effect.op === 'attackAll') out.push(meaning('until-supper'));
+    const ops = [...c.ops, ...c.favour.ops];
+    if (ops.some((o) => o.op === 'recover')) out.push(meaning('recover'));
+    if (ops.some((o) => (o.op === 'attack' || o.op === 'strength') && o.to)) out.push(meaning('kept'));
+    if (ops.some((o) => /^temp|shellTemp/.test(o.op))) out.push(meaning('until-supper'));
+    if (ops.some((o) => o.op === 'returnHand')) out.push(meaning('dive'));
   } else if (c.cardType === 'Item') {
     out.push(meaning(c.itemType === 'Held' ? 'held' : 'consumed'), meaning('stock'), meaning('pokedollars'));
+    for (const o of c.ops.filter((x) => x.op === 'keyword')) out.push(meaning(o.keyword));
   } else if (c.cardType === 'Trainer') {
     out.push(meaning('objective'), meaning('partner'), meaning('trainer-command'));
   } else if (c.cardType === 'Location') {
-    out.push(meaning('location'), meaning('weather'), meaning(c.weather.type === 'Rain' ? 'rain' : 'sun'), meaning('dominance'));
+    out.push(meaning('location'), meaning('dominance'));
+    for (const o of c.passive.ops.filter((x) => x.op === 'keyword')) out.push(meaning(o.keyword));
   }
   return out.join('');
 }
@@ -163,11 +171,11 @@ function pokemonSections(s, c, where) {
 function otherSections(s, c, where) {
   const sec = [['What it does now', para([...fullText(c), ...stateLines(s, c, where)])]];
   const nums = [];
-  if (c.cardType === 'Command') nums.push(...['react', 'adapt', 'strat'].map((m) => `${MODE_NAMES[m]}: ${c.modes[m].cost} Energy (printed).`));
+  if (c.cardType === 'Command') nums.push(...modesOf(c).map((m) => `${MODE_NAMES[m]}: ${c.modes[m].cost} Energy (printed).`));
   if (c.cardType === 'Item') nums.push(`Price: $${c.price} (printed). Stock: ${c.stock} turns on sale ($1 → 8, $2 → 6, $3 → 4, $4 → 3).`);
   if (c.cardType === 'Trainer') nums.push(`Trainer Command: ${c.command.cost} Energy (printed).`);
   if (c.cardType === 'Supporter') nums.push(`Cost: no Energy; Release ${c.release}.`);
-  if (c.cardType === 'Location') nums.push(`Lanes ${c.width}, Rounds ${c.rounds}, Weather ${c.weather.count} ${c.weather.type} (printed).`);
+  if (c.cardType === 'Location') nums.push(`Lanes ${c.width}, Rounds ${c.rounds} (printed).`);
   sec.push(['Where its numbers come from', para(nums)]);
   sec.push(['Keywords and triggers', keywordsAndTriggers(c)]);
   if (c.cardType === 'Trainer') sec.push(['Its Partner', `<div class="v4-cforms">${small(c.partner, `def:${c.partner.id}`, '', 0.6)}</div>`]);
@@ -257,14 +265,12 @@ function energyEntry(s, who) {
     sections: [['Where its numbers come from', para(energyExplain(s, who))], ['Keywords and triggers', meaning('base-energy') + meaning('pass') + meaning('exert') + meaning('exhaust') + meaning('retain')]],
   };
 }
-function weatherEntry(s) {
-  const w = weatherExplain(s);
-  const table = `<table class="v4-ctable"><tr><th>Bracket</th><th>Effect</th><th>Now</th></tr>${w.brackets.map((b) => `<tr class="${b.reached ? 'on' : ''}"><td>${linked(`${b.type} ${b.at}`)}</td><td>${linked(cap(b.text))}</td><td>${b.reached ? 'Active' : '—'}</td></tr>`).join('')}</table>`;
-  const src = w.sources.length ? w.sources.map((x) => `${x.name} adds ${x.count} ${x.type}`).join('; ') : 'No Location is placed';
+// B3-1: the match's two decks (the panel under the Round).
+function decksEntry(s) {
+  const name = (w) => (s.decks?.[w] ? DECKS[s.decks[w]]?.name ?? 'a custom deck' : 'a custom deck');
   return {
-    title: 'Weather', kind: 'head', head: head('Weather', w.tournament ? 'None in the Tournament' : `Rain ${w.totals.Rain} · Sun ${w.totals.Sun}`, '☂ ☀'),
-    sections: [['What it does now', `${para([w.tournament ? 'The Pokémon League Tournament replaced every Location and its Weather.' : `Totals now: Rain ${w.totals.Rain}, Sun ${w.totals.Sun}.`, `${src}.`])}${table}`],
-      ['Keywords and triggers', meaning('weather') + meaning('rain') + meaning('sun')]],
+    title: 'Decks', kind: 'head', head: head('Decks', `${name('player')} · ${name('ai')}`, '🂠'),
+    sections: [['What it does now', para([`You play ${name('player')}.`, `The Opponent plays ${name('ai')}.`, 'Each deck has 40 cards: at most 2 copies of a card (1 of a Legendary), and up to 3 Trainers.'])]],
   };
 }
 function martEntry(s) {
@@ -348,7 +354,7 @@ export function codexEntry(s, r) {
       case 'trainer': { const t = s?.players[a]?.trainers.find((x) => x.uid === b); return t ? trainerEntry(s, a, t) : null; }
       case 'rec': return s ? recEntry(s, a) : null;
       case 'energy': return s ? energyEntry(s, a) : null;
-      case 'weather': return s ? weatherEntry(s) : null;
+      case 'decks': return s ? decksEntry(s) : null;
       case 'mart': return s ? martEntry(s) : null;
       case 'pile': return s && PILE[b] ? pileEntry(s, a, b) : null;
       case 'bag': return s ? bagEntry(s, a) : null;

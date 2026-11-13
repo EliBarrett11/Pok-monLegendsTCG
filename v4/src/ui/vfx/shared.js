@@ -51,7 +51,7 @@ export const BUDGETS = {
 
 // The end of the match (docs/vfx.md section 6, item 7): Victory rains gold
 // sparkle and confetti-like embers or droplets in the winning deck's style;
-// Defeat lets ash or rain fall (in the player's own deck's style).
+// Defeat lets ash or droplets fall (in the player's own deck's style).
 export function endingAnimation(stats) {
   const style = stats.deck.player === 'water' ? 'water' : stats.deck.player === 'grass' ? 'grass' : 'fire';
   return { id: stats.result === 'victory' ? 'ending-victory' : 'ending-defeat', style };
@@ -211,7 +211,7 @@ export function defeatStyle(e) {
   return type === 'Fire' ? 'ash' : type === 'Water' ? 'wash' : type === 'Grass' ? 'wilt' : 'shatter';
 }
 
-// --- Grass G4: evolution, Growth, Weather pulses -------------------------------------------
+// --- Grass G4: evolution, Growth -------------------------------------------
 
 // The evolution moment: the Pokémon glows white and its silhouette pulses; a
 // Stage 2 adds a burst of light and petals; then the new card is revealed.
@@ -220,18 +220,6 @@ export const EVOLVE_STAGE2 = 'evolve-stage2';
 export const evolveAnimation = (card) => (card?.stage === 'Stage 2' ? EVOLVE_STAGE2 : EVOLVE);
 // Growth gained: green-gold motes fly from where it came from into the Growth card.
 export const GROWTH_MOTES = { count: (n) => Math.max(2, Math.min(8, 2 * n)), ms: 650, tex: 'glow', size: 18, color: '#c8f060' };
-// A Weather bracket switching on: the pulse names what it now does.
-export const WEATHER_PULSE = {
-  'Sun 2': 'Sun 2: Burn +1',
-  'Sun 4': 'Sun 4: +1 Growth at Breakfast',
-  'Sun 6': 'Sun 6: first Evolve costs 1 less',
-  'Sun 8': 'Sun 8: Drought',
-  'Rain 2': 'Rain 2: heals +1',
-  'Rain 4': 'Rain 4: Burn −1',
-  'Rain 6': 'Rain 6: Leech Seed drains 2',
-  'Rain 8': 'Rain 8: Downpour',
-};
-export const weatherPulseText = (weather, at) => WEATHER_PULSE[`${weather} ${at}`] ?? `${weather} ${at}`;
 
 // Bigger hits, bigger effects: particle counts, shake, flash and hit-stop scale with this.
 export const impactScale = (damage) => Math.max(0.7, Math.min(1.6, 0.55 + 0.13 * (damage ?? 1)));
@@ -508,7 +496,7 @@ export const EMITTERS = {
   sunPour: { tex: 'streak', blend: 'add', rate: 30, at: 'top', dir: 'down', speed: R(500, 800), life: R(260, 420), size: [R(0.8, 1.3), 0.6], alpha: [0.7, 0], tint: ['#fff3a0', '#ffffff'], alignVelocity: true },
   sunGlow: { tex: 'glow', blend: 'add', count: 1, at: 'centre', life: 700, size: [1.2, 2.6], alpha: [0.7, 0], tint: '#ffe880' },
   sunGlints: { tex: 'sparkle', blend: 'add', rate: 26, at: 'card', area: 0.9, dir: 'up', speed: R(30, 90), life: R(500, 800), size: [R(0.14, 0.24), 0.04], alpha: [1, 0], spin: R(-2, 2), tint: ['#fff3a0', '#d6ff9e'] },
-  // Solar Beam: light gathers from the sun, then a huge golden-green beam
+  // Solar Beam: light gathers from above, then a huge golden-green beam
   solarGather: { tex: 'glow', blend: 'add', rate: 70, at: 'ring', radius: R(160, 280), dir: 'inward', speed: 2.6, drag: 1.5, life: 380, size: [R(0.4, 0.7), 0.2], alpha: [0, 1], tint: ['#fff3a0', '#b8ff6a'] },
   solarCore: { tex: 'glow', blend: 'add', count: 1, at: 'muzzle', life: 600, size: [0.4, 1.6], alpha: [0.5, 1], tint: '#fff8c0' },
   solarBurst: { tex: 'glow', blend: 'add', count: 2, at: 'centre', life: R(450, 600), size: [R(0.8, 1), R(3, 3.8)], alpha: [1, 0], tint: ['#fff3a0', '#c8ff7a'] },
@@ -947,7 +935,7 @@ export const TIMELINES = {
       { at: 700, cue: 'growth' },
     ],
   },
-  // Solar Beam: light gathers from the sun into the card while the Growth spent drains
+  // Solar Beam: light gathers from above into the card while the Growth spent drains
   // into it, then a huge golden-green beam; the hit-stop grows with the damage.
   'strategy-solar-beam': {
     budget: 'strategy', duration: 1150,
@@ -956,7 +944,7 @@ export const TIMELINES = {
       { at: 0, end: 560, emit: 'solarGather', on: 'card' },
       { at: 0, emit: 'solarCore', on: 'card' },
       { at: 560, end: 820, beam: 'solarBeam', on: 'attacker' },
-      { at: 600, cue: 'impact', hitstop: 140, shake: 20, flash: 'sun', bloom: 1.5, distort: 'shockwave' },
+      { at: 600, cue: 'impact', hitstop: 140, shake: 20, flash: 'gold', bloom: 1.5, distort: 'shockwave' },
       { at: 600, emit: 'solarBurst', on: 'target' },
       { at: 600, emit: 'solarSparks', on: 'target' },
       { at: 600, emit: 'leafBurst', on: 'target', countScale: 0.6 },
@@ -1192,7 +1180,7 @@ export const TIMELINES = {
       { at: 620, end: 1050, emit: 'healSparkle', on: 'target' },
     ],
   },
-  // Bubble Beam: a stream of bubbles that pop on impact, fuller when Rain is 2 or more.
+  // Bubble Beam: a stream of bubbles that pop on impact.
   'strategy-bubble-beam': {
     budget: 'strategy', duration: 1050,
     beats: [
@@ -1245,7 +1233,7 @@ export const TIMELINES = {
       { at: 340, end: 1000, track: 'target', motion: 'shocked' },
     ],
   },
-  // N1 — Rock Slide: rocks rain down across the enemy side; the chosen Zone's Pokémon are struck.
+  // N1 — Rock Slide: rocks tumble down across the enemy side; the chosen Zone's Pokémon are struck.
   'strategy-rock-slide': {
     budget: 'strategy', duration: 1150,
     beats: [
@@ -1326,7 +1314,7 @@ export const TIMELINES = {
       { at: 2250, cue: 'undim' },
     ],
   },
-  // Kyogre: a wave and a burst of rain while it hovers.
+  // Kyogre: a wave and a burst of spray while it hovers.
   'summon-kyogre': {
     budget: 'cinematic', duration: 2450,
     beats: [

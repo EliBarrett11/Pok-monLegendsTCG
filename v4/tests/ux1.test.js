@@ -3,7 +3,11 @@
 import assert from 'node:assert/strict';
 import { RULES } from '../src/rules.js';
 import { createGame, applyAction, legalActions, commandModesFor, actor } from '../src/engine/game.js';
-import { pokemonAt, cardAtRound, DEMO_DECK, LOCATIONS, COMMANDS, SUPPORTERS, ITEMS, TRAINERS } from '../src/engine/cards.js';
+import { pokemonAt, cardAtRound, LOCATIONS, COMMANDS, SUPPORTERS, ITEMS, TRAINERS } from '../src/engine/cards.js';
+import { DECKS } from '../src/engine/decks.js';
+// B3-1: a deck with Misty and Blaine (Misty's Tide with Blaine for Whitney), for both sides.
+const DEMO_DECK = DECKS['mistys-tide'].list.map((id) => (id === 'whitney' ? 'blaine' : id));
+const MB = { decks: { player: DEMO_DECK, ai: DEMO_DECK } };
 import { chooseAction } from '../src/ai/ai.js';
 import { renderMatch, reactSentence } from '../src/ui/board.js';
 
@@ -15,7 +19,7 @@ const PILES = ['drawPile', 'hand', 'discard'];
 const deckCount = (p) => PILES.reduce((k, pile) => k + p[pile].length, 0);
 // A Battle Phase keeping every card where it is (piles intact), the given player's turn.
 const battle = (seed = 31, turn = 'player') => {
-  let s = createGame(seed);
+  let s = createGame(seed, MB);
   s = applyAction(s, { type: 'mulligan', who: 'player', cards: [] });
   s = applyAction(s, { type: 'mulligan', who: 'ai', cards: [] });
   for (const w of ['player', 'ai']) { const p = s.players[w]; p.row = p.row.map(() => null); p.exertMax = 0; p.exhaust = []; }
@@ -26,7 +30,7 @@ const battle = (seed = 31, turn = 'player') => {
 
 // --- Match setup: two active Objectives at progress 0; 40 cards including both Trainers --------------------------------------
 {
-  const s = createGame(7);
+  const s = createGame(7, MB);
   for (const w of ['player', 'ai']) {
     const p = s.players[w];
     assert.equal(p.trainers.length, 2, 'one tracker per Trainer card in the deck');
@@ -162,7 +166,7 @@ for (const where of ['drawPile', 'hand', 'discard']) {
   const ctx = { build: 'test', reactTimer: 5, act() {}, redraw() {}, newMatch() {}, setReactTimer() {} };
   const ui = () => ({ select: null, locked: false, seenTournament: null });
   // The mulligan, with every card type in hand.
-  let s = createGame(3);
+  let s = createGame(3, MB);
   const all = [...['ponyta', 'chinchou', 'squirtle', 'growlithe', 'magikarp', 'charmander'], ...LOCATIONS.map((c) => c.id), ...COMMANDS.map((c) => c.id), ...SUPPORTERS.map((c) => c.id), ...ITEMS.map((c) => c.id), ...TRAINERS.map((c) => c.id)];
   s.players.player.hand = all.map(card);
   renderMatch(root, s, ui(), ctx);

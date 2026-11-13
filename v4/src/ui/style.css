@@ -121,9 +121,6 @@ button { font-family: inherit; color: inherit; }
 .dur { display: flex; gap: 3px; }
 .dur i { width: 16px; height: 6px; border-radius: 3px; background: var(--brass-light); display: block; }
 .dur i.off { background: rgba(255, 255, 255, 0.15); }
-.wx { font-weight: 800; padding: 0 7px; border-radius: 10px; font-size: 13px; white-space: nowrap; }
-.wx.sun { background: rgba(255, 160, 40, 0.25); color: #ffc067; border: 1px solid #a86a20; }
-.wx.rain { background: rgba(70, 140, 255, 0.22); color: #9cc4ff; border: 1px solid #3a6aa8; }
 .v4-vs { position: absolute; right: 10px; top: 8px; font-size: 12px; color: #ddd; background: rgba(10, 5, 2, 0.85); border: 1px solid rgba(209, 169, 90, 0.4); border-radius: 10px; padding: 1px 9px; }
 .v4-vs b { font-size: 15px; } .v4-vs .you { color: var(--you); } .v4-vs .opp { color: var(--opp); }
 .v4-sbar { position: absolute; left: 0; right: 0; bottom: 0; height: 7px; background: var(--opp); }
@@ -168,6 +165,10 @@ button { font-family: inherit; color: inherit; }
 .v4-wx { top: 180px; height: 80px; padding: 9px 14px; cursor: help; }
 .v4-wx p { margin: 3px 0 0; font-size: 15px; line-height: 1.2; }
 .v4-wx p.sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+/* B3-1: the decks panel, under the Round. */
+.v4-decks { cursor: help; }
+.v4-decks p { overflow: hidden; text-overflow: clip; }
+.v4-decks .who { display: inline-block; min-width: 44px; color: var(--muted); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
 .v4-energy { top: 270px; height: 236px; padding: 14px; text-align: center; border-radius: 12px; border: 2px solid #4f86d8; background: radial-gradient(ellipse at 50% 30%, #2f63b8, #173a78 60%, #0f2550); box-shadow: 0 0 28px rgba(80, 150, 255, 0.35), 0 6px 18px rgba(0, 0, 0, 0.6); cursor: help; }
 .v4-energy .v4-lbl { color: #bcd6ff; }
 .v4-energy .big { font-family: var(--font-display); font-weight: 800; font-size: 84px; line-height: 0.95; text-shadow: 0 0 18px rgba(140, 200, 255, 0.8); }
@@ -334,7 +335,7 @@ button { font-family: inherit; color: inherit; }
 .v4-keys .key { margin: 0 3px 0 0; }
 .v4-pass .key { color: var(--ink); border-color: var(--ink); }
 /* UX2 polish: the opponent's pile counts sit inside the piles (clear of the captions); the log ticker
-   and the Weather chip fit their boxes. */
+   and the decks panel fit their boxes. */
 .v4-pile.small .c { bottom: 3px; }
 .v4-ticker p { overflow: visible; }
 .v4-wx p { white-space: nowrap; }
@@ -365,7 +366,6 @@ button { font-family: inherit; color: inherit; }
 .v4-float.status { color: #e8ddc8; font-size: 24px; font-family: var(--font-text); }
 .v4-float.level { color: #fff2b8; font-size: 28px; }
 .v4-float.defeat { color: #d8c8b8; font-size: 28px; }
-.v4-float.weather { color: #d8ecff; font-size: 22px; font-family: var(--font-text); }
 .v4-banner { position: absolute; left: 815px; top: 472px; transform: translate(-50%, -50%); padding: 14px 64px 16px; text-align: center; white-space: nowrap;
   background: linear-gradient(90deg, transparent, rgba(20, 10, 4, 0.92) 18%, rgba(20, 10, 4, 0.92) 82%, transparent); border-top: 2px solid var(--brass); border-bottom: 2px solid var(--brass); }
 .v4-banner b { display: block; font-family: var(--font-display); font-size: 44px; line-height: 1.2; font-weight: 800; color: var(--brass-light); letter-spacing: 0.04em; }
@@ -409,17 +409,7 @@ button { font-family: inherit; color: inherit; }
 @keyframes v4-seal { 50% { box-shadow: 0 0 20px 6px rgba(255, 210, 90, 0.95); } }
 .v4-mon.aura { box-shadow: 0 0 0 2px #ff9a3a, 0 0 18px 5px rgba(255, 140, 50, 0.75); animation: v4-aura 1.6s ease-in-out infinite; }
 @keyframes v4-aura { 50% { box-shadow: 0 0 0 2px #ffc070, 0 0 28px 9px rgba(255, 160, 60, 0.9); } }
-/* Ambient Weather while a bracket of 2+ is active: light rain, or shimmer and motes for Sun (CSS: it
-   pauses with the tab; none in low motion). */
-.v4-ambient { position: absolute; inset: 0; z-index: 1; pointer-events: none; border-radius: 16px; overflow: hidden; }
-.v4-ambient::before { content: ''; position: absolute; left: -200px; top: -200px; right: -200px; bottom: -200px; will-change: transform; }
-.v4-ambient.rain::before { background: radial-gradient(ellipse 1.2px 11px at 50% 50%, rgba(180, 215, 255, 0.42), transparent) 0 0 / 46px 96px; transform: rotate(14deg); animation: v4-rain 0.55s linear infinite; }
-@keyframes v4-rain { from { transform: rotate(14deg) translateY(0); } to { transform: rotate(14deg) translateY(96px); } }
-.v4-ambient.sun { background: radial-gradient(ellipse at 20% 0%, rgba(255, 220, 120, 0.16), transparent 60%); }
-.v4-ambient.sun::before { background: radial-gradient(circle, rgba(255, 230, 150, 0.4) 0 1.5px, transparent 2.5px) 0 0 / 90px 90px; animation: v4-sun 9s linear infinite; }
-@keyframes v4-sun { from { transform: translateY(0); } to { transform: translateY(-180px); } }
-.v4-low .v4-ambient, .v4-low .v4-sealed, .v4-low .v4-mon.aura { animation: none; }
-.v4-low .v4-ambient { display: none; }
+.v4-low .v4-sealed, .v4-low .v4-mon.aura { animation: none; }
 .v4-keys .v4-lowm { white-space: nowrap; }
 .v4-keys .v4-lowm input { vertical-align: -2px; margin: 0 3px 0 0; }
 
@@ -480,6 +470,10 @@ button { font-family: inherit; color: inherit; }
 .cd { position: relative; flex: none; }
 .cd-in { position: absolute; left: 0; top: 0; width: 340px; height: 476px; transform-origin: 0 0; }
 .cd-art { position: absolute; left: 0; top: 0; width: 340px; height: 476px; background-repeat: no-repeat; background-size: 100% 100%, cover; }
+/* B3-1: Art Pending (a card whose art hasn't arrived): a soft glow in its colour and the words in small spaced capitals. */
+.cd-art.cd-pending { background-size: 100% 100%, 100% 100%; }
+.cd-pendt { position: absolute; left: 0; right: 0; text-align: center; font: 600 15px/1 'Cinzel', Georgia, serif; letter-spacing: 0.42em; text-transform: uppercase; color: rgba(245, 232, 205, 0.78); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7); padding-left: 0.42em; pointer-events: none; }
+.cd-lvup { font-size: 0.72em; color: #8fe08a; margin-left: 2px; vertical-align: 0.45em; }
 .cd-fr { position: absolute; left: 0; top: 0; overflow: visible; filter: drop-shadow(0 18px 26px rgba(0, 0, 0, 0.7)) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6)); }
 .cd-mini .cd-fr, .cd-token .cd-fr { filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.7)); }
 .cd-t { position: absolute; display: flex; align-items: center; justify-content: center; text-align: center; font-family: var(--font-text); color: #ece2cc; overflow: visible; }
@@ -547,7 +541,6 @@ button { font-family: inherit; color: inherit; }
 .v4-plate h3::after { content: ''; display: block; height: 1px; margin: 3px 60px 0 0; background: linear-gradient(90deg, var(--plate, #c2a36a), rgba(194, 163, 106, 0.25)); }
 .v4-plate .pas { margin: 3px 0 0; font-size: 14.5px; color: #e4d9c2; }
 .v4-plate .row2 { margin-top: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #c2a36a; }
-.v4-plate .row2 .wx { letter-spacing: 0.06em; }
 /* The hand: 200×280 Mini cards. */
 .v4-hcard { width: 200px; height: 280px; border: 0; border-radius: 0; background: none; box-shadow: none; overflow: visible; }
 .v4-hcard.ok { border: 0; box-shadow: none; }
@@ -629,7 +622,7 @@ button { font-family: inherit; color: inherit; }
 /* --- C2: the hand's visible strips; nothing is ever shown cut --- */
 .cd-name.strip { justify-content: flex-start; text-align: left; }
 .cd-cut { visibility: hidden !important; }
-/* The Weather chip: whole lines; the ticker: one entry on up to two lines, the L key at the right. */
+/* The decks panel: whole lines; the ticker: one entry on up to two lines, the L key at the right. */
 .v4-wx p { font-size: 14px; white-space: nowrap; }
 .v4-ticker { padding: 3px 34px 3px 10px; }
 .v4-ticker p { display: flex; align-items: flex-start; gap: 4px; white-space: normal; line-height: 1.3; height: 36px; overflow: visible; }

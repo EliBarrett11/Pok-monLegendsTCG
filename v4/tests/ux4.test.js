@@ -9,7 +9,7 @@ import { chooseAction } from '../src/ai/ai.js';
 import { PATHS, COMMANDS, MODES, SUPPORTERS, ITEMS, TRAINERS, pokemonAt } from '../src/engine/cards.js';
 import {
   EVENT_BEATS, BUDGETS, V4_TIMELINES, MOMENTS, SFX, attackFor, attackDef, counterFor, commandDef, commandMs, MODE_STYLE,
-  SUPPORTER_ANIMS, ITEM_ANIMS, TRAINER_COMMAND_ANIMS, ATTACK_NAMES, defOf, timelineDuration, TIMELINES, SPEEDS,
+  SUPPORTER_ANIMS, ITEM_ANIMS, TRAINER_COMMAND_ANIMS, itemAnim, ATTACK_NAMES, defOf, timelineDuration, TIMELINES, SPEEDS,
 } from '../src/ui/vfx/library.js';
 import { plan } from '../src/ui/plan.js';
 
@@ -75,7 +75,7 @@ for (const [name, combo] of [['Ponyta', 'Fire Physical'], ['Charizard', 'Fire Sp
 
 // 3. Every Command card and mode, Supporter, Item and Trainer Command maps to a beat.
 for (const c of COMMANDS) {
-  for (const m of MODES) {
+  for (const m of MODES) {   // (B3-1: every mode has a timeline, even one a Move doesn't have)
     const def = commandDef(c.id, m);
     ok(def?.beats?.length, `${c.name} ${m}: no timeline`);
     within(commandMs(c.id, m), BUDGETS[MODE_STYLE[m].budget], `${c.name} ${m}`);
@@ -83,7 +83,7 @@ for (const c of COMMANDS) {
   ok(commandMs(c.id, 'react') < commandMs(c.id, 'adapt') && commandMs(c.id, 'adapt') < commandMs(c.id, 'strat'), `${c.name}: React quick, Adapt standard, Strat big`);
 }
 for (const c of SUPPORTERS) ok(defOf(SUPPORTER_ANIMS[c.id]), `${c.name}: no Supporter effect`);
-for (const c of ITEMS) ok(defOf(ITEM_ANIMS[c.op]), `${c.name}: no Item effect`);
+for (const c of ITEMS) ok(defOf(itemAnim(c.id, c.ops[0]?.op)), `${c.name}: no Item effect`);
 for (const t of TRAINERS) for (const o of t.command.ops) ok(defOf(TRAINER_COMMAND_ANIMS[o.op]), `${t.name}'s Trainer Command: no effect for ${o.op}`);
 
 // 4. v4's own timelines and moments within their budgets at Normal.

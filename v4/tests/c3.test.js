@@ -2,11 +2,11 @@
 //   - Coverage: every kind of thing the Codex inspects has an entry, from seeded mid-match states (the
 //     Tournament included): cards in the hand, on the board, in the PokéMart, the Bag, the Discard and Released
 //     Piles, the React window and the log; Locations, Objective trackers, Recognition rings, the Energy tile,
-//     the Weather chip, the PokéMart, the piles, a log line, the Tournament, every glossary term and Rules.
+//     the decks panel (B3-1), the PokéMart, the piles, a log line, the Tournament, every glossary term and Rules.
 //   - Links: every glossary term and alias links to its own entry; every link in every entry (and in the
 //     prompt bar, the log and the cards' wording) goes somewhere; no text says Light, Mid or Heavy.
 //   - Numbers: every Pokémon's "where its numbers come from" sums equal the stats it shows, over 200 random
-//     mid-match states (Attack, damage with Sun 2, current Strength, cost, Speed).
+//     mid-match states (Attack, the damage it deals, current Strength, cost, Speed).
 //   - Forms: the forms row and the "next Round" line are right for every line at every Level and Round.
 import assert from 'node:assert/strict';
 import { createGame, applyAction, actor, damageOf, effectiveSpeed, pokemonOf } from '../src/engine/game.js';
@@ -68,7 +68,7 @@ const cover = (s, label) => {
   for (const x of s.strats) { entryOf(s, `card:${x.uid}`, `${label} strat`); kinds.add('strat'); }
   if (s.mart.onSale[0]) { entryOf(s, `card:${s.mart.onSale[0].uid}`, `${label} mart card`); kinds.add('mart-card'); }
   entryOf(s, 'mart', label); kinds.add('mart');
-  entryOf(s, 'weather', label); kinds.add('weather');
+  entryOf(s, 'decks', label); kinds.add('decks');
   entryOf(s, 'tournament', label); kinds.add('tournament');
   entryOf(s, `log:${s.log.length - 1}`, label); kinds.add('log');
   if (s.reactWindow?.pending?.card) { entryOf(s, `card:${s.reactWindow.pending.card.uid}`, `${label} react`); kinds.add('react'); }
@@ -83,7 +83,7 @@ for (const seed of [3, 7, 11, 19, 23]) cover(play(seed, { round: 4 }), `seed ${s
   const e = codexEntry(found, 'tournament');
   ok(/began at Round/.test(plain(entryHTML(e))), 'the Tournament entry says when it began');
 }
-// A staged mid-match state with what seeded play may not show at once: a Bag Item, a React window, Weather.
+// A staged mid-match state with what seeded play may not show at once: a Bag Item, a React window.
 {
   let s = play(9, { round: 3 });
   const p = s.players.player;
@@ -108,7 +108,7 @@ entryOf(null, 'rules:react', 'rules search');
 for (const c of [...COMMANDS, ...SUPPORTERS, ...ITEMS, ...TRAINERS, ...LOCATIONS]) entryOf(null, `def:${c.id}`, 'every card');
 for (const t of TRAINERS) entryOf(null, `def:${t.partner.id}`, 'Partners');
 for (const p of PATHS) for (let lv = SERIES_RANGE[p.series][0]; lv <= SERIES_RANGE[p.series][1]; lv++) entryOf(null, `def:${p.id}:${lv}`, 'every form');
-for (const k of ['hand', 'board', 'discard', 'released', 'bag-card', 'tracker', 'rec', 'energy', 'bag', 'pile-draw', 'pile-discard', 'pile-released', 'location', 'mart', 'mart-card', 'weather', 'tournament', 'log', 'react']) ok(kinds.has(k), `coverage: ${k}`);
+for (const k of ['hand', 'board', 'discard', 'released', 'bag-card', 'tracker', 'rec', 'energy', 'bag', 'pile-draw', 'pile-discard', 'pile-released', 'location', 'mart', 'mart-card', 'decks', 'tournament', 'log', 'react']) ok(kinds.has(k), `coverage: ${k}`);
 // Card first: a Pokémon's sections in the required order; a card entry shows the Full card.
 {
   const s = play(7, { round: 4 });
@@ -154,8 +154,8 @@ ok(links > 1000, `links checked: ${links}`);
 // The texts terms appear in: card wording, the prompt bar and the log. Every term found links to an entry.
 const texts = [];
 for (const p of PATHS) for (let lv = SERIES_RANGE[p.series][0]; lv <= SERIES_RANGE[p.series][1]; lv++) { const c = pokemonAt(p.id, lv); texts.push(cardText(c), ...fullText(c)); }
-for (const c of COMMANDS) texts.push(...MODES.map((m) => modeText(c, m)), ...fullText(c));
-for (const c of SUPPORTERS) texts.push(effectText(c.effect), effectText(c.favour), ...fullText(c));
+for (const c of COMMANDS) texts.push(...MODES.filter((m) => c.modes[m]).map((m) => modeText(c, m)), ...fullText(c));
+for (const c of SUPPORTERS) texts.push(c.text, c.favour.text, ...fullText(c));
 for (const c of [...ITEMS, ...TRAINERS, ...LOCATIONS]) texts.push(...fullText(c));
 for (const seed of [1, 2, 3]) {
   const s = play(seed, { steps: 500 });
@@ -187,10 +187,10 @@ for (let seed = 100; states < 200; seed++) {
     for (const who of ['player', 'ai']) {
       for (const { card, space } of pokemonOf(s, who)) {
         const sums = statSums(s, card, { who, space });
-        // C4: the Attack shown is the damage its attack deals now (damageOf: Sun 2 included for Physical).
+        // C4: the Attack shown is the damage its attack deals now (damageOf).
         ok(sum(sums.attack.parts) === damageOf(s, card) && sums.attack.total === damageOf(s, card), `Attack sums: ${card.name} ${JSON.stringify(sums.attack)} vs ${damageOf(s, card)}`);
         ok(sum(sums.strength.parts) === card.currentStrength && sums.strength.total === card.currentStrength, `Strength sums: ${card.name} ${JSON.stringify(sums.strength)} vs ${card.currentStrength}`);
-        ok(sums.cost.total === (card.partner ? 0 : costFor(card.level)), `cost: ${card.name}`);
+        ok(sums.cost.total === (card.partner ? 0 : costFor(card.level, card.legendary)), `cost: ${card.name}`);
         ok(sums.speed.total === effectiveSpeed(card), `Speed: ${card.name}`);
         ok(statLines(sums).every((l) => !LMH.test(l)), 'the lines never say Light, Mid or Heavy');
         mons++;
