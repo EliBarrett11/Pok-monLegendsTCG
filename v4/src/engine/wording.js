@@ -5,14 +5,15 @@
 //   passiveText(loc)      a Location's passive; heldText(item) a Held Item's rules; objectiveText(obj)
 // An effect is a list of clauses { say, sep, ops }: `say` names the sentence pattern below, `sep` joins it to the
 // clause before ('', '. ', ', and ', ', '), and `ops` are what the engine runs. tests/cardsdata.test.js checks the
-// generated wording equals docs/base-game/cards.json word for word, for every Batch 1 card.
+// generated wording equals docs/base-game/cards.json word for word, for every Batch 1 and 2 card (B3-2).
 
 export const KEYWORD_NAMES = {
   quickAttack: 'Quick Attack', infiltrator: 'Infiltrator', overrun: 'Overrun', shell: 'Shell', regenerate: 'Regenerate', retaliate: 'Retaliate', rage: 'Rage',
   drain: 'Drain', sturdy: 'Sturdy', agility: 'Agility', intimidate: 'Intimidate', stealth: 'Stealth', pickup: 'Pickup',
 };
 export const KEYWORD_ORDER = ['quickAttack', 'infiltrator', 'overrun', 'shell', 'regenerate', 'retaliate', 'rage', 'drain', 'sturdy', 'agility', 'intimidate', 'stealth', 'pickup'];
-export const TRIGGER_NAMES = { summon: 'On Summon', attack: 'On Attack', defend: 'On Defend', defeated: 'On Defeated', knockout: 'On Knockout', breakfast: 'On Breakfast', dominate: 'On Dominate' };
+export const TRIGGER_NAMES = { summon: 'On Summon', attack: 'On Attack', defend: 'On Defend', defeated: 'On Defeated', knockout: 'On Knockout', breakfast: 'On Breakfast', dominate: 'On Dominate',
+  command: 'On Command', supper: 'On Supper', aura: 'Aura' };
 export const keywordText = (k, v) => (v === true || v === undefined ? KEYWORD_NAMES[k] : `${KEYWORD_NAMES[k]} ${v}`);
 
 // The target phrases. `word` picks a shorter form some cards use ("each enemy", "one of yours").
@@ -22,7 +23,10 @@ const TARGET = {
   chosenLocEnemies: { '': 'each enemy Pokémon in a Location', short: 'each enemy in a Location' },
   oneOtherEnemyTargetLoc: 'another enemy Pokémon in the target\'s Location', otherEnemiesTargetLoc: 'each other enemy Pokémon in the target\'s Location',
   otherEnemiesItsLoc: 'each other enemy in its Location',
-  eachOwn: { '': 'each of your Pokémon', yours: 'each of yours' }, eachOwnHere: 'each of your Pokémon in its Location',
+  eachOwn: { '': 'each of your Pokémon', yours: 'each of yours' }, eachOwnHere: { '': 'each of your Pokémon in its Location', your: 'your Pokémon in its Location' },
+  // B3-2
+  chosenOtherOwn: 'another of your Pokémon', defeater: 'the Pokémon that defeated it', thisCard: 'it', chosenActiveEnemy: 'an Active enemy Pokémon',
+  acrossFromChosenOwn: 'the enemy across from one of your Pokémon',
   chosenLocOwn: 'each of your Pokémon in a Location', thereOwn: 'each of yours there',
   acrossEnemy: 'the enemy across from it', enemyPC: 'the enemy Player Character', attacker: 'the attacker',
   attacked: 'your Pokémon being attacked', attackerLocEnemies: 'each enemy Pokémon in the attacker\'s Location',
@@ -33,6 +37,7 @@ const SUBJECT = {
   chosenOwn: ['One of your Pokémon', false], attacked: ['Your Pokémon being attacked', false], chosenEnemy: ['An enemy Pokémon', false],
   chosenLocEnemies: ['Each enemy Pokémon in a Location', false], eachOtherOwnHere: ['Your other Pokémon in its Location', true],
   eachOtherOwn: ['Your other Pokémon', true], attacker: ['The attacker', false], it: ['It', false], they: ['They', true],
+  eachEnemy: ['Each enemy Pokémon', false],
 };
 const eachOwnSubject = (word) => (word === 'your' ? ['Your Pokémon', true] : ['Each of your Pokémon', false]);
 export const subjectOf = (op) => (op.to === 'eachOwn' ? eachOwnSubject(op.word) : SUBJECT[op.to] ?? [op.to, false]);
@@ -63,6 +68,7 @@ function predicates(ops, plural) {
     else if (o.op === 'activate') out.push(`${becomes} Active`);
     else if (o.op === 'spend') out.push(`${becomes} Spent`);
     else if (o.op === 'tempKeyword') out.push(`${gets} ${keywordText(o.keyword, o.amount)} until Supper`);
+    else if (o.op === 'tempTrigger') out.push(`has "${TRIGGER_NAMES[o.trigger.on]}: ${effectText(o.trigger.effect)}"`);
     else out.push(o.op);
   }
   return out.join(' and ');
@@ -88,6 +94,26 @@ export const SAY = {
   attackFizzles: () => 'The attack fizzles',
   reduce: ([o]) => `The attack deals ${o.amount} less damage (minimum 0)`,
   noDamage: () => 'The attack deals no damage',
+  // B3-2
+  reduceShort: ([o]) => `The attack deals ${o.amount} less damage`,
+  returnHandLv: ([o]) => `Return ${targetPhrase(o.to, o.word)} to your hand with +${s(o.levels, 'Level', 'Levels')}`,
+  returnDiscard: ([o]) => `Return ${o.amount === 1 ? 'a Pokémon card' : `${o.amount} Pokémon cards`} from your Discard Pile to your hand`,
+  discardRandom: ([o]) => `The opponent discards ${o.amount === 1 ? 'a random card' : `${o.amount} random cards`}`,
+  discardChosen: () => 'The opponent discards a card you choose',
+  randomDiscardShort: () => 'A random discard',
+  steal: () => 'Put a random card from the opponent\'s hand into yours',
+  dollarsYou: ([o]) => `You gain $${o.amount}`,
+  drawYou: ([o]) => `You draw ${s(o.amount, 'card', 'cards')}`,
+  reviveSummon: ([o]) => `Summon a Pokémon of Level ${o.maxLevel} or less from your Discard Pile, for free`,
+  pickDraw: ([o]) => `Put any ${o.amount} cards from your Draw Pile into your hand`,
+  yoursTakes: ([o]) => `Yours takes ${o.amount} damage`,
+  destinyBond: () => 'If your Pokémon being attacked is defeated, the attacker is defeated too',
+  tempTrigger: ([o]) => `Until Supper, ${targetPhrase(o.to, o.word)} has "${TRIGGER_NAMES[o.trigger.on]}: ${effectText(o.trigger.effect)}"`,
+  itsSpeed: () => 'Its Speed is one step higher until Supper',
+  aura: (ops) => `Your other Pokémon in its Location have ${stats(ops)}`,
+  heldStatKw: ([a, k]) => `+${a.amount} ${STAT[a.op]} and ${keywordText(k.keyword, k.amount)}`,
+  locDrawOnDefeat: ([o]) => `When a Pokémon here is defeated, its owner draws ${s(o.amount, 'card', 'cards')}`,
+  alsoTake: ([o]) => `They also take ${o.amount} damage`,
   // Held Items and Locations (passives).
   heldStat: ([o]) => `+${o.amount} ${STAT[o.op]}${o.noHitBack ? ', but it can\'t hit back' : ''}`,
   heldKeyword: ([o]) => keywordText(o.keyword, o.amount),
@@ -98,7 +124,7 @@ export const SAY = {
   locDiscount: ([o]) => `Summoning a Pokémon here costs ${o.amount} less (minimum 0)`,
   locHeal: ([o]) => `Pokémon here heal ${o.amount} at Breakfast`,
 };
-const LOWER_MID = /^(Heal|Draw|Gain|Return|Put|It|They)\b/;
+const LOWER_MID = /^(Heal|Draw|Gain|Return|Put|It|Its|They|You|Yours|A random)\b/;
 // The full sentence(s) of an effect.
 export function effectText(effect) {
   let out = '';
@@ -107,13 +133,18 @@ export function effectText(effect) {
     if (i && (c.sep === ', and ' || c.sep === ', ') && LOWER_MID.test(t)) t = t.charAt(0).toLowerCase() + t.slice(1);
     out += (i ? c.sep : '') + t;
   }
-  return `${out}.`;
+  // (A quoted trigger ends in its own full stop: 'has "On Defeated: … it."')
+  return out.endsWith('"') ? out : `${out}.`;
 }
 export const effectOps = (effect) => effect.flatMap((c) => c.ops);
 
 // A Move mode's short line on the card.
-export function shortModeText(effect) {
+// B3-2: a few card lines use the game's other short forms; `style` (chosen by tools/buildcards.mjs to match the card,
+// stored with the mode) picks them: abbr ("+1 Atk, +1 Str kept"), first ("+2 Strength first": before the attack).
+export function shortModeText(effect, style = {}) {
   const ops = effectOps(effect);
+  const A = style.abbr ? 'Atk' : 'Attack';
+  const S = style.abbr ? 'Str' : 'Strength';
   const parts = [];
   ops.forEach((o, i) => {
     const prev = ops[i - 1];
@@ -121,6 +152,9 @@ export function shortModeText(effect) {
     const single = ops.filter((x) => x.op !== 'attackFizzles').length === 1;
     switch (o.op) {
       case 'damage': {
+        if (o.to === 'theChosenOwn') { parts.push(`yours takes ${o.amount}`); break; }
+        if (o.to === 'attacker' && i > 0) { parts.push(`${o.amount} to attacker`); break; }
+        if (o.to === 'chosenActiveEnemy') { parts.push(`${o.amount} damage, Active enemy`); break; }
         const where = { eachEnemy: ' to all', chosenLocEnemies: ' in a Location', attackerLocEnemies: ' in its Location' }[o.to] ?? (o.to === 'attacker' && single ? ' to the attacker' : '');
         parts.push(`${o.amount} damage${where}`);
         break;
@@ -129,15 +163,22 @@ export function shortModeText(effect) {
         if (o.to === 'attacked' && o.before) parts.push(`Heal ${o.amount} first`);
         else parts.push(`heal ${o.amount}${o.to === 'eachOwn' && next?.to !== 'they' ? ' to all' : ''}`);
         break;
-      case 'attack': parts.push(`+${o.amount} Attack${next?.op === 'strength' ? '' : ' (kept)'}`); break;
-      case 'strength': parts.push(o.to === 'they' ? `+${o.amount} Strength to all` : prev?.op === 'attack' ? `+${o.amount} Strength kept` : `+${o.amount} Strength (kept)`); break;
+      case 'attack': parts.push(`+${o.amount} ${A}${next?.op === 'strength' ? '' : ' (kept)'}`); break;
+      case 'strength': parts.push(o.to === 'they' ? `+${o.amount} ${S} to all` : prev?.op === 'attack' ? `+${o.amount} ${S} kept` : `+${o.amount} ${S} (kept)`); break;
       case 'tempAttack': parts.push(o.to === 'attacker' && single ? `The attacker gets ${signed(o.amount)} Attack` : `${signed(o.amount)} Attack`); break;
-      case 'tempStrength': parts.push(`${signed(o.amount)} Strength`); break;
+      case 'tempStrength': parts.push(`${signed(o.amount)} Strength${style.first ? ' first' : ''}`); break;
+      case 'reduce': parts.push(effect.some((c) => c.say === 'reduceShort') ? `−${o.amount} damage` : `The attack deals ${o.amount} less`); break;
+      case 'tempKeyword': parts.push(`${keywordText(o.keyword, o.amount)} until Supper`); break;
+      case 'returnDiscard': parts.push(`recover ${o.amount}`); break;
+      case 'destinyBond': parts.push('Attacker falls with it'); break;
+      case 'tempTrigger': parts.push(`${TRIGGER_NAMES[o.trigger.on].replace(/^On /, '')}: ${shortModeText(o.trigger.effect).replace(/^(\d+ damage).*/, '$1')} back`); break;
+      case 'dollars': parts.push(`Gain $${o.amount}`); break;
+      case 'discardRandom': parts.push('They discard at random'); break;
+      case 'steal': parts.push('Take a random card'); break;
       case 'activate': parts.push('Active'); break;
       case 'spend': parts.push(o.to === 'chosenEnemy' ? 'An enemy becomes Spent' : o.to === 'chosenLocEnemies' ? 'Spend all in a Location' : 'Spent'); break;
       case 'shellTemp': parts.push(`Shell ${o.amount} until Supper`); break;
       case 'noDamage': parts.push('No damage from the attack'); break;
-      case 'reduce': parts.push(`The attack deals ${o.amount} less`); break;
       case 'returnHand': parts.push(o.to === 'attacked' ? 'Save it: back to your hand' : 'Back to your hand'); break;
       case 'draw': parts.push(`draw ${o.amount}`); break;
       case 'attackFizzles': break;
@@ -150,12 +191,15 @@ export function shortModeText(effect) {
 
 // A Supporter's Favour line, from what it changes in (or adds to) the effect.
 export const FAVOUR_RELEASE = { water: 'a Water Pokémon', fire: 'a Fire Pokémon', grass: 'a Grass Pokémon', electric: 'an Electric Pokémon', location: 'a Location',
-  bigPokemon: 'a Pokémon of Level 4 or more', item: 'an Item', move: 'a Move' };
+  bigPokemon: 'a Pokémon of Level 4 or more', item: 'an Item', move: 'a Move',
+  fighting: 'a Fighting Pokémon', dark: 'a Dark Pokémon', psychic: 'a Psychic Pokémon', ghost: 'a Ghost Pokémon' };
 function changeWord(o) {
   switch (o.op) {
     case 'heal': return `Heal ${o.amount}`;
     case 'draw': return `Draw ${o.amount}`;
-    case 'search': case 'recover': return `${o.amount} cards`;
+    case 'search': case 'recover': case 'pickDraw': case 'discardRandom': return `${o.amount} cards`;
+    case 'dollars': return `Gain $${o.amount}`;
+    case 'reviveSummon': return `Level ${o.maxLevel} or less`;
     case 'strength': return `+${o.amount} Strength`;
     case 'attack': return `+${o.amount} Attack`;
     case 'tempAttack': return `${signed(o.amount)} Attack`;
@@ -175,6 +219,8 @@ export function favourDiff(base, favour) {
 }
 export function favourText(sup) {
   const { changed, added } = favourDiff(sup.effect, sup.favour.effect);
+  // B3-2: Officer Jenny's "They also take 1 damage."
+  if (!changed.length && added.length === 1 && added[0].op === 'damage' && added[0].to === 'they') return `They also take ${added[0].amount} damage.`;
   if (added.length) return `${[...changed, ...added].map((o, i) => (i === changed.length + added.length - 1 && i ? `and ${changeWord(o)}` : changeWord(o))).join(', ')}.`;
   if (changed.length === 2 && changed.every((o) => o.op === 'damage')) return `${changed[0].amount} and ${changed[1].amount} instead.`;
   if (changed.length === 2 && changed[0].op === 'attack' && changed[1].op === 'strength') return `+${changed[0].amount} and +${changed[1].amount} instead.`;
@@ -189,6 +235,10 @@ export const objectiveText = (o) => ({
   keptGain: `Give your Pokémon kept Attack or Strength ${o.need} times.`,
   extraEnergy: `Gain ${o.need} extra Energy from your cards.`,
   itemsBought: `Buy ${o.need} Items from the PokéMart.`,
+  movesPlayed: `Play ${o.need} Moves as Adapt or Strat.`,
+  survived: `Your Pokémon survive ${o.need} enemy attacks.`,
+  discardReturned: `Return ${o.need} cards from your Discard Pile.`,
+  pcDamaged: `Damage the enemy Player Character ${o.need} times.`,
 }[o.op] ?? o.op);
 // A trigger in one line: "On Summon: 1 damage to an enemy Pokémon."
 export const triggerLine = (t) => (t ? `${TRIGGER_NAMES[t.on]}: ${effectText(t.effect)}` : '');

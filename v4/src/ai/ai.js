@@ -163,13 +163,16 @@ function bestChoice(s, who) {
 // B3-1: nor the other player's hand or Draw Pile: in the view each of those cards is an unknown card (only how many
 // there are), so the AI's look-ahead can't see what they could React with or draw.
 const HIDDEN = (c) => ({ uid: c.uid, id: 'hidden', cardType: 'Hidden', name: 'a hidden card' });
+// B3-2: the one exception: inside a "card you choose" pick from the other player's hand (Sabrina's), the AI sees that
+// hand, for that choice only.
 export function hiddenView(s, who) {
   const foe = opponentOf(who);
   const fp = s.players[foe];
+  const picking = s.choice?.who === who && s.choice.from === 'opponentHand';
   return {
     ...s,
     strats: (s.strats ?? []).filter((x) => x.owner === who),
-    players: { ...s.players, [foe]: { ...fp, hand: fp.hand.map(HIDDEN), drawPile: fp.drawPile.map(HIDDEN) } },
+    players: { ...s.players, [foe]: { ...fp, hand: picking ? fp.hand : fp.hand.map(HIDDEN), drawPile: fp.drawPile.map(HIDDEN) } },
   };
 }
 export function chooseAction(real, who, { rng = Math.random } = {}) {

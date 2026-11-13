@@ -1,23 +1,24 @@
-// B3-1 simulation: seeded AI-vs-AI matches for each of the 16 deck pairings (4 decks × 4 decks, the "player" seat
+// B3-1/B3-2 simulation: seeded AI-vs-AI matches for every deck pairing (8 decks × 8 since B3-2: 64; the "player" seat
 // playing the first deck). Each match must end (a winner) with no error, no stall and no illegal action (applyAction
 // throws on an illegal one). Pure Node: the same engine and AI as the browser.
-//   node v4/tools/sim-b3.mjs [matches=200] [pairings=0-15] [--json]
-// Pairings are numbered 0–15 (row-major over DECK_IDS); give a range or a list ("0-3", "4,5") to split the run
+//   node v4/tools/sim-b3.mjs [matches=100] [pairings=0-63] [--json]
+// Pairings are numbered 0–63 (row-major over DECK_IDS); give a range or a list ("0-3", "4,5") to split the run
 // across processes. Prints each pairing's result and each deck's win rate (or JSON with --json).
 import { createGame, applyAction, actor } from '../src/engine/game.js';
 import { chooseAction } from '../src/ai/ai.js';
 import { DECKS, DECK_IDS } from '../src/engine/decks.js';
 
-const N = Number(process.argv[2] ?? 200);
-const pick = (process.argv[3] ?? '0-15').split(',').flatMap((x) => { const [a, b] = x.split('-').map(Number); return Array.from({ length: (b ?? a) - a + 1 }, (_, i) => a + i); });
+const N = Number(process.argv[2] ?? 100);
+const D = DECK_IDS.length;
+const pick = (process.argv[3] ?? `0-${D * D - 1}`).split(',').flatMap((x) => { const [a, b] = x.split('-').map(Number); return Array.from({ length: (b ?? a) - a + 1 }, (_, i) => a + i); });
 const JSON_OUT = process.argv.includes('--json');
 const MAX_ACTIONS = 8000;
 const MAX_ROUNDS = 40;
 
 const results = [];
 for (const k of pick) {
-  const A = DECK_IDS[Math.floor(k / 4)];
-  const B = DECK_IDS[k % 4];
+  const A = DECK_IDS[Math.floor(k / D)];
+  const B = DECK_IDS[k % D];
   const r = { pairing: k, player: A, ai: B, matches: N, playerWins: 0, aiWins: 0, errors: [], stalls: 0, rounds: [] };
   for (let seed = 1; seed <= N; seed++) {
     let s = createGame(seed * 7919 + k, { decks: { player: A, ai: B } });

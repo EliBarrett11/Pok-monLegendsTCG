@@ -3,7 +3,7 @@
 // Every effect's wording is matched here to the effect vocabulary (src/engine/wording.js), as clauses of ops; the game
 // generates its wording back from the ops, and tests/cardsdata.test.js checks it equals cards.json word for word.
 // A sentence that matches no pattern stops the build (it names the card), so nothing is ever hand-typed in the game.
-// Batch 1 only (B3-1); Batches 2–4 arrive in B3-2 and B3-3. The output is stable: the same input gives the same file.
+// Batches 1–2 (B3-1, B3-2); Batches 3–4 arrive in B3-3. The output is stable: the same input gives the same file.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { effectText, favourText, targetPhrase, FAVOUR_RELEASE, KEYWORD_NAMES, objectiveText, shortModeText } from '../src/engine/wording.js';
@@ -11,14 +11,15 @@ import { effectText, favourText, targetPhrase, FAVOUR_RELEASE, KEYWORD_NAMES, ob
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const SRC = `${ROOT}docs/base-game/cards.json`;
 const OUT = `${ROOT}v4/src/data/cards.js`;
-const BATCHES = [1];
+const BATCHES = [1, 2];
 
 // --- Phrases --------------------------------------------------------------------------------------------------------
 const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const TARGETS = [];
 for (const to of ['chosenEnemy', 'chosenOwn', 'eachEnemy', 'eachEnemyHere', 'chosenLocEnemies', 'oneOtherEnemyTargetLoc', 'otherEnemiesTargetLoc', 'otherEnemiesItsLoc',
-  'eachOwn', 'eachOwnHere', 'chosenLocOwn', 'thereOwn', 'acrossEnemy', 'enemyPC', 'attacker', 'attacked', 'attackerLocEnemies']) {
-  for (const word of ['', 'yours', 'short']) {
+  'eachOwn', 'eachOwnHere', 'chosenLocOwn', 'thereOwn', 'acrossEnemy', 'enemyPC', 'attacker', 'attacked', 'attackerLocEnemies',
+  'chosenOtherOwn', 'defeater', 'thisCard', 'chosenActiveEnemy', 'acrossFromChosenOwn']) {
+  for (const word of ['', 'yours', 'short', 'your']) {
     const p = targetPhrase(to, word);
     if (!TARGETS.some((t) => t.p === p)) TARGETS.push({ to, word, p });
   }
@@ -28,7 +29,7 @@ const TGT = `(${TARGETS.map((t) => esc(t.p)).join('|')})`;
 const target = (p) => { const t = TARGETS.find((x) => x.p === p); return t.word ? { to: t.to, word: t.word } : { to: t.to }; };
 const SUBJECTS = [['One of your Pokémon', 'chosenOwn'], ['Your Pokémon being attacked', 'attacked'], ['An enemy Pokémon', 'chosenEnemy'],
   ['Each enemy Pokémon in a Location', 'chosenLocEnemies'], ['Your other Pokémon in its Location', 'eachOtherOwnHere'], ['Your other Pokémon', 'eachOtherOwn'],
-  ['Your Pokémon', 'eachOwn', 'your'], ['Each of your Pokémon', 'eachOwn'], ['The attacker', 'attacker'], ['It', 'it'], ['They', 'they']];
+  ['Your Pokémon', 'eachOwn', 'your'], ['Each of your Pokémon', 'eachOwn'], ['The attacker', 'attacker'], ['It', 'it'], ['They', 'they'], ['Each enemy Pokémon', 'eachEnemy']];
 const SUBJ = `(${SUBJECTS.map(([p]) => esc(p)).sort((a, b) => b.length - a.length).join('|')})`;
 const KWS = Object.entries(KEYWORD_NAMES).sort((a, b) => b[1].length - a[1].length);
 const KW = `(${KWS.map(([, n]) => esc(n)).join('|')})`;
@@ -38,13 +39,14 @@ const num = (t) => Number(t.replace('−', '-'));
 const statOps = (t, kind, extra = {}) => [...t.matchAll(/([+−]\d+) (Attack|Strength)/g)].map((m, i) => ({ op: { kept: m[2] === 'Attack' ? 'attack' : 'strength', temp: m[2] === 'Attack' ? 'tempAttack' : 'tempStrength', held: m[2] === 'Attack' ? 'attack' : 'strength' }[kind], amount: num(m[1]), ...(i ? { to: 'same' } : {}), ...extra }));
 
 // A subject's predicates, in order: "gets +2 Attack (kept)", "becomes Active", "gets Shell 2 until Supper" …
-const PRED = `(?:(?:gets?|becomes?) (?:${STATS} \\(kept\\)|${STATS} until Supper|Shell \\d+ until Supper|Active|Spent))`;
+const PRED = `(?:(?:gets?|becomes?) (?:${STATS} \\(kept\\)|${STATS} until Supper|Shell \\d+ until Supper|${KW}(?: \\d+)? until Supper|Active|Spent))`;
 function predOps(text) {
   const ops = [];
-  for (const m of text.matchAll(new RegExp(`(gets?|becomes?) (${STATS} \\(kept\\)|${STATS} until Supper|Shell (\\d+) until Supper|Active|Spent)`, 'g'))) {
+  for (const m of text.matchAll(new RegExp(`(gets?|becomes?) (${STATS} \\(kept\\)|${STATS} until Supper|Shell (\\d+) until Supper|${KW}(?: (\\d+))? until Supper|Active|Spent)`, 'g'))) {
     const p = m[2];
     if (/\(kept\)$/.test(p)) ops.push(...statOps(p, 'kept'));
-    else if (/until Supper$/.test(p) && /^Shell/.test(p)) ops.push({ op: 'shellTemp', amount: num(m[5]) });
+    else if (/until Supper$/.test(p) && /^Shell \d/.test(p)) ops.push({ op: 'shellTemp', amount: num(m[5]) });
+    else if (m[6]) ops.push({ op: 'tempKeyword', keyword: kwId(m[6]), ...(m[7] ? { amount: num(m[7]) } : {}) });
     else if (/until Supper$/.test(p)) ops.push(...statOps(p, 'temp'));
     else ops.push({ op: p === 'Active' ? 'activate' : 'spend' });
   }
@@ -78,24 +80,49 @@ const PATTERNS = {
     ['attackFizzles', /^The attack fizzles/, () => [{ op: 'attackFizzles' }]],
     ['reduce', /^The attack deals (\d+) less damage \(minimum 0\)/, (m) => [{ op: 'reduce', amount: num(m[1]), to: 'attack' }]],
     ['noDamage', /^The attack deals no damage/, () => [{ op: 'noDamage', to: 'attack' }]],
+    // B3-2
+    ['reduceShort', /^The attack deals (\d+) less damage/, (m) => [{ op: 'reduce', amount: num(m[1]), to: 'attack' }]],
+    ['returnHandLv', new RegExp(`^Return ${TGT} to your hand with \\+(\\d+) Levels?`), (m) => [{ op: 'returnHand', ...target(m[1]), levels: num(m[2]) }]],
+    ['returnDiscard', /^Return (a|\d+) Pokémon cards? from your Discard Pile to your hand/, (m) => [{ op: 'returnDiscard', amount: m[1] === 'a' ? 1 : num(m[1]) }]],
+    ['discardRandom', /^The opponent discards (a|\d+) random cards?/, (m) => [{ op: 'discardRandom', amount: m[1] === 'a' ? 1 : num(m[1]) }]],
+    ['discardChosen', /^The opponent discards a card you choose/, () => [{ op: 'discardChosen', amount: 1 }]],
+    ['randomDiscardShort', /^A random discard/, () => [{ op: 'discardRandom', amount: 1 }]],
+    ['steal', /^Put a random card from the opponent's hand into yours/, () => [{ op: 'steal', amount: 1 }]],
+    ['dollarsYou', /^You gain \$(\d+)/, (m) => [{ op: 'dollars', amount: num(m[1]) }]],
+    ['drawYou', /^You draw (\d+) cards?/, (m) => [{ op: 'draw', amount: num(m[1]) }]],
+    ['reviveSummon', /^Summon a Pokémon of Level (\d+) or less from your Discard Pile, for free/, (m) => [{ op: 'reviveSummon', maxLevel: num(m[1]) }]],
+    ['pickDraw', /^Put any (\d+) cards from your Draw Pile into your hand/, (m) => [{ op: 'pickDraw', amount: num(m[1]) }]],
+    ['yoursTakes', /^Yours takes (\d+) damage/, (m) => [{ op: 'damage', amount: num(m[1]), to: 'theChosenOwn' }]],
+    ['destinyBond', /^If your Pokémon being attacked is defeated, the attacker is defeated too/, () => [{ op: 'destinyBond', to: 'attacked' }]],
+    ['itsSpeed', /^Its Speed is one step higher until Supper/, () => [{ op: 'speed', amount: 1, until: 'supper', to: 'it' }]],
+    ['aura', new RegExp(`^Your other Pokémon in its Location have ${STATS}`), (m) => statOps(m[1], 'held').map((o) => { const { to, ...rest } = o; return { ...rest, to: 'eachOtherOwnHere' }; })],
   ],
   held: [
     ['heldStat', /^\+(\d+) (Attack|Strength)(, but it can't hit back)?/, (m) => [{ op: m[2] === 'Attack' ? 'attack' : 'strength', amount: num(m[1]), ...(m[3] ? { noHitBack: true } : {}) }]],
     ['heldTypeKeyword', new RegExp(`^An? (\\w+) Pokémon also has ${KW}(?: (\\d+))?`), (m) => [{ op: 'keyword', keyword: kwId(m[2]), ...(m[3] ? { amount: num(m[3]) } : {}), type: m[1] }]],
     ['heldKeyword', new RegExp(`^${KW}(?: (\\d+))?`), (m) => [{ op: 'keyword', keyword: kwId(m[1]), ...(m[2] ? { amount: num(m[2]) } : {}) }]],
     ['heldSpeed', /^Its Speed is one step higher/, () => [{ op: 'speed', amount: 1 }]],
+    ['heldStatKw', new RegExp(`^\\+(\\d+) (Attack|Strength) and ${KW}`), (m) => [{ op: m[2] === 'Attack' ? 'attack' : 'strength', amount: num(m[1]) }, { op: 'keyword', keyword: kwId(m[3]) }]],
   ],
   location: [
     ['locStat', new RegExp(`^Pokémon(?: of Level (\\d+) or less)? here have ${STATS}`), (m) => statOps(m[2], 'held', m[1] ? { maxLevel: num(m[1]) } : {}).map((o) => { const { to, ...rest } = o; return rest; })],
     ['locKeyword', new RegExp(`^Pokémon here have ${KW}(?: (\\d+))?`), (m) => [{ op: 'keyword', keyword: kwId(m[1]), ...(m[2] ? { amount: num(m[2]) } : {}) }]],
     ['locDiscount', /^Summoning a Pokémon here costs (\d+) less \(minimum 0\)/, (m) => [{ op: 'discount', amount: num(m[1]) }]],
     ['locHeal', /^Pokémon here heal (\d+) at Breakfast/, (m) => [{ op: 'heal', amount: num(m[1]), when: 'breakfast' }]],
+    ['locDrawOnDefeat', /^When a Pokémon here is defeated, its owner draws (\d+) cards?/, (m) => [{ op: 'drawOnDefeat', amount: num(m[1]) }]],
   ],
 };
 const SEPS = ['. ', ', and ', ', '];
 
 // Parse one effect sentence into clauses; throws if any part matches no pattern.
 function parse(text, kind, where) {
+  // B3-2: 'Until Supper, one of your Pokémon has "On Defeated: …."' (a whole sentence with a trigger inside).
+  const q = text.match(new RegExp(`^Until Supper, ${TGT} has "(On [A-Za-z]+): (.+)"$`));
+  if (q) {
+    const clauses = [{ say: 'tempTrigger', ops: [{ op: 'tempTrigger', ...target(q[1]), trigger: { on: TRIGGERS[q[2]], effect: parse(q[3], 'effect', `${where} (quoted)`) } }] }];
+    if (effectText(clauses) !== text) throw new Error(`${where}: the wording doesn't round-trip`);
+    return clauses;
+  }
   if (!text.endsWith('.')) throw new Error(`${where}: no full stop: "${text}"`);
   const body = text.slice(0, -1);
   const clauses = [];
@@ -135,12 +162,15 @@ function favourEffect(base, text, where) {
   else if ((m = text.match(/^\+(\d+) and \+(\d+) instead\.$/))) { first((o) => o.op === 'attack').amount = num(m[1]); first((o) => o.op === 'strength').amount = num(m[2]); }
   else if ((m = text.match(/^Heal (\d+) instead\.$/))) first((o) => o.op === 'heal').amount = num(m[1]);
   else if ((m = text.match(/^Draw (\d+) instead\.$/))) first((o) => o.op === 'draw').amount = num(m[1]);
-  else if ((m = text.match(/^(\d+) cards instead\.$/))) first((o) => o.op === 'search' || o.op === 'recover').amount = num(m[1]);
+  else if ((m = text.match(/^(\d+) cards instead\.$/))) first((o) => ['search', 'recover', 'pickDraw', 'discardRandom'].includes(o.op)).amount = num(m[1]);
   else if ((m = text.match(/^\+(\d+) Strength instead\.$/))) first((o) => o.op === 'strength').amount = num(m[1]);
   else if ((m = text.match(/^\+(\d+) Attack instead\.$/))) first((o) => o.op === 'attack' || o.op === 'tempAttack').amount = num(m[1]);
   else if ((m = text.match(/^\+(\d+) Levels instead\.$/))) first((o) => o.op === 'handLevels').amount = num(m[1]);
   else if ((m = text.match(/^(\d+) damage instead\.$/))) first((o) => o.op === 'damage').amount = num(m[1]);
   else if ((m = text.match(/^Shell (\d+) instead\.$/))) first((o) => o.op === 'shellTemp').amount = num(m[1]);
+  else if ((m = text.match(/^Gain \$(\d+) instead\.$/))) first((o) => o.op === 'dollars').amount = num(m[1]);
+  else if ((m = text.match(/^Level (\d+) or less instead\.$/))) first((o) => o.op === 'reviveSummon').maxLevel = num(m[1]);
+  else if ((m = text.match(/^They also take (\d+) damage\.$/))) fx.push({ say: 'alsoTake', sep: '. ', ops: [{ op: 'damage', amount: num(m[1]), to: 'they' }] });
   else if ((m = text.match(new RegExp(`^\\+(\\d+) Attack, and ${KW} until Supper\\.$`)))) {
     first((o) => o.op === 'tempAttack').amount = num(m[1]);
     fx.at(-1).ops.push({ op: 'tempKeyword', keyword: kwId(m[2]), to: 'same' });
@@ -149,8 +179,11 @@ function favourEffect(base, text, where) {
 }
 const FAVOUR_KEY = Object.fromEntries(Object.entries(FAVOUR_RELEASE).map(([k, v]) => [v, k]));
 const OBJECTIVES = [[/^Defeat (\d+) enemy Pokémon\.$/, 'defeat'], [/^Dominate a Location (\d+) times\.$/, 'dominate'], [/^Give your Pokémon kept Attack or Strength (\d+) times\.$/, 'keptGain'],
-  [/^Gain (\d+) extra Energy from your cards\.$/, 'extraEnergy'], [/^Buy (\d+) Items from the PokéMart\.$/, 'itemsBought']];
-const TRIGGERS = { 'On Summon': 'summon', 'On Attack': 'attack', 'On Defend': 'defend', 'On Defeated': 'defeated', 'On Knockout': 'knockout', 'On Breakfast': 'breakfast', 'On Dominate': 'dominate' };
+  [/^Gain (\d+) extra Energy from your cards\.$/, 'extraEnergy'], [/^Buy (\d+) Items from the PokéMart\.$/, 'itemsBought'],
+  [/^Play (\d+) Moves as Adapt or Strat\.$/, 'movesPlayed'], [/^Your Pokémon survive (\d+) enemy attacks\.$/, 'survived'],
+  [/^Return (\d+) cards from your Discard Pile\.$/, 'discardReturned'], [/^Damage the enemy Player Character (\d+) times\.$/, 'pcDamaged']];
+const TRIGGERS = { 'On Summon': 'summon', 'On Attack': 'attack', 'On Defend': 'defend', 'On Defeated': 'defeated', 'On Knockout': 'knockout', 'On Breakfast': 'breakfast', 'On Dominate': 'dominate',
+  'On Command': 'command', 'On Supper': 'supper', Aura: 'aura' };
 const keywords = (list) => Object.fromEntries(list.map((k) => { const m = k.match(/^(.*?)(?: (\d+))?$/); return [kwId(m[1]), m[2] ? num(m[2]) : true]; }));
 const trigger = (f, where) => (f.trigger ? { on: TRIGGERS[f.trigger] ?? (() => { throw new Error(`${where}: unknown trigger ${f.trigger}`); })(), effect: parse(f.text, 'effect', where) } : null);
 
@@ -167,8 +200,10 @@ const moves = db.moves.filter(inBatch).map((m) => ({
   id: m.id, name: m.name, batch: m.batch, type: m.type, art: m.art, hasArt: !!m.hasArt,
   modes: Object.fromEntries(m.modes.map((x) => {
     const effect = parse(x.text, 'effect', `${m.id}/${x.mode}`);
-    if (shortModeText(effect) !== x.cardText) throw new Error(`${m.id}/${x.mode}: the card line doesn't round-trip:\n  card: ${x.cardText}\n  gen:  ${shortModeText(effect)}`);
-    return [MODES[x.mode], { cost: x.cost, effect }];
+    // B3-2: the card line's short-form style, whichever of the game's styles gives cards.json's line.
+    const style = [{}, { abbr: true }, { first: true }, { abbr: true, first: true }].find((st) => shortModeText(effect, st) === x.cardText);
+    if (!style) throw new Error(`${m.id}/${x.mode}: the card line doesn't round-trip:\n  card: ${x.cardText}\n  gen:  ${shortModeText(effect)}`);
+    return [MODES[x.mode], { cost: x.cost, effect, ...(Object.keys(style).length ? { style } : {}) }];
   })),
 }));
 const supporters = db.supporters.filter(inBatch).map((s) => {
@@ -212,9 +247,17 @@ const file = `// GENERATED by v4/tools/buildcards.mjs from docs/base-game/cards.
 //     search N / recover N (Pokémon cards from the Draw / Discard Pile into your hand) · handLevels N (Pokémon cards in
 //     your hand gain N Levels: 'eachHand', or 'found': the cards just searched)
 //     typeBonus N, cap (+N of each stat, kept, for each other Type among your Pokémon, up to cap)
+//     B3-2: returnHand (levels N: +N Levels in hand) · returnDiscard N (Pokémon cards from your Discard Pile to your hand:
+//     you pick) · reviveSummon (maxLevel N: summon a Pokémon of this Round's Level N or less from your Discard Pile,
+//     free, into an empty space you choose) · pickDraw N (any N cards from your Draw Pile: you pick; then it's shuffled)
+//     discardRandom N / discardChosen N (the opponent discards: at random / a card you choose) · steal N (a random card
+//     from the opponent's hand into yours) · destinyBond (the attacker is defeated too if the attacked Pokémon is) ·
+//     tempTrigger (a trigger until Supper) · speed N, until: 'supper'
 //   Held Items and Location passives (while held / while in that Location): attack N · strength N (maxLevel: only Pokémon
 //     of that Level or less) · keyword (type: only a Pokémon of that Type) · speed N (steps) · noHitBack · discount N ·
 //     heal N at Breakfast
+//     · drawOnDefeat N (when a Pokémon there is defeated, its owner draws N) · Aura (a Pokémon's trigger 'aura'):
+//     attack N / strength N to eachOtherOwnHere, constant while it's in play
 //   targets (to): self · chosenEnemy · chosenOwn (you choose; a Move's or Item's target is the first one)
 //     chosenLocEnemies / chosenLocOwn (each enemy / each of yours in a chosen Location) · thereOwn (each of yours in it)
 //     eachEnemy · eachEnemyHere / eachOwnHere / eachOtherOwnHere (in its Location) · eachOwn · eachOtherOwn
@@ -222,10 +265,15 @@ const file = `// GENERATED by v4/tools/buildcards.mjs from docs/base-game/cards.
 //     enemy's Location) · acrossEnemy (the same lane) · enemyPC (the enemy Player Character) · attacker · attacked ·
 //     attackerLocEnemies (each enemy in the attacker's Location) · attack (the attack being Reacted to)
 //     same / it / they (the previous op's Pokémon)
-//   triggers (on): summon · attack · defend · defeated · knockout · breakfast · dominate
+//     B3-2: chosenOtherOwn (another of your Pokémon) · chosenActiveEnemy · acrossFromChosenOwn (the enemy across from one
+//     of your Pokémon you choose) · theChosenOwn (that Pokémon of yours) · defeater (the Pokémon that defeated it) ·
+//     thisCard (it: the defeated card itself)
+//   triggers (on): summon · attack · defend · defeated · knockout · breakfast · dominate · command · supper · aura
 //   keywords: quickAttack · infiltrator · overrun · shell N · regenerate N · retaliate N · rage · drain · sturdy ·
 //     agility · intimidate N · stealth · pickup
-//   Objectives (op, need): defeat · dominate · keptGain · extraEnergy · itemsBought
+//   Objectives (op, need): defeat · dominate · keptGain · extraEnergy · itemsBought · movesPlayed · survived · discardReturned ·
+//     pcDamaged
+//   Move modes may carry style (the card line's short forms: abbr 'Atk'/'Str', first).
 
 ${list('POKEMON', pokemon)}
 ${list('MOVES', moves)}

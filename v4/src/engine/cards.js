@@ -15,7 +15,7 @@ export const keywordList = (kw = {}) => Object.keys(kw).filter((k) => kw[k] && K
 export const triggerText = (t) => (t ? `${TRIGGER_NAMES[t.on]}: ${effectText(t.effect).replace(/\.$/, '')}` : '');
 export const cardText = (c) => [keywordList(c.keywords).join(', '), triggerText(c.trigger)].filter(Boolean).join('. ');
 // The resolution-time choices ("an enemy Pokémon", "one of your Pokémon", "each enemy Pokémon in a Location").
-export const CHOSEN = ['chosenEnemy', 'chosenOwn', 'chosenOtherOwnHere', 'chosenLocEnemies', 'chosenLocOwn'];
+export const CHOSEN = ['chosenEnemy', 'chosenOwn', 'chosenOtherOwnHere', 'chosenLocEnemies', 'chosenLocOwn', 'chosenOtherOwn', 'chosenActiveEnemy', 'acrossFromChosenOwn'];
 export const needsChoice = (t) => !!t && t.effect && effectOps(t.effect).some((o) => CHOSEN.includes(o.to));
 const withOps = (t) => (t ? { on: t.on, effect: t.effect, ops: effectOps(t.effect) } : null);
 
@@ -47,13 +47,15 @@ export function pokemonAt(id, level, levelBonus = 0) {
 export const MODES = ['adapt', 'react', 'strat'];
 export const MODE_NAMES = { adapt: 'Adapt', react: 'React', strat: 'Strat' };
 const TARGET_OF = { chosenEnemy: 'enemy', chosenOwn: 'own', chosenLocEnemies: 'location', chosenLocOwn: 'ownLocation', eachEnemy: 'allEnemies', eachOwn: 'allOwn',
-  attacker: 'attacker', attackerLocEnemies: 'attacker', attack: 'attacker', attacked: 'attacked' };
+  attacker: 'attacker', attackerLocEnemies: 'attacker', attack: 'attacker', attacked: 'attacked',
+  // B3-2: Sucker Punch (an Active enemy), Close Combat (one of yours with an enemy across from it).
+  chosenActiveEnemy: 'activeEnemy', acrossFromChosenOwn: 'ownAcross' };
 const modeTargetOf = (ops) => TARGET_OF[ops.find((o) => TARGET_OF[o.to])?.to] ?? 'none';
 export const COMMANDS = MOVES.map((m) => ({
   id: m.id, name: m.name, cardType: 'Command', type: m.type, art: m.art, hasArt: m.hasArt,
   modes: Object.fromEntries(Object.entries(m.modes).map(([k, x]) => {
     const ops = effectOps(x.effect);
-    return [k, { cost: x.cost, effect: x.effect, ops, target: modeTargetOf(ops), text: effectText(x.effect), short: shortModeText(x.effect) }];
+    return [k, { cost: x.cost, effect: x.effect, ops, target: modeTargetOf(ops), text: effectText(x.effect), short: shortModeText(x.effect, x.style) }];
   })),
 }));
 for (const c of COMMANDS) c.target = (c.modes.adapt ?? c.modes.strat ?? c.modes.react).target;
@@ -74,6 +76,11 @@ export const FAVOURS = {
   bigPokemon: { text: FAVOUR_RELEASE.bigPokemon, test: (c) => c.cardType === 'Pokémon' && c.level >= 4 },
   item: { text: FAVOUR_RELEASE.item, test: (c) => c.cardType === 'Item' },
   move: { text: FAVOUR_RELEASE.move, test: (c) => c.cardType === 'Command' },
+  // B3-2
+  fighting: { text: FAVOUR_RELEASE.fighting, test: (c) => c.cardType === 'Pokémon' && c.type === 'Fighting' },
+  dark: { text: FAVOUR_RELEASE.dark, test: (c) => c.cardType === 'Pokémon' && c.type === 'Dark' },
+  psychic: { text: FAVOUR_RELEASE.psychic, test: (c) => c.cardType === 'Pokémon' && c.type === 'Psychic' },
+  ghost: { text: FAVOUR_RELEASE.ghost, test: (c) => c.cardType === 'Pokémon' && c.type === 'Ghost' },
 };
 export const SUPPORTERS = SUP_DATA.map((s) => {
   const sup = { id: s.id, name: s.name, cardType: 'Supporter', art: s.art, hasArt: s.hasArt, release: s.release, effect: s.effect, ops: effectOps(s.effect), text: effectText(s.effect),
@@ -99,7 +106,8 @@ export const BAG_SIZE = 6;   // the Inventory Bag (v1: src/engine/game.js BAG_SI
 // --- Locations ---------------------------------------------------------------------------------------------------------
 // A Location: its lanes, Rounds and passive (ops on the Pokémon there; symmetric). Colours are the tile's border.
 const LOCATION_COLOR = { 'cerulean-cape': '#4a9ae8', 'mt-ember': '#f08a3a', 'lake-of-rage': '#3ab0c8', 'route-119': '#3ab07a', 'cinnabar-volcano': '#e0603a',
-  'eterna-forest': '#4f9a52', 'floaroma-meadow': '#e08ab8', 'pallet-town': '#c8b07a', 'power-plant': '#e2c040' };
+  'eterna-forest': '#4f9a52', 'floaroma-meadow': '#e08ab8', 'pallet-town': '#c8b07a', 'power-plant': '#e2c040',
+  'shalour-city': '#c86a4a', 'lavender-town': '#8a6ab8', 'saffron-city': '#c87ad8' };
 export const LOCATIONS = LOC_DATA.map((l) => ({ id: l.id, name: l.name, cardType: 'Location', art: l.art, hasArt: l.hasArt, width: l.width, rounds: l.rounds,
   color: LOCATION_COLOR[l.id] ?? '#c2a36a', passive: { effect: l.passive, ops: effectOps(l.passive), text: effectText(l.passive).replace(/\.$/, '') } }));
 export const locationDef = (id) => LOCATIONS.find((l) => l.id === id);
@@ -108,7 +116,8 @@ export const locationDef = (id) => LOCATIONS.find((l) => l.id === id);
 // The Objective is tracked from match setup; the Command is the only way to play a drawn Trainer; the Partner arrives
 // when the Objective completes (Level 8, free).
 const SHORT_OBJECTIVE = { defeat: (n) => `Defeat ${n} Pokémon`, dominate: (n) => `Dominate ${n} times`, keptGain: (n) => `Kept gains ${n} times`,
-  extraEnergy: (n) => `${n} extra Energy`, itemsBought: (n) => `Buy ${n} Items` };
+  extraEnergy: (n) => `${n} extra Energy`, itemsBought: (n) => `Buy ${n} Items`,
+  movesPlayed: (n) => `Play ${n} Moves`, survived: (n) => `Survive ${n} attacks`, discardReturned: (n) => `Return ${n} from Discard`, pcDamaged: (n) => `Hit the enemy ${n} times` };
 export const TRAINERS = TR_DATA.map((t) => {
   const p = t.partner;
   const partner = { id: p.id, name: p.name, cardType: 'Pokémon', art: p.art, hasArt: p.hasArt, series: 'Partner', partner: true, type: p.type, attackType: p.attackType, speed: p.speed,

@@ -104,7 +104,7 @@ const settle = (s) => { while (s.reactWindow) s = applyAction(s, { type: 'declin
   void hb;
 }
 
-// --- Sturdy: the first time each match it would be defeated, it stays at 1, and Sturdy is used up -----------------------------
+// --- Sturdy: the first time it would be defeated, it stays at 1, and Sturdy is used up; it resets when its card leaves play ---
 {
   let s = battle();
   s.players.ai.row[0] = mon('munchlax', 6, { keywords: { sturdy: true }, currentStrength: 3 });   // Snorlax
@@ -117,18 +117,25 @@ const settle = (s) => { while (s.reactWindow) s = applyAction(s, { type: 'declin
   ok(!/Sturdy/.test(cardHTML(s.players.ai.row[0], { size: 'full' })), 'no longer shown');
   s = attack(s, 'player', 0, { kind: 'pokemon', space: 0 });
   eq(s.players.ai.row[0], null, 'the second time, it is defeated');
-  // Used up for the match: back to hand (Swimmer) and summoned again, the same card has no Sturdy.
-  s = battle('ai');
-  s.players.ai.row[0] = mon('munchlax', 6, { keywords: { sturdy: true }, currentStrength: 1 });
-  s.players.player.row[0] = mon('growlithe', 7);
-  const u2 = s.players.ai.row[0].uid;
-  s = attack(s, 'player', 0, { kind: 'pokemon', space: 0 });
-  ok(s.players.ai.sturdyUsed.includes(u2), 'remembered for the match (by the card)');
-  s.players.ai.row[0] = null;
-  s.players.ai.hand = [{ ...pokemonAt('munchlax', 6), keywords: { sturdy: true }, trigger: null, uid: u2 }];
-  s.turn = 'ai';
-  s = applyAction(s, { type: 'summon', who: 'ai', uid: u2, space: 2 });
-  ok(!hasKw(s.players.ai.row[2], 'sturdy'), 'summoned again: Sturdy is still used up');
+  // B3-2 (A2, Elliott 13 Nov 2026): Sturdy resets when its card leaves play. Used up, then back to hand (Dive) and
+  // summoned again, the same card comes back fresh: Sturdy unused, and it works again.
+  s = battle();
+  s.players.player.row[0] = mon('munchlax', 6, { keywords: { sturdy: true }, currentStrength: 1, sturdyUsed: true });
+  const u2 = s.players.player.row[0].uid;
+  ok(!hasKw(s.players.player.row[0], 'sturdy'), 'used up while in play');
+  s = settle(applyAction(s, { type: 'command', who: 'player', uid: give(s, 'player', 'dive'), mode: 'adapt', target: { who: 'player', space: 0 } }));
+  const back = s.players.player.hand.find((c) => c.uid === u2);
+  ok(back && !back.sturdyUsed, 'back in hand: a fresh card');
+  s.turn = 'player';
+  s.players.player.baseEnergy = 9;
+  const fresh = { ...pokemonAt('munchlax', 6), keywords: { sturdy: true }, trigger: null, uid: u2 };   // (Snorlax's form, staged)
+  s.players.player.hand = s.players.player.hand.map((c) => (c.uid === u2 ? fresh : c));
+  s = applyAction(s, { type: 'summon', who: 'player', uid: u2, space: 2 });
+  ok(hasKw(s.players.player.row[2], 'sturdy') && !s.players.player.row[2].sturdyUsed, 'summoned again: Sturdy unused');
+  s.players.ai.row[2] = mon('growlithe', 7);
+  s.players.player.row[2].currentStrength = 1;
+  s = attack(s, 'ai', 2, { kind: 'pokemon', space: 2 });
+  eq(s.players.player.row[2]?.currentStrength, 1, 'and it works again');
   // Damage from effects counts too (it's "would be defeated", by anything).
   s = battle();
   s.players.ai.row[0] = mon('munchlax', 6, { keywords: { sturdy: true }, currentStrength: 2 });

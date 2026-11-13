@@ -63,6 +63,41 @@ export const DECKS = {
       'magnet', 'mystic-water', 'quick-claw', 'x-attack', 'potion', 'amulet-coin'],
   },
 };
+// B3-2: the four Batch 2 decks (the B3-2 prompt, exactly).
+Object.assign(DECKS, {
+  'sabrinas-mind': {
+    name: 'Sabrina\'s Mind',
+    list: ['sabrina', 'lt-surge', ...x2('saffron-city'), 'power-plant', 'route-119',
+      ...x2('abra', 'ralts', 'natu'), 'slowpoke', 'mewtwo', ...x2('chinchou', 'pichu', 'mareep'), 'zapdos', 'horsea',
+      ...x2('psychic', 'calm-mind'), 'thunderbolt', 'thunder-wave', 'protect',
+      'bill', 'tracey', 'professor-oak', 'officer-jenny', 'swimmer',
+      'ether', 'choice-specs', 'x-speed', 'quick-claw', 'magnet', 'potion'],
+  },
+  'brunos-dojo': {
+    name: 'Bruno\'s Dojo',
+    list: ['bruno', 'whitney', ...x2('shalour-city'), 'pallet-town', 'route-119',
+      ...x2('machop', 'mankey', 'riolu', 'eevee', 'munchlax', 'meowth', 'happiny'),
+      ...x2('close-combat', 'detect'), 'protect', ...x2('recover'),
+      ...x2('black-belt'), 'brock', 'tracey', 'professor-oak', 'nurse-joy',
+      'x-defend', 'x-attack', 'choice-band', 'rocky-helmet', 'leftovers', 'sitrus-berry', 'oran-berry'],
+  },
+  'mortys-haunt': {
+    name: 'Morty\'s Haunt',
+    list: ['morty', 'erika', ...x2('lavender-town'), 'eterna-forest', 'floaroma-meadow',
+      ...x2('gastly', 'duskull', 'litwick', 'budew', 'oddish', 'sunkern'), 'celebi', ...x2('bulbasaur'),
+      ...x2('shadow-ball', 'destiny-bond'), 'leech-seed', 'solar-beam', 'protect', 'recover',
+      ...x2('mr-fuji'), 'pokemon-breeder', 'ramos', 'gardenia',
+      ...x2('revive'), 'oran-berry', 'leftovers', 'miracle-seed', 'sitrus-berry'],
+  },
+  'karens-night': {
+    name: 'Karen\'s Night',
+    list: ['karen', 'blaine', 'cinnabar-volcano', 'mt-ember', 'route-119', 'lavender-town',
+      ...x2('houndour', 'sneasel', 'absol', 'ponyta', 'growlithe', 'charmander'), 'entei', 'magby',
+      ...x2('sucker-punch', 'thief', 'ember'), 'flame-charge', 'protect',
+      'burglar', ...x2('team-rocket-grunt'), 'firebreather', 'flannery', 'chili',
+      'x-attack', 'charcoal', 'choice-band', 'quick-claw', 'x-speed', 'oran-berry'],
+  },
+});
 export const DECK_IDS = Object.keys(DECKS);
 // A deck by name: its id ('blaines-blitz') or a short name ('blaine', 'misty', 'erika', 'surge').
 export function deckByName(name) {

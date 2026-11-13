@@ -193,6 +193,9 @@ export function commandTargets(s, who, card, mode = 'adapt') {
   if (!m) return [];
   const tg = modeTarget(card, mode);
   if (tg === 'enemy') return pokemonOf(s, foe).filter(({ card: c }) => !hasKw(c, 'agility')).map(({ space }) => ({ who: foe, space }));
+  // B3-2: Sucker Punch's Adapt: only an Active enemy; Close Combat: one of yours with an enemy across from it.
+  if (tg === 'activeEnemy') return pokemonOf(s, foe).filter(({ card: c }) => !c.spent && !hasKw(c, 'agility')).map(({ space }) => ({ who: foe, space }));
+  if (tg === 'ownAcross') return pokemonOf(s, who).filter(({ space }) => s.players[foe].row[space]).map(({ space }) => ({ who, space }));
   if (tg === 'own') return pokemonOf(s, who).filter(({ card: c }) => !returns(m.ops) || !c.partner).map(({ space }) => ({ who, space }));
   if (tg === 'location' || tg === 'ownLocation') {
     const side = tg === 'location' ? foe : who;
@@ -428,12 +431,18 @@ const ACTIONS = {
     const { retained, ...plain } = card;
     const on = t.space === null ? null : s.players[t.who].row[t.space];
     const onName = t.all ? (t.who === who ? 'each of your Pokémon' : 'each enemy Pokémon') : t.lane ? (locationAt(s, t.space)?.name ?? `lane ${t.space + 1}`) : on.name;
+    // B3-2: Sabrina's Objective counts Moves played as Adapt or Strat.
+    progressTrainers(s, who, 'movesPlayed');
     if (mode === 'strat') {
       s.strats.push({ uid: `strat-${uid}`, owner: who, card: plain, target: t, targetName: onName, playedRound: s.round });
       emit(s, 'strat', { who, id: card.id, name: card.name, uid: `strat-${uid}`, target: t });
       // C4 (Elliott, 11 November 2026): a waiting Strat is hidden from the other player until it resolves: the
       // Opponent's is logged as "a sealed Strat" and its target only; your own stays named.
       log(s, who === 'player' ? `You played ${card.name} as a Strat (${cost} Energy) on ${onName}: it resolves after the Opponent's next turn.` : `The Opponent sealed a Strat (${cost} Energy) on ${onName}: it resolves after your next turn.`);
+      // B3-2: On Command fires when a Strat is sealed.
+      queueCommandTriggers(s, who);
+      drainTriggers(s);
+      if (s.choice || s.phase === 'gameOver') return;
       return endTurn(s, who, false);
     }
     log(s, `${NAMES[who]} played ${card.name} (Adapt, ${cost} Energy)${onName ? ` on ${onName}` : ''}.`);
@@ -468,8 +477,9 @@ const ACTIONS = {
   // started it).
   choose(s, { who, target }) {
     const c = s.choice;
-    const pick = c.targets.find((t) => t.who === target?.who && t.space === target.space);
-    if (!pick) throw new Error('Choose one of the glowing targets');
+    // B3-2: a card choice (from a Discard Pile, a Draw Pile or the opponent's hand) names its uid.
+    const pick = c.targets.find((t) => (t.uid !== undefined ? t.uid === target?.uid : t.who === target?.who && t.space === target?.space));
+    if (!pick) throw new Error(c.pick === 'card' ? 'Choose one of the cards offered' : 'Choose one of the glowing targets');
     s.choice = null;
     const ctx = { ...c.ctx, resume: pick, resumeAt: c.index };
     if (c.kind === 'trigger') {
@@ -690,7 +700,8 @@ const RESOLVE = {
     // B3-1: a Location's Quick Attack (Power Plant) counts for a Pokémon summoned into it. Sturdy is used once a match.
     const quick = hasKw(card, 'quickAttack') || passiveOps(locationAt(s, space)).some((o) => o.op === 'keyword' && o.keyword === 'quickAttack');
     const { levelBonus, ...snap } = card;
-    p.row[space] = { ...snap, currentStrength: card.strength, spent: !quick, summonedRound: s.round, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...(p.sturdyUsed.includes(card.uid) ? { sturdyUsed: true } : {}) };
+    // (B3-2, Elliott 13 Nov 2026: a card that left play comes back fresh: Sturdy unused.)
+    p.row[space] = { ...snap, currentStrength: card.strength, spent: !quick, summonedRound: s.round, bonusAttack: 0, bonusStrength: 0, tempAttack: 0 };
     emit(s, 'summoned', { who, space, id: card.id, name: card.name, level: card.level, quick });
     if (quick) kwEvent(s, who, space, 'Quick Attack');
     syncBonuses(s);
@@ -699,7 +710,7 @@ const RESOLVE = {
 
   // The attack: the attacker and target must still be there (and the target still legal). A Ready
   // target hits back (a trade); both become Spent. If it fizzles, the attacker is still Spent.
-  attack(s, { who, from, target, attackerUid, targetUid, reduce = 0, noDamage = false }) {
+  attack(s, { who, from, target, attackerUid, targetUid, reduce = 0, noDamage = false, destinyBond = false }) {
     const foe = opponentOf(who);
     const a = s.players[who].row[from];
     if (!a || a.uid !== attackerUid) return fizzle(s, who, `${POSS[who]} attack`, 'the attacker is gone');
@@ -713,6 +724,7 @@ const RESOLVE = {
       emit(s, 'attack', { who, from, target, amount: raw, raw, name: a.name });
       log(s, `${POSS[who]} ${a.name} attacked ${who === 'player' ? 'the Opponent' : 'you'} for ${raw}.`);
       gainRecognition(s, who, raw * RULES.perDamageToPlayer, `${a.name}'s attack`, { kind: 'pc', who: foe });
+      if (raw > 0 && s.phase !== 'gameOver') progressTrainers(s, who, 'pcDamaged');
       queueTrigger(s, who, from, a, 'attack', { target }, 1);
       return;
     }
@@ -743,14 +755,28 @@ const RESOLVE = {
       kwEvent(s, who, from, 'Overrun', over);
       gainRecognition(s, who, over * RULES.perDamageToPlayer, `${a.name}'s Overrun`, { kind: 'pc', who: foe });
       if (s.phase === 'gameOver') return;
+      progressTrainers(s, who, 'pcDamaged');
     }
-    settle(s, foe, target.space, who, hit);
-    settle(s, who, from, foe, back + retaliated);
+    // B3-2: the Pokémon that defeated it (for "the Pokémon that defeated it"): the attacker, or the defender's hit-back
+    // or Retaliate. A Move or an effect leaves none.
+    settle(s, foe, target.space, who, hit, { who, space: from, uid: a.uid });
+    settle(s, who, from, foe, back + retaliated, { who: foe, space: target.space, uid: d.uid });
+    if (s.phase === 'gameOver') return;
+    // B3-2: Destiny Bond's React: if this attack defeats your Pokémon, the attacker is defeated too (its rewards are yours).
+    if (destinyBond && dDown && s.players[who].row[from]?.uid === a.uid) {
+      log(s, `Destiny Bond: ${POSS[who]} ${a.name} is defeated too.`);
+      a.currentStrength = 0;
+      defeat(s, who, from, foe, { who: foe, space: target.space, uid: d.uid });
+      if (s.phase === 'gameOver') return;
+    }
+    // B3-2: Bruno's Objective: an enemy attack on your Pokémon that doesn't defeat it.
+    if (!dDown) progressTrainers(s, foe, 'survived');
     if (s.phase === 'gameOver') return;
     // B3-1: Pickup: when its attack defeats a Pokémon, gain $1.
     if (dDown && hasKw(a, 'pickup') && s.players[foe].row[target.space]?.uid !== d.uid) { kwEvent(s, who, from, 'Pickup', 1); gainDollars(s, who, 1, `${a.name}'s Pickup`, { kind: 'space', who, space: from }); }
-    if (!aDown) queueTrigger(s, who, from, a, 'attack', { target }, 1);
-    if (dDown && !aDown) queueTrigger(s, who, from, a, 'knockout', { target }, 1);
+    const aGone = s.players[who].row[from]?.uid !== a.uid;
+    if (!aDown && !aGone) queueTrigger(s, who, from, a, 'attack', { target }, 1);
+    if (dDown && !aDown && !aGone) queueTrigger(s, who, from, a, 'knockout', { target }, 1);
     if (!dDown && hit > 0) queueTrigger(s, foe, target.space, d, 'defend', { attacker: { who, space: from } }, 2);
     if (aDown && !dDown && back > 0 && a.currentStrength + retaliated <= 0) queueTrigger(s, foe, target.space, d, 'knockout', { target: { kind: 'pokemon', space: from } }, 2);
   },
@@ -783,19 +809,24 @@ export function applyCommand(s, who, card, mode, target, then = null) {
   const ev = emit(s, 'commandResolved', { who, id: card.id, name: card.name, mode, op: m.ops[0]?.op, ops: m.ops.map((o) => o.op), target });
   log(s, `${card.name} (${MODE_NAMES[mode]}): ${modeText(card, mode)}${c ? ` (${c.name})` : ''}.`);
   watch(s, ev, () => runEffect(s, { who, name: card.name, kind: 'move', mode, react: mode === 'react', preset: target && !target.all ? target : null, label: m.text, then }, m.ops));
+  // B3-2: On Command fires when a Move played as Adapt resolves (never for a React; a Strat's fires when it's sealed).
+  if (mode === 'adapt') queueCommandTriggers(s, who);
   drainTriggers(s);
   return true;
 }
+function queueCommandTriggers(s, who) {
+  for (const { card, space } of pokemonOf(s, who)) queueTrigger(s, who, space, card, 'command', {}, 1);
+}
 // G3: Dive: the Pokémon goes back to its owner's hand as a card again (it develops with the Rounds);
 // its Held Item goes back to the PokéMart's pool; damage and anything kept are lost.
-function returnToHand(s, who, space) {
+function returnToHand(s, who, space, levels = 0) {
   const c = s.players[who].row[space];
   if (!c) return;
   s.players[who].row[space] = null;
   if (c.held) { s.mart.pool.push(c.held); log(s, `${c.held.name} goes back to the PokéMart.`); }
-  s.players[who].hand.push({ ...cardAtRound(c.id, s.round), uid: c.uid });
-  emit(s, 'returned', { who, space, id: c.id, name: c.name, uid: c.uid });
-  log(s, `${POSS[who]} ${c.name} returns to ${who === 'player' ? 'your' : 'their'} hand.`);
+  s.players[who].hand.push({ ...cardAtRound(c.id, s.round, levels), uid: c.uid });
+  emit(s, 'returned', { who, space, id: c.id, name: c.name, uid: c.uid, levels });
+  log(s, `${POSS[who]} ${c.name} returns to ${who === 'player' ? 'your' : 'their'} hand${levels ? ` with +${levels} Level${levels === 1 ? '' : 's'}` : ''}.`);
 }
 // One instance of damage to a Pokémon (G2: Shell first, minimum 1), then defeat or Rage.
 function hurt(s, side, space, n, by) {
@@ -821,21 +852,21 @@ function damage(s, side, space, n) {
   const dealt = afterShell(c, n);
   if (dealt < n) kwEvent(s, side, space, 'Shell', n - dealt);
   c.currentStrength -= dealt;
-  // B3-1: Sturdy: the first time each match it would be defeated, it stays at 1 Strength, and Sturdy is used up.
+  // B3-1: Sturdy: the first time it would be defeated, it stays at 1 Strength, and Sturdy is used up. B3-2 (Elliott,
+  // 13 Nov 2026): it resets when its card leaves play (back to hand, it comes back fresh).
   if (c.currentStrength <= 0 && hasKw(c, 'sturdy')) {
     c.currentStrength = 1;
     c.sturdyUsed = true;
-    s.players[side].sturdyUsed.push(c.uid);
     kwEvent(s, side, space, 'Sturdy', 1);
-    log(s, `${POSS[side]} ${c.name}'s Sturdy: it stays at 1 Strength (Sturdy is used up).`);
+    log(s, `${POSS[side]} ${c.name}'s Sturdy: it stays at 1 Strength (Sturdy is used up while it stays in play).`);
   }
   return dealt;
 }
 // After damage: at 0 Strength or less it's defeated; a survivor with Rage gains +1 Attack for good.
-function settle(s, side, space, by, dealt) {
+function settle(s, side, space, by, dealt, killer = null) {
   const c = s.players[side].row[space];
   if (!c || dealt <= 0) return;
-  if (c.currentStrength <= 0) return defeat(s, side, space, by);
+  if (c.currentStrength <= 0) return defeat(s, side, space, by, killer);
   if (hasKw(c, 'rage')) { c.attack += 1; kwEvent(s, side, space, 'Rage', 1); }
 }
 // "In its Location": a placed Location's lanes, every lane during the Tournament, or else just its lane.
@@ -848,9 +879,12 @@ export function lanesHere(s, lane) {
 // fixed order (1 the acting Pokémon's, 2 the other Pokémon's, 3 On Defeated), each in the order queued.
 // A trigger's own effects can queue more (one level deeper); chains stop at MAX_CHAIN.
 export const MAX_CHAIN = 4;
+// B3-2: and a trigger an effect gave it until Supper (Destiny Bond's Adapt), as well as its own.
 function queueTrigger(s, who, space, card, when, ctx = {}, order = 1) {
-  if (!card?.trigger || card.trigger.on !== when) return;
-  (s.triggers ??= []).push({ who, space, uid: card.uid, card: when === 'defeated' ? structuredClone(card) : null, when, ctx, order, depth: s.triggerDepth ?? 0 });
+  for (const trig of [card?.trigger, card?.tempTrigger]) {
+    if (!trig || trig.on !== when) continue;
+    (s.triggers ??= []).push({ who, space, uid: card.uid, trig, card: when === 'defeated' ? structuredClone(card) : null, when, ctx, order, depth: s.triggerDepth ?? 0 });
+  }
 }
 export function drainTriggers(s) {
   if (s.draining) return;
@@ -876,9 +910,10 @@ function runTrigger(s, t) {
   const live = s.players[t.who].row[t.space];
   const card = t.when === 'defeated' ? t.card : live?.uid === t.uid ? live : null;
   if (!card) return;
-  const label = card.trigger.effect ? triggerText(card.trigger) : TRIGGER_NAMES[card.trigger.on];   // (a staged trigger may have ops only)
+  const trig = t.trig ?? card.trigger;
+  const label = trig.effect ? triggerText(trig) : TRIGGER_NAMES[trig.on];   // (a staged trigger may have ops only)
   log(s, `${POSS[t.who]} ${card.name}: ${label}.`);
-  runEffect(s, { who: t.who, name: card.name, id: card.id, kind: 'trigger', on: card.trigger.on, src: { space: t.space, uid: t.uid, type: card.type }, trig: t.ctx, label, then: 'endTurn' }, card.trigger.ops);
+  runEffect(s, { who: t.who, name: card.name, id: card.id, kind: 'trigger', on: trig.on, src: { space: t.space, uid: t.uid, type: card.type }, trig: t.ctx, label, then: 'endTurn' }, trig.ops);
 }
 
 // --- B3-1: the effect interpreter ------------------------------------------------------------------------------------------
@@ -895,6 +930,21 @@ export function runEffect(s, ctx, ops, start = 0) {
     if (s.phase === 'gameOver') return 'done';
     const o = ops[i];
     let chosen = null;
+    // B3-2: an op that picks cards (from a Discard Pile, a Draw Pile, the opponent's hand) or a space (a free summon)
+    // asks for one pick at a time; with only one way to pick, it takes it.
+    if (CARD_OPS.has(o.op)) {
+      const st = ((ctx.cards ??= {})[i] ??= { picks: [], space: null });
+      if (ctx.resume && ctx.resumeAt === i) { if (ctx.resume.uid !== undefined) st.picks.push(ctx.resume.uid); else st.space = ctx.resume.space; delete ctx.resume; delete ctx.resumeAt; }
+      const need = cardNeed(s, ctx, o, st);
+      if (need === 'none') { fizzle(s, ctx.who, `${POSS[ctx.who]} ${ctx.name}`, 'there is nothing to choose'); continue; }
+      if (need) {
+        s.choice = { who: ctx.who, kind: ctx.kind, pick: need.pick, from: need.from, count: need.count, space: ctx.src?.space ?? null, uid: ctx.src?.uid ?? null, name: ctx.name, text: ctx.label, op: o, ops, index: i, targets: need.targets, ctx };
+        emit(s, 'cardChoice', { who: ctx.who, name: ctx.name, pick: need.pick, from: need.from, count: need.count });
+        log(s, `${POSS[ctx.who]} ${ctx.name}: ${ctx.who === 'player' ? 'choose' : 'the Opponent chooses'} ${need.pick === 'space' ? 'a space' : 'a card'}.`);
+        return 'paused';
+      }
+      chosen = st;
+    }
     if (CHOSEN.includes(o.to)) {
       if (ctx.resume && ctx.resumeAt === i) { chosen = ctx.resume; delete ctx.resume; delete ctx.resumeAt; }
       else if (ctx.preset && !ctx.presetUsed) { chosen = ctx.preset; ctx.presetUsed = true; }
@@ -917,6 +967,41 @@ export function runEffect(s, ctx, ops, start = 0) {
   ctx.keptFor = [];
   return 'done';
 }
+// B3-2: the card ops and what each still needs: { pick: 'card' | 'space', from, count, targets } | null (ready) | 'none'.
+const CARD_OPS = new Set(['returnDiscard', 'pickDraw', 'discardChosen', 'reviveSummon']);
+const byName = (a, b) => a.name.localeCompare(b.name) || String(a.uid).localeCompare(String(b.uid));
+function cardNeed(s, ctx, o, st) {
+  const p = s.players[ctx.who];
+  const foe = s.players[opponentOf(ctx.who)];
+  const pickFrom = (pool, n, from) => {
+    const left = pool.filter((c) => !st.picks.includes(c.uid));
+    const want = n - st.picks.length;
+    if (want <= 0 || !left.length) return null;
+    if (left.length <= want) { st.picks.push(...left.map((c) => c.uid)); return null; }
+    // (Bill's list is by name, never in Draw Pile order.)
+    return { pick: 'card', from, count: want, targets: [...left].sort(byName).map((c) => ({ uid: c.uid, name: c.name })) };
+  };
+  if (o.op === 'returnDiscard') return pickFrom(p.discard.filter((c) => c.cardType === 'Pokémon'), o.amount, 'discard');
+  if (o.op === 'pickDraw') return pickFrom(p.drawPile, o.amount, 'drawPile');
+  if (o.op === 'discardChosen') return pickFrom(foe.hand, o.amount, 'opponentHand');
+  if (o.op === 'reviveSummon') {
+    const pool = reviveable(s, ctx.who, o.maxLevel);
+    const empty = emptySpaces(s, ctx.who);
+    if (!st.picks.length) {
+      if (!pool.length || !empty.length) return 'none';
+      if (pool.length === 1) st.picks.push(pool[0].uid);
+      else return { pick: 'card', from: 'discard', count: 1, targets: [...pool].sort(byName).map((c) => ({ uid: c.uid, name: c.name })) };
+    }
+    if (st.space === null) {
+      if (empty.length === 1) st.space = empty[0];
+      else return { pick: 'space', from: 'row', count: 1, targets: empty.map((space) => ({ who: ctx.who, space })) };
+    }
+    return null;
+  }
+  return null;
+}
+// Mr. Fuji, Revive: Pokémon cards in your Discard Pile whose Level this Round (for their series) is N or less.
+export const reviveable = (s, who, maxLevel) => s.players[who].discard.filter((c) => c.cardType === 'Pokémon' && pathDef(c.id) && cardAtRound(c.id, s.round).level <= maxLevel);
 // The targets a chosen op offers.
 const areaOf = (s, lane, side) => lanesHere(s, lane).filter((l) => s.players[side].row[l]).map((l) => ({ who: side, space: l }));
 function effectChoices(s, ctx, o) {
@@ -929,6 +1014,10 @@ function effectChoices(s, ctx, o) {
     case 'chosenOtherOwnHere': { const here = ctx.src ? lanesHere(s, ctx.src.space) : []; return pokemonOf(s, who).filter(({ space }) => space !== ctx.src?.space && here.includes(space)).map(({ space }) => ({ who, space })); }
     case 'chosenLocEnemies': return lanes(foe);
     case 'chosenLocOwn': return lanes(who);
+    // B3-2
+    case 'chosenOtherOwn': return pokemonOf(s, who).filter(({ card, space }) => space !== ctx.src?.space && !(o.op === 'returnHand' && card.partner)).map(({ space }) => ({ who, space }));
+    case 'chosenActiveEnemy': return pokemonOf(s, foe).filter(({ card }) => !card.spent && (ctx.kind !== 'move' || !hasKw(card, 'agility'))).map(({ space }) => ({ who: foe, space }));
+    case 'acrossFromChosenOwn': return pokemonOf(s, who).filter(({ space }) => s.players[foe].row[space]).map(({ space }) => ({ who, space }));
     default: return [];
   }
 }
@@ -945,7 +1034,12 @@ function effectTargets(s, ctx, o, chosen) {
   const all = (side, f = () => true) => pokemonOf(s, side).filter(({ space }) => f(space)).map(({ space }) => ({ who: side, space }));
   switch (o.to) {
     case 'self': return src ? live([{ who, space: src.space }]) : [];
-    case 'chosenEnemy': case 'chosenOwn': case 'chosenOtherOwnHere': return chosen ? live([chosen]) : [];
+    case 'chosenEnemy': case 'chosenOwn': case 'chosenOtherOwnHere': case 'chosenOtherOwn': case 'chosenActiveEnemy': return chosen ? live([chosen]) : [];
+    // B3-2: Close Combat: the enemy across from the Pokémon of yours you chose; then "yours" is that Pokémon.
+    case 'acrossFromChosenOwn': if (!chosen) return []; ctx.ownChosen = { who, space: chosen.space, uid: s.players[who].row[chosen.space]?.uid }; return live([{ who: foe, space: chosen.space }]);
+    case 'theChosenOwn': return ctx.ownChosen && s.players[who].row[ctx.ownChosen.space]?.uid === ctx.ownChosen.uid ? live([ctx.ownChosen]) : [];
+    // "The Pokémon that defeated it": none if a Move or an effect did.
+    case 'defeater': { const k = ctx.trig?.defeater; return k && s.players[k.who].row[k.space]?.uid === k.uid ? live([k]) : []; }
     case 'chosenLocEnemies': ctx.lane = chosen?.space ?? null; return chosen ? live(areaOf(s, chosen.space, foe)) : [];
     case 'chosenLocOwn': ctx.lane = chosen?.space ?? null; return chosen ? live(areaOf(s, chosen.space, who)) : [];
     case 'thereOwn': return ctx.lane === null || ctx.lane === undefined ? [] : live(areaOf(s, ctx.lane, who));
@@ -1007,6 +1101,7 @@ function applyEffectOp(s, ctx, o, chosen) {
         p.discard = p.discard.filter((x) => x !== c);
         p.hand.push({ ...cardAtRound(c.id, s.round), uid: c.uid });
         log(s, `${NAMES[who]} took ${c.name} from the Discard Pile.`);
+        progressTrainers(s, who, 'discardReturned');
       }
       return undefined;
     }
@@ -1023,6 +1118,63 @@ function applyEffectOp(s, ctx, o, chosen) {
       return log(s, `${NAMES[who]}: ${which ? 'the card found' : 'each Pokémon card in hand'} gains +${n} Level${n === 1 ? '' : 's'}.`);
     }
     case 'reduce': { const pd = s.reactWindow?.pending; if (pd?.type === 'attack') pd.reduce = (pd.reduce ?? 0) + n; return undefined; }
+    case 'destinyBond': { const pd = s.reactWindow?.pending; if (pd?.type === 'attack') pd.destinyBond = true; return undefined; }
+    // B3-2: hand control. A random discard or steal uses the match's seeded random numbers; with fewer cards in the
+    // opponent's hand than asked, it takes what there is.
+    case 'discardRandom': case 'steal': {
+      const fw = opponentOf(who);
+      const fp = s.players[fw];
+      const took = [];
+      for (let k = 0; k < n && fp.hand.length; k++) {
+        const [c] = fp.hand.splice(Math.floor(nextRandom(s) * fp.hand.length), 1);
+        const { retained, ...card } = c;
+        if (o.op === 'steal') p.hand.push(card); else fp.discard.push(card);
+        took.push(card);
+      }
+      emit(s, o.op === 'steal' ? 'cardsStolen' : 'cardsDiscarded', { who: fw, by: who, count: took.length, uids: took.map((c) => c.uid) });
+      if (o.op === 'steal') log(s, `${NAMES[who]} took ${took.length === 1 ? 'a random card' : `${took.length} random cards`} from ${fw === 'player' ? 'your' : 'the Opponent\'s'} hand${who === 'player' ? ` (${took.map((c) => c.name).join(', ')})` : ''}.`);
+      else log(s, `${NAMES[fw]} discard${fw === 'player' ? '' : 's'} ${took.length ? took.map((c) => c.name).join(', ') : 'nothing (no cards in hand)'} at random.`);
+      return undefined;
+    }
+    case 'discardChosen': {
+      const fw = opponentOf(who);
+      const fp = s.players[fw];
+      const took = (chosen?.picks ?? []).map((u) => fp.hand.find((c) => c.uid === u)).filter(Boolean);
+      for (const c of took) { fp.hand = fp.hand.filter((x) => x !== c); const { retained, ...card } = c; fp.discard.push(card); }
+      emit(s, 'cardsDiscarded', { who: fw, by: who, count: took.length, uids: took.map((c) => c.uid), chosen: true });
+      log(s, `${NAMES[fw]} discard${fw === 'player' ? '' : 's'} ${took.length ? took.map((c) => c.name).join(', ') : 'nothing (no cards in hand)'} (${NAMES[who]} chose).`);
+      return undefined;
+    }
+    case 'returnDiscard': {
+      const took = (chosen?.picks ?? []).map((u) => p.discard.find((c) => c.uid === u)).filter(Boolean);
+      for (const c of took) {
+        p.discard = p.discard.filter((x) => x !== c);
+        p.hand.push({ ...cardAtRound(c.id, s.round), uid: c.uid });
+        log(s, `${NAMES[who]} returned ${c.name} from the Discard Pile to ${who === 'player' ? 'your' : 'their'} hand.`);
+        progressTrainers(s, who, 'discardReturned');
+      }
+      emit(s, 'cardsReturned', { who, uids: took.map((c) => c.uid), names: took.map((c) => c.name) });
+      return undefined;
+    }
+    case 'pickDraw': {
+      const took = (chosen?.picks ?? []).map((u) => p.drawPile.find((c) => c.uid === u)).filter(Boolean);
+      for (const c of took) { p.drawPile = p.drawPile.filter((x) => x !== c); p.hand.push(c); }
+      p.drawPile = shuffle(s, p.drawPile);
+      emit(s, 'cardsPicked', { who, uids: took.map((c) => c.uid) });
+      log(s, `${NAMES[who]} put ${who === 'player' ? took.map((c) => c.name).join(', ') : `${took.length} cards`} from the Draw Pile into ${who === 'player' ? 'your' : 'their'} hand, then shuffled it.`);
+      return undefined;
+    }
+    case 'reviveSummon': {
+      // Mr. Fuji, Revive: free, at this Round's Level, into the space chosen, as a normal summon (its On Summon fires).
+      const c = p.discard.find((x) => x.uid === chosen?.picks?.[0]);
+      if (!c || chosen.space === null || p.row[chosen.space]) return fizzle(s, who, `${POSS[who]} ${ctx.name}`, 'there is no Pokémon or space');
+      p.discard = p.discard.filter((x) => x !== c);
+      const card = { ...cardAtRound(c.id, s.round), uid: c.uid };
+      log(s, `${NAMES[who]} summoned ${card.name} (Level ${card.level}) from the Discard Pile into lane ${chosen.space + 1}, for free.`);
+      progressTrainers(s, who, 'discardReturned');
+      RESOLVE.summon(s, { who, card, space: chosen.space });
+      return undefined;
+    }
     case 'noDamage': { const pd = s.reactWindow?.pending; if (pd?.type === 'attack') pd.noDamage = true; return undefined; }
     case 'attackFizzles': return undefined;
     default: break;
@@ -1030,7 +1182,21 @@ function applyEffectOp(s, ctx, o, chosen) {
   if (o.to === 'enemyPC') {
     // B3-1: damage to the enemy Player Character from a trigger: Recognition for its player, 1 per damage.
     emit(s, 'pcDamage', { who, amount: n, name: ctx.name, space: ctx.src?.space ?? null });
-    return gainRecognition(s, who, n * RULES.perDamageToPlayer, `${ctx.name}'s ${ctx.on ? TRIGGER_NAMES[ctx.on] : 'effect'}`, { kind: 'pc', who: opponentOf(who) });
+    gainRecognition(s, who, n * RULES.perDamageToPlayer, `${ctx.name}'s ${ctx.on ? TRIGGER_NAMES[ctx.on] : 'effect'}`, { kind: 'pc', who: opponentOf(who) });
+    if (n > 0 && s.phase !== 'gameOver') progressTrainers(s, who, 'pcDamaged');
+    return undefined;
+  }
+  // B3-2: "Return it to your hand" (On Defeated, the Gastly line): the defeated card goes to its owner's hand instead
+  // of the Released Pile (it still counted as defeated).
+  if (o.op === 'returnHand' && o.to === 'thisCard') {
+    const c = p.released.find((x) => x.uid === ctx.src?.uid);
+    if (!c) return undefined;
+    p.released = p.released.filter((x) => x !== c);
+    p.hand.push({ ...cardAtRound(c.id, s.round), uid: c.uid });
+    emit(s, 'returned', { who, space: ctx.src.space, id: c.id, name: c.name, uid: c.uid, defeated: true });
+    log(s, `${POSS[who]} ${c.name} returns to ${who === 'player' ? 'your' : 'their'} hand.`);
+    ctx.last = [];
+    return undefined;
   }
   const targets = effectTargets(s, ctx, o, chosen);
   ctx.last = targets;
@@ -1053,7 +1219,8 @@ function applyEffectOp(s, ctx, o, chosen) {
       case 'speed': if (o.until === 'supper') c.tempSpeed = (c.tempSpeed ?? 0) + n; else c.speedUp = (c.speedUp ?? 0) + n; break;
       case 'spend': c.spent = true; break;
       case 'activate': c.spent = false; break;
-      case 'returnHand': if (!c.partner) returnToHand(s, x.who, x.space); break;
+      case 'returnHand': if (!c.partner) returnToHand(s, x.who, x.space, o.levels ?? 0); break;
+      case 'tempTrigger': c.tempTrigger = { on: o.trigger.on, effect: o.trigger.effect, ops: effectOps(o.trigger.effect) }; break;
       case 'typeBonus': {
         // Eevee: +N Attack and +N Strength (kept) for each other Type among its side's other Pokémon, up to the cap.
         const types = new Set(pokemonOf(s, x.who).filter(({ space }) => space !== x.space).map(({ card }) => card.type).filter((ty) => ty !== c.type));
@@ -1232,7 +1399,20 @@ export function wantedBonus(s, space, card = null, who = null) {
   const sum = (kind) => pas.filter((o) => o.op === kind).reduce((n, o) => n + o.amount, 0) + heldOps(card).filter((o) => o.op === kind).reduce((n, o) => n + o.amount, 0);
   const foe = who ? opponentOf(who) : null;
   const intimidate = foe ? lanesHere(s, space).reduce((n, lane) => n + kwNum(s.players[foe].row[lane], 'intimidate'), 0) : 0;
-  return { attack: sum('attack') - intimidate, strength: sum('strength'), intimidate };
+  const aura = who ? auraOf(s, who, space) : { attack: 0, strength: 0 };
+  return { attack: sum('attack') - intimidate + aura.attack, strength: sum('strength') + aura.strength, intimidate, aura };
+}
+// B3-2: Aura: constant while its Pokémon is in play, on your other Pokémon in its Location. Different Auras stack; two
+// copies of the same Aura (the same form) count once.
+export function auraOf(s, who, space) {
+  const seen = new Map();
+  for (const lane of lanesHere(s, space)) {
+    const c = s.players[who].row[lane];
+    if (lane === space || !c || c.trigger?.on !== 'aura' || seen.has(c.name)) continue;
+    seen.set(c.name, c.trigger.ops);
+  }
+  const ops = [...seen.values()].flat();
+  return { attack: ops.filter((o) => o.op === 'attack').reduce((n, o) => n + o.amount, 0), strength: ops.filter((o) => o.op === 'strength').reduce((n, o) => n + o.amount, 0), names: [...seen.keys()] };
 }
 export function syncBonuses(s) {
   for (const who of PLAYERS) {
@@ -1269,17 +1449,20 @@ export function runOps(s, who, ops, name = 'an effect', preset = null) {
 }
 
 // A Pokémon at 0 Strength or less is defeated: it goes to its owner's Released Pile.
-function defeat(s, who, space, by) {
+function defeat(s, who, space, by, killer = null) {
   const card = s.players[who].row[space];
   if (!card) return;
+  const where = locationAt(s, space);
   s.players[who].row[space] = null;
   // F4: a Held Item is lost: it goes back to the PokéMart's pool.
   if (card.held) { s.mart.pool.push(card.held); log(s, `${card.held.name} goes back to the PokéMart.`); delete card.held; }
   s.players[who].released.push(card);
   emit(s, 'defeated', { who, space, name: card.name, by });
   // G2: On Defeated (it resolves after the action, with the card as it was, in its lane's Location).
-  queueTrigger(s, who, space, card, 'defeated', {}, 3);
+  queueTrigger(s, who, space, card, 'defeated', { defeater: killer }, 3);
   log(s, `${POSS[who]} ${card.name} was defeated.`);
+  // B3-2: Lavender Town: when a Pokémon there is defeated, its owner draws.
+  for (const o of passiveOps(where).filter((x) => x.op === 'drawOnDefeat')) { log(s, `${where.name}: ${NAMES[who]} draw${who === 'player' ? '' : 's'} ${o.amount}.`); draw(s, who, o.amount); }
   // G1 (2.5): a flat $1 for each enemy Pokémon defeated (Partners included).
   gainDollars(s, by, RULES.dollarsPerDefeat, `defeating ${card.name}`, { kind: 'space', who, space });
   gainRecognition(s, by, RULES.perDefeat, `defeating ${card.name}`, { kind: 'space', who, space });
@@ -1367,6 +1550,10 @@ function supper(s) {
 }
 function supperRest(s) {
   if (s.phase === 'gameOver') return;
+  // B3-2: On Supper: after Strats, before dominance, in lane order, the player with initiative first.
+  for (const who of [s.initiative, opponentOf(s.initiative)]) for (const { card, space } of pokemonOf(s, who)) queueTrigger(s, who, space, card, 'supper', {}, 1);
+  drainTriggers(s);
+  if (s.phase === 'gameOver') return;
   // Dominance: for each placed Location, the player with more total Strength there earns Recognition.
   // B3-1: then On Dominate, for each of the dominating player's Pokémon there (the Tournament: all of them).
   const dominated = [];
@@ -1416,6 +1603,7 @@ function supperRest(s) {
       delete card.tempShell;
       delete card.tempKw;
       delete card.tempSpeed;
+      delete card.tempTrigger;
     }
   }
   syncBonuses(s);
