@@ -2,7 +2,7 @@
 // http://localhost:8123/). In Chromium (Playwright) at 1920×1080, with real input only (tools/realinput.mjs:
 // right-click, hover and C, clicks, typing, Esc):
 //   - the Codex opens on each kind of thing, by right-click and by C: a hand card, Pokémon on both sides, the
-//     PokéMart, a Bag Item, an Objective tracker, both Recognition rings, both Energy readouts, the Weather chip,
+//     PokéMart, a Bag Item, an Objective tracker, both Recognition rings, both Energy readouts, the decks panel,
 //     the Draw, Discard and Released Piles, a Location, the Tournament, the log ticker, a log line, the Round box,
 //     a card in the Discard viewer (and its ⓘ), the React window (and its ⓘ), the mode picker (C and its ⓘ);
 //   - the React window's countdown waits while the Codex is open;
@@ -45,7 +45,7 @@ async function stage(extra = '') {
     window.__v4.fastForward(5);
     window.__v4.set((s) => {
       const mon = (id, level, x = {}) => ({ ...C.pokemonAt(id, level), uid: `c3-${id}-${level}`, currentStrength: C.pokemonAt(id, level).strength, spent: false, summonedRound: 0, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...x });
-      const loc = (id, start, owner = 'player') => { const l = C.locationDef(id); return { uid: `loc-${id}`, owner, card: l, id, name: l.name, art: l.art, color: l.color, start, width: l.width, roundsLeft: l.rounds - 1, weather: l.weather, passive: l.passive, placedRound: s.round - 1 }; };
+      const loc = (id, start, owner = 'player') => { const l = C.locationDef(id); return { uid: `loc-${id}`, owner, card: l, id, name: l.name, art: l.art, color: l.color, start, width: l.width, roundsLeft: l.rounds - 1, passive: l.passive, placedRound: s.round - 1 }; };
       const card = (id, uid) => ({ ...C.cardAtRound(id, s.round), uid });
       s.tournament = null;
       s.reactWindow = null;
@@ -93,7 +93,7 @@ const KINDS = [
   ['the Opponent\'s Discard Pile', '[data-pile="ai-disc"]', 'pile:ai:discard'],
   // The right-hand column (the Codex sits over it once open, so each is opened with the Codex closed).
   ['the Energy tile', '.v4-energy', 'energy:player'],
-  ['the Weather chip', '.v4-wx', 'weather'],
+  ['the decks panel', '.v4-decks', 'decks'],
   ['the PokéMart', '.v4-martslot', 'mart'],
   ['the Round box', '.v4-round', 'term:round'],
   ['End turn', '.v4-pass', 'term:pass'],

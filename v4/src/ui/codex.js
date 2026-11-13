@@ -19,19 +19,19 @@
 //   rec:<who> · energy:<who> · decks · mart
 //   pile:<who>:<draw|discard|released> · bag:<who> · log:<i>
 //   term:<id> · rules[:<query>]
-import { GLOSSARY, KINDS, glossaryEntry, termsIn, searchGlossary } from '../engine/glossary.js?v=202611120821';
+import { GLOSSARY, KINDS, glossaryEntry, termsIn, searchGlossary } from '../engine/glossary.js?v=202611131336';
 import {
   pathDef, pokemonAt, cardAtRound, keywordList, triggerText, KEYWORD_NAMES, KEYWORD_ORDER, TRIGGER_NAMES, MODES, MODE_NAMES,
   modeText, modeTarget, modesOf, effectText, FAVOURS, TRAINERS, ITEMS, COMMANDS, SUPPORTERS, LOCATIONS,
-} from '../engine/cards.js?v=202611120821';
-import { DECKS } from '../engine/decks.js?v=202611120821';
-import { RULES } from '../rules.js?v=202611120821';
-import { playReason, commandModesFor, summonCost, emptySpaces, locationAt } from '../engine/game.js?v=202611120821';
+} from '../engine/cards.js?v=202611131336';
+import { DECKS } from '../engine/decks.js?v=202611131336';
+import { RULES } from '../rules.js?v=202611131336';
+import { playReason, commandModesFor, summonCost, emptySpaces, locationAt } from '../engine/game.js?v=202611131336';
 import {
   statSums, statLines, formsRow, nextRound, levelGrowth, pokemonState, recognitionHistory, energyExplain,
   martExplain, locationExplain, tournamentExplain, objectiveExplain,
-} from '../engine/explain.js?v=202611120821';
-import { cardHTML } from './card.js?v=202611120821';
+} from '../engine/explain.js?v=202611131336';
+import { cardHTML } from './card.js?v=202611131336';
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const cap = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);

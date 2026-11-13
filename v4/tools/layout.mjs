@@ -192,8 +192,8 @@ async function objectiveMoment(p, progress, final = false) {
     window.__v4.set((s) => {
       const mon = (id, level, extra) => ({ ...C.pokemonAt(id, level), uid: `om-${id}`, currentStrength: C.pokemonAt(id, level).strength, spent: false, summonedRound: 0, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...extra });
       for (const w of ['player', 'ai']) s.players[w].row = s.players[w].row.map(() => null);
-      s.players.player.row[2] = mon('growlithe', 6);
-      s.players.ai.row[2] = mon('ponyta', 2, { currentStrength: 1, spent: true });
+      s.players.player.row[2] = mon('growlithe', 6, { keywords: {}, trigger: null });   // (B3-1: no Overrun beat before the moment)
+      s.players.ai.row[2] = mon('ponyta', 2, { currentStrength: 1, spent: true, keywords: {}, trigger: null });
       s.players.ai.hand = [];
       const t = s.players.player.trainers.find((x) => x.objective.kind === 'defeat');
       t.progress = progress;
@@ -232,7 +232,7 @@ const SCENARIOS = {
       if (sp >= 0) { for (const c of [...s.players.player.row, ...s.players.ai.row]) if (c) c.spent = true; s.players.player.row[sp].spent = false; ui.select = { kind: 'attack', from: sp }; }
     }));
   },
-  // F2: placed Locations (bold tiles, panels, Weather) and choosing where to place one.
+  // F2: placed Locations (bold tiles, panels) and choosing where to place one.
   locations: async (p) => {
     await to(p, 4);
     await v4(p, () => { const L = window.__v4; L.set((s) => { s.locations = []; }); L.place('player', 'cerulean-cape', 0); L.place('ai', 'mt-ember', 2); L.place('player', 'route-119', 5); });
@@ -244,7 +244,7 @@ const SCENARIOS = {
   // F3: the Command mode chooser, a React window, pending Strats, the Supporter Release screen.
   command: async (p) => {
     await to(p, 4);
-    await v4(p, () => { const L = window.__v4; const uid = L.giveCard('rock-slide'); L.set((s, ui) => { ui.select = { kind: 'hand', uid }; }); });
+    await v4(p, () => { const L = window.__v4; const uid = L.giveCard('surf'); L.set((s, ui) => { ui.select = { kind: 'hand', uid }; }); });
   },
   react: async (p) => {
     await to(p, 4);
@@ -449,7 +449,7 @@ const SCENARIOS = {
   // C3: the Codex open on one of each kind of thing (and the ? overlay's Rules page).
   'codex-pokemon': async (p) => { await to(p, 5); await codexOn(p, 'mon:player:1', "s.players.player.row[1] = mon('charmander', 8, { held: C.itemDef('charcoal'), currentStrength: 6 });"); },
   'codex-pokemon-hand': async (p) => { await to(p, 5); await codexOn(p, 'card:cx-hand', "s.players.player.hand.push({ ...C.cardAtRound('squirtle', s.round), uid: 'cx-hand' });"); },
-  'codex-command': async (p) => { await to(p, 5); await codexOn(p, 'card:cx-cmd', "s.players.player.hand.push({ ...C.cardAtRound('rock-slide', s.round), uid: 'cx-cmd' });"); },
+  'codex-command': async (p) => { await to(p, 5); await codexOn(p, 'card:cx-cmd', "s.players.player.hand.push({ ...C.cardAtRound('leech-seed', s.round), uid: 'cx-cmd' });"); },
   'codex-supporter': async (p) => { await to(p, 5); await codexOn(p, 'card:cx-sup', "s.players.player.hand.push({ ...C.cardAtRound('pokemon-breeder', s.round), uid: 'cx-sup' });"); },
   'codex-trainer': async (p) => { await to(p, 5); await codexOn(p, `trainer:player:${'${s.players.player.trainers[0].uid}'}`, ''); },
   'codex-location': async (p) => { await to(p, 3); await codexOn(p, 'loc:loc-mt-ember', "s.tournament = null; s.locations = [loc('mt-ember', 2)];"); },
@@ -457,14 +457,17 @@ const SCENARIOS = {
   'codex-rules': async (p) => { await to(p, 3); await codexOn(p, 'rules', ''); },
   'codex-rec': async (p) => { await to(p, 6); await codexOn(p, 'rec:player', ''); },
   'codex-energy': async (p) => { await to(p, 6); await codexOn(p, 'energy:player', ''); },
-  'codex-weather': async (p) => { await to(p, 3); await codexOn(p, 'weather', "s.tournament = null; s.locations = [loc('cerulean-cape', 0), loc('mt-ember', 2), loc('route-119', 5)];"); },
+  'codex-decks': async (p) => { await to(p, 3); await codexOn(p, 'decks', "s.tournament = null; s.locations = [loc('cerulean-cape', 0), loc('mt-ember', 2), loc('route-119', 5)];"); },
+  // B3-1: the Codex on a new keyword (Pickup), and on an Art Pending card.
+  'codex-pickup': async (p) => { await to(p, 3); await codexOn(p, 'term:pickup', ''); },
+  'codex-artpending': async (p) => { await to(p, 3); await codexOn(p, 'card:cx-ap', "s.players.player.hand.push({ ...C.cardAtRound('meowth', s.round), uid: 'cx-ap' });"); },
   'codex-mart': async (p) => { await to(p, 3); await codexOn(p, 'mart', ''); },
   'codex-discard': async (p) => { await to(p, 6); await codexOn(p, 'pile:player:discard', ''); },
   'codex-log': async (p) => { await to(p, 3); await codexOn(p, 'log:0', ''); },
   'codex-tournament': async (p) => { await to(p, 3); await codexOn(p, 'tournament', ''); },
   'keys-rules': async (p) => { await to(p, 3); await v4(p, () => window.__v4.set((s, ui) => { ui.keys = 'rules'; })); },
 };
-// C4: a board with raised and damaged two-digit stats (Mt. Ember, Rain 4, kept gains, Charcoal), and optionally the
+// C4: a board with raised and damaged two-digit stats (Mt. Ember, Cerulean Cape, kept gains, Choice Band), and optionally the
 // Opponent's attack on it with three React cards in your hand; the Opponent also has a sealed Strat.
 async function c4Stage(p, react) {
   await v4(p, async (react) => {
@@ -472,7 +475,7 @@ async function c4Stage(p, react) {
     const G = await import('/v4/src/engine/game.js');
     window.__v4.set((s) => {
       const mon = (id, level, x = {}) => ({ ...C.pokemonAt(id, level), uid: `l4-${id}-${level}`, currentStrength: C.pokemonAt(id, level).strength, spent: true, summonedRound: 0, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...x });
-      const loc = (id, start, owner = 'player') => { const l = C.locationDef(id); return { uid: `loc-${id}`, owner, card: l, id, name: l.name, art: l.art, color: l.color, start, width: l.width, roundsLeft: 2, weather: l.weather, passive: l.passive, placedRound: s.round }; };
+      const loc = (id, start, owner = 'player') => { const l = C.locationDef(id); return { uid: `loc-${id}`, owner, card: l, id, name: l.name, art: l.art, color: l.color, start, width: l.width, roundsLeft: 2, passive: l.passive, placedRound: s.round }; };
       s.tournament = null; s.reactWindow = null; s.choice = null; s.passesInARow = 0;
       s.locations = [loc('cerulean-cape', 0), loc('mt-ember', 2, 'ai'), loc('route-119', 5)];
       for (const w of ['player', 'ai']) s.players[w].row = Array(9).fill(null);
@@ -498,7 +501,7 @@ async function codexOn(p, ref, code) {
     const G = await import('/v4/src/engine/game.js');
     window.__v4.set((s, ui) => {
       const mon = (id, level, extra = {}) => ({ ...C.pokemonAt(id, level), uid: `cx-${id}-${level}`, currentStrength: C.pokemonAt(id, level).strength, spent: false, summonedRound: 0, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...extra });
-      const loc = (id, start, owner = 'player') => { const l = C.locationDef(id); return { uid: `loc-${id}`, owner, card: l, id, name: l.name, art: l.art, color: l.color, start, width: l.width, roundsLeft: l.rounds, weather: l.weather, passive: l.passive, placedRound: s.round }; };
+      const loc = (id, start, owner = 'player') => { const l = C.locationDef(id); return { uid: `loc-${id}`, owner, card: l, id, name: l.name, art: l.art, color: l.color, start, width: l.width, roundsLeft: l.rounds, passive: l.passive, placedRound: s.round }; };
       // eslint-disable-next-line no-new-func
       new Function('s', 'mon', 'loc', 'C', code)(s, mon, loc, C);
       G.syncBonuses(s);
@@ -518,7 +521,7 @@ for (const [w, h] of SIZES) {
     const page = await browser.newPage({ viewport: { width: w, height: h } });
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
-        await page.goto(`${BASE}?debug&seed=7&speed=instant&timescale=4`);   // (timescale: G1's mid-beat scenarios)
+        await page.goto(`${BASE}?debug&seed=7&speed=instant&timescale=4&deck=surge&aideck=misty`);   // (timescale: G1's mid-beat scenarios; B3-1: decks with Misty's Objective on both sides)
     await settle(page, 600);
     try {
       await setup(page);

@@ -6,11 +6,11 @@
 import {
   legalTargets, emptySpaces, whyNot, locationStarts, summonCost, commandTargets, commandModesFor, itemTargets, buyReason,
   trainerReason, supporterPlayable, playerGuard, guardOf, energyLeft, locationAt, damageOf, pokemonOf, hasKw,
-} from '../engine/game.js?v=202611120821';
-import { MODE_NAMES, modeTarget } from '../engine/cards.js?v=202611120821';
-import { attackPreview, effectPreview, choicePreview } from '../engine/preview.js?v=202611120821';
-import { statsIfPlaced } from '../engine/stats.js?v=202611120821';
-import { attackIcon, strengthIcon, icon } from './icons.js?v=202611120821';
+} from '../engine/game.js?v=202611131336';
+import { MODE_NAMES, modeTarget } from '../engine/cards.js?v=202611131336';
+import { attackPreview, effectPreview, choicePreview } from '../engine/preview.js?v=202611131336';
+import { statsIfPlaced } from '../engine/stats.js?v=202611131336';
+import { attackIcon, strengthIcon, icon } from './icons.js?v=202611131336';
 
 const esc = (x) => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const sameHit = (a, b) => a && b && a.kind === b.kind && a.who === b.who && a.space === b.space;
@@ -22,7 +22,8 @@ export function selCard(s, sel) {
   if (!sel) return null;
   if (sel.kind === 'attack') return me.row[sel.from];
   // G2: a chosen-target On Summon: the summoned Pokémon.
-  if (sel.kind === 'choice') return s.choice?.who === 'player' ? me.row[s.choice.space] ?? null : null;
+  // B3-1: or the effect waiting for its choice (a Supporter's, a Trainer Command's: no Pokémon of its own).
+  if (sel.kind === 'choice') return s.choice?.who === 'player' ? (s.choice.space !== null && s.choice.space !== undefined ? me.row[s.choice.space] : null) ?? { name: s.choice.name, cardType: 'Effect' } : null;
   if (sel.kind === 'item') return sel.from === 'mart' ? s.mart.onSale[sel.slot] : sel.from === 'bag' ? me.bag.find((c) => c.uid === sel.uid) : me.hand.find((c) => c.uid === sel.uid);
   return me.hand.find((c) => c.uid === sel.uid) ?? null;
 }
@@ -117,7 +118,7 @@ function reasonAt(s, sel, c, hit) {
   const me = s.players.player;
   const occupant = hit.kind === 'space' ? s.players[hit.who].row[hit.space] : null;
   if (hit.kind === 'board') return '';
-  if (sel.kind === 'choice') return hit.kind === 'pc' ? 'On Summon targets Pokémon only' : occupant ? 'Not a target for this On Summon' : 'No Pokémon here';
+  if (sel.kind === 'choice') return hit.kind === 'pc' ? 'It targets Pokémon only' : occupant ? `Not a target for ${s.choice?.name ?? 'this effect'}` : 'No Pokémon here';
   if (sel.kind === 'attack') {
     if (hit.kind === 'pc') { const g = playerGuard(s, 'player', sel.from, 'ai'); return g ? `The Opponent is guarded by ${g.card.name}` : ''; }
     if (hit.who === 'player') return 'Choose an enemy Pokémon or the Opponent';
@@ -199,7 +200,8 @@ export function previewHTML(s, sel, hit) {
   if (sel.kind === 'choice') {
     const pv = choicePreview(s, { who: hit.who, space: hit.space });
     const on = s.players[hit.who].row[hit.space];
-    let html = `<div class="h">${esc(pv.name)} → ${esc(on.name)}</div><div class="sub">${esc(pv.text)}</div>` + pv.changes.map((ch) => changeLine(s, ch)).join('');
+    const onName = on?.name ?? locationAt(s, hit.space)?.name ?? `lane ${hit.space + 1}`;   // (B3-1: a Location's lane)
+    let html = `<div class="h">${esc(pv.name)} → ${esc(onName)}</div><div class="sub">${esc(pv.text)}</div>` + pv.changes.map((ch) => changeLine(s, ch)).join('');
     const chips = rewardChips(pv.rewards, s, pv.changes.some((ch) => ch.defeated && ch.who === 'ai') ? 'Defeats · ' : '');
     if (chips) html += `<div class="g">${chips}</div>`;
     return html;

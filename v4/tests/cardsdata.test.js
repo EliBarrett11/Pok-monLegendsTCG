@@ -128,7 +128,7 @@ const data = readFileSync(`${ROOT}v4/src/data/cards.js`, 'utf8');
 ok(/^\/\/ /.test(data) && data.includes('ops'), 'the data module documents its vocabulary at the top');
 
 // --- validateDeck -------------------------------------------------------------------------------------------------------------
-eq(DECK_RULES, { size: 40, copies: 2, legendaryCopies: 1, maxTrainers: 3 });
+eq(DECK_RULES, { size: 40, copies: 2, legendaryCopies: 1, trainerCopies: 1, maxTrainers: 3 });
 for (const id of DECK_IDS) eq(validateDeck(DECKS[id].list), [], `${DECKS[id].name}: legal`);
 const base = DECKS['blaines-blitz'].list;
 const has = (reasons, re) => reasons.some((r) => re.test(r));
@@ -142,6 +142,8 @@ ok(has(r, /Entei is a Legendary: at most 1 copy \(the deck has 2\)/), `2 of a Le
 r = validateDeck([...base.filter((x, i) => i !== base.indexOf('ember') && i !== base.indexOf('ember') + 1), 'misty', 'erika']);   // (Blaine's Blitz has 2)
 ok(has(r, /4 Trainers: at most 3/), `4 Trainers: ${r}`);
 ok(validateDeck([...base.slice(0, 39), 'not-a-card']).some((x) => /isn't a card/.test(x)), 'an unknown id');
+r = validateDeck([...base.filter((x, i) => i !== base.indexOf('ember')), 'blaine']);
+ok(has(r, /Blaine is a Trainer: at most 1 copy \(the deck has 2\)/), `2 of a Trainer (the plan: 1 copy each): ${r}`);
 // Any number of Locations, and of different Legendaries.
 const locs = LOCATIONS.slice(0, 9).flatMap((l) => [l.id]);
 ok(!has(validateDeck([...locs, ...base.slice(0, 31)]), /Location/), 'any number of Locations');

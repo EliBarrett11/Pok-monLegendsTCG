@@ -22,10 +22,13 @@ const results = [];
 const report = (name, ok, info = '') => { results.push({ name, ok }); console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}${info ? ` · ${info}` : ''}`); };
 
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+// B3-1: an optional size ("1366x768"), so the real-input match runs at each of the three sizes.
+const [VW, VH] = (process.argv[3] ?? '1920x1080').split('x').map(Number);
+const page = await browser.newPage({ viewport: { width: VW, height: VH } });
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.stack ?? e.message));
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+page.on('response', (r) => { if (r.status() === 404) errors.push(`404 ${new URL(r.url()).pathname}`); });
 await page.goto(`${BASE}?debug&seed=11&speed=instant`);
 await page.waitForFunction(() => window.__v4 && window.__v4.webgl !== undefined, null, { timeout: 20000 });
 await page.evaluate(async () => { window.__ai = await import('/v4/src/ai/ai.js'); window.__eng = await import('/v4/src/engine/game.js'); });

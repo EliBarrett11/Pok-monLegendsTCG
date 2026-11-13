@@ -10,9 +10,9 @@
 //   - damage taken.
 // The Attack shown is damageOf, the number RESOLVE.attack deals; the Strength shown is currentStrength, the
 // Strength damage is taken from and dominance counts. tests/c4.test.js checks both against combat.
-import { TRAINERS, pokemonAt, pathDef } from './cards.js?v=202611120821';
-import { applyAction, damageOf, locationAt, passiveOps, heldOps, syncBonuses } from './game.js?v=202611120821';
-import { attackParts } from './preview.js?v=202611120821';
+import { TRAINERS, pokemonAt, pathDef } from './cards.js?v=202611131336';
+import { applyAction, damageOf, locationAt, passiveOps, heldOps, syncBonuses } from './game.js?v=202611131336';
+import { attackParts } from './preview.js?v=202611131336';
 
 // A Pokémon's printed stats (its Level's, or a Partner's own).
 export function printedOf(card) {

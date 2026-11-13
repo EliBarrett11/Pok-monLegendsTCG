@@ -13,6 +13,7 @@ Plain HTML, CSS and JavaScript modules: no build step and relative paths only. I
 |---|---|
 | `v4/src/rules.js` | The numbers |
 | `v4/src/engine/` | Game rules and state (`game.js`), cards (`cards.js`), Energy (`energy.js`), random numbers. **No DOM code.** |
+| `v4/src/data/` | `cards.js`, generated from `docs/base-game/cards.json` by `node v4/tools/buildcards.mjs` (B3-1) |
 | `v4/src/ai/` | The simple AI: greedy, one move ahead, through the engine's actions |
 | `v4/src/ui/` | The interface (v3's look), coded icons |
 | `v4/tests/` | `node v4/tests/core.test.js`, `locations.test.js`, `commands.test.js`, `items.test.js`, `tournament.test.js`, `ux1.test.js`, `ux2.test.js` and `ux3.test.js` (focused rule tests; no match simulations) |
@@ -37,51 +38,16 @@ The rules for Ready, the unmatched-Speed Pass and trades follow v3's engine.
 
 **URL options:** `?seed=123` replays the same match; `?autoplay` lets the AI play both sides; `?debug` exposes `window.__v4` for checks.
 
-## The deck (G3: the final 40 cards, the same list for both players)
+## The decks (B3-1: the four Batch 1 decks)
 
-One neutral deck that shows every approved feature: exactly the list of `docs/v4-gameplay-update.md` 5.4. Card data lives in `v4/src/engine/cards.js` (`DEMO_DECK`); `tests/g3.test.js` checks it card for card.
+Every card comes from `docs/base-game/cards.json` (the approved Base Game): `node v4/tools/buildcards.mjs` generates `v4/src/data/cards.js` from its Batch 1 entries, and the game's wording is generated from the data (`tests/cardsdata.test.js` checks it word for word). Each side plays one of four decks (`v4/src/engine/decks.js`), chosen with `?deck=<name>` and `?aideck=<name>` (blaine, misty, erika, surge) or at random. Deck rules (`validateDeck`): 40 cards, at most 2 copies, a Legendary 1 copy, 0–3 Trainers (1 copy each), any number of Locations.
 
-| Card | Type | Count | Text |
-|---|---|---|---|
-| Ponyta → Rapidash | Pokémon, Light (L1–6) | 2 | On Defeated: draw 1 · Rapidash: Quick Attack, On Knockout: +1 Attack |
-| Chinchou → Lanturn | Pokémon, Light (L1–6) | 2 | On Summon: +1 Energy this Round · Lanturn: On Attack: 1 to each enemy in its Location |
-| Shinx → Luxio → Luxray | Pokémon, Light (L1–6) | 1 | On Summon: 1 damage to an enemy · Luxio, Luxray: Infiltrator |
-| Squirtle → Wartortle → Blastoise | Pokémon, Mid (L2–7) | 2 | heals · Wartortle, Blastoise: Shell 1 · Blastoise: On Attack splash |
-| Growlithe → Arcanine | Pokémon, Mid (L2–7) | 2 | On Summon: +1 Attack to your others · Arcanine: Overrun, On Knockout: draw 1 |
-| Horsea → Seadra → Kingdra | Pokémon, Mid (L2–7) | 1 | On Summon: damage to an enemy · Seadra: Retaliate 1 · Kingdra: Infiltrator |
-| Wooper → Quagsire | Pokémon, Mid (L2–7) | 1 | Regenerate 1 · Quagsire: Rage, On Summon: heal your others |
-| Magikarp → Gyarados | Pokémon, Heavy (L3–8) | 1 | On Summon: draw 1 · Gyarados: Rage, On Summon: 1 to each enemy in its Location |
-| Charmander → Charmeleon → Charizard | Pokémon, Heavy (L3–8) | 2 | On Attack: +1 Attack · Charmeleon: Rage · Charizard: Overrun, 2 to each enemy |
-| Magby → Magmar → Magmortar | Pokémon, Heavy (L3–8) | 1 | On Defeated splash · Magmar: Retaliate 1 · Magmortar: On Attack splash |
-| Cerulean Cape | Location (2 lanes, 3 Rounds) | 1 | +1 Strength passive, Rain |
-| Mt. Ember | Location (3 lanes, 3 Rounds) | 1 | +1 Attack passive, Sun |
-| Lake of Rage | Location (2 lanes, 2 Rounds) | 1 | heal at Breakfast, Sun |
-| Route 119 | Location (4 lanes, 2 Rounds) | 1 | summoning discount, Rain |
-| Ember | Command: an enemy | 1 | React 1: 2 dmg · Adapt 2: 3 dmg · Strat 3: 5 dmg |
-| Thunderbolt | Command: an enemy | 1 | React 2: 2 dmg · Adapt 3: 4 dmg · Strat 4: 6 dmg |
-| Rock Slide | Command: a Location | 1 | React 2: 1 dmg to one enemy · Adapt 3: 1 to each enemy there · Strat 4: 2 to each |
-| Heat Wave | Command: all enemies | 1 | React 2: 1 dmg to the attacker · Adapt 3: 1 to each enemy · Strat 5: 2 to each |
-| Surf | Command: a Location | 1 | React 1: heal 2 to the attacked · Adapt 3: 2 to each enemy there · Strat 4: 3 to each |
-| Bubble Beam | Command: an enemy | 1 | React 1: the attacker Spent after its attack · Adapt 2: 2 dmg + Spent · Strat 3: 3 dmg + Spent |
-| Recover | Command: one of yours | 1 | React 1: heal 2 · Adapt 2: heal 4 · Strat 3: heal 8 |
-| Flame Charge | Command: one of yours | 1 | React 1: +1 Attack until Supper · Adapt 2: +1 kept · Strat 3: +2 kept |
-| Dive | Command: one of yours | 1 | React 1: save the attacked (the attack fizzles) · Adapt 1: to hand · Strat 2: to hand, draw 1 |
-| Nurse Joy | Supporter (Release 1) | 1 | heal each of yours 2; Favour (a Water Pokémon): heal 4 |
-| Professor Oak | Supporter (Release 1) | 1 | a Pokémon card from the Draw Pile; Favour (a Location): 2 |
-| Brock | Supporter (Release 2) | 1 | +1 Strength (kept) to each of yours; Favour (a Pokémon of Level 4+): +2 |
-| Flannery | Supporter (Release 1) | 1 | each of yours +1 Attack until Supper; Favour (a Fire Pokémon): +2 |
-| Pokémon Breeder | Supporter (Release 1) | 1 | a Pokémon card from your Discard Pile into your hand; Favour (an Item): 2 |
-| Potion | Item, Consumed, $2 | 1 | heal 4 |
-| Oran Berry | Item, Consumed, $1 | 1 | heal 2 |
-| X Attack | Item, Consumed, $2 | 1 | +2 Attack until Supper |
-| Charcoal | Item, Held, $2 | 1 | +1 Attack |
-| Quick Claw | Item, Held, $3 | 1 | Speed one step higher |
-| Misty | Trainer | 1 | Objective "Defeat 8 enemy Pokémon" → Starmie (Level 8); Trainer Command: draw 2 |
-| Blaine | Trainer | 1 | Objective "Dominate a Location 5 times" → Ninetales (Level 8); Trainer Command: 1 damage to each enemy Pokémon |
+- **Blaine's Blitz** (40 cards): *Trainers* Blaine, Lt. Surge; *Locations* Mt. Ember, Cinnabar Volcano, Power Plant, Route 119; *Pokémon* Ponyta ×2, Growlithe ×2, Charmander ×2, Magby ×2, Pichu ×2, Shinx ×2, Chinchou, Entei, Zapdos; *Commands* Ember ×2, Flame Charge, Heat Wave, Thunderbolt ×2, Thunder Wave, Protect; *Supporters* Flannery, Firebreather, Chili, Kabu, Tracey; *Items* X Attack, Charcoal, Magnet, Quick Claw, Choice Band, Oran Berry.
+- **Misty's Tide** (40 cards): *Trainers* Misty, Whitney; *Locations* Cerulean Cape, Lake of Rage, Floaroma Meadow, Pallet Town; *Pokémon* Squirtle ×2, Wooper ×2, Horsea ×2, Magikarp ×2, Happiny ×2, Munchlax ×2, Meowth, Eevee, Kyogre; *Commands* Surf ×2, Bubble Beam, Dive ×2, Recover ×2, Protect; *Supporters* Nurse Joy, Swimmer, Fisherman, Crasher Wake, Wallace; *Items* Mystic Water, Leftovers, Potion, Sitrus Berry, Rocky Helmet, Amulet Coin.
+- **Erika's Garden** (40 cards): *Trainers* Erika; *Locations* Eterna Forest, Floaroma Meadow, Pallet Town, Route 119; *Pokémon* Bulbasaur ×2, Oddish ×2, Sunkern ×2, Budew ×2, Eevee ×2, Happiny, Munchlax, Meowth ×2, Celebi; *Commands* Leech Seed ×2, Solar Beam ×2, Recover ×2, Protect ×2; *Supporters* Ramos, Gardenia, Brock, Professor Oak, Pokémon Breeder; *Items* Miracle Seed, Leftovers, Super Potion, Sitrus Berry, Oran Berry, Quick Claw, X Attack.
+- **Surge's Storm** (40 cards): *Trainers* Lt. Surge, Misty; *Locations* Power Plant, Cerulean Cape, Route 119, Mt. Ember; *Pokémon* Mareep ×2, Chinchou ×2, Pichu ×2, Shinx ×2, Horsea, Magikarp ×2, Squirtle, Eevee, Zapdos, Kyogre; *Commands* Thunderbolt ×2, Thunder Wave ×2, Surf, Dive, Bubble Beam, Protect; *Supporters* Tracey, Professor Oak, Swimmer, Nurse Joy, Pokémon Breeder; *Items* Magnet, Mystic Water, Quick Claw, X Attack, Potion, Amulet Coin.
 
-**In total:** 15 Pokémon, 4 Locations, 9 Commands, 5 Supporters, 5 Items and 2 Trainers: 40 cards.
-
-The PokéMart has its own pool of one each of the ten Items (5.3): Oran Berry $1 (Stock 8), Potion $2 (6), X Attack $2 (6), Charcoal $2 (6), Mystic Water $2 (6), Quick Claw $3 (4), Rocky Helmet $3 (4), Leftovers $3 (4), Choice Band $4 (3), Amulet Coin $4 (3). Mystic Water, Rocky Helmet, Leftovers, Choice Band and Amulet Coin can only be bought there.
+As written in the B3-1 prompt, Blaine's Blitz, Erika's Garden and Surge's Storm had 39 cards; each got one more so it passes the 40-card rule (a second Magby; a second Protect; a Protect).
 
 ## Validation (spec sections 12 and 14)
 
@@ -101,11 +67,11 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
 | Energy and PokéDollar economies work | `core`: Base Energy, Pass, Exert and Exhaust. `items`: income, defeat rewards, spending. |
 | Command React, Adapt and Strat work; React interrupts; Strat is delayed | `commands`:<br>- React resolves before an attack, a summon or an Adapt, can make it fizzle, uses no turn and can't be reacted to.<br>- Strat resolves after the opponent's next turn, or at Supper, and fizzles when its target is gone. |
 | Supporter Release and Favour work | `commands`: Release is permanent and never reshuffled, the Supporter is Released too, and the Favour gives its effect and Recognition. |
-| Locations can be placed and dominated; Weather works | `locations`: placement, durations, passives, all four brackets, dominance, ties. |
+| Locations can be placed and dominated | `locations`: placement, durations, passives, dominance, ties. |
 | Items, the PokéMart (3 a Round) and the Inventory work | `items`: buying from hand and the PokéMart, use now or store, the Bag limit, playing from the Bag, Held and Consumed, and the refresh of 3 each Breakfast with Items returning to the pool. |
 | Trainer Objectives and Commands work | `items`: progress, completion, the Partner (including waiting for a space), its On Summon, the Recognition, both Trainer Commands. |
 | Recognition from every approved source | Damage to the Player Character and defeats: `core`. Dominance: `locations`, `tournament`. Favours: `commands`. Trainer Objectives: `items`. Card effects (a Command or Partner On Summon that defeats): `commands`, `items`. |
-| The Tournament replaces the active Locations and functions | `tournament`:<br>- it triggers at Round 10 or 70+ Recognition;<br>- Locations are removed to the Discard Piles and Pokémon stay;<br>- passives and Weather end;<br>- Locations can't be placed;<br>- Recognition is +50%, rounded up;<br>- dominance gives +3 (5), ties give nothing.<br>The browser match also triggered it. |
+| The Tournament replaces the active Locations and functions | `tournament`:<br>- it triggers at Round 10 or 70+ Recognition;<br>- Locations are removed to the Discard Piles and Pokémon stay;<br>- passives end;<br>- Locations can't be placed;<br>- Recognition is +50%, rounded up;<br>- dominance gives +3 (5), ties give nothing.<br>The browser match also triggered it. |
 | A player can win at 100 Recognition | `core` and `tournament`, including during the Tournament for either player. The browser checks ended a match both ways. |
 | A complete match is playable with the same deck | The browser match above, start to finish. |
 | Important assumptions are documented | `v4/FOUNDATION_ASSUMPTIONS.md`, in the section 13 format. |
@@ -115,7 +81,7 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
 - **F1 — the core (step 1 of 5).**
   - **The battlefield:**
     - 9 lanes, with one space per player in each.
-    - The whole battlefield is the Default Location (placed Locations come later), with no passive, Weather or dominance.
+    - The whole battlefield is the Default Location (placed Locations come later), with no passive or dominance.
     - The Player Characters sit outside it.
   - **Rounds:**
     - **Breakfast:** Exhaust recovers; Base Energy is the Round (max 10); Exert maximum is the Round (max 3); Spent Pokémon become Active; Pokémon cards off the battlefield gain their Level; draw 7, less one per Retained card.
@@ -174,21 +140,17 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
     - A Location covers 2, 3 or 4 adjacent free lanes (set per card) on both sides, including lanes with Pokémon already there.
     - It stays for a set number of Rounds (set per card), counted down at Supper. Then its lanes are the Default Location again, and Pokémon there stay where they are.
     - It can only be placed where enough adjacent free lanes exist; otherwise it says why.
-  - **The four Locations:** each has a name, art, a passive on the Pokémon in it, and Weather of one type:
+  - **The four Locations:** each has a name, art and a passive on the Pokémon in it (and, until B3-1 removed it, a second system of brackets):
 
-    | Location | Lanes | Rounds | Weather | Passive |
-    |---|---|---|---|---|
-    | Cerulean Cape | 2 | 3 | 1 Rain | +1 Strength |
-    | Mt. Ember | 3 | 3 | 2 Sun | +1 Attack |
-    | Lake of Rage | 2 | 2 | 1 Sun | Heal 2 at Breakfast |
-    | Route 119 | 4 | 2 | 2 Rain | Summoning here costs 1 less |
+    | Location | Lanes | Rounds | Passive |
+    |---|---|---|---|
+    | Cerulean Cape | 2 | 3 | +1 Strength |
+    | Mt. Ember | 3 | 3 | +1 Attack |
+    | Lake of Rage | 2 | 2 | Heal 2 at Breakfast |
+    | Route 119 | 4 | 2 | Summoning here costs 1 less |
 
     They're in the demo deck: 20 Pokémon plus the four Locations, the same list for both players.
-  - **Weather:** Rain and Sun counts combine across all placed Locations. Brackets apply to both players:
-    - **Rain 2:** every Pokémon heals 1 at Breakfast.
-    - **Rain 4:** every Pokémon has +1 Strength.
-    - **Sun 2:** Physical attacks deal +1 damage.
-    - **Sun 4:** every Pokémon has +1 Attack.
+  - **Brackets** (removed in B3-1): counts from the placed Locations unlocked heals, Strength, Physical damage and Attack for both players.
   - **Dominance:** at Supper, for each placed Location, the player whose Pokémon there have the greater total current Strength earns +1 Recognition. Ties give nothing.
   - **The AI:**
     - It places Locations, valuing each one it dominates at the Recognition it would bring over the Rounds left.
@@ -196,10 +158,10 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
     - It now only tries spaces it can pay for, since Route 119 makes cost depend on the lane.
   - **The interface:**
     - Locations are bold tiles in their own colour and art over their lanes on both sides.
-    - Each has a compact panel with the name, Weather, Rounds left, who dominates now (with both Strength totals) and what that gives at Supper. The passive and details appear on hover.
+    - Each has a compact panel with the name, its bracket count, Rounds left, who dominates now (with both Strength totals) and what that gives at Supper. The passive and details appear on hover.
     - The Default Location label sits over the widest stretch of Default lanes.
-    - A Weather panel shows the Rain and Sun counts and which brackets are active.
-    - Location cards in hand show their lanes, Rounds, passive and Weather.
+    - A panel showed the bracket counts and which were active (removed in B3-1).
+    - Location cards in hand show their lanes, Rounds and passive.
     - **To place one:** select it, then click a glowing lane. It covers that lane and the ones to its right.
     - The Actions panel includes Place Location.
   - **Checks:**
@@ -207,7 +169,7 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
       - placement: widths, free lanes, over Pokémon, no room, no Energy;
       - duration and removal;
       - each passive;
-      - the Weather brackets;
+      - the brackets;
       - dominance and its Recognition, including ties;
       - the AI placing and contesting.
     - `core.test.js` still passes.
@@ -346,7 +308,7 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
   - **The transition:**
     - All placed Locations are removed; their cards go to their owners' Discard Piles.
     - The Tournament covers all 9 lanes, and Pokémon stay where they are.
-    - Location passives and Weather end.
+    - Location passives (and the brackets) end.
     - No new Locations can be placed; Location cards say why.
     - It lasts until the match ends.
   - **Passive:** all Recognition earned is increased by half, rounded up (3 → 5).
@@ -356,7 +318,7 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
     - A banner when the Tournament begins.
     - A gold Tournament tile across the board, showing its passive, who dominates (with both Strength totals) and what that gives at Supper.
     - A 🏆 Tournament chip by the Round.
-    - The Weather panel shows "None".
+    - The bracket panel shows "None".
   - **The AI** counts the Tournament's dominance.
   - **The final foundation deck:** 40 cards, adding a second Ember, Recover, Potion and Professor Oak. See "The foundation deck" above.
   - **`FOUNDATION_ASSUMPTIONS.md`** is completed in the section 13 format. Each entry gives what was chosen, why it's the simplest, and whether it needs approval. It covers the Tournament, the starting values, the round-start order, React timing and the Retain limit.
@@ -365,7 +327,7 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
       - the deck;
       - the trigger, by Round and by Recognition;
       - Locations removed and Pokémon staying;
-      - old passives and Weather ending;
+      - old passives and brackets ending;
       - no Locations;
       - the +50% passive;
       - Tournament dominance and ties;
@@ -433,7 +395,7 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
       - hand backs with a count, the Released count, and the Deck and Discard piles.
     - **The board:**
       - Locations are full tiles: art over all their lanes on both rows, a coloured border, Pokémon standing on the art.
-      - Each Location has a plate showing name, passive, Rounds-left pips, the Weather it adds, "N vs M" Strength, and a two-colour bar.
+      - Each Location has a plate showing name, passive, Rounds-left pips, its bracket count, "N vs M" Strength, and a two-colour bar.
       - The Tournament is one tile with its plate (×1.5, dominance +3).
       - Empty lanes are plain mat, and the "Default Location" label is gone.
     - **Board cards:**
@@ -444,7 +406,7 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
     - **The five stat icons** live in `src/ui/icons.js`: Physical and Special Attack; Hitpoints, Defence and Special Defence. `attackIcon(card)` and `strengthIcon(card)` are pure helpers, used on board and hand cards and in the log. Tooltips name the stat in words.
     - **The right column:**
       - Round, with when the Tournament comes;
-      - one Weather chip: totals, the active bracket effect and the next bracket;
+      - one bracket chip: totals, the active bracket effect and the next bracket;
       - the Energy tile: Base Energy left, "of N this turn", Exert diamonds (ready, Exhausted, locked) and return Rounds;
       - END TURN;
       - the PokéMart button with an "N new" badge after each Breakfast. It opens a drawer with the 3 Items and Buy buttons (same buying as before; reasons on hover).
@@ -455,7 +417,7 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
       - **Faces:** Pokémon show a Level chip, a Type icon before the name, one rules line and a stat bar. Other cards show a kind line. Commands show only the `commandModesFor` modes as chips.
       - Playable cards have a gold edge; unplayable ones are dimmed, with the reason on hover.
     - **Bottom-right:** your Deck and Discard piles, the key hints (with the React timer setting), and the Released and Retained counts.
-    - **Removed:** the Actions panel, the pile-count panel, the strip under the board, the Weather bracket list and the "Default Location" label. Their facts are now on the HUDs, piles, tooltips and the prompt bar.
+    - **Removed:** the Actions panel, the pile-count panel, the strip under the board, the bracket list and the "Default Location" label. Their facts are now on the HUDs, piles, tooltips and the prompt bar.
   - **Kept:** UX1's React window (banner, arrow, large React cards, timer, keys), the mulligan, the end screen, the Supporter Release choice, Item targeting and the Tournament banner.
   - **Checks:**
     - `node v4/tests/ux2.test.js` covers:
@@ -484,7 +446,7 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
       - the damage, and the target's Strength before and after;
       - a defeat and its rewards (Recognition after the Tournament's ×1.5, and $), or Recognition from damage to a Player Character;
       - the hit-back from a Ready target: its damage, the attacker's Strength after, a defeat, and the opponent's rewards;
-      - the parts of the attack number (base Attack, Location, Weather, Held Item, "until Supper", Sun 2 for Physical), which always add up to the engine's damage.
+      - the parts of the attack number (base Attack, Location, brackets, Held Item, "until Supper"), which always add up to the engine's damage.
     - **`effectPreview(s, who, card, mode, target)`** does the same for every Command mode, Items and Trainer Commands. Damage and heals show before → after, plus defeats and rewards. Effects with no number (such as "Draw 2 cards") give a sentence.
   - **Targeting arrows and previews** (`src/ui/interact.js`, on a layer above the board and below dialogs):
     - **The arrow** is curved, glowing and dotted, from the attacker or the hand, Bag or React card to the pointer. It turns red and snaps onto a legal target.
@@ -511,7 +473,7 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
     - Retaining your last card.
   - **Polish:**
     - The log ticker's lines are trimmed in JS to fit.
-    - The Weather chip's lines fit, including in the Tournament.
+    - The bracket chip's lines fit, including in the Tournament.
     - The Round panel's Tournament chips fit.
     - The opponent's pile counts sit inside the piles, clear of the captions.
     - Tall display numbers no longer overflow their boxes.
@@ -519,7 +481,7 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
   - **An engine bug the new tests found:** the React-window event put `type: pending.type` in its data, which overwrote the event's own type. So a React window was logged as an "attack" event, and an earlier test of "no window" passed trivially. It's renamed `action`.
   - **The layout check** now also fails when any text overflows its own box. It has new scenarios: an attack preview with a hit-back, a Command drag over a target, the mode picker, a Location placement preview, the key list and a confirmation.
   - **Checks:**
-    - **`node v4/tests/ux3.test.js`:** 220 random legal attacks from AI-played matches (fixed seeds) agree with `applyAction`. It compares damage, both Strengths, defeats, Recognition and $ for both players, with Location, Weather, Held Item, Tournament, hit-back, Player Character and defeat cases all covered. 63 effect cases (every Command mode, every Item, both Trainer Commands, and a Tournament defeat) agree with the real results.
+    - **`node v4/tests/ux3.test.js`:** 220 random legal attacks from AI-played matches (fixed seeds) agree with `applyAction`. It compares damage, both Strengths, defeats, Recognition and $ for both players, with Location, bracket, Held Item, Tournament, hit-back, Player Character and defeat cases all covered. 63 effect cases (every Command mode, every Item, both Trainer Commands, and a Tournament defeat) agree with the real results.
     - All eight test files pass.
     - The layout check is ok at all three sizes.
     - **The Playwright browser check:**
@@ -564,7 +526,7 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
     - **PokéDollars and Items:** coins fly to the purse. A purchase flies the Item from the PokéMart or the hand to the Bag. Using an Item plays a small effect on its target.
     - **Supporters:** the Released cards burn away, then the effect, then "Favour!" and its Recognition.
     - **Locations:** a new one unfolds over its lanes and an expiring one folds away. Retaining a card shows a small lock.
-    - **Weather:** ambient rain or sun while a bracket of 2+ is active (CSS transforms; off in low motion). The Weather chip pulses and names a bracket when it is reached.
+    - **Brackets** (removed in B3-1): an ambient effect while a bracket of 2+ was active (CSS transforms; off in low motion), and a pulse naming a bracket when it was reached.
     - **Supper:** the Strats resolve; each dominated Location's plate glows on the winner's side, then its Recognition flies; then Objective progress; then the countdowns; then the hand slides to the Discard Pile, and Retained cards stay.
     - **Breakfast:** "Round N", a summary strip, then the new hand deals in.
     - **Banners:** "Round N", "Your turn", "Opponent's turn" and "Supper", each 0.7 s at Normal.
@@ -572,7 +534,7 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
     - **The end of the match:** the winner's ring fills and flares "Champion", then the end screen. The end screen and the Tournament banner wait for the beats.
   - **AI pacing:** a thinking pause (0.5 s at Normal) with "The Opponent is thinking…" in the prompt bar. Then the prompt bar names the action, and anything with a target gets the arrow from its source to its target for 0.4 s, before the beat.
   - **Speed:** Slow, Normal, Fast and Instant (×1.5, ×1, ×0.5, none), plus a Low motion toggle, beside the React timer. Both are kept in localStorage inside try/catch.
-    - Low motion is on by default under the OS's reduced-motion setting. It means fewer particles, no shake, no distortion and no ambient Weather.
+    - Low motion is on by default under the OS's reduced-motion setting. It means fewer particles, no shake, no distortion and no ambient effects.
     - `?autoplay` uses Fast. The layout tool uses `?speed=instant`.
     - `?timescale=N` (checks only) stretches every beat, so a slow renderer can be screenshotted mid-beat.
   - **Sound hooks:** `sfx(name, opts)` in `src/ui/sound.js` is a no-op, called at every beat. The calls are kept for `?debug` checks.
@@ -651,7 +613,7 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
     - Triggers can't be Reacted to.
     - "In its Location" means just its own lane when there's no Location.
   - **On Summon targets:** a chosen-target On Summon pauses the summon for its target. The summoner picks with the targeting arrow and a preview (the engine's own `choose` action on a copy). It can't be cancelled. With no target it fizzles with a log line. The AI tries each target and keeps the best.
-  - **Keywords (4.1):** Quick Attack, Infiltrator, Overrun, Shell X, Regenerate X, Retaliate X and Rage. They stack with Items, Locations and Weather (a Held Item's keywords add up). Shell reduces Retaliate too, as in v2.
+  - **Keywords (4.1):** Quick Attack, Infiltrator, Overrun, Shell X, Regenerate X, Retaliate X and Rage. They stack with Items and Locations (a Held Item's keywords add up). Shell reduces Retaliate too, as in v2.
   - **Card text:** the trigger name in bold, then the effect in plain words; keywords as small chips, with the glossary text on hover. The hand shows chips and the trigger line; board cards show the chips; the full text is in the tooltips.
   - **The glossary** (`src/engine/glossary.js`, new): every trigger and keyword in v2's wording, adapted to v4's terms (Ready, the Player Character).
   - **Previews:** `attackPreview` now reports the damage after Shell, Retaliate, the keyword callouts and the triggers an attack sets off. `choicePreview` previews an On Summon target.
@@ -717,7 +679,7 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
 - **C2 — C1 fixes, art framing and the collectable finish** (`docs/v4-card-overhaul.md` 2.3–2.5 and 3). No rule, number or card changes; the approved card design is unchanged.
   - **No text is ever cut or overlapping:**
     - **The hand:** the fan spreads across all its room before overlapping. Each covered card's name and tag (or mode chips) sit left-aligned in its visible strip, under the cost well; whatever can't show whole is hidden, and hovering still shows the Full card.
-    - **The Weather chip:** one whole line per Weather (its chip and its effect), the next bracket only when there's a line for it.
+    - **The bracket chip** (removed in B3-1): one whole line per bracket type, the next bracket only when there's a line for it.
     - **The log ticker:** a short form of each entry on up to two lines; whole clauses only. The full sentence stays in the log drawer.
     - All `text-overflow: ellipsis` and JS "…" trimming are gone.
   - **Recover** has the Normal crest and the sandstone accent.
@@ -727,7 +689,7 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
   - **Checks:** `cardtext.test.js` now also renders hands of 5, 7, 9 and 11 cards and fails if any visible text is partly covered. `tools/c2shots.mjs` takes the C2 screenshots and measures frame times with five holo cards on screen.
 - **C3 — the Codex, the glossary and the Rules page** (`docs/v4-card-overhaul.md` 4; `docs/v4-ux-plan.md` 10 part A). No rule, number or card changes.
   - **The Codex:** right-click anything (when no choice is in progress; right-click still cancels one), press C over anything, or click the ⓘ on a Full card. A panel opens over the right-hand column; your hand and the board's centre stay visible and the match carries on. Card first: the Full card on the left; on the right, what it does now, where its numbers come from ("Attack 11 = 8 base + 1 kept + 1 Mt. Ember + 1 Charcoal"), its keywords and triggers, and for a Pokémon its forms by Level and what it becomes next Round. Every term is a link, with Back and breadcrumbs. Esc or ✕ closes it; the React countdown waits while it's open.
-  - **What it covers:** any card you can see, Locations, the Tournament, Objective trackers, Recognition rings (history by source and Round), the Energy tile, the Weather chip, the PokéMart, the piles (the Deck as a count only), log lines, every glossary term and Rules.
+  - **What it covers:** any card you can see, Locations, the Tournament, Objective trackers, Recognition rings (history by source and Round), the Energy tile, the bracket chip (now the decks panel), the PokéMart, the piles (the Deck as a count only), log lines, every glossary term and Rules.
   - **The glossary:** 93 terms written from the rules documents and the engine (`src/engine/glossary.js`). Terms link in the prompt bar, the log and the Codex.
   - **Rules:** the ? overlay has a Rules tab, a searchable one-page summary with every term a link.
   - **`?fps`:** a frame-time readout in a corner.
@@ -738,7 +700,7 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
     - `node v4/tools/layout.mjs`: the Codex open on each kind of thing, failing on any overflow or overlap.
 
 - **C4 — current stats, a React window that keeps the board visible, Bubble Beam's React and hidden Strats.** The only rule changes are Elliott's two rulings of 11 November 2026.
-  - **Current stats:** board Pokémon (and their hover Full card) show the Attack they will deal and their current Strength, with every source applied: Locations, Weather (Sun 2 for Physical attacks), Held Items, "until Supper" and kept gains, damage.
+  - **Current stats:** board Pokémon (and their hover Full card) show the Attack they will deal and their current Strength, with every source applied: Locations, brackets (then), Held Items, "until Supper" and kept gains, damage.
     - Raised: green ▲. Lowered or damaged: red ▼.
     - Strength under its maximum: a slim bar on tokens, "/9" on the Full card.
     - Hovering a raised or lowered number gives its one-line sum ("Attack 10 = 8 + 1 Mt. Ember + 1 Charcoal").
@@ -758,4 +720,16 @@ No match simulations or AI-vs-AI matches were run. Each item was checked by a fo
     - `node v4/tests/c4.test.js`: shown stats against combat over 300 states; every React window's previews against what resolves; Bubble Beam; the AI's choices whichever card is sealed.
     - `cardtext.test.js` renders raised, lowered and damaged two-digit stats.
     - `node v4/tools/c4check.mjs`: real input.
-    - The layout check: a React window with three React cards, and two-digit stats.
+    - The layout check: a React window with three React cards, and two-digit stats.- **B3-1 — cards as data, and Batch 1 of the Base Game playable.** Every card now comes from `docs/base-game/cards.json` (the approved Base Game); the earlier Location bracket system is gone (Elliott, 12 November 2026).
+  - **Cards as data:** `node v4/tools/buildcards.mjs` reads cards.json's Batch 1 (79 entries: 24 Pokémon series, 12 Moves, 15 Supporters, 14 Items, 9 Locations, 5 Trainers) and writes `v4/src/data/cards.js` (committed; `--check` proves a re-run gives the same file). Every effect is structured ops from one vocabulary, documented at the top of that file; every text the game shows is generated from the ops (`src/engine/wording.js`) and equals cards.json word for word. The old card definitions and the demo deck are gone; Misty, Blaine, Starmie and Ninetales are as cards.json has them (Misty's Command costs 2, Blaine's 1).
+  - **One effect interpreter** runs every trigger, Move, Supporter, Item and Trainer Command; any choice after the first waits for its player (the AI chooses through its search).
+  - **New rules (design bible section 4):** On Dominate; Drain, Sturdy, Agility, Intimidate X, Stealth, Pickup; "the attack deals no damage", Shell X until Supper, becomes Spent / Active, Speed one step higher, return to hand, hand Levels (kept in hand, added to growth, capped), Type-keyword Held Items, Gain N Recognition, a trigger's damage to the enemy Player Character; Objectives for Erika (kept gains, once per effect), Lt. Surge (extra Energy from cards) and Whitney (Items bought from the PokéMart); Legendaries cost 5 and are Level 8 from the start. The readings settled here are listed in `FOUNDATION_ASSUMPTIONS.md` section 16.
+  - **Decks:** `validateDeck` (40 cards, at most 2 copies, a Legendary 1, 0–3 Trainers of 1 copy each, any number of Locations). Four decks replace the demo deck: Blaine's Blitz, Misty's Tide, Erika's Garden and Surge's Storm (three had 39 cards in the prompt; each got one more card). `?deck=` and `?aideck=` choose them (blaine, misty, erika, surge); otherwise random. The decks are named in the log, the panel under the Round (where the bracket chip was) and the ? overlay.
+  - **Cards:** Art Pending for cards with no art yet (a soft glow in the card's colour, "ART PENDING", drawn in code); the Grass colour and crest; Moves show their Type's crest and colour; a card that gained Levels in hand shows "▲2" by its Level; long text sets a little tighter so it still fits.
+  - **The AI** plays the new cards through `applyAction`, values every effect by its result (no per-card rules), and never reads the player's hand, Draw Pile or sealed Strats.
+  - **Checks:**
+    - `node v4/tests/cardsdata.test.js` (1404 checks): every Batch 1 entry, the wording round-trip, the generator's stability, the cost rules, `validateDeck` on the four decks and on broken ones.
+    - `node v4/tests/b3rules.test.js` (80 checks): one focused test per new trigger, keyword, effect and Objective counter.
+    - Every earlier test passes, updated where they used the old cards, the demo deck or the bracket system; `g2` and `g3` now stage their triggers and keywords, and `g3` plays every Batch 1 Move mode, Supporter, Item and Trainer Command through the engine.
+    - `cardtext.test.js`: 1780 renders of every card at Full, Mini and Token size, with Art Pending and hand Levels. The layout check and the real-input match (`tools/c1check.mjs`, now with a size) at 1920×1080, 1366×768 and 1280×720, no page errors.
+    - **Simulation** (`node v4/tools/sim-b3.mjs 200`): 200 seeded AI-vs-AI matches for each of the 16 pairings, 3200 in all, with no errors, stalls or illegal actions; 7.9 Rounds on average. Win rates (all games / excluding mirrors): Misty's Tide 59.0% / 62.0%, Blaine's Blitz 53.8% / 55.0%, Erika's Garden 46.3% / 45.1%, Surge's Storm 40.9% / 37.9%.

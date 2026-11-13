@@ -44,7 +44,7 @@ await page.evaluate(() => {
 
 // The staged board (setup only): Round 5; Mt. Ember (the Opponent's) over lanes 3–5, Cerulean Cape and Route 119;
 // your Charizard (Level 8, Charcoal, damaged) in Mt. Ember; a damaged Blastoise; a Quagsire with two-digit Strength
-// in Route 119 (+2 Rain → Rain 3... Rain 4 with the Cape); the Opponent's Gyarados facing Charizard.
+// in Route 119; the Opponent's Gyarados facing Charizard.
 async function stage(extra = '', hand = ['dive', 'surf', 'bubble-beam']) {
   await page.evaluate(async ({ code, hand }) => {
     const C = await import('/v4/src/engine/cards.js');
@@ -53,7 +53,7 @@ async function stage(extra = '', hand = ['dive', 'surf', 'bubble-beam']) {
     window.__v4.fastForward(5);
     window.__v4.set((s) => {
       const mon = (id, level, x = {}) => ({ ...C.pokemonAt(id, level), uid: `c4-${id}-${level}`, currentStrength: C.pokemonAt(id, level).strength, spent: true, summonedRound: 0, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...x });
-      const loc = (id, start, owner = 'player') => { const l = C.locationDef(id); return { uid: `loc-${id}`, owner, card: l, id, name: l.name, art: l.art, color: l.color, start, width: l.width, roundsLeft: 2, weather: l.weather, passive: l.passive, placedRound: s.round }; };
+      const loc = (id, start, owner = 'player') => { const l = C.locationDef(id); return { uid: `loc-${id}`, owner, card: l, id, name: l.name, art: l.art, color: l.color, start, width: l.width, roundsLeft: 2, passive: l.passive, placedRound: s.round }; };
       s.tournament = null; s.strats = []; s.reactWindow = null; s.choice = null; s.passesInARow = 0;
       s.locations = [loc('cerulean-cape', 0), loc('mt-ember', 2, 'ai'), loc('route-119', 5)];
       for (const w of ['player', 'ai']) { s.players[w].row = Array(9).fill(null); s.players[w].hand = []; }
@@ -92,7 +92,7 @@ report('a token on Mt. Ember shows a green ▲ Attack', zAtk?.up && zAtk.tri && 
 const zStr = await page.evaluate((q) => { const e = document.querySelector(q); return e && { down: e.classList.contains('cd-down'), n: e.childNodes[0]?.nodeValue, bar: !!e.querySelector('.cd-sbar'), color: getComputedStyle(e).color }; }, tab('player', 3, 'str'));
 report('a damaged token shows red Strength (and its maximum as a bar)', zStr?.down && zStr.n === String(zard.currentStrength) && zStr.bar && /255, 122, 102/.test(zStr.color), JSON.stringify(zStr));
 const quag = await page.evaluate((q) => document.querySelector(q)?.childNodes[0]?.nodeValue, tab('player', 6, 'str'));
-report('a two-digit raised Strength (Quagsire in Rain)', Number(quag) >= 10, quag);
+report('a two-digit raised Strength (Quagsire)', Number(quag) >= 10, quag);
 // Hover Charizard's Attack number: its one-line sum under the zoom card.
 await page.hover(tab('player', 3, 'atk'));
 await page.waitForTimeout(250);

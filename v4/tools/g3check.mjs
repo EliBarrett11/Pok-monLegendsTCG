@@ -85,7 +85,7 @@ const cmds = [
   ['dive', { who: 'player', space: 4 }, null],
 ];
 for (const [id, target, shot] of cmds) {
-  await stage(`s.players.player.hand = [card('${id}')]; s.players.player.row[4] = mon('squirtle', 4, { currentStrength: 3 }); for (const sp of [0, 1, 2]) s.players.ai.row[sp] = mon('wooper', 7, { spent: sp !== 2 }); s.players.ai.row[6] = mon('growlithe', 4, { spent: true }); const loc = C.cardAtRound('cerulean-cape', 1); s.locations = [{ uid: 'loc-g3', owner: 'player', card: loc, id: loc.id, name: loc.name, art: loc.art, color: loc.color, start: 0, width: 3, roundsLeft: 2, weather: loc.weather, passive: loc.passive, placedRound: s.round }];`);
+  await stage(`s.players.player.hand = [card('${id}')]; s.players.player.row[4] = mon('squirtle', 4, { currentStrength: 3 }); for (const sp of [0, 1, 2]) s.players.ai.row[sp] = mon('wooper', 7, { spent: sp !== 2 }); s.players.ai.row[6] = mon('growlithe', 4, { spent: true }); const loc = C.cardAtRound('cerulean-cape', 1); s.locations = [{ uid: 'loc-g3', owner: 'player', card: loc, id: loc.id, name: loc.name, art: loc.art, color: loc.color, start: 0, width: 3, roundsLeft: 2, passive: loc.passive, placedRound: s.round }];`);
   const before = await state();
   await show({ type: 'command', who: 'player', uid: `h-${id}`, mode: 'adapt', target }, shot, 700);
   const after = await state();

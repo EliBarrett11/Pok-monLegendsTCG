@@ -11,6 +11,8 @@ import { pokemonAt, cardAtRound, LOCATIONS } from '../src/engine/cards.js';
 import { DECKS } from '../src/engine/decks.js';
 import { chooseAction, moves } from '../src/ai/ai.js';
 
+// B3-1: the removed system's words (written with escapes, so this file doesn't name it either).
+const GONE = /\b(w\u0065ather|r\u0061in|s\u0075n)\b/i;
 let n = 0;
 // G2: board Pokémon are staged plain (no trigger or keywords): these tests check rules; tests/g2.test.js checks the Pokémon.
 const mon = (id, level, extra = {}) => { const c = pokemonAt(id, level); return { ...c, keywords: {}, trigger: null, uid: `t-${n++}`, currentStrength: c.strength, spent: true, bonusAttack: 0, bonusStrength: 0, ...extra }; };
@@ -44,7 +46,7 @@ const loc = (s, id) => s.locations.find((l) => l.id === id);
   for (const l of LOCATIONS) {
     assert.ok([2, 3, 4].includes(l.width), `${l.name}: covers 2, 3 or 4 lanes`);
     assert.ok(l.rounds >= 1 && l.passive.ops.length >= 1, `${l.name}: Rounds and a passive`);
-    assert.ok(!('weather' in l), `${l.name}: B3-1: no Weather`);
+    assert.ok(!Object.keys(l).some((k) => GONE.test(k)), `${l.name}: B3-1: only its passive, lanes and Rounds`);
     if (l.hasArt) assert.ok(existsSync(join(V4, '..', 'assets/cards', `${l.art}.jpg`)), `${l.name}: art`);
   }
   const s = createGame(3, { decks: { player: 'mistys-tide', ai: 'erikas-garden' } });
@@ -180,7 +182,7 @@ const loc = (s, id) => s.locations.find((l) => l.id === id);
   for (const m of ms) applyAction(s, m);
 }
 
-// --- B3-1: no Weather. A Location keeps only its passive, lanes, Rounds and dominance; attacks deal their Attack --------
+// --- B3-1: a Location keeps only its passive, lanes, Rounds and dominance; attacks deal their Attack ---------------------
 {
   let s = battle();
   s.players.player.row[0] = mon('ponyta', 1);
@@ -189,7 +191,7 @@ const loc = (s, id) => s.locations.find((l) => l.id === id);
   s = place(s, 'player', 'lake-of-rage', 0);
   s = place(s, 'ai', 'mt-ember', 2);
   s = place(s, 'player', 'route-119', 5);
-  for (const l of s.locations) assert.deepEqual(Object.keys(l).filter((k) => /weather/i.test(k)), [], `${l.name}: no Weather`);
+  for (const l of s.locations) assert.deepEqual(Object.keys(l).filter((k) => GONE.test(k)), [], `${l.name}: nothing but its passive`);
   assert.equal(damageOf(s, s.players.player.row[0]), ponyta.attack, 'Lake of Rage adds nothing to its Attack');
   assert.equal(s.players.ai.row[8].attack, pokemonAt('squirtle', 2).attack, 'nothing outside a Location changes');
   // Lake of Rage (B3-1): Pokémon there have Rage.
@@ -198,7 +200,7 @@ const loc = (s, id) => s.locations.find((l) => l.id === id);
   s.turn = 'player';
   s = applyAction(s, { type: 'attack', who: 'player', from: 0, target: { kind: 'pokemon', space: 8 } });
   assert.equal(s.players.ai.row[8].currentStrength, 20 - ponyta.attack, 'an attack deals its Attack');
-  assert.ok(!JSON.stringify(s.log).match(/Weather|Rain|\bSun\b/), 'the log never says Weather');
+  assert.ok(!GONE.test(JSON.stringify(s.log)), 'the log never names the removed system');
 }
 
 // --- Dominance and its Recognition at Supper; ties give nothing ---------------------------------------------------------
@@ -260,4 +262,4 @@ const loc = (s, id) => s.locations.find((l) => l.id === id);
   assert.ok([4, 5].includes(b.space), `contests Lake of Rage (chose lane ${b.space + 1})`);
 }
 
-console.log('v4 locations: placement, duration and removal, passives, no Weather, dominance, ties, AI — ok');
+console.log('v4 locations: placement, duration and removal, passives (and nothing else), dominance, ties, AI — ok');

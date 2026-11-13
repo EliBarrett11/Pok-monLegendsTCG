@@ -3,7 +3,7 @@
 //   1. a 9-card hand; 2. an 11-card hand; 3. a hovered final-form card mid-tilt (its Full card in the zoom);
 //   4. a Partner token on the board; 5. the board with Locations in play (the four need 11 lanes and the
 //   board has 9: Cerulean Cape, Mt. Ember and Route 119 fill all 9, and a second shot has Lake of Rage);
-//   6. the Weather chip and the log ticker with long entries.
+//   6. the panel under the Round (B3-1: the decks) and the log ticker with long entries.
 // Then frame times with five holo cards on screen: at idle, and with the pointer moving over a holo card.
 import { createRequire } from 'node:module';
 import { mkdirSync } from 'node:fs';
@@ -27,7 +27,7 @@ const stage = (code) => page.evaluate(async (src) => {
   window.__v4.set((s) => {
     const mon = (id, level, extra = {}) => ({ ...C.pokemonAt(id, level), uid: `c2-${id}-${level}-${Math.random().toString(36).slice(2, 5)}`, currentStrength: C.pokemonAt(id, level).strength, spent: true, summonedRound: 0, bonusAttack: 0, bonusStrength: 0, tempAttack: 0, ...extra });
     const card = (id, k) => ({ ...C.cardAtRound(id, s.round), uid: `c2h-${id}-${k}` });
-    const loc = (id, start, owner = 'player') => { const l = C.locationDef(id); return { uid: `loc-${id}`, owner, card: l, id, name: l.name, art: l.art, color: l.color, start, width: l.width, roundsLeft: l.rounds, weather: l.weather, passive: l.passive, placedRound: s.round }; };
+    const loc = (id, start, owner = 'player') => { const l = C.locationDef(id); return { uid: `loc-${id}`, owner, card: l, id, name: l.name, art: l.art, color: l.color, start, width: l.width, roundsLeft: l.rounds, passive: l.passive, placedRound: s.round }; };
     s.turn = 'player'; s.reactWindow = null; s.choice = null;
     // eslint-disable-next-line no-new-func
     new Function('s', 'mon', 'card', 'loc', 'C', src)(s, mon, card, loc, C);
@@ -63,11 +63,11 @@ await page.screenshot({ path: `${OUT}/5-locations-9-lanes.png` });
 await stage(`${board} s.tournament = null; s.locations = [loc('lake-of-rage', 0), loc('mt-ember', 2, 'ai'), loc('route-119', 5)];`);
 await settle();
 await page.screenshot({ path: `${OUT}/5b-locations-lake-of-rage.png` });
-// 6. The Weather chip (Sun and Rain both active) and the ticker with a long entry.
+// 6. The panel under the Round and the ticker with a long entry.
 await stage(`${board} s.tournament = null; s.locations = [loc('cerulean-cape', 0), loc('mt-ember', 2, 'ai'), loc('route-119', 5)]; s.log.push("The Opponent's Magmortar: On Attack: 1 damage to each other enemy Pokémon in the target's Location.");`);
 await settle();
-await page.screenshot({ path: `${OUT}/6-weather-and-ticker.png` });
-await page.screenshot({ path: `${OUT}/6-weather-and-ticker-crop.png`, clip: { x: 1600, y: 140, width: 320, height: 700 } });
+await page.screenshot({ path: `${OUT}/6-panel-and-ticker.png` });
+await page.screenshot({ path: `${OUT}/6-panel-and-ticker-crop.png`, clip: { x: 1600, y: 140, width: 320, height: 700 } });
 
 // Frame times with five holo cards on screen: Charizard, Blastoise and Misty in hand, Starmie and Ninetales
 // tokens on the board.

@@ -472,8 +472,8 @@ button { font-family: inherit; color: inherit; }
 .cd-art { position: absolute; left: 0; top: 0; width: 340px; height: 476px; background-repeat: no-repeat; background-size: 100% 100%, cover; }
 /* B3-1: Art Pending (a card whose art hasn't arrived): a soft glow in its colour and the words in small spaced capitals. */
 .cd-art.cd-pending { background-size: 100% 100%, 100% 100%; }
-.cd-pendt { position: absolute; left: 0; right: 0; text-align: center; font: 600 15px/1 'Cinzel', Georgia, serif; letter-spacing: 0.42em; text-transform: uppercase; color: rgba(245, 232, 205, 0.78); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7); padding-left: 0.42em; pointer-events: none; }
-.cd-lvup { font-size: 0.72em; color: #8fe08a; margin-left: 2px; vertical-align: 0.45em; }
+.cd-pendt { position: absolute; left: 0; right: 0; height: 22px; text-align: center; font: 600 15px/22px 'Cinzel', Georgia, serif; letter-spacing: 0.42em; text-transform: uppercase; color: rgba(245, 232, 205, 0.78); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7); padding-left: 0.42em; pointer-events: none; }
+.cd-lvup { color: #8fe08a; margin-left: 4px; }
 .cd-fr { position: absolute; left: 0; top: 0; overflow: visible; filter: drop-shadow(0 18px 26px rgba(0, 0, 0, 0.7)) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6)); }
 .cd-mini .cd-fr, .cd-token .cd-fr { filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.7)); }
 .cd-t { position: absolute; display: flex; align-items: center; justify-content: center; text-align: center; font-family: var(--font-text); color: #ece2cc; overflow: visible; }
@@ -483,7 +483,10 @@ button { font-family: inherit; color: inherit; }
 .cd-rules { font-size: 14.5px; line-height: 1.28; color: #e4d9c2; flex-direction: column; gap: 4px; }
 .cd-rules b { font-weight: 700; color: #e9cf93; }
 .cd-rules > div { max-width: 100%; }
+.cd-rules.dense { font-size: 13px; line-height: 1.18; gap: 2px; }
+.cd-rules.dense.tr { font-size: 12.5px; line-height: 1.14; gap: 1px; }
 .cd-kw { font-family: var(--font-display); font-weight: 600; font-size: 11.5px; letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap; }
+.cd-kw.tight { letter-spacing: 0.05em; font-size: 11px; }
 .cd-fav { font-size: 13.5px; justify-content: flex-start; }
 .cd-favl { font-family: var(--font-display); font-weight: 600; font-size: 11.5px; letter-spacing: 0.14em; color: #e6cf9a; text-transform: uppercase; }
 .cd-num { font-family: var(--font-display); font-weight: 600; color: #f6efe0; line-height: 1; text-shadow: 0 1px 2px #000; white-space: nowrap; }

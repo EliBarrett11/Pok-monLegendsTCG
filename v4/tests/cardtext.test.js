@@ -64,18 +64,21 @@ const result = await page.evaluate(async () => {
   }
   for (const t of C.TRAINERS) for (const size of ['full', 'mini', 'token']) add(`${t.partner.name} (Partner)`, { ...t.partner, held: charcoal }, size);
   // Every Command in every mode state.
-  const stateSets = (c) => [
-    undefined,
-    [{ mode: 'adapt', cost: c.modes.adapt.cost }, { mode: 'strat', cost: c.modes.strat.cost }],
-    [{ mode: 'adapt', cost: c.modes.adapt.cost }, { mode: 'strat', cost: c.modes.strat.cost, reason: 'Needs more Energy' }],
-    [{ mode: 'react', cost: c.modes.react.cost }],
-    [{ mode: 'adapt', cost: c.modes.adapt.cost, reason: 'x' }, { mode: 'strat', cost: c.modes.strat.cost, reason: 'x' }],
-  ];
+  // (B3-1: a Move has two or three modes.)
+  const stateSets = (c) => {
+    const m = (k, reason) => (c.modes[k] ? [{ mode: k, cost: c.modes[k].cost, ...(reason ? { reason } : {}) }] : []);
+    return [undefined, [...m('adapt'), ...m('strat')], [...m('adapt'), ...m('strat', 'Needs more Energy')], m('react'), [...m('adapt', 'x'), ...m('strat', 'x')]].filter((x) => x === undefined || x.length);
+  };
   for (const c of C.COMMANDS) for (const modes of stateSets(c)) for (const size of ['full', 'mini']) add(`${c.name} ${modes ? modes.map((m) => m.mode + (m.reason ? '-off' : '')).join('+') : 'all'}`, c, size, modes ? { modes } : {});
   for (const c of C.SUPPORTERS) for (const size of ['full', 'mini']) { add(c.name, c, size); add(`${c.name} retained`, c, size, { retained: true }); }
   for (const c of C.ITEMS) for (const size of ['full', 'mini']) { add(c.name, c, size); add(`${c.name} stock 1`, c, size, { stock: 1 }); add(`${c.name} sold out`, c, size, { soldOut: true }); }
   for (const c of C.TRAINERS) for (const size of ['full', 'mini']) for (const progress of [0, 3, c.objective.need]) add(`${c.name} ${progress}`, c, size, { progress });
   for (const c of C.LOCATIONS) for (const size of ['full', 'mini']) add(c.name, c, size);
+  // B3-1: every Batch 1 card with the Art Pending panel (as the cards whose art hasn't arrived show it), and a
+  // hand card that gained Levels.
+  for (const c of [...C.PATHS.flatMap((p) => p.forms.map((f) => C.pokemonAt(p.id, f.from))), ...C.TRAINERS.map((t) => t.partner)]) for (const size of ['full', 'mini', 'token']) add(`${c.name} art pending`, { ...c, hasArt: false }, size);
+  for (const c of [...C.COMMANDS, ...C.SUPPORTERS, ...C.ITEMS, ...C.TRAINERS, ...C.LOCATIONS]) for (const size of ['full', 'mini']) add(`${c.name} art pending`, { ...c, hasArt: false }, size);
+  for (const [id, round, bonus] of [['charmander', 1, 2], ['bulbasaur', 3, 1], ['magikarp', 4, 2]]) for (const size of ['full', 'mini']) add(`${id} +${bonus} Levels in hand`, C.cardAtRound(id, round, bonus), size);
   // C4: current stats on the stat tabs (board tokens and their hover Full card): raised ▲, lowered ▼, damaged
   // (current over its maximum), two-digit values.
   const st = (attack, aT, strength, max, sT) => ({ stats: { attack, attackTrend: aT, strength, strengthMax: max, strengthTrend: sT, sumAttack: `Attack ${attack} = …`, sumStrength: `Strength ${strength} = …` } });

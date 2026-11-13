@@ -5,19 +5,20 @@
 // action. The presenter never changes the state: it gets prev and next and calls draw() once.
 // Without WebGL the 2D particles stand in (particles.js); numbers, banners and moves are page elements
 // and always play. Every beat calls a sound hook (sound.js).
-import { initVfx, vfxReady, playTimeline, skipTimelines, clearVfx, coins, rectOf, reducedMotion } from './vfx/engine.js?v=202611120821';
-import { burst, clearParticles } from './particles.js?v=202611120821';
-import { plan } from './plan.js?v=202611120821';
+import { initVfx, vfxReady, playTimeline, skipTimelines, clearVfx, coins, rectOf, reducedMotion } from './vfx/engine.js?v=202611131336';
+import { burst, clearParticles } from './particles.js?v=202611131336';
+import { plan } from './plan.js?v=202611131336';
 import {
   MS, attackDef, counterDef, tintFor, commandDef, MODE_STYLE, commandRate, commandTint, SWEEP_COMMANDS, COMMAND_TYPES, summonFor, defeatFor, defOf,
   RING_FLARES, SUPPORTER_ANIMS, itemAnim, attackSfx, tintOf,
-} from './vfx/library.js?v=202611120821';
-import { sfx } from './sound.js?v=202611120821';
-import { speedFactor } from './settings.js?v=202611120821';
-import { RULES } from '../rules.js?v=202611120821';
-import { lanesHere } from '../engine/game.js?v=202611120821';
-import { commandDef as cardCommand, itemDef, supporterDef, trainerDef, TRIGGER_NAMES } from '../engine/cards.js?v=202611120821';
-import { renderHandCard } from './board.js?v=202611120821';
+} from './vfx/library.js?v=202611131336';
+import { sfx } from './sound.js?v=202611131336';
+import { speedFactor } from './settings.js?v=202611131336';
+import { RULES } from '../rules.js?v=202611131336';
+import { lanesHere } from '../engine/game.js?v=202611131336';
+import { commandDef as cardCommand, itemDef, supporterDef, trainerDef, TRIGGER_NAMES } from '../engine/cards.js?v=202611131336';
+import { renderHandCard } from './board.js?v=202611131336';
+import { artBg } from './card.js?v=202611131336';
 
 const GOLD = ['#ffd36b', '#fff6c8'];
 const NAME = { player: 'You', ai: 'The Opponent' };
@@ -325,7 +326,7 @@ const BEATS = {
     const sink = pointOf(e.who === 'player' ? $('.v4-relline') : $('.v4-ohand')) ?? { x: 1700, y: e.who === 'ai' ? 60 : 1040 };
     const burns = (e.releasedUids ?? []).map((uid, k) => {
       const c = prev.players[e.who].hand.find((h) => h.uid === uid);
-      const html = c && e.who === 'player' ? `<div class="v4-mini-card" style="background-image: url('../assets/cards/${c.art}.jpg')"></div>` : '<div class="v4-mini-card back"></div>';
+      const html = c && e.who === 'player' ? `<div class="v4-mini-card" style="background-image: ${artBg(c)}"></div>` : '<div class="v4-mini-card back"></div>';
       return wait(t(90 * k)).then(() => fly(html, fromHand(e.who, uid), sink, t(MS.burn), { cls: 'burning', end: { scale: 0.4, opacity: 0, filter: 'sepia(1) brightness(0.3)' } }));
     });
     await Promise.all(burns);
@@ -340,7 +341,7 @@ const BEATS = {
       const pile = pileEl(e.who, 'disc') ?? ringEl(e.who);
       floatText(pile, took.length ? `${took.length} back to hand` : 'Discard Pile empty', 'status', t(MS.note));
       await play(anim, { target: pile, tint: tintOf('Grass') }, t);
-      await Promise.all(took.map((c, k) => wait(t(80 * k)).then(() => fly(e.who === 'player' ? `<div class="v4-mini-card" style="background-image: url('../assets/cards/${c.art}.jpg')"></div>` : '<div class="v4-mini-card back"></div>',
+      await Promise.all(took.map((c, k) => wait(t(80 * k)).then(() => fly(e.who === 'player' ? `<div class="v4-mini-card" style="background-image: ${artBg(c)}"></div>` : '<div class="v4-mini-card back"></div>',
         pointOf(pile), fromHand(e.who, null), t(MS.diveFly), { end: { scale: 0.8, opacity: 0.8 } }))));
     } else { floatText(pileEl(e.who, 'draw'), 'Search', 'status', t(MS.note)); await play(anim, { target: pileEl(e.who, 'draw'), tint: GOLD }, t); }
     hits.forEach((h) => showHit(h, t));
@@ -359,7 +360,7 @@ const BEATS = {
     const to = e.then === 'store' ? pointOf(bagEl(e.who)) : pointOf(purseEl(e.who));
     sfx('coins', { who: e.who, spent: e.price });
     floatText(purseEl(e.who), `−$${e.price}`, 'coins', t(MS.number));
-    await fly(`<div class="v4-mini-card item" style="background-image: url('../assets/cards/${item.art}.jpg')"></div>`, from, to, t(MS.itemFly), { end: { scale: 0.5, opacity: 0.7 } });
+    await fly(`<div class="v4-mini-card item" style="background-image: ${artBg(item)}"></div>`, from, to, t(MS.itemFly), { end: { scale: 0.5, opacity: 0.7 } });
   },
 
   async itemUsed({ e, t }) {
@@ -400,7 +401,7 @@ const BEATS = {
     // The tracker bursts; the Trainer's art sweeps across; the Partner lands with a gold shockwave.
     if (trk) { trk.classList.add('done'); play('v4-tracker', { target: trk, tint: GOLD }, t); await animate(trk, [{ transform: 'scale(1)', filter: 'none' }, { transform: 'scale(1.12)', filter: 'brightness(2)' }, { transform: 'scale(1)', filter: 'none' }], t(MS.partnerBurst)); }
     if (!skipping && tr) {
-      const sw = add('v4-sweep', `<span class="a" style="background-image: url('../assets/cards/${tr.card.art}.jpg')"></span><b>${esc(e.trainer)}'s Partner</b><span class="n">${esc(e.name)}</span>`);
+      const sw = add('v4-sweep', `<span class="a" style="background-image: ${artBg(tr.card)}"></span><b>${esc(e.trainer)}'s Partner</b><span class="n">${esc(e.name)}</span>`);
       await animate(sw, [{ transform: 'translate(-120%, -50%) skewX(-12deg)', opacity: 0 }, { transform: 'translate(-50%, -50%) skewX(-12deg)', opacity: 1, offset: 0.35 }, { transform: 'translate(-50%, -50%) skewX(-12deg)', opacity: 1, offset: 0.65 }, { transform: 'translate(20%, -50%) skewX(-12deg)', opacity: 0 }], t(MS.partnerSweep), { fill: 'forwards' });
       sw.remove();
     }
@@ -596,9 +597,9 @@ const BEATS = {
     sfx('objective', { who: e.who, trainer: tr.name, progress: points.at(-1).progress, need, final });
     const glow = (n) => `brightness(${(0.45 + (0.75 * n) / need).toFixed(2)}) saturate(${(0.6 + (0.6 * n) / need).toFixed(2)})`;
     const back = add('v4-objback', '');
-    const panel = add(`v4-objpanel ${e.who}`, `<span class="por" style="background-image: url('../assets/cards/${tr.card.art}.jpg')"></span>
+    const panel = add(`v4-objpanel ${e.who}`, `<span class="por" style="background-image: ${artBg(tr.card)}"></span>
       <div class="info"><b>${esc(tr.name)}</b><span>${esc(tr.objective.text)}</span></div>
-      <div class="track">${Array.from({ length: need }, (_, k) => `<i class="${k < start ? 'on' : ''}"></i>`).join('')}<span class="pt" style="background-image: url('../assets/cards/${tr.card.partner.art}.jpg'); filter: ${glow(start)}"></span></div>
+      <div class="track">${Array.from({ length: need }, (_, k) => `<i class="${k < start ? 'on' : ''}"></i>`).join('')}<span class="pt" style="background-image: ${artBg(tr.card.partner)}; filter: ${glow(start)}"></span></div>
       <div class="count">${Math.min(start, need)} / ${need}</div>`);
     const from = e.who === 'player' ? 420 : -420;
     await Promise.all([
@@ -724,7 +725,7 @@ async function commandEffect(prev, e, el, t, style, after = []) {
     const card = prev.players[returned.who].row[returned.space];
     floatText(spaceEl(returned.who, returned.space), e.mode === 'react' ? 'Dived: the attack fizzles' : 'Back to hand', 'status', t(MS.note));
     if (target) target.style.opacity = '0';
-    await fly(`<div class="v4-mini-card" style="background-image: url('../assets/cards/${card?.art ?? returned.id}.jpg')"></div>`, from, fromHand(returned.who, null), t(MS.diveFly), { end: { scale: 0.7, opacity: 0.85 } });
+    await fly(`<div class="v4-mini-card" style="background-image: ${artBg(card ?? { art: returned.id })}"></div>`, from, fromHand(returned.who, null), t(MS.diveFly), { end: { scale: 0.7, opacity: 0.85 } });
   }
   if (!skipping) await wait(t(120));
 }

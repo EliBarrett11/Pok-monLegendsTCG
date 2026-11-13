@@ -1,12 +1,12 @@
 // B3-1: the deck rules (docs/base-game-plan.md section 2, decided by Elliott) and the four Batch 1 test decks, which
 // replace the old demo deck until the deck builder (B4) arrives. Pure: no DOM.
-import { pathDef, cardKind, isCardId } from './cards.js?v=202611120821';
+import { pathDef, trainerDef, cardKind, isCardId } from './cards.js?v=202611131336';
 
-export const DECK_RULES = { size: 40, copies: 2, legendaryCopies: 1, maxTrainers: 3 };
+export const DECK_RULES = { size: 40, copies: 2, legendaryCopies: 1, trainerCopies: 1, maxTrainers: 3 };
 
 // The reasons a deck breaks the rules, in plain words ([] when it's legal):
 // exactly 40 cards; at most 2 copies of a card; a Legendary at most 1 copy (any number of different Legendaries);
-// 0–3 Trainers; any number of Locations; no Type limit.
+// 0–3 Trainers, 1 copy each (docs/base-game-plan.md section 2); any number of Locations; no Type limit.
 export function validateDeck(list) {
   const out = [];
   if (list.length !== DECK_RULES.size) out.push(`The deck has ${list.length} cards: it needs exactly ${DECK_RULES.size}.`);
@@ -15,9 +15,10 @@ export function validateDeck(list) {
   for (const [id, n] of counts) {
     if (!isCardId(id)) { out.push(`"${id}" isn't a card.`); continue; }
     const legendary = pathDef(id)?.legendary;
-    const max = legendary ? DECK_RULES.legendaryCopies : DECK_RULES.copies;
-    const name = pathDef(id)?.forms[0].name ?? id;
-    if (n > max) out.push(legendary ? `${name} is a Legendary: at most 1 copy (the deck has ${n}).` : `${name}: at most ${max} copies (the deck has ${n}).`);
+    const trainer = cardKind(id) === 'Trainer';
+    const max = legendary ? DECK_RULES.legendaryCopies : trainer ? DECK_RULES.trainerCopies : DECK_RULES.copies;
+    const name = pathDef(id)?.forms[0].name ?? trainerDef(id)?.name ?? id;
+    if (n > max) out.push(legendary ? `${name} is a Legendary: at most 1 copy (the deck has ${n}).` : trainer ? `${name} is a Trainer: at most 1 copy (the deck has ${n}).` : `${name}: at most ${max} copies (the deck has ${n}).`);
   }
   const trainers = list.filter((id) => cardKind(id) === 'Trainer').length;
   if (trainers > DECK_RULES.maxTrainers) out.push(`The deck has ${trainers} Trainers: at most ${DECK_RULES.maxTrainers}.`);

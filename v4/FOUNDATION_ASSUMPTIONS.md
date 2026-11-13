@@ -33,7 +33,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   3. Base Energy and the Exert maximum are set.
   4. Spent Pokémon become Active.
   5. +$1.
-  6. Breakfast heals: Lake of Rage, the Rain 2 bracket, Regenerate (G3: Leftovers is Regenerate 1).
+  6. Breakfast heals: a Location's passive (B3-1: Floaroma Meadow), Regenerate (Leftovers is Regenerate 2).
   7. Cards off the battlefield take this Round's Level.
   8. Draw 7, less one per card Retained.
   9. Waiting Partners arrive.
@@ -140,7 +140,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
 - **Why:** v3's rules; section 16's guard wording read literally.
 - **Approval:** **Needed** (whether guards protect the Player Character only against the matching attack kind; whether Commands ignore guards).
 
-## 6. Locations, Weather and dominance
+## 6. Locations and dominance
 
 - **Placing:**
   - **Chosen:** a Battle Phase action costing no Energy (v2). It covers the chosen lane and the lanes to its right, all free. Either player may place one, limited only by free lanes (so at most 4 at once).
@@ -154,28 +154,11 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   - **Chosen:** they apply to both players' Pokémon in the Location. A Pokémon already there gets the passive at once. Losing a Strength bonus never defeats a Pokémon (at least 1 Strength is left).
   - **Why:** symmetrical and simple.
   - **Approval:** **Needed**.
-- **Weather brackets** (counts combine across placed Locations; each bracket applies to both players):
-  - **Chosen:**
-    - Rain 2: every Pokémon heals 1 at Breakfast.
-    - Rain 4: every Pokémon has +1 Strength.
-    - Sun 2: Physical attacks deal +1 damage.
-    - Sun 4: every Pokémon has +1 Attack.
-  - **Why:** two types and two simple brackets each, as section 16 suggests.
-  - **Approval:** **Needed** (the values).
 - **Dominance:**
   - **Chosen:** at Supper, for each placed Location, the player with the greater total current Strength there earns its Recognition. Ties and empty Locations give nothing. The Default Location is never scored.
   - **Why:** section 16.
   - **Approval:** No.
-- **The four Locations** (placeholder values):
-
-  | Location | Lanes | Rounds | Weather | Passive |
-  |---|---|---|---|---|
-  | Cerulean Cape | 2 | 3 | 1 Rain | +1 Strength |
-  | Mt. Ember | 3 | 3 | 2 Sun | +1 Attack |
-  | Lake of Rage | 2 | 2 | 1 Sun | Heal 2 at Breakfast |
-  | Route 119 | 4 | 2 | 2 Rain | Summoning here costs 1 less |
-
-  **Approval:** **Needed**.
+- **The Locations** (B3-1): the nine Batch 1 Locations from `docs/base-game/cards.json`, each with its lanes, Rounds and passive only (section 16).
 
 ## 7. Command Cards: React, Adapt and Strat timing
 
@@ -358,7 +341,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   - **Chosen:**
     - All placed Locations are removed; their cards go to their owners' Discard Piles.
     - The Tournament Location covers all 9 lanes, and Pokémon stay where they are.
-    - Location passives and Weather no longer apply.
+    - Location passives no longer apply.
     - No Location can be placed for the rest of the match; Location cards say why.
     - The Tournament lasts until the match ends.
   - **Why:** Elliott's F5 rules.
@@ -380,7 +363,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
 
 ## 12. The demo deck and the AI
 
-- **The deck:** one list, the same for both players (see `v4/README.md`): G3's final 40 cards (gameplay update 5.4).
+- **The decks** (B3-1): each side plays one of the four Batch 1 decks (section 16); the old shared demo deck is gone.
   - **Why:** section 9.
   - **Approval:** **Needed** (the counts).
 - **The AI:**
@@ -413,7 +396,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
 - **C2 (`docs/v4-card-overhaul.md` 2.3–2.5 and 3):**
   - **No text is ever cut:** every piece of text is shown in full or not at all. No `text-overflow: ellipsis` and no "…" trimming remain anywhere in v4's interface.
   - **The hand's visible strips:** the fan spreads across all the hand's room (up to an 8-px gap) before cards overlap. A covered card shows only a strip at its left; its name and tag (or mode chips) sit left-aligned inside that strip, with the cost well above them. After drawing, any text that would reach under the card on top of it is hidden (each mode chip on its own); hovering still shows the Full card. `cardtext.test.js` renders hands of 5, 7, 9 and 11 cards and fails if any visible text is partly covered.
-  - **The Weather chip:** one whole line per Weather in play (its chip and its strongest active effect); the next bracket only when a line is free.
+  - **B3-1:** the panel under the Round now names the match's two decks.
   - **The log ticker:** one entry on up to two lines, in a short form written for it ("Gyarados hit Charizard for 6", "Magmortar: On Attack, 1 damage to each other enemy Pokémon in the target's Location"; whose it is shows in its colour). If even that doesn't fit, whole clauses are dropped from the end, never words. The full sentence stays in the log drawer.
   - **Recover** is a Normal move: the Normal crest and the sandstone accent.
   - **Focal points:** `assets/cards/focus.json` has an entry for each of the 57 pieces of art the game uses and the card back: `x`, `y` (the subject's centre, % of the image), `face` (a chip's centre), `zoom` (a chip's zoom; default 1.6), `tile` (a Location's wide crop on the board) and the image's `w`, `h`. **Settled here:** the art is about 5:7, the card's own shape, so Full, Mini and Token show the whole picture (nothing is cropped there; no token zoom is used). The focal points matter for chips (centred on the face, at their zoom, never showing past the image's edge) and Location tiles (the landmark kept in view across 2, 3 or 4 lanes). **Needed**.
@@ -434,10 +417,10 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
     3. keywords and triggers, each with its glossary meaning;
     4. for a Pokémon, its forms by Level as small Mini cards (the current one marked) and, off the battlefield, its Level growth and what it becomes next Round, with ▲/▼.
   - **Links:** every game term in every line links to its glossary entry, with Back and breadcrumbs. The prompt bar, the log drawer and the ? overlay's Rules page link their terms too; a click opens the Codex.
-  - **The sums** come from the engine's own functions (`attackParts`, the Location, Weather and Held bonuses, `damageOf`, `effectiveSpeed`, the cost curve), so they always equal what the card shows. Examples: "Attack 11 = 8 base + 1 kept + 1 Mt. Ember + 1 Charcoal"; "Strength 6 = 9 base − 3 damage (of 9)"; C4: a Physical attacker's Attack includes Sun 2 ("Attack 5 = 4 base + 1 Sun 2, Physical").
+  - **The sums** come from the engine's own functions (`attackParts`, the Location and Held bonuses, Intimidate, `damageOf`, `effectiveSpeed`, the cost curve), so they always equal what the card shows. Examples: "Attack 11 = 8 base + 1 kept + 1 Mt. Ember + 1 Charcoal"; "Strength 6 = 9 base − 3 damage (of 9)".
   - **What can be inspected:**
     - **any card you can see:** your hand, the board, the PokéMart, both Bags, both Discard and Released Piles, Strats, the React window, the mode picker, the Release choice and the log;
-    - Locations, the Tournament, Objective trackers (the Partner's Full card), both Recognition rings (history by source with the Round of each), both Energy readouts, the Weather chip (the full bracket table), the PokéMart (Stock, Sold out, restocking), the piles, log lines, glossary terms and Rules.
+    - Locations, the Tournament, Objective trackers (the Partner's Full card), both Recognition rings (history by source with the Round of each), both Energy readouts, the decks panel (B3-1), the PokéMart (Stock, Sold out, restocking), the piles, log lines, glossary terms and Rules.
     - Never the Opponent's hand, nor the order of either Draw Pile: the Deck is a count only.
   - **Engine records (data only, no rule change):**
     - each player's Recognition history (`recHistory`: Round, amount, base, source, kind);
@@ -463,7 +446,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
 
 - **Current stats (Elliott: "the player has to add up additional points from other sources to work out how much they will damage"):**
   - **One engine helper:** `effectiveStats(s, who, space)` in `src/engine/stats.js` returns:
-    - the Attack its attack deals now, before the target's Shell (`damageOf`: Sun 2 included for a Physical attacker);
+    - the Attack its attack deals now, before the target's Shell (`damageOf`, never below 0);
     - the current Strength and its maximum;
     - the parts of each, which always add up.
   - It reads the engine's own numbers (`attackParts`, `syncBonuses`), so the number shown is the number that resolves. `tests/c4.test.js` attacks with every Pokémon over 300 random states to prove it.
@@ -471,7 +454,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
     - Raised above printed: green with a small ▲.
     - Lowered below printed, or damaged: red with a small ▼.
     - Unchanged: the normal colour.
-    - A Location or Weather bonus counts as raised.
+    - A Location or Held Item bonus counts as raised; Intimidate as lowered.
   - **The ▲/▼ is a small drawn triangle above the number**, not text, so two-digit numbers keep their size.
   - **Strength below its maximum:**
     - On the Full card, "/9" under the number.
@@ -481,7 +464,7 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   - **Hand cards** keep their printed values.
   - **The summon preview** (dragging or choosing a lane) shows the values the Pokémon would have there, from the engine's own summon on a copy, e.g. "Attack 4 ▲ · on Mt. Ember".
   - **Hovering a raised or lowered number** on a token shows its one-line sum under the zoom card ("Attack 10 = 8 + 1 Mt. Ember + 1 Charcoal").
-  - **The Codex's "where its numbers come from"** uses the same helper. A Physical attacker's Attack now includes Sun 2 (C3 showed it on a separate Damage line).
+  - **The Codex's "where its numbers come from"** uses the same helper.
 - **The React window keeps the board visible:**
   - **The bar:** "REACT?", the sentence and a countdown strip take the prompt bar's place across the top of the screen. The board itself stays fully visible.
   - **The tray:**
@@ -506,3 +489,32 @@ Numbers live in `v4/src/rules.js` and card data in `v4/src/engine/cards.js`. All
   - **Your own sealed Strats** stay fully visible to you.
   - **The AI** decides on a view of the state without the player's waiting Strats (`hiddenView` in `src/ai/ai.js`). It neither reads their cards nor simulates them, and `tests/c4.test.js` checks its choices are identical whichever card is sealed. **Settled here:** the AI ignores the player's sealed Strats entirely, rather than knowing one exists. **Needed**.
 - **Found, not changed:** the engine offers React modes that name "the attacker" (Heat Wave, Bubble Beam) against an attack on your Player Character too. Section 7 says they're offered only against an attack on a Pokémon. Bubble Beam's React therefore also cuts the Recognition from an attack on your Player Character by 2. **For Elliott to decide**.
+
+## 16. The Base Game's Batch 1: cards as data, new rules, deck rules (B3-1)
+
+- Weather was removed from the game (Elliott, 12 November 2026, `docs/base-game-plan.md` section 7): Locations keep their passive, lanes, Rounds and dominance.
+- **Cards as data:**
+  - `docs/base-game/cards.json` is the source of truth. `tools/buildcards.mjs` reads its Batch 1 entries and writes `src/data/cards.js` (committed; `--check` confirms a re-run gives an identical file).
+  - Every effect is a list of clauses `{ say, sep, ops }`: `ops` are the structured operations the engine runs, from one vocabulary documented at the top of `src/data/cards.js`; `say` names the wording template. `src/engine/wording.js` generates every text the game shows from them, and `tests/cardsdata.test.js` checks each equals cards.json word for word (trigger text, Move text and card line, Supporter and Favour text, Item text, Location passives, Trainer Commands, Objectives, Partners). A sentence the generator can't match stops the build, naming the card.
+  - `src/engine/cards.js` turns the data into the cards the engine plays with. No card is defined by hand any more; the old definitions and the demo deck are gone.
+- **One effect interpreter** (`runEffect` in `src/engine/game.js`) runs every trigger, Move mode, Supporter, Consumed Item and Trainer Command. A Move's or Item's target is the effect's first choice; any other choice ("an enemy Pokémon" in a Supporter or Trainer Command, Leech Seed's "one of yours") waits for its player (`s.choice`, the `choose` action), and the AI chooses through its normal search. With no legal choice that part fizzles. A win mid-effect ends any choice it was waiting for.
+- **New trigger and keywords (design bible section 4), as built:**
+  - **On Dominate:** at Supper, after dominance is scored, for each of the dominating player's Pokémon in that Location. **Settled here:** the Tournament counts (all of that player's Pokémon). **Needed**.
+  - **Drain:** after its attack damages a Pokémon it heals that much, up to its maximum, after the exchange and only if it survived; not on hit-backs. **Settled here:** "that much" is the damage after Shell; no heal if the hit-back defeated it. **Needed**.
+  - **Sturdy:** the first time each match it would be defeated (by anything), it stays at 1 Strength and Sturdy is used up; shown on the card until then. **Settled here:** used up for the match by that card, even if it goes back to hand and is summoned again. **Needed**.
+  - **Agility:** the opponent's Moves can't choose it; "each enemy" effects still hit it. **Settled here:** it can still be attacked, and a Supporter's or Trainer Command's chosen target, or a React's "the attacker", can still be it (only Moves are named). **Needed**.
+  - **Intimidate X:** enemy Pokémon in its Location (its lane, if none) have −X Attack, minimum 0, kept in step like Location passives.
+  - **Stealth:** it can't be attacked while its side has another Pokémon in its Location; Moves can still target it. (Eterna Forest gives it.)
+  - **Pickup:** when its attack defeats a Pokémon, gain $1 (on top of the defeat's $1).
+- **New effects:** the attack deals no damage (Protect's React; the attack still happens and can be hit back); Shell X until Supper; becomes Spent (one enemy, each enemy in a Location, each enemy); becomes Active; Speed one step higher (kept, or until Supper); return one of your Pokémon to your hand (not a Partner); hand Levels; Type-keyword Held Items (Charcoal, Mystic Water, Miracle Seed, Magnet: the keyword only while the holder is that Type); Gain N Recognition; damage to the enemy Player Character from a trigger (Recognition, 1 per damage, as an attack's).
+  - **Hand Levels:** "A Pokémon card in your hand…" (the card Fisherman found) and "Each Pokémon card in your hand gains +N Levels" (Gardenia, Celebi). The bonus stays with the card while it's in hand (Retained through Supper too), adds to its normal growth each Round, and never takes it past its series' top Level. It's lost when the card leaves the hand; a summoned Pokémon keeps the Level it had.
+  - **"Another enemy Pokémon in the target's Location"** (Magby): the weakest other one there, then the lowest lane (as G2).
+  - **Eevee:** +1 Attack and +1 Strength (kept) for each other Type among your other Pokémon, up to 3. **Settled here:** Eevee's own Type (Normal) isn't counted. **Needed**.
+- **Objectives:** Erika counts each effect that gave any of your Pokémon kept Attack or Strength once, however many it touched (Rage's +1 isn't an effect and doesn't count); Lt. Surge counts extra Energy gained from your cards (not a Pass); Whitney counts Items bought from the PokéMart (not from your hand: the card says "from the PokéMart"). On Dominate and the Tournament count for Blaine as before. **Needed** for the Erika and Whitney readings.
+- **Legendaries:** cost 5 and Level 8 from Round 1; they don't grow. `SERIES_RANGE.Legendary` is 8–8.
+- **Deck rules** (`validateDeck(list)` in `src/engine/decks.js`, reasons in plain words): exactly 40 cards; at most 2 copies of a card; a Legendary at most 1 copy; 0–3 Trainers, 1 copy each (the plan's rule); any number of Locations.
+- **The four decks** (Blaine's Blitz, Misty's Tide, Erika's Garden, Surge's Storm) replace the demo deck. As written in the B3-1 prompt, three had 39 cards; each got one more card so it passes the 40-card rule (marked in `src/engine/decks.js`). **Needed**.
+  - `?deck=<name>` and `?aideck=<name>` choose them (blaine, misty, erika, surge, or the full id); otherwise each side gets a random one. The match's decks are named in the log, in the panel under the Round and in the ? overlay.
+- **The AI** values every effect by playing it through `applyAction` on a copy (the same functions the previews use), with no per-card rules. It never reads the player's hand, Draw Pile or sealed Strats: its view replaces those cards with unknown ones (only their count shows).
+- **Art Pending:** a card with `"hasArt": false` shows a soft radial glow in its Type's (or kind's) colour with "ART PENDING" in small spaced capitals, drawn in code.
+- **Placeholders:** none new; every number comes from cards.json.

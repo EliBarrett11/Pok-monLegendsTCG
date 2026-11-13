@@ -7,7 +7,7 @@
 
 // v2 (V8): a copy of the current game's src/ui/particles.js (the 2D fallback when WebGL is
 // off), with v2's own stage size and engine; otherwise unchanged.
-import { vfxReady, burstCompat, reducedMotion as lowMotion } from './vfx/engine.js?v=202611120821';
+import { vfxReady, burstCompat, reducedMotion as lowMotion } from './vfx/engine.js?v=202611131336';
 
 const STAGE = { width: 1920, height: 1080 };
 

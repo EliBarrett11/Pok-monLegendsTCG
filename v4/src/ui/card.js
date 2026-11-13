@@ -11,9 +11,9 @@
 // returns the element. Every piece of text sits in its frame's fixed zone (tests/cardtext.test.js).
 // No engine state is read here: the caller passes what the card needs to show (its modes now, Stock,
 // Objective progress) in opts.state.
-import { RULES } from '../rules.js?v=202611120821';
-import { PATHS, COMMANDS, FAVOURS, KEYWORD_NAMES, KEYWORD_ORDER, TRIGGER_NAMES, MODE_NAMES, MODES, effectText, modeTarget, shortModeTextOf } from '../engine/cards.js?v=202611120821';
-import { effectiveSpeed } from '../engine/game.js?v=202611120821';
+import { RULES } from '../rules.js?v=202611131336';
+import { PATHS, COMMANDS, SUPPORTERS, ITEMS, LOCATIONS, TRAINERS, FAVOURS, KEYWORD_NAMES, KEYWORD_ORDER, TRIGGER_NAMES, MODE_NAMES, MODES, effectText, modeTarget, shortModeTextOf } from '../engine/cards.js?v=202611131336';
+import { effectiveSpeed } from '../engine/game.js?v=202611131336';
 
 export const W = 340;
 export const H = 476;
@@ -23,7 +23,10 @@ const artUrl = (name) => `${ASSETS}/cards/${name}.jpg`;
 // B3-1: a card whose art hasn't arrived ("hasArt": false in cards.json) shows the Art Pending panel instead: a soft
 // radial glow in its Type's (or card kind's) colour, drawn in code. artBg(card) is the CSS background for any art spot.
 export const pendingGlow = (acc) => `radial-gradient(ellipse at 50% 42%, ${acc}cc 0%, ${acc}55 32%, rgba(20,14,10,.92) 72%, #0b0806 100%)`;
-export const artBg = (c) => (c?.hasArt === false ? pendingGlow(accentOf(c)) : `url('${artUrl(c?.art)}')`);
+// (Every art name the data marks pending, so a card object that lost its flag still shows the panel.)
+const PENDING_ART = new Set([...PATHS.flatMap((p) => p.forms), ...COMMANDS, ...SUPPORTERS, ...ITEMS, ...LOCATIONS, ...TRAINERS, ...TRAINERS.map((x) => x.partner)].filter((x) => x.hasArt === false).map((x) => x.art));
+const isPending = (c) => c?.hasArt === false || (c?.hasArt === undefined && PENDING_ART.has(c?.art));
+export const artBg = (c) => (isPending(c) ? pendingGlow(accentOf(c)) : `url('${artUrl(c?.art)}')`);
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const cap = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
 const low = (t) => (t ? t.charAt(0).toLowerCase() + t.slice(1) : t);
@@ -194,7 +197,7 @@ function statTabs(c, numPx = 25, stats = null) {
 const SPEED_N = { Slow: 1, Steady: 2, Swift: 3 };
 function levelSpeed(c, px) {
   // B3-1: a card in hand that gained Levels shows them (green, "+2").
-  const lv = c.partner ? '★' : `LV ${c.level}${c.levelBonus ? `<sup class="cd-lvup">+${c.levelBonus}</sup>` : ''}`;
+  const lv = c.partner ? '★' : `LV ${c.level}${c.levelBonus ? `<span class="cd-lvup">▲${c.levelBonus}</span>` : ''}`;
   return zone('cd-lvs', 80, H - 50, W - 160, 40, `<span>${lv}</span><span class="cd-chev" style="font-size:${Math.round(px * 1.25)}px">${'›'.repeat(SPEED_N[effectiveSpeed(c)] ?? 1)}</span>`, `font-size:${px}px`);
 }
 function heldInset(c, cx, cy, r) {
@@ -296,7 +299,9 @@ function fullBody(c, kind, acc, panel, state) {
   const top = panel + 58;
   if (c.cardType === 'Pokémon') {
     const kws = kwList(c);
-    html += zone('cd-rules', 30, top, W - 60, TAB.y - 4 - top, `${kws.length ? `<div class="cd-kw" style="color:${acc}">${esc(kws.join(' · '))}</div>` : ''}<div>${triggerHTML(c) || '&nbsp;'}</div>`);
+    // B3-1: a long trigger (Eevee's, Sunflora's) with keywords sets a little tighter, so it still fits its zone.
+    const len = (c.trigger?.effect ? effectText(c.trigger.effect).length : 0) + (kws.length ? 40 : 0);
+    html += zone(`cd-rules${len > 100 ? ' dense' : ''}`, 30, top, W - 60, TAB.y - 4 - top, `${kws.length ? `<div class="cd-kw${kws.join(' · ').length > 28 ? ' tight' : ''}" style="color:${acc}">${esc(kws.join(' · '))}</div>` : ''}<div>${triggerHTML(c) || '&nbsp;'}</div>`);
   } else if (c.cardType === 'Command') {
     ROW_ORDER.filter((m) => c.modes[m]).forEach((m, k) => {
       const st = state.modes?.find((x) => x.mode === m);
@@ -321,7 +326,8 @@ function fullBody(c, kind, acc, panel, state) {
     }
     html += zone('cd-type cd-stock', 18, H - 34, W - 36, 14, state.stock !== undefined ? `Stock · ${left} of ${n} turns` : `Stock · ${n} turns`, 'color:#9cc9b6');
   } else if (c.cardType === 'Trainer') {
-    html += zone('cd-rules', 30, top, W - 60, 60, `<div><b>Command</b> · ${esc(stop(low(c.command.text)))}</div><div><b>Objective</b> · ${esc(stop(low(c.objective.text)))}</div>`);
+    const dense = c.command.text.length + c.objective.text.length > 50;   // (B3-1: Erika's and Lt. Surge's longer lines)
+    html += zone(`cd-rules${dense ? ' dense tr' : ''}`, 30, top, W - 60, dense ? 64 : 60, `<div><b>Command</b> · ${esc(stop(low(c.command.text)))}</div><div><b>Objective</b> · ${esc(stop(low(c.objective.text)))}</div>`);
     const need = c.objective.need;
     const prog = Math.min(state.progress ?? 0, need);
     const cy = H - 44;
@@ -346,7 +352,7 @@ export function cardHTML(c, opts = {}) {
   const kind = kindOf(c);
   if (size === 'chip') {
     const px = opts.px ?? 32;
-    return `<span class="cd-chipart ${opts.cls ?? ''}" ${opts.attrs ?? ''} style="width:${px}px;height:${px}px;background-image:${artBg(c)};${c.hasArt === false ? 'background-size:cover' : chipCrop(c.art, px)}" aria-label="${esc(c.name)}"></span>`;
+    return `<span class="cd-chipart ${opts.cls ?? ''}" ${opts.attrs ?? ''} style="width:${px}px;height:${px}px;background-image:${artBg(c)};${isPending(c) ? 'background-size:cover' : chipCrop(c.art, px)}" aria-label="${esc(c.name)}"></span>`;
   }
   const w = SIZES[size];
   const k = w / W;
@@ -354,7 +360,7 @@ export function cardHTML(c, opts = {}) {
   const fk = size === 'token' ? 'pokemon' : kind;
   const panel = PANEL[size]?.[fk] ?? PANEL.full[fk];
   const holo = holoKind(c, size);
-  const fr = frame(fk, c.art, acc, panel, size, holo, c.hasArt === false);
+  const fr = frame(fk, c.art, acc, panel, size, holo, isPending(c));
   let svg = fr.svg;
   let html = '';
   // Cost well and crest (tokens show neither: the board needs the art).

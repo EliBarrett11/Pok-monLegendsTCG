@@ -81,7 +81,7 @@ const place = (s, who, id, start) => { s.players[who].hand.push(card(id)); s.tur
   s.players.ai.row[5] = mon('squirtle', 4);
   s = place(s, 'player', 'cerulean-cape', 0);   // +1 Strength
   s = place(s, 'player', 'mt-ember', 2);
-  s = place(s, 'ai', 'floaroma-meadow', 5);    // heal 2 at Breakfast (B3-1; Route 119's Rain before)
+  s = place(s, 'ai', 'floaroma-meadow', 5);    // heal 2 at Breakfast (B3-1)
   const base = pokemonAt('ponyta', 2);
   assert.equal(s.players.player.row[0].strength, base.strength + 1);
   s.players.player.recognition = 70;

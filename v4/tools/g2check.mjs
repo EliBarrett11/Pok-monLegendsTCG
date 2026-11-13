@@ -89,7 +89,7 @@ report('chosen-target On Summon: prompt, glowing targets, preview, click', /choo
 
 // 3. An On Knockout chain: Luxio (Infiltrator; On Knockout: draw 1) defeats Magby (On Defeated: 1 damage to
 // each enemy Pokémon in its Location: here its lane, Luxio isn't in it; a Growlithe is placed beside to be hit).
-await stage("s.players.player.row[4] = mon('shinx', 4); s.players.ai.row[4] = mon('magby', 3, { currentStrength: 1, spent: true }); s.players.ai.row[0] = mon('wooper', 2, { spent: true }); const loc = { ...C.cardAtRound('route-119', 1) }; s.locations = [{ uid: 'loc-x', owner: 'ai', card: loc, id: loc.id, name: loc.name, art: loc.art, color: loc.color, start: 3, width: 4, roundsLeft: 2, weather: loc.weather, passive: loc.passive, placedRound: s.round }];");
+await stage("s.players.player.row[4] = mon('shinx', 4); s.players.ai.row[4] = mon('magby', 3, { currentStrength: 1, spent: true }); s.players.ai.row[0] = mon('wooper', 2, { spent: true }); const loc = { ...C.cardAtRound('route-119', 1) }; s.locations = [{ uid: 'loc-x', owner: 'ai', card: loc, id: loc.id, name: loc.name, art: loc.art, color: loc.color, start: 3, width: 4, roundsLeft: 2, passive: loc.passive, placedRound: s.round }];");
 const hand0 = await page.evaluate(() => window.__v4.state.players.player.hand.length);
 await input.play({ type: 'attack', who: 'player', from: 4, target: { kind: 'pokemon', space: 4 } });
 await sfxSeen('trigger');

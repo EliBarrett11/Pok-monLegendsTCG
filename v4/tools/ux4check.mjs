@@ -1,7 +1,7 @@
 // UX4 browser check: node v4/tools/ux4check.mjs [out-dir] (a server must serve the repository root at
 // http://localhost:8123/, e.g. python3 -m http.server 8123). Checks, in Chromium (Playwright):
 //   - a seeded autoplay match at Normal for 3 Rounds: no page errors; frame times (average, worst);
-//   - click-to-skip; Instant draws at once; low motion removes shake and ambient Weather;
+//   - click-to-skip; Instant draws at once; low motion removes shake and ambient effects;
 //   - the forced WebGL-off fallback (?nowebgl) still plays numbers and banners;
 //   - screenshots mid-beat at 1920×1080: a Fire Special attack with a hit-back, a defeat with
 //     Recognition flying, a Strat resolving, a Partner arrival, Supper dominance, the Breakfast strip,
@@ -154,7 +154,7 @@ const instant = await page.evaluate(() => { const before = window.__v4.state; wi
 report('Instant draws at once', instant);
 await page.evaluate(() => window.__v4.setSpeed('normal'));
 
-// --- 5. Low motion: no shake, no ambient Weather ---
+// --- 5. Low motion: no shake, no ambient effects ---
 await stage(page, "s.players.player.row[3] = mon('charmander', 7); s.players.ai.row[3] = mon('squirtle', 6);");
 await page.evaluate(() => { window.__v4.place('ai', 'route-119', 0); window.__v4.set((s) => { s.turn = 'player'; }); });
 const ambientOn = await page.evaluate(() => { const el = document.querySelector('.v4-ambient'); return el ? getComputedStyle(el).display !== 'none' : false; });
@@ -165,7 +165,7 @@ await page.evaluate(() => { window.__shook = false; const b = () => document.que
 await page.waitForFunction(() => window.__v4.played.some((x) => x.name === 'hit'), null, { timeout: 90000 });
 await page.waitForFunction(() => !window.__v4.isPresenting(), null, { timeout: 90000 });
 const shook = await page.evaluate(() => window.__shook);
-report('low motion removes shake and ambient Weather', ambientOn && ambientOff && !shook, `ambient shown before ${ambientOn}, hidden after ${ambientOff}, shake ${shook}`);
+report('low motion removes shake and ambient effects', ambientOn && ambientOff && !shook, `ambient shown before ${ambientOn}, hidden after ${ambientOff}, shake ${shook}`);
 await page.evaluate(() => window.__v4.setLowMotion(false));
 report('no page errors in the set pieces', errors.length === 0, errors.slice(0, 3).join(' | '));
 await page.close();
